@@ -1,0 +1,436 @@
+openapi: 3.0.3
+info:
+  title: Warden API
+  description: |
+    一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
+    
+    ## 核心特性
+    - 高性能：支持每秒 5000+ 请求
+    - 多数据源：支持本地配置文件和远程 API 两种数据源
+    - 灵活策略：提供 6 种数据合并模式
+    - 定时更新：基于 Redis 分布式锁的定时任务，自动同步数据
+    - 容器化部署：完整的 Docker 支持
+  version: 1.0.0
+  contact:
+    name: Warden Project
+    url: https://github.com/soulteary/warden
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8081
+    description: 本地开发服务器
+  - url: https://api.example.com
+    description: 生产环境服务器
+
+tags:
+  - name: users
+    description: 用户数据相关接口
+  - name: health
+    description: 健康检查相关接口
+  - name: system
+    description: 系统管理相关接口
+
+paths:
+  /:
+    get:
+      tags:
+        - users
+      summary: 获取用户列表
+      description: |
+        获取允许列表中的所有用户数据。支持分页查询。
+        
+        - 如果不提供分页参数，返回完整的用户数组（向后兼容）
+        - 如果提供分页参数（page, page_size），返回分页格式的响应
+      operationId: getUsers
+      parameters:
+        - name: page
+          in: query
+          description: 页码（从 1 开始）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000000
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页大小
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: 成功返回用户列表
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/AllowListUser'
+                    description: 无分页参数时返回的格式
+                  - $ref: '#/components/schemas/PaginatedUsers'
+                    description: 有分页参数时返回的格式
+              examples:
+                no_pagination:
+                  summary: 无分页响应示例
+                  value:
+                    - phone: "13800138000"
+                      mail: "admin@example.com"
+                    - phone: "13900139000"
+                      mail: "user@example.com"
+                with_pagination:
+                  summary: 分页响应示例
+                  value:
+                    data:
+                      - phone: "13800138000"
+                        mail: "admin@example.com"
+                      - phone: "13900139000"
+                        mail: "user@example.com"
+                    pagination:
+                      page: 1
+                      page_size: 100
+                      total: 2
+                      total_pages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: 健康检查
+      description: |
+        检查服务的健康状态，包括 Redis 连接状态和数据加载状态。
+        
+        响应内容会根据运行模式（appMode）有所不同：
+        - 生产环境：隐藏详细信息，只返回基本状态
+        - 开发环境：返回详细的诊断信息
+      operationId: healthCheck
+      responses:
+        '200':
+          description: 服务健康
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+              examples:
+                healthy:
+                  summary: 健康状态示例
+                  value:
+                    status: "ok"
+                    details:
+                      redis: "ok"
+                      data_loaded: true
+                      user_count: 100
+                    mode: "DEFAULT"
+                unhealthy:
+                  summary: 不健康状态示例
+                  value:
+                    status: "redis_unavailable"
+                    details:
+                      redis: "unavailable"
+                      data_loaded: false
+                    mode: "DEFAULT"
+        '503':
+          description: 服务不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+
+  /healthcheck:
+    get:
+      tags:
+        - health
+      summary: 健康检查（别名）
+      description: /health 端点的别名，功能完全相同
+      operationId: healthCheckAlias
+      responses:
+        '200':
+          $ref: '#/paths/~1health/get/responses/200'
+        '503':
+          $ref: '#/paths/~1health/get/responses/503'
+
+  /log/level:
+    get:
+      tags:
+        - system
+      summary: 获取当前日志级别
+      description: 查询当前服务的日志级别
+      operationId: getLogLevel
+      responses:
+        '200':
+          description: 成功返回日志级别
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogLevelResponse'
+              example:
+                level: "info"
+    post:
+      tags:
+        - system
+      summary: 设置日志级别
+      description: |
+        动态调整服务的日志级别。
+        
+        支持的级别：trace, debug, info, warn, error, fatal, panic
+      operationId: setLogLevel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogLevelRequest'
+            example:
+              level: "debug"
+      responses:
+        '200':
+          description: 日志级别更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogLevelUpdateResponse'
+              example:
+                message: "日志级别已更新"
+                level: "debug"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_body:
+                  summary: 无效的请求体
+                  value:
+                    error: "无效的请求体"
+                invalid_level:
+                  summary: 无效的日志级别
+                  value:
+                    error: "无效的日志级别，支持: trace, debug, info, warn, error, fatal, panic"
+        '405':
+          description: 不支持的 HTTP 方法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "不支持的方法，请使用 GET 或 POST"
+
+  /metrics:
+    get:
+      tags:
+        - system
+      summary: Prometheus 指标
+      description: 返回 Prometheus 格式的监控指标
+      operationId: getMetrics
+      responses:
+        '200':
+          description: 成功返回指标数据
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP http_requests_total Total number of HTTP requests
+                  # TYPE http_requests_total counter
+                  http_requests_total{method="GET",path="/"} 1000
+                  # HELP cache_size Current cache size
+                  # TYPE cache_size gauge
+                  cache_size 100
+
+components:
+  schemas:
+    AllowListUser:
+      type: object
+      required:
+        - phone
+        - mail
+      properties:
+        phone:
+          type: string
+          description: 用户手机号
+          example: "13800138000"
+        mail:
+          type: string
+          format: email
+          description: 用户邮箱
+          example: "admin@example.com"
+
+    PaginatedUsers:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllowListUser'
+          description: 用户数据列表
+        pagination:
+          type: object
+          required:
+            - page
+            - page_size
+            - total
+            - total_pages
+          properties:
+            page:
+              type: integer
+              description: 当前页码
+              example: 1
+            page_size:
+              type: integer
+              description: 每页大小
+              example: 100
+            total:
+              type: integer
+              description: 总记录数
+              example: 200
+            total_pages:
+              type: integer
+              description: 总页数
+              example: 2
+
+    HealthCheckResponse:
+      type: object
+      required:
+        - status
+        - details
+      properties:
+        status:
+          type: string
+          description: 健康状态
+          enum:
+            - ok
+            - redis_unavailable
+          example: "ok"
+        details:
+          type: object
+          properties:
+            redis:
+              type: string
+              description: Redis 连接状态
+              enum:
+                - ok
+                - unavailable
+                - not_configured
+              example: "ok"
+            data_loaded:
+              type: boolean
+              description: 数据是否已加载
+              example: true
+            user_count:
+              type: integer
+              description: 用户数量（仅开发环境返回）
+              example: 100
+            data_warning:
+              type: string
+              description: 数据警告信息（仅开发环境返回）
+              example: "no data loaded yet"
+            redis_error:
+              type: string
+              description: Redis 错误信息（仅开发环境返回）
+              example: "connection refused"
+          example:
+            redis: "ok"
+            data_loaded: true
+            user_count: 100
+        mode:
+          type: string
+          description: 运行模式（仅开发环境返回）
+          example: "DEFAULT"
+
+    LogLevelRequest:
+      type: object
+      required:
+        - level
+      properties:
+        level:
+          type: string
+          description: 日志级别
+          enum:
+            - trace
+            - debug
+            - info
+            - warn
+            - error
+            - fatal
+            - panic
+          example: "debug"
+
+    LogLevelResponse:
+      type: object
+      required:
+        - level
+      properties:
+        level:
+          type: string
+          description: 当前日志级别
+          example: "info"
+
+    LogLevelUpdateResponse:
+      type: object
+      required:
+        - message
+        - level
+      properties:
+        message:
+          type: string
+          description: 操作结果消息
+          example: "日志级别已更新"
+        level:
+          type: string
+          description: 更新后的日志级别
+          example: "debug"
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: 错误消息
+          example: "Invalid pagination parameters"
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Invalid pagination parameters"
+
+    MethodNotAllowed:
+      description: 不支持的 HTTP 方法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Method not allowed"
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+

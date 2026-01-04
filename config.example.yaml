@@ -1,0 +1,43 @@
+# 应用配置示例文件
+# 使用方式: ./warden -config-file config.yaml
+
+server:
+  port: "8081"
+  read_timeout: 5s
+  write_timeout: 5s
+  shutdown_timeout: 5s
+  max_header_bytes: 1048576  # 1MB
+  idle_timeout: 120s
+
+redis:
+  addr: "localhost:6379"
+  password: ""  # 建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE
+  password_file: ""  # 密码文件路径（优先级高于 password）
+  db: 0
+
+cache:
+  ttl: 3600s
+  update_interval: 5s
+
+rate_limit:
+  rate: 60  # 每分钟请求数
+  window: 1m
+
+http:
+  timeout: 5s
+  max_idle_conns: 100
+  insecure_tls: false  # 仅用于开发环境
+  max_retries: 3
+  retry_delay: 1s
+
+remote:
+  url: "http://localhost:8080/config.json"
+  key: ""
+  mode: "DEFAULT"
+
+task:
+  interval: 5s
+
+app:
+  mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
+

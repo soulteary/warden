@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+
+  warden:
+    restart: always
+    image: warden-release
+    container_name: warden
+    # debug
+    ports:
+      - 8081:8081
+    expose:
+      - 8081
+    networks:
+      - traefik
+    env_file:
+      - ./.env
+    environment:
+      - PORT=${PORT}
+      - REDIS=${REDIS}
+      - CONFIG=${CONFIG}
+      - KEY=${KEY}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./config.json:/app/config.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+
+  warden-redis:
+    container_name: warden-redis
+    image: redis:6.2.4
+    expose:
+      - 6379
+    networks:
+      - traefik
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+
+networks:
+  traefik:
+    external: true
