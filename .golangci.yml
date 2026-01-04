@@ -1,0 +1,82 @@
+# golangci-lint 配置文件
+# 更多信息: https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+run:
+  # 超时时间
+  timeout: 5m
+
+  # 要检查的模块（空表示所有）
+  modules-download-mode: readonly
+
+  # Go 版本（用于兼容性检查，设置为 golangci-lint 构建时使用的版本）
+  go: "1.24"
+
+# Linter 配置
+linters:
+  # 启用的 linter
+  enable:
+    - errcheck          # 检查错误是否被处理
+    - govet             # go vet 检查
+    - ineffassign       # 检查未使用的赋值
+    - staticcheck       # 静态分析
+    - unused            # 检查未使用的代码
+    - misspell          # 拼写检查
+    - revive            # Go 代码检查工具
+    - gocritic          # Go 代码审查工具
+    - copyloopvar       # 检查循环中的引用
+    - gosec             # 安全检查
+    - unconvert         # 检查不必要的类型转换
+    - unparam           # 检查未使用的参数
+
+  # linter 配置（v2 格式：settings 嵌套在 linters 下）
+  settings:
+    errcheck:
+      # 报告所有错误，包括未导出的函数
+      check-type-assertions: true
+      check-blank: true
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport # 允许重复导入（某些情况下需要）
+
+    govet:
+      # 启用所有检查
+      enable-all: true
+
+    revive:
+      # 规则配置
+      rules:
+        - name: exported
+          severity: warning
+        - name: var-naming
+          severity: error
+          arguments:
+            - []  # AllowList: 允许的首字母缩写列表（空表示使用默认）
+            - []  # DenyList: 禁止的首字母缩写列表（空表示使用默认）
+          # 注意：revive 的 var-naming 规则默认不允许 ALL_CAPS
+          # 对于常量使用 ALL_CAPS 的情况，需要在代码中添加 nolint 注释
+        - name: package-comments
+          severity: warning
+        # 常量命名规范（根据 CODE_STYLE.md 和 CONTRIBUTING.md）：
+        # - 所有导出的常量必须使用 ALL_CAPS (UPPER_SNAKE_CASE)
+        # - 错误变量（以 Err 开头）可以使用 PascalCase（这是 Go 的约定）
+        # - 其他导出的变量使用 PascalCase
+#
+#   gosec:
+#     # 排除一些误报
+#     excludes:
+#       - G104 # 错误未检查（某些情况下可以接受）
+#       - G107 # HTTP 请求（某些情况下需要）
+
+# 注意：golangci-lint v2 格式中，issues 配置已被移除
+# 如果需要排除特定问题，请使用 revive 的配置或其他 linter 的配置选项
+# 常量使用 ALL_CAPS 命名已通过 revive 的 allowAllCaps 参数允许
+

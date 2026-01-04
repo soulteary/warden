@@ -1,0 +1,209 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.25'
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  # 代码格式检查
+  fmt:
+    name: 代码格式检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 检查代码格式
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "以下文件格式不正确:"
+            gofmt -s -d .
+            exit 1
+          fi
+
+  # 代码静态检查
+  vet:
+    name: 代码静态检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 运行 go vet
+        run: go vet ./...
+
+  # 代码测试
+  test:
+    name: 代码测试
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.25']
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 运行测试
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: 生成覆盖率报告
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: 上传覆盖率报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.html
+
+      - name: 显示覆盖率摘要
+        run: go tool cover -func=coverage.out
+
+  # 代码质量检查（使用 golangci-lint）
+  lint:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Go 环境（临时使用 1.24 以匹配 golangci-lint）
+        uses: actions/setup-go@v5
+        with:
+          # 临时使用 Go 1.24，因为当前 golangci-lint 是用 Go 1.24 构建的
+          # 当 golangci-lint 更新到支持 Go 1.25 的版本后，可以改回 ${{ env.GO_VERSION }}
+          go-version: '1.24'
+
+      - name: 临时修改 go.mod 以匹配 golangci-lint 的 Go 版本
+        run: |
+          # 备份原始 go.mod
+          cp go.mod go.mod.backup
+          # 临时将 Go 版本改为 1.24
+          sed -i 's/^go 1\.25$/go 1.24/' go.mod
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 运行 golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+          args: --timeout=5m
+          only-new-issues: false
+
+      - name: 恢复 go.mod
+        if: always()
+        run: |
+          # 恢复原始 go.mod
+          mv go.mod.backup go.mod
+
+  # Docker 构建
+  docker-build:
+    name: Docker 构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 获取版本信息
+        id: version
+        run: |
+          if [ -f RELEASE_VERSION ]; then
+            VERSION=$(cat RELEASE_VERSION)
+          else
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          fi
+          if [ -f RELEASE_COMMIT ]; then
+            COMMIT=$(cat RELEASE_COMMIT)
+          else
+            COMMIT=$(git rev-parse --short HEAD)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "最近版本: $VERSION / $COMMIT"
+
+      - name: 准备版本文件
+        run: |
+          echo "${{ steps.version.outputs.version }}" > RELEASE_VERSION
+          echo "${{ steps.version.outputs.commit }}" > RELEASE_COMMIT
+
+      - name: 构建 Docker 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          load: true
+          tags: warden:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 验证镜像
+        run: |
+          docker images warden:test
+          docker inspect warden:test
+
+  # 完整构建检查
+  build:
+    name: 构建检查
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.25']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 构建项目
+        run: go build -v -o warden${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./main.go
+
+      - name: 验证构建产物
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          if [ -f warden ]; then
+            echo "构建成功，文件存在"
+            ls -lh warden
+            file warden
+          else
+            echo "构建失败，文件不存在"
+            exit 1
+          fi
+
