@@ -18,7 +18,7 @@ import (
 
 // httpClient 全局 HTTP 客户端，使用连接池复用连接
 var httpClient = &http.Client{
-	Timeout: define.DEFAULT_TIMEOUT * time.Second,
+	Timeout: define.DefaultTimeout * time.Second,
 	Transport: &http.Transport{
 		MaxIdleConns:        define.DEFAULT_MAX_IDLE_CONNS,
 		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNS_PER_HOST,
@@ -99,8 +99,8 @@ func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, 
 		if err == nil {
 			// 检查状态码，5xx 错误也重试
 			if res.StatusCode >= 500 && res.StatusCode < 600 && attempt < maxRetries {
-				if err := res.Body.Close(); err != nil {
-					log.Warn().Err(err).Msg("关闭响应体失败")
+				if closeErr := res.Body.Close(); closeErr != nil {
+					log.Warn().Err(closeErr).Msg("关闭响应体失败")
 				}
 				lastErr = fmt.Errorf("服务器错误: HTTP %d", res.StatusCode)
 				continue

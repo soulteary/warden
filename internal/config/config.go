@@ -141,10 +141,10 @@ func applyServerDefaults(cfg *Config) {
 		cfg.Server.Port = fmt.Sprintf("%d", define.DefaultPort)
 	}
 	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = define.DEFAULT_TIMEOUT * time.Second
+		cfg.Server.ReadTimeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.Server.WriteTimeout == 0 {
-		cfg.Server.WriteTimeout = define.DEFAULT_TIMEOUT * time.Second
+		cfg.Server.WriteTimeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.Server.ShutdownTimeout == 0 {
 		cfg.Server.ShutdownTimeout = define.SHUTDOWN_TIMEOUT
@@ -167,7 +167,7 @@ func applyRedisDefaults(cfg *Config) {
 // applyCacheDefaults 应用缓存默认值
 func applyCacheDefaults(cfg *Config) {
 	if cfg.Cache.UpdateInterval == 0 {
-		cfg.Cache.UpdateInterval = define.DEFAULT_TASK_INTERVAL * time.Second
+		cfg.Cache.UpdateInterval = define.DefaultTaskInterval * time.Second
 	}
 }
 
@@ -184,7 +184,7 @@ func applyRateLimitDefaults(cfg *Config) {
 // applyHTTPDefaults 应用 HTTP 默认值
 func applyHTTPDefaults(cfg *Config) {
 	if cfg.HTTP.Timeout == 0 {
-		cfg.HTTP.Timeout = define.DEFAULT_TIMEOUT * time.Second
+		cfg.HTTP.Timeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.HTTP.MaxIdleConns == 0 {
 		cfg.HTTP.MaxIdleConns = define.DEFAULT_MAX_IDLE_CONNS
@@ -203,7 +203,7 @@ func applyRemoteDefaults(cfg *Config) {
 		cfg.Remote.URL = define.DefaultRemoteConfig
 	}
 	if cfg.Remote.Key == "" {
-		cfg.Remote.Key = define.DEFAULT_REMOTE_KEY
+		cfg.Remote.Key = define.DefaultRemoteKey
 	}
 	if cfg.Remote.Mode == "" {
 		cfg.Remote.Mode = define.DEFAULT_MODE
@@ -213,7 +213,7 @@ func applyRemoteDefaults(cfg *Config) {
 // applyTaskDefaults 应用任务默认值
 func applyTaskDefaults(cfg *Config) {
 	if cfg.Task.Interval == 0 {
-		cfg.Task.Interval = define.DEFAULT_TASK_INTERVAL * time.Second
+		cfg.Task.Interval = define.DefaultTaskInterval * time.Second
 	}
 }
 

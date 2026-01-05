@@ -43,6 +43,7 @@ func GetArgs() *Config {
 	// 先解析一次以获取配置文件路径
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		// 忽略解析错误，继续使用默认值
+		_ = err // 明确忽略错误
 	}
 
 	// 如果指定了配置文件，尝试从配置文件加载
@@ -162,10 +163,10 @@ func getArgsFromFlags() *Config {
 		Port:             strconv.Itoa(define.DefaultPort),
 		Redis:            define.DefaultRedis,
 		RemoteConfig:     define.DefaultRemoteConfig,
-		RemoteKey:        define.DEFAULT_REMOTE_KEY,
-		TaskInterval:     define.DEFAULT_TASK_INTERVAL,
+		RemoteKey:        define.DefaultRemoteKey,
+		TaskInterval:     define.DefaultTaskInterval,
 		Mode:             define.DEFAULT_MODE,
-		HTTPTimeout:      define.DEFAULT_TIMEOUT,
+		HTTPTimeout:      define.DefaultTimeout,
 		HTTPMaxIdleConns: 100,
 		HTTPInsecureTLS:  false,
 	}
@@ -184,16 +185,17 @@ func getArgsFromFlags() *Config {
 	fs.StringVar(&redisFlag, "redis", define.DefaultRedis, "redis host and port")
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
 	fs.StringVar(&configFlag, "config", define.DefaultRemoteConfig, "remote config url")
-	fs.StringVar(&keyFlag, "key", define.DEFAULT_REMOTE_KEY, "remote config key")
+	fs.StringVar(&keyFlag, "key", define.DefaultRemoteKey, "remote config key")
 	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
-	fs.IntVar(&intervalFlag, "interval", define.DEFAULT_TASK_INTERVAL, "task interval")
-	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DEFAULT_TIMEOUT, "HTTP request timeout in seconds")
+	fs.IntVar(&intervalFlag, "interval", define.DefaultTaskInterval, "task interval")
+	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DefaultTimeout, "HTTP request timeout in seconds")
 	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 100, "HTTP max idle connections")
 	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
 
 	// 解析命令行参数
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		// 忽略解析错误，继续使用默认值
+		_ = err // 明确忽略错误
 	}
 
 	// 处理各个配置项
@@ -279,6 +281,7 @@ func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		// 忽略解析错误，继续使用默认值
+		_ = err // 明确忽略错误
 	}
 
 	// 如果命令行参数被设置，覆盖配置
@@ -392,6 +395,6 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	}
 
 	if insecureTLSEnv := os.Getenv("HTTP_INSECURE_TLS"); insecureTLSEnv != "" {
-		cfg.HTTPInsecureTLS = strings.ToLower(insecureTLSEnv) == "true" || insecureTLSEnv == "1"
+		cfg.HTTPInsecureTLS = strings.EqualFold(insecureTLSEnv, "true") || insecureTLSEnv == "1"
 	}
 }

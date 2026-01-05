@@ -121,9 +121,9 @@ func (d *Dependencies) initHandlers() {
 func (d *Dependencies) initHTTPServer() {
 	d.HTTPServer = &http.Server{
 		Addr:              ":" + d.Config.Port,
-		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
-		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
-		WriteTimeout:      define.DEFAULT_TIMEOUT * time.Second,
+		ReadHeaderTimeout: define.DefaultTimeout * time.Second,
+		ReadTimeout:       define.DefaultTimeout * time.Second,
+		WriteTimeout:      define.DefaultTimeout * time.Second,
 		IdleTimeout:       define.IDLE_TIMEOUT,
 		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
 	}
@@ -135,6 +135,8 @@ func (d *Dependencies) Cleanup() {
 		d.RateLimiter.Stop()
 	}
 	if d.RedisClient != nil {
-		_ = d.RedisClient.Close()
+		if err := d.RedisClient.Close(); err != nil {
+			// 记录错误但不影响清理流程
+		}
 	}
 }

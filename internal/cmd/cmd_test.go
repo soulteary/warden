@@ -43,10 +43,18 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 	if err := os.Unsetenv("REDIS"); err != nil {
 		t.Logf("清理环境变量失败: REDIS")
 	}
-	_ = os.Unsetenv("CONFIG")
-	_ = os.Unsetenv("KEY")
-	_ = os.Unsetenv("INTERVAL")
-	_ = os.Unsetenv("MODE")
+	if err := os.Unsetenv("CONFIG"); err != nil {
+		t.Logf("清理环境变量失败: CONFIG")
+	}
+	if err := os.Unsetenv("KEY"); err != nil {
+		t.Logf("清理环境变量失败: KEY")
+	}
+	if err := os.Unsetenv("INTERVAL"); err != nil {
+		t.Logf("清理环境变量失败: INTERVAL")
+	}
+	if err := os.Unsetenv("MODE"); err != nil {
+		t.Logf("清理环境变量失败: MODE")
+	}
 
 	os.Args = []string{"test"}
 
@@ -55,8 +63,8 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 	assert.Equal(t, strconv.Itoa(define.DefaultPort), cfg.Port)
 	assert.Equal(t, define.DefaultRedis, cfg.Redis)
 	assert.Equal(t, define.DefaultRemoteConfig, cfg.RemoteConfig)
-	assert.Equal(t, define.DEFAULT_REMOTE_KEY, cfg.RemoteKey)
-	assert.Equal(t, define.DEFAULT_TASK_INTERVAL, cfg.TaskInterval)
+	assert.Equal(t, define.DefaultRemoteKey, cfg.RemoteKey)
+	assert.Equal(t, define.DefaultTaskInterval, cfg.TaskInterval)
 	assert.Equal(t, define.DEFAULT_MODE, cfg.Mode)
 }
 

@@ -57,7 +57,11 @@ func CompressMiddleware(next http.Handler) http.Handler {
 		}
 
 		// 从池中获取 gzip writer
-		gzWriter := gzipWriterPool.Get().(*gzip.Writer)
+		gzWriter, ok := gzipWriterPool.Get().(*gzip.Writer)
+		if !ok {
+			// 如果类型断言失败，创建新的 writer
+			gzWriter = gzip.NewWriter(nil)
+		}
 
 		// 设置 Vary 响应头
 		w.Header().Set("Vary", "Accept-Encoding")

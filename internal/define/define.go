@@ -16,14 +16,14 @@ const DefaultRedis = "localhost:6379"
 // DefaultRemoteConfig 默认远程配置地址
 const DefaultRemoteConfig = "http://localhost:8080/config.json"
 
-// DEFAULT_REMOTE_KEY 默认远程配置密钥
-const DEFAULT_REMOTE_KEY = ""
+// DefaultRemoteKey 默认远程配置密钥
+const DefaultRemoteKey = ""
 
 const (
-	// DEFAULT_TASK_INTERVAL 默认任务间隔时间（秒）
-	DEFAULT_TASK_INTERVAL = 5 // 5s
-	// DEFAULT_TIMEOUT 默认超时时间（秒）
-	DEFAULT_TIMEOUT = 5
+	// DefaultTaskInterval 默认任务间隔时间（秒）
+	DefaultTaskInterval = 5 // 5s
+	// DefaultTimeout 默认超时时间（秒）
+	DefaultTimeout = 5
 	// DEFAULT_LOCK_TIME 默认锁过期时间（秒）
 	DEFAULT_LOCK_TIME = 15
 	// DEFAULT_MODE 默认模式

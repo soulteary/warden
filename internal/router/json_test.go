@@ -29,7 +29,7 @@ func TestJSON_Handler(t *testing.T) {
 	handler := JSON(userCache)
 
 	// 创建测试请求
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	// 执行处理器
@@ -56,7 +56,7 @@ func TestJSON_EmptyData(t *testing.T) {
 	userCache.Set(emptyData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -272,7 +272,8 @@ func TestJSON_Pagination(t *testing.T) {
 		assert.Len(t, data, 3, "第一页应该返回3条记录")
 
 		// 验证分页信息
-		pagination := result["pagination"].(map[string]interface{})
+		pagination, ok := result["pagination"].(map[string]interface{})
+		require.True(t, ok, "pagination 类型断言失败")
 		assert.Equal(t, float64(1), pagination["page"])
 		assert.Equal(t, float64(3), pagination["page_size"])
 		assert.Equal(t, float64(10), pagination["total"])
@@ -291,7 +292,8 @@ func TestJSON_Pagination(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &result)
 		require.NoError(t, err)
 
-		data := result["data"].([]interface{})
+		data, ok := result["data"].([]interface{})
+		require.True(t, ok, "data 类型断言失败")
 		assert.Len(t, data, 1, "最后一页应该返回1条记录")
 	})
 

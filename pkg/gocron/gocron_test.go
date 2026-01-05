@@ -522,14 +522,18 @@ func TestWeekdayAfterToday(t *testing.T) {
 	}
 
 	// First run
-	_ = weekJob.scheduleNextRun()
+	if err := weekJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	exp := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
-	_ = weekJob.scheduleNextRun()
+	if err := weekJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	exp = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 }

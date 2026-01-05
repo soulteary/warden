@@ -50,7 +50,7 @@ func TestFromFile_InvalidJSON(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "invalid.json")
 
 	invalidJSON := `{"invalid": json}`
-	err := os.WriteFile(testFile, []byte(invalidJSON), 0600)
+	err := os.WriteFile(testFile, []byte(invalidJSON), 0o600)
 	require.NoError(t, err)
 
 	// 测试读取无效JSON
@@ -66,7 +66,7 @@ func TestFromFile_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.json")
 
-	err := os.WriteFile(testFile, []byte(""), 0600)
+	err := os.WriteFile(testFile, []byte(""), 0o600)
 	require.NoError(t, err)
 
 	result := FromFile(testFile)
@@ -81,7 +81,7 @@ func TestFromFile_EmptyArray(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "empty-array.json")
 
 	emptyArray := `[]`
-	err := os.WriteFile(testFile, []byte(emptyArray), 0600)
+	err := os.WriteFile(testFile, []byte(emptyArray), 0o600)
 	require.NoError(t, err)
 
 	result := FromFile(testFile)
@@ -95,7 +95,7 @@ func TestFromFile_MalformedData(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "malformed.json")
 
 	malformedData := `[{"phone": "123", "mail": "test@example.com"}, {"phone":}]`
-	err := os.WriteFile(testFile, []byte(malformedData), 0600)
+	err := os.WriteFile(testFile, []byte(malformedData), 0o600)
 	require.NoError(t, err)
 
 	result := FromFile(testFile)
@@ -132,7 +132,7 @@ func TestFromFile_MissingFields(t *testing.T) {
 
 	// 只有phone，没有mail
 	partialData := `[{"phone": "13800138000"}]`
-	err := os.WriteFile(testFile, []byte(partialData), 0600)
+	err := os.WriteFile(testFile, []byte(partialData), 0o600)
 	require.NoError(t, err)
 
 	result := FromFile(testFile)

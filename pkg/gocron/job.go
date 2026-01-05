@@ -415,19 +415,25 @@ func (j *Job) Hour() *Job {
 
 // Day sets the job's unit with day, which interval is 1
 func (j *Job) Day() *Job {
-	_ = j.mustInterval(1)
+	if err := j.mustInterval(1); err != nil {
+		j.err = err
+	}
 	return j.Days()
 }
 
 // Week sets the job's unit with week, which interval is 1
 func (j *Job) Week() *Job {
-	_ = j.mustInterval(1)
+	if err := j.mustInterval(1); err != nil {
+		j.err = err
+	}
 	return j.Weeks()
 }
 
 // Weekday start job on specific Weekday
 func (j *Job) Weekday(startDay time.Weekday) *Job {
-	_ = j.mustInterval(1)
+	if err := j.mustInterval(1); err != nil {
+		j.err = err
+	}
 	j.startDay = startDay
 	return j.Weeks()
 }
