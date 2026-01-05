@@ -22,12 +22,12 @@ import (
 type Config struct {
 	Server    ServerConfig    `yaml:"server"`
 	Redis     RedisConfig     `yaml:"redis"`
+	Remote    RemoteConfig    `yaml:"remote"`
+	HTTP      HTTPConfig      `yaml:"http"`
 	Cache     CacheConfig     `yaml:"cache"`
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
-	HTTP      HTTPConfig      `yaml:"http"`
-	Remote    RemoteConfig    `yaml:"remote"`
-	Task      TaskConfig      `yaml:"task"`
 	App       AppConfig       `yaml:"app"`
+	Task      TaskConfig      `yaml:"task"`
 }
 
 // ServerConfig 服务器配置

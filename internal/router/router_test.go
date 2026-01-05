@@ -22,7 +22,7 @@ func TestProcessWithLogger(t *testing.T) {
 	wrappedHandler := ProcessWithLogger(handler)
 
 	// 创建测试请求
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	// 执行处理器
@@ -57,7 +57,7 @@ func TestProcessWithLogger_RequestID(t *testing.T) {
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Request-Id", "test-request-id-123")
 	w := httptest.NewRecorder()
 
@@ -77,7 +77,7 @@ func TestProcessWithLogger_UserAgent(t *testing.T) {
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("User-Agent", "test-agent/1.0")
 	w := httptest.NewRecorder()
 
@@ -97,7 +97,7 @@ func TestProcessWithLogger_Referer(t *testing.T) {
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Referer", "http://example.com")
 	w := httptest.NewRecorder()
 
@@ -117,7 +117,7 @@ func TestProcessWithLogger_RemoteAddr(t *testing.T) {
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:12345"
 	w := httptest.NewRecorder()
 
@@ -139,7 +139,7 @@ func TestProcessWithLogger_DifferentMethods(t *testing.T) {
 
 	// 测试允许的方法（GET）
 	t.Run("GET", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest("GET", "/", http.NoBody)
 		w := httptest.NewRecorder()
 
 		wrappedHandler.ServeHTTP(w, req)
@@ -177,7 +177,7 @@ func TestProcessWithLogger_Concurrent(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		go func() {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			w := httptest.NewRecorder()
 			wrappedHandler.ServeHTTP(w, req)
 			done <- true

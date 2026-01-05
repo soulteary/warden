@@ -59,8 +59,7 @@ linters:
         - name: var-naming
           severity: error
           arguments:
-            - allowAllCaps
-            - allowPrivate
+            - ["allowAllCaps", "allowPrivate"]
         - name: package-comments
           severity: warning
         # 常量命名规范（根据 CODE_STYLE.md 和 CONTRIBUTING.md）：

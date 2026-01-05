@@ -32,16 +32,16 @@ type Job struct {
 	mu       sync.RWMutex             // 24 bytes - mutex to protect concurrent access to lastRun and nextRun
 	lastRun  time.Time                // 24 bytes - datetime of last run
 	nextRun  time.Time                // 24 bytes - datetime of next run
-	funcs    map[string]interface{}   // 8 bytes pointer - Map for the function task store
-	fparams  map[string][]interface{} // 8 bytes pointer - Map for function and params of function
 	tags     []string                 // 24 bytes (8 pointer + 8 len + 8 cap) - allow the user to tag jobs with certain labels
-	loc      *time.Location           // 8 bytes pointer - optional timezone that the atTime is in
 	ctx      context.Context          // 16 bytes interface - optional context for job execution
 	err      error                    // 16 bytes interface - error related to job
 	jobFunc  string                   // 16 bytes - the job jobFunc to run, func[jobFunc]
 	atTime   time.Duration            // 8 bytes - optional time at which this job runs
 	timeout  time.Duration            // 8 bytes - optional timeout for job execution
 	interval uint64                   // 8 bytes - pause interval * unit between runs
+	funcs    map[string]interface{}   // 8 bytes pointer - Map for the function task store
+	fparams  map[string][]interface{} // 8 bytes pointer - Map for function and params of function
+	loc      *time.Location           // 8 bytes pointer - optional timezone that the atTime is in
 	unit     timeUnit                 // 1 byte - time units, e.g. 'minutes', 'hours'...
 	startDay time.Weekday             // 1 byte - Specific day of the week to start on
 	lock     bool                     // 1 byte - lock the job from running at same time form multiple instances
@@ -194,6 +194,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 }
 
 // DoSafely does the same thing as Do, but logs unexpected panics, instead of unwinding them up the chain
+//
 // Deprecated: DoSafely exists due to historical compatibility and will be removed soon. Use Do instead
 func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) error {
 	recoveryWrapperFunc := func() {

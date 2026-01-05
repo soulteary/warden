@@ -41,11 +41,11 @@ type App struct {
 	redisUserCache      *cache.RedisUserCache   // 8 bytes pointer
 	redisClient         *redis.Client           // 8 bytes pointer
 	rateLimiter         *middleware.RateLimiter // 8 bytes pointer
+	log                 zerolog.Logger          // 24 bytes (interface)
 	port                string                  // 16 bytes
 	configURL           string                  // 16 bytes
 	authorizationHeader string                  // 16 bytes
 	appMode             string                  // 16 bytes
-	log                 zerolog.Logger          // 24 bytes (interface)
 	taskInterval        uint64                  // 8 bytes
 }
 
@@ -472,12 +472,10 @@ func main() {
 		// 在退出前先清理资源
 		close(schedulerStopped)
 		scheduler.Clear()
-		log.Error().
+		stop()
+		log.Fatal().
 			Err(err).
 			Msg("定时任务调度器初始化失败，程序退出")
-		// 注意：os.Exit 会立即退出，defer 不会执行，所以先清理资源
-		stop()
-		os.Exit(1)
 	}
 	defer func() {
 		close(schedulerStopped)

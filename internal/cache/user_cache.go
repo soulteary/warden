@@ -26,9 +26,9 @@ var log = logger.GetLogger()
 // 缓存哈希值以优化数据变化检测
 type SafeUserCache struct {
 	mu    sync.RWMutex                    // 24 bytes
-	users map[string]define.AllowListUser // 8 bytes pointer
 	order []string                        // 24 bytes (8 pointer + 8 len + 8 cap)
 	hash  string                          // 16 bytes (8 pointer + 8 len)
+	users map[string]define.AllowListUser // 8 bytes pointer
 }
 
 // NewSafeUserCache 创建新的线程安全用户缓存

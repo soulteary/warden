@@ -22,15 +22,15 @@ import (
 // RateLimiter 实现简单的内存速率限制
 type RateLimiter struct {
 	mu           sync.RWMutex        // 24 bytes
+	window       time.Duration       // 8 bytes
+	rate         int                 // 8 bytes
+	maxVisitors  int                 // 8 bytes
+	maxWhitelist int                 // 8 bytes
 	wg           sync.WaitGroup      // 12 bytes (padding to 16)
 	visitors     map[string]*visitor // 8 bytes pointer
 	whitelist    map[string]bool     // 8 bytes pointer
 	cleanup      *time.Ticker        // 8 bytes pointer
 	stopCh       chan struct{}       // 8 bytes pointer
-	window       time.Duration       // 8 bytes
-	rate         int                 // 8 bytes
-	maxVisitors  int                 // 8 bytes
-	maxWhitelist int                 // 8 bytes
 }
 
 type visitor struct {

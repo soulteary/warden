@@ -12,6 +12,7 @@ type AppError struct {
 	Code    string // 错误码 (16 bytes)
 	Message string // 错误消息 (16 bytes)
 	Err     error  // 底层错误 (16 bytes interface)
+	// 注意：字段顺序已优化以减少内存对齐填充
 }
 
 // Error 实现 error 接口
