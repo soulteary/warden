@@ -103,6 +103,7 @@ jobs:
         with:
           version: latest
           args: --timeout=5m
+          only-new-issues: false
 
   # Docker 构建
   docker-build:

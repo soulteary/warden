@@ -7,16 +7,6 @@ run:
   
   # 要检查的模块（空表示所有）
   modules-download-mode: readonly
-  
-  # 跳过目录
-  skip-dirs:
-    - vendor
-    - .git
-  
-  # 跳过文件
-  skip-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.gen\\.go$"
 
 # Linter 配置
 linters:
@@ -61,11 +51,11 @@ linters-settings:
       - style
     disabled-checks:
       - dupImport # 允许重复导入（某些情况下需要）
-  
+
   govet:
     # 启用所有检查
     enable-all: true
-  
+
   revive:
     # 规则配置
     rules:
@@ -75,7 +65,7 @@ linters-settings:
         severity: warning
       - name: package-comments
         severity: warning
-  
+
   gosec:
     # 排除一些误报
     excludes:
@@ -84,6 +74,16 @@ linters-settings:
 
 # 问题配置
 issues:
+  # 排除的目录（从 run.skip-dirs 迁移）
+  exclude-dirs:
+    - vendor
+    - .git
+
+  # 排除的文件（从 run.skip-files 迁移）
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
   # 排除的问题
   exclude-rules:
     # 排除测试文件中的某些检查
@@ -104,9 +104,10 @@ issues:
 
 # 输出配置
 output:
-  # 输出格式
-  format: colored-line-number
-  
+  # 输出格式（从 format 迁移到 formats）
+  formats:
+    - format: colored-line-number
+
   # 打印问题编号
   print-issued-lines: true
   print-linter-name: true
