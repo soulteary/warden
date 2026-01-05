@@ -107,6 +107,9 @@ jobs:
           # 临时将 Go 版本改为 1.24
           sed -i 's/^go 1\.25$/go 1.24/' go.mod
 
+      - name: 下载依赖
+        run: go mod download
+
       - name: 运行 golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
