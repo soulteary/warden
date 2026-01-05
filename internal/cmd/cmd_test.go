@@ -156,7 +156,7 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 	if err := os.Setenv("REDIS", "192.168.1.1:6379"); err != nil {
 		t.Fatalf("设置环境变量失败: REDIS")
 	}
-	if err := os.Setenv("CONFIG", "http://test.com/config.json"); err != nil {
+	if err := os.Setenv("CONFIG", "http://test.com/data.json"); err != nil {
 		t.Fatalf("设置环境变量失败: CONFIG")
 	}
 	if err := os.Setenv("KEY", "env-key"); err != nil {
@@ -175,7 +175,7 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 
 	assert.Equal(t, "8888", cfg.Port, "端口应该匹配环境变量")
 	assert.Equal(t, "192.168.1.1:6379", cfg.Redis, "Redis地址应该匹配环境变量")
-	assert.Equal(t, "http://test.com/config.json", cfg.RemoteConfig, "配置URL应该匹配环境变量")
+	assert.Equal(t, "http://test.com/data.json", cfg.RemoteConfig, "配置URL应该匹配环境变量")
 	assert.Equal(t, "env-key", cfg.RemoteKey, "密钥应该匹配环境变量")
 	assert.Equal(t, "REMOTE_FIRST", cfg.Mode, "模式应该匹配环境变量")
 	assert.Equal(t, 15, cfg.TaskInterval, "间隔应该匹配环境变量")

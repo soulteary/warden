@@ -52,8 +52,8 @@ graph TB
     end
     
     subgraph "数据源"
-        LocalFile[本地配置文件<br/>config.json]
-        RemoteAPI[远程配置 API]
+        LocalFile[本地数据文件<br/>data.json]
+        RemoteAPI[远程数据 API]
     end
     
     subgraph "外部服务"
@@ -243,8 +243,8 @@ cd warden
 go mod download
 ```
 
-3. **配置本地规则文件**
-创建 `config.json` 文件：
+3. **配置本地数据文件**
+创建 `data.json` 文件（可参考 `data.example.json`）：
 ```json
 [
     {
@@ -328,9 +328,9 @@ export LOG_LEVEL="info"                # 日志级别（可选，默认: info，
 
 ### 配置文件格式
 
-#### 本地用户数据文件 (`config.json`)
+#### 本地用户数据文件 (`data.json`)
 
-本地用户数据文件 `config.json` 格式：
+本地用户数据文件 `data.json` 格式（可参考 `data.example.json`）：
 
 ```json
 [
@@ -380,7 +380,7 @@ http:
   retry_delay: 1s
 
 remote:
-  url: "http://localhost:8080/config.json"
+  url: "http://localhost:8080/data.json"
   key: ""
   mode: "DEFAULT"
 
@@ -540,8 +540,8 @@ GET /metrics
    # 或使用密码文件（更安全）
    # REDIS_PASSWORD_FILE=/path/to/redis-password.txt
    
-   # 远程配置 API
-   CONFIG=http://example.com/api/config.json
+   # 远程数据 API
+   CONFIG=http://example.com/api/data.json
    # 远程配置 API 认证密钥
    KEY=Bearer your-token-here
    
@@ -587,7 +587,7 @@ docker build -f docker/Dockerfile -t warden-release .
 ```bash
 docker run -d \
   -p 8081:8081 \
-  -v $(pwd)/config.json:/app/config.json:ro \
+  -v $(pwd)/data.json:/app/data.json:ro \
   -e PORT=8081 \
   -e REDIS=localhost:6379 \
   -e CONFIG=http://example.com/api \
@@ -611,7 +611,7 @@ Transfer/sec:   38.96MB
 ```
 warden/
 ├── main.go                 # 程序入口
-├── config.json            # 本地配置文件示例
+├── data.example.json      # 本地数据文件示例
 ├── go.mod                 # Go 模块定义
 ├── docker-compose.yml     # Docker Compose 配置
 ├── docker/

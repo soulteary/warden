@@ -31,7 +31,7 @@ http:
   retry_delay: 1s
 
 remote:
-  url: "http://localhost:8080/config.json"
+  url: "http://localhost:8080/data.json"
   key: ""
   mode: "DEFAULT"
 
