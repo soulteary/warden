@@ -13,16 +13,6 @@ run:
   # Go 版本（用于兼容性检查，设置为 golangci-lint 构建时使用的版本）
   go: "1.24"
 
-  # 跳过的目录
-  skip-dirs:
-    - vendor
-    - .git
-
-  # 跳过的文件
-  skip-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.gen\\.go$"
-
 # Linter 配置
 linters:
   # 启用的 linter
