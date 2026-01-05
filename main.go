@@ -46,8 +46,8 @@ type App struct {
 	configURL           string                  // 16 bytes
 	authorizationHeader string                  // 16 bytes
 	appMode             string                  // 16 bytes
-	taskInterval        uint64                  // 8 bytes
 	apiKey              string                  // 16 bytes
+	taskInterval        uint64                  // 8 bytes
 }
 
 // NewApp 创建新的应用实例

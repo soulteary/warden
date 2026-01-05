@@ -48,10 +48,9 @@ func ErrorHandlerMiddleware(appMode string) func(http.Handler) http.Handler {
 // errorResponseWriter 自定义 ResponseWriter，用于捕获和修改错误响应
 type errorResponseWriter struct {
 	http.ResponseWriter
-	isProduction bool
 	request      *http.Request
 	statusCode   int
-	body         []byte
+	isProduction bool
 }
 
 // WriteHeader 捕获状态码

@@ -431,11 +431,11 @@ type CmdConfigData struct {
 	RemoteConfig     string // 16 bytes
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
+	APIKey           string // 16 bytes
 	TaskInterval     int    // 8 bytes
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
-	APIKey           string // 16 bytes
 }
 
 // ToCmdConfig 转换为 cmd.Config 格式

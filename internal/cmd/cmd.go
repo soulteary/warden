@@ -24,11 +24,11 @@ type Config struct {
 	RemoteConfig     string // 16 bytes
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
+	APIKey           string // 16 bytes
 	TaskInterval     int    // 8 bytes
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
-	APIKey           string // 16 bytes
 }
 
 // GetArgs 解析命令行参数和环境变量，返回配置结构体
