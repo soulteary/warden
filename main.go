@@ -468,8 +468,14 @@ func main() {
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
 	schedulerStopped := scheduler.Start()
+	defer func() {
+		close(schedulerStopped)
+		scheduler.Clear()
+		app.log.Info().Msg("定时任务调度器已关闭")
+	}()
 	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
-		// 在退出前先清理资源
+		// 在退出前先清理资源（defer 会在函数返回时执行，但 log.Fatal 会立即退出）
+		// 所以需要手动清理
 		close(schedulerStopped)
 		scheduler.Clear()
 		stop()
@@ -477,11 +483,6 @@ func main() {
 			Err(err).
 			Msg("定时任务调度器初始化失败，程序退出")
 	}
-	defer func() {
-		close(schedulerStopped)
-		scheduler.Clear()
-		app.log.Info().Msg("定时任务调度器已关闭")
-	}()
 
 	// 启动服务器
 	srv := startServer(app.port)

@@ -1,5 +1,7 @@
 // Package errors 提供了统一的错误处理功能。
 // 定义了应用错误类型和预定义的错误变量，支持错误包装和上下文信息。
+//
+//nolint:revive // 包名与标准库冲突，但这是项目内部包，可以接受
 package errors
 
 import (
@@ -12,7 +14,7 @@ type AppError struct {
 	Code    string // 错误码 (16 bytes)
 	Message string // 错误消息 (16 bytes)
 	Err     error  // 底层错误 (16 bytes interface)
-	// 注意：字段顺序已优化以减少内存对齐填充
+	// 字段顺序已优化：所有16字节字段已对齐
 }
 
 // Error 实现 error 接口

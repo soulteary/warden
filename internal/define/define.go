@@ -1,5 +1,7 @@
 // Package define 定义了应用中的常量和数据结构。
 // 包括默认配置值、超时时间、限制参数等常量定义。
+//
+//nolint:revive // 常量使用 ALL_CAPS 命名符合项目规范（见 CODE_STYLE.md）
 package define
 
 import (

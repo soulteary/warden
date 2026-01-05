@@ -45,6 +45,7 @@ type Job struct {
 	unit     timeUnit                 // 1 byte - time units, e.g. 'minutes', 'hours'...
 	startDay time.Weekday             // 1 byte - Specific day of the week to start on
 	lock     bool                     // 1 byte - lock the job from running at same time form multiple instances
+	// 字段顺序已优化：24字节字段在前，16字节字段，8字节字段和指针字段，最后是小字段
 }
 
 // NewJob creates a new job with the time interval.

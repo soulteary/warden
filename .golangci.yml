@@ -59,7 +59,10 @@ linters:
         - name: var-naming
           severity: error
           arguments:
-            - ["allowAllCaps", "allowPrivate"]
+            - []  # AllowList: 允许的首字母缩写列表（空表示使用默认）
+            - []  # DenyList: 禁止的首字母缩写列表（空表示使用默认）
+          # 注意：revive 的 var-naming 规则默认不允许 ALL_CAPS
+          # 对于常量使用 ALL_CAPS 的情况，需要在代码中添加 nolint 注释
         - name: package-comments
           severity: warning
         # 常量命名规范（根据 CODE_STYLE.md 和 CONTRIBUTING.md）：

@@ -151,7 +151,7 @@ func TestProcessWithLogger_DifferentMethods(t *testing.T) {
 	disallowedMethods := []string{"POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	for _, method := range disallowedMethods {
 		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, "/", nil)
+			req := httptest.NewRequest(method, "/", http.NoBody)
 			w := httptest.NewRecorder()
 
 			wrappedHandler.ServeHTTP(w, req)
