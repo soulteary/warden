@@ -101,7 +101,8 @@ issues:
 output:
   # 输出格式（使用 formats 替代已弃用的 format）
   formats:
-    - format: colored-line-number
+    colored-line-number:
+      format: colored-line-number
 
   # 打印问题编号
   print-issued-lines: true
