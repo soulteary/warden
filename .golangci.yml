@@ -57,11 +57,18 @@ linters:
         - name: exported
           severity: warning
         - name: var-naming
-          severity: warning
+          severity: error
           arguments:
-            - ["allowAllCaps"] # 允许 ALL_CAPS 命名风格
+            - ["allowAllCaps"] # 允许 ALL_CAPS 命名风格（用于常量）
+            - ["allowPrivate"] # 允许私有变量使用 camelCase
         - name: package-comments
           severity: warning
+        # 常量命名规范（根据 CODE_STYLE.md 和 CONTRIBUTING.md）：
+        # - 所有导出的常量必须使用 ALL_CAPS (UPPER_SNAKE_CASE)
+        # - 错误变量（以 Err 开头）可以使用 PascalCase（这是 Go 的约定）
+        # - 其他导出的变量使用 PascalCase
+        # 注意：var-naming 规则会检查所有导出的变量和常量
+        # 但由于 revive 无法精确区分常量和变量，需要手动确保常量使用 ALL_CAPS
 #
 #   gosec:
 #     # 排除一些误报

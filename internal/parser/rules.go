@@ -18,7 +18,7 @@ import (
 
 // httpClient 全局 HTTP 客户端，使用连接池复用连接
 var httpClient = &http.Client{
-	Timeout: define.DefaultTimeout * time.Second,
+	Timeout: define.DEFAULT_TIMEOUT * time.Second,
 	Transport: &http.Transport{
 		MaxIdleConns:        define.DEFAULT_MAX_IDLE_CONNS,
 		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNS_PER_HOST,
@@ -208,7 +208,7 @@ func FromRemoteConfig(ctx context.Context, url, authorizationHeader string) ([]d
 		return nil, err
 	}
 
-	res, err := doRequestWithRetry(ctx, req, define.HTTPRetryMaxRetries, define.HTTP_RETRY_DELAY)
+	res, err := doRequestWithRetry(ctx, req, define.HTTP_RETRY_MAX_RETRIES, define.HTTP_RETRY_DELAY)
 	if err != nil {
 		log.Error().
 			Err(fmt.Errorf("%s: %w", define.ERR_GET_CONFIG_FAILED, err)).

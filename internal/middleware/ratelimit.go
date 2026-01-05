@@ -46,7 +46,7 @@ func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 		visitors:     make(map[string]*visitor),
 		rate:         rate,
 		window:       window,
-		cleanup:      time.NewTicker(define.RateLimitCleanupInterval), // 定期清理过期记录
+		cleanup:      time.NewTicker(define.RATE_LIMIT_CLEANUP_INTERVAL), // 定期清理过期记录
 		stopCh:       make(chan struct{}),
 		whitelist:    make(map[string]bool),
 		maxVisitors:  define.MAX_VISITORS_MAP_SIZE,

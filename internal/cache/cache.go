@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	// LockOperationTimeout 锁操作超时时间
-	LockOperationTimeout = 5 * time.Second
+	// LOCK_OPERATION_TIMEOUT 锁操作超时时间
+	LOCK_OPERATION_TIMEOUT = 5 * time.Second
 )
 
 // Locker 提供分布式锁功能，兼容 gocron.Locker 接口
@@ -64,10 +64,10 @@ func (s *Locker) Lock(key string) (success bool, err error) {
 		return false, fmt.Errorf("生成锁值失败: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), LockOperationTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), LOCK_OPERATION_TIMEOUT)
 	defer cancel()
 
-	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DefaultLockTime).Result()
+	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DEFAULT_LOCK_TIME).Result()
 	if err != nil {
 		return false, err
 	}
@@ -110,7 +110,7 @@ func (s *Locker) Unlock(key string) error {
 	value, ok := s.lockStore.LoadAndDelete(key)
 	if !ok {
 		// 如果没有存储的 lockValue，直接删除（向后兼容）
-		ctx, cancel := context.WithTimeout(context.Background(), LockOperationTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), LOCK_OPERATION_TIMEOUT)
 		defer cancel()
 		return s.Cache.Del(ctx, key).Err()
 	}
@@ -120,7 +120,7 @@ func (s *Locker) Unlock(key string) error {
 		// 类型不匹配，返回错误
 		return fmt.Errorf("锁值类型错误")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), LockOperationTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), LOCK_OPERATION_TIMEOUT)
 	defer cancel()
 
 	// 使用 Lua 脚本确保原子性：只有锁值匹配时才删除

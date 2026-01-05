@@ -7,44 +7,44 @@ import (
 	"time"
 )
 
-// DefaultPort 默认端口号
-const DefaultPort = 8081
+// DEFAULT_PORT 默认端口号
+const DEFAULT_PORT = 8081
 
-// DefaultRedis 默认 Redis 地址
-const DefaultRedis = "localhost:6379"
+// DEFAULT_REDIS 默认 Redis 地址
+const DEFAULT_REDIS = "localhost:6379"
 
-// DefaultRemoteConfig 默认远程配置地址
-const DefaultRemoteConfig = "http://localhost:8080/config.json"
+// DEFAULT_REMOTE_CONFIG 默认远程配置地址
+const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/config.json"
 
-// DefaultRemoteKey 默认远程配置密钥
-const DefaultRemoteKey = ""
+// DEFAULT_REMOTE_KEY 默认远程配置密钥
+const DEFAULT_REMOTE_KEY = ""
 
 const (
-	// DefaultTaskInterval 默认任务间隔时间（秒）
-	DefaultTaskInterval = 5 // 5s
-	// DefaultTimeout 默认超时时间（秒）
-	DefaultTimeout = 5
-	// DefaultLockTime 默认锁过期时间（秒）
-	DefaultLockTime = 15
-	// DefaultMode 默认模式
-	DefaultMode = "DEFAULT" // 1: 2: 3: 4:
+	// DEFAULT_TASK_INTERVAL 默认任务间隔时间（秒）
+	DEFAULT_TASK_INTERVAL = 5 // 5s
+	// DEFAULT_TIMEOUT 默认超时时间（秒）
+	DEFAULT_TIMEOUT = 5
+	// DEFAULT_LOCK_TIME 默认锁过期时间（秒）
+	DEFAULT_LOCK_TIME = 15
+	// DEFAULT_MODE 默认模式
+	DEFAULT_MODE = "DEFAULT" // 1: 2: 3: 4:
 
-	// RateLimitCleanupInterval 速率限制器清理间隔
-	RateLimitCleanupInterval = 1 * time.Minute
+	// RATE_LIMIT_CLEANUP_INTERVAL 速率限制器清理间隔
+	RATE_LIMIT_CLEANUP_INTERVAL = 1 * time.Minute
 
-	// DefaultPageSize 默认每页大小
-	DefaultPageSize = 100
-	// MaxPageSize 最大每页大小
-	MaxPageSize = 1000
+	// DEFAULT_PAGE_SIZE 默认每页大小
+	DEFAULT_PAGE_SIZE = 100
+	// MAX_PAGE_SIZE 最大每页大小
+	MAX_PAGE_SIZE = 1000
 
-	// MaxHeaderBytes 最大请求头大小（1MB）
-	MaxHeaderBytes = 1 << 20
-	// MaxRequestBodySize 最大请求体大小（10KB）
-	MaxRequestBodySize = 10 * 1024
-	// ShutdownTimeout 优雅关闭超时时间
-	ShutdownTimeout = 5 * time.Second
-	// HTTPRetryMaxRetries HTTP 请求最大重试次数
-	HTTPRetryMaxRetries = 3
+	// MAX_HEADER_BYTES 最大请求头大小（1MB）
+	MAX_HEADER_BYTES = 1 << 20
+	// MAX_REQUEST_BODY_SIZE 最大请求体大小（10KB）
+	MAX_REQUEST_BODY_SIZE = 10 * 1024
+	// SHUTDOWN_TIMEOUT 优雅关闭超时时间
+	SHUTDOWN_TIMEOUT = 5 * time.Second
+	// HTTP_RETRY_MAX_RETRIES HTTP 请求最大重试次数
+	HTTP_RETRY_MAX_RETRIES = 3
 	// HTTP_RETRY_DELAY HTTP 请求重试延迟
 	HTTP_RETRY_DELAY = 1 * time.Second
 	// IDLE_TIMEOUT HTTP 连接空闲超时时间

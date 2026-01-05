@@ -60,12 +60,12 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 
 	cfg := GetArgs()
 
-	assert.Equal(t, strconv.Itoa(define.DefaultPort), cfg.Port)
-	assert.Equal(t, define.DefaultRedis, cfg.Redis)
-	assert.Equal(t, define.DefaultRemoteConfig, cfg.RemoteConfig)
-	assert.Equal(t, define.DefaultRemoteKey, cfg.RemoteKey)
-	assert.Equal(t, define.DefaultTaskInterval, cfg.TaskInterval)
-	assert.Equal(t, define.DefaultMode, cfg.Mode)
+	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port)
+	assert.Equal(t, define.DEFAULT_REDIS, cfg.Redis)
+	assert.Equal(t, define.DEFAULT_REMOTE_CONFIG, cfg.RemoteConfig)
+	assert.Equal(t, define.DEFAULT_REMOTE_KEY, cfg.RemoteKey)
+	assert.Equal(t, define.DEFAULT_TASK_INTERVAL, cfg.TaskInterval)
+	assert.Equal(t, define.DEFAULT_MODE, cfg.Mode)
 }
 
 func TestGetArgs_WithCommandLineArgs(t *testing.T) {

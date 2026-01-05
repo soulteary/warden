@@ -121,11 +121,11 @@ func (d *Dependencies) initHandlers() {
 func (d *Dependencies) initHTTPServer() {
 	d.HTTPServer = &http.Server{
 		Addr:              ":" + d.Config.Port,
-		ReadHeaderTimeout: define.DefaultTimeout * time.Second,
-		ReadTimeout:       define.DefaultTimeout * time.Second,
-		WriteTimeout:      define.DefaultTimeout * time.Second,
+		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
+		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
+		WriteTimeout:      define.DEFAULT_TIMEOUT * time.Second,
 		IdleTimeout:       define.IDLE_TIMEOUT,
-		MaxHeaderBytes:    define.MaxHeaderBytes,
+		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
 	}
 }
 

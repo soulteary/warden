@@ -137,19 +137,19 @@ func LoadFromFile(configPath string) (*Config, error) {
 // applyServerDefaults 应用服务器默认值
 func applyServerDefaults(cfg *Config) {
 	if cfg.Server.Port == "" {
-		cfg.Server.Port = fmt.Sprintf("%d", define.DefaultPort)
+		cfg.Server.Port = fmt.Sprintf("%d", define.DEFAULT_PORT)
 	}
 	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = define.DefaultTimeout * time.Second
+		cfg.Server.ReadTimeout = define.DEFAULT_TIMEOUT * time.Second
 	}
 	if cfg.Server.WriteTimeout == 0 {
-		cfg.Server.WriteTimeout = define.DefaultTimeout * time.Second
+		cfg.Server.WriteTimeout = define.DEFAULT_TIMEOUT * time.Second
 	}
 	if cfg.Server.ShutdownTimeout == 0 {
-		cfg.Server.ShutdownTimeout = define.ShutdownTimeout
+		cfg.Server.ShutdownTimeout = define.SHUTDOWN_TIMEOUT
 	}
 	if cfg.Server.MaxHeaderBytes == 0 {
-		cfg.Server.MaxHeaderBytes = define.MaxHeaderBytes
+		cfg.Server.MaxHeaderBytes = define.MAX_HEADER_BYTES
 	}
 	if cfg.Server.IdleTimeout == 0 {
 		cfg.Server.IdleTimeout = define.IDLE_TIMEOUT
@@ -159,14 +159,14 @@ func applyServerDefaults(cfg *Config) {
 // applyRedisDefaults 应用 Redis 默认值
 func applyRedisDefaults(cfg *Config) {
 	if cfg.Redis.Addr == "" {
-		cfg.Redis.Addr = define.DefaultRedis
+		cfg.Redis.Addr = define.DEFAULT_REDIS
 	}
 }
 
 // applyCacheDefaults 应用缓存默认值
 func applyCacheDefaults(cfg *Config) {
 	if cfg.Cache.UpdateInterval == 0 {
-		cfg.Cache.UpdateInterval = define.DefaultTaskInterval * time.Second
+		cfg.Cache.UpdateInterval = define.DEFAULT_TASK_INTERVAL * time.Second
 	}
 }
 
@@ -183,13 +183,13 @@ func applyRateLimitDefaults(cfg *Config) {
 // applyHTTPDefaults 应用 HTTP 默认值
 func applyHTTPDefaults(cfg *Config) {
 	if cfg.HTTP.Timeout == 0 {
-		cfg.HTTP.Timeout = define.DefaultTimeout * time.Second
+		cfg.HTTP.Timeout = define.DEFAULT_TIMEOUT * time.Second
 	}
 	if cfg.HTTP.MaxIdleConns == 0 {
 		cfg.HTTP.MaxIdleConns = define.DEFAULT_MAX_IDLE_CONNS
 	}
 	if cfg.HTTP.MaxRetries == 0 {
-		cfg.HTTP.MaxRetries = define.HTTPRetryMaxRetries
+		cfg.HTTP.MaxRetries = define.HTTP_RETRY_MAX_RETRIES
 	}
 	if cfg.HTTP.RetryDelay == 0 {
 		cfg.HTTP.RetryDelay = define.HTTP_RETRY_DELAY
@@ -199,27 +199,27 @@ func applyHTTPDefaults(cfg *Config) {
 // applyRemoteDefaults 应用远程配置默认值
 func applyRemoteDefaults(cfg *Config) {
 	if cfg.Remote.URL == "" {
-		cfg.Remote.URL = define.DefaultRemoteConfig
+		cfg.Remote.URL = define.DEFAULT_REMOTE_CONFIG
 	}
 	if cfg.Remote.Key == "" {
-		cfg.Remote.Key = define.DefaultRemoteKey
+		cfg.Remote.Key = define.DEFAULT_REMOTE_KEY
 	}
 	if cfg.Remote.Mode == "" {
-		cfg.Remote.Mode = define.DefaultMode
+		cfg.Remote.Mode = define.DEFAULT_MODE
 	}
 }
 
 // applyTaskDefaults 应用任务默认值
 func applyTaskDefaults(cfg *Config) {
 	if cfg.Task.Interval == 0 {
-		cfg.Task.Interval = define.DefaultTaskInterval * time.Second
+		cfg.Task.Interval = define.DEFAULT_TASK_INTERVAL * time.Second
 	}
 }
 
 // applyAppDefaults 应用应用默认值
 func applyAppDefaults(cfg *Config) {
 	if cfg.App.Mode == "" {
-		cfg.App.Mode = define.DefaultMode
+		cfg.App.Mode = define.DEFAULT_MODE
 	}
 }
 
