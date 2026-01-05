@@ -154,26 +154,26 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 		log.Warn().
 			Int("status_code", res.StatusCode).
 			Str("url", url).
-			Msgf("%s: HTTP status %d", define.ERR_GET_CONFIG_FAILED, res.StatusCode)
-		return nil, fmt.Errorf("%s: HTTP status %d", define.ERR_GET_CONFIG_FAILED, res.StatusCode)
+			Msgf("%s: HTTP status %d", define.ErrGetConfigFailed, res.StatusCode)
+		return nil, fmt.Errorf("%s: HTTP status %d", define.ErrGetConfigFailed, res.StatusCode)
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ERR_READ_CONFIG_FAILED, err)).
+			Err(fmt.Errorf("%s: %w", define.ErrReadConfigFailed, err)).
 			Str("url", url).
-			Msg(define.ERR_READ_CONFIG_FAILED)
-		return nil, fmt.Errorf("%s: %w", define.ERR_READ_CONFIG_FAILED, err)
+			Msg(define.ErrReadConfigFailed)
+		return nil, fmt.Errorf("%s: %w", define.ErrReadConfigFailed, err)
 	}
 
 	var data []define.AllowListUser
 	if err := json.Unmarshal(body, &data); err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ERR_PARSE_CONFIG_FAILED, err)).
+			Err(fmt.Errorf("%s: %w", define.ErrParseConfigFailed, err)).
 			Str("url", url).
-			Msg(define.ERR_PARSE_CONFIG_FAILED)
-		return nil, fmt.Errorf("%s: %w", define.ERR_PARSE_CONFIG_FAILED, err)
+			Msg(define.ErrParseConfigFailed)
+		return nil, fmt.Errorf("%s: %w", define.ErrParseConfigFailed, err)
 	}
 
 	return data, nil
@@ -207,10 +207,10 @@ func FromRemoteConfig(ctx context.Context, url string, authorizationHeader strin
 	res, err := doRequestWithRetry(ctx, req, define.HTTPRetryMaxRetries, define.HTTPRetryDelay)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ERR_GET_CONFIG_FAILED, err)).
+			Err(fmt.Errorf("%s: %w", define.ErrGetConfigFailed, err)).
 			Str("url", url).
-			Msg(define.ERR_GET_CONFIG_FAILED)
-		return nil, fmt.Errorf("%s: %w", define.ERR_GET_CONFIG_FAILED, err)
+			Msg(define.ErrGetConfigFailed)
+		return nil, fmt.Errorf("%s: %w", define.ErrGetConfigFailed, err)
 	}
 
 	return parseRemoteResponse(res, url)

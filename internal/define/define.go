@@ -26,7 +26,8 @@ const (
 	DefaultTimeout = 5
 	// DefaultLockTime 默认锁过期时间（秒）
 	DefaultLockTime = 15
-	DefaultMode     = "DEFAULT" // 1: 2: 3: 4:
+	// DefaultMode 默认模式
+	DefaultMode = "DEFAULT" // 1: 2: 3: 4:
 
 	// RateLimitCleanupInterval 速率限制器清理间隔
 	RateLimitCleanupInterval = 1 * time.Minute
@@ -95,12 +96,12 @@ const (
 
 	// ErrReqInitFailed 网络请求组件初始化失败
 	ErrReqInitFailed = "网络请求组件初始化失败"
-	// ERR_GET_CONFIG_FAILED 获取远程配置失败
-	ERR_GET_CONFIG_FAILED = "获取远程配置失败"
-	// ERR_READ_CONFIG_FAILED 读取远程配置失败
-	ERR_READ_CONFIG_FAILED = "读取远程配置失败"
-	// ERR_PARSE_CONFIG_FAILED 解析远程配置失败
-	ERR_PARSE_CONFIG_FAILED = "解析远程配置失败"
+	// ErrGetConfigFailed 获取远程配置失败
+	ErrGetConfigFailed = "获取远程配置失败"
+	// ErrReadConfigFailed 读取远程配置失败
+	ErrReadConfigFailed = "读取远程配置失败"
+	// ErrParseConfigFailed 解析远程配置失败
+	ErrParseConfigFailed = "解析远程配置失败"
 
 	// WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL 获取远程规则出错，仅使用本地规则
 	WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL = "获取远程规则出错，仅使用本地规则"

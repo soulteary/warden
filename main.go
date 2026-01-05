@@ -467,17 +467,20 @@ func main() {
 	// 启动定时任务调度器
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
-	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
-		log.Fatal().
-			Err(err).
-			Msg("定时任务调度器初始化失败，程序退出")
-	}
 	schedulerStopped := scheduler.Start()
 	defer func() {
 		close(schedulerStopped)
 		scheduler.Clear()
 		app.log.Info().Msg("定时任务调度器已关闭")
 	}()
+	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
+		// 在退出前先清理资源
+		close(schedulerStopped)
+		scheduler.Clear()
+		log.Fatal().
+			Err(err).
+			Msg("定时任务调度器初始化失败，程序退出")
+	}
 
 	// 启动服务器
 	srv := startServer(app.port)

@@ -16,9 +16,10 @@ var (
 	// ErrParamsNotAdapted 参数数量不匹配
 	ErrParamsNotAdapted = errors.New("the number of params is not adapted")
 	// ErrNotAFunction 不是函数错误，只有函数才能被调度到任务队列
-	ErrNotAFunction         = errors.New("only functions can be schedule into the job queue")
+	ErrNotAFunction = errors.New("only functions can be schedule into the job queue")
 	// ErrPeriodNotSpecified 未指定任务周期错误
-	ErrPeriodNotSpecified   = errors.New("unspecified job period")
+	ErrPeriodNotSpecified = errors.New("unspecified job period")
+	// ErrParameterCannotBeNil 参数不能为 nil 错误
 	ErrParameterCannotBeNil = errors.New("nil parameters cannot be used with reflection")
 	ErrJobTimeout           = errors.New("job execution timeout")
 	ErrJobCancelled         = errors.New("job execution cancelled")
