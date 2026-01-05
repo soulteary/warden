@@ -24,12 +24,11 @@ var log = logger.GetLogger()
 // 使用 map 结构提高查找效率，同时保持 API 兼容性
 // 维护顺序列表以保持插入顺序
 // 缓存哈希值以优化数据变化检测
-type SafeUserCache struct {
+type SafeUserCache struct { //nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 	mu    sync.RWMutex                    // 24 bytes
 	order []string                        // 24 bytes (8 pointer + 8 len + 8 cap)
 	hash  string                          // 16 bytes (8 pointer + 8 len)
 	users map[string]define.AllowListUser // 8 bytes pointer
-	//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 }
 
 // NewSafeUserCache 创建新的线程安全用户缓存
