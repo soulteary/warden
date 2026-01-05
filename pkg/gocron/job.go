@@ -14,9 +14,10 @@ var (
 	// ErrTimeFormat 时间格式错误
 	ErrTimeFormat = errors.New("time format error")
 	// ErrParamsNotAdapted 参数数量不匹配
-	ErrParamsNotAdapted     = errors.New("the number of params is not adapted")
-	ErrNotAFunction         = errors.New("only functions can be schedule into the job queue")
-	ErrPeriodNotSpecified   = errors.New("unspecified job period")
+	ErrParamsNotAdapted = errors.New("the number of params is not adapted")
+	// ErrNotAFunction 不是函数错误，只有函数才能被调度到任务队列
+	ErrNotAFunction       = errors.New("only functions can be schedule into the job queue")
+	ErrPeriodNotSpecified = errors.New("unspecified job period")
 	ErrParameterCannotBeNil = errors.New("nil parameters cannot be used with reflection")
 	ErrJobTimeout           = errors.New("job execution timeout")
 	ErrJobCancelled         = errors.New("job execution cancelled")
@@ -329,6 +330,7 @@ func (j *Job) NextScheduledTime() time.Time {
 
 // set the job's unit with seconds,minutes,hours...
 // #nosec G107 -- expected 参数总是为 1，这是设计上的要求
+//nolint:unparam // expected 参数总是为 1，这是设计上的要求
 func (j *Job) mustInterval(expected uint64) error {
 	if j.interval != expected {
 		return fmt.Errorf("interval must be %d", expected)

@@ -20,10 +20,12 @@ const DefaultRemoteConfig = "http://localhost:8080/config.json"
 const DefaultRemoteKey = ""
 
 const (
+	// DefaultTaskInterval 默认任务间隔时间（秒）
 	DefaultTaskInterval = 5 // 5s
 	DefaultTimeout      = 5
-	DEFAULT_LOCK_TIME   = 15
-	DefaultMode         = "DEFAULT" // 1: 2: 3: 4:
+	// DefaultLockTime 默认锁过期时间（秒）
+	DefaultLockTime = 15
+	DefaultMode     = "DEFAULT" // 1: 2: 3: 4:
 
 	// RateLimitCleanupInterval 速率限制器清理间隔
 	RateLimitCleanupInterval = 1 * time.Minute
@@ -81,10 +83,10 @@ const (
 )
 
 const (
-	// WARN_RULE_NOT_FOUND 没有找到规则文件
-	WARN_RULE_NOT_FOUND = "没有找到规则文件"
-	// WARN_READ_RULE_ERR 读取规则文件遇到错误
-	WARN_READ_RULE_ERR = "读取规则文件遇到错误"
+	// WarnRuleNotFound 没有找到规则文件
+	WarnRuleNotFound = "没有找到规则文件"
+	// WarnReadRuleErr 读取规则文件遇到错误
+	WarnReadRuleErr = "读取规则文件遇到错误"
 	// WARN_PARSE_RULE_ERR 解析规则文件遇到错误
 	WARN_PARSE_RULE_ERR = "解析规则文件遇到错误"
 	// ERROR_CAN_NOT_OPEN_RULE 读取规则文件出错

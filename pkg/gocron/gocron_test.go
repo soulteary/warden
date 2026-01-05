@@ -123,7 +123,7 @@ func TestScheduler_WeekdaysTodayAfter(t *testing.T) {
 	timeToSchedule := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()-1, 0, 0, time.Local)
 
 	job := callTodaysWeekday(scheduler.Every(1)).At(fmt.Sprintf("%02d:%02d", timeToSchedule.Hour(), timeToSchedule.Minute()))
-	job.Do(task)
+	_ = job.Do(task)
 	t.Logf("job is scheduled for %s", job.NextScheduledTime())
 	if job.NextScheduledTime().Weekday() != timeToSchedule.Weekday() {
 		t.Errorf("Job scheduled for current weekday for earlier time, should still be scheduled for current weekday (but next week)")
@@ -676,10 +676,10 @@ func TestLocker(t *testing.T) {
 
 func TestGetAllJobs(t *testing.T) {
 	defaultScheduler = NewScheduler()
-	Every(1).Minute().Do(task)
-	Every(2).Minutes().Do(task)
-	Every(3).Minutes().Do(task)
-	Every(4).Minutes().Do(task)
+	_ = Every(1).Minute().Do(task)
+	_ = Every(2).Minutes().Do(task)
+	_ = Every(3).Minutes().Do(task)
+	_ = Every(4).Minutes().Do(task)
 	js := Jobs()
 	assert.Len(t, js, 4)
 }

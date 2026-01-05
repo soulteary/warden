@@ -34,8 +34,8 @@ import (
 func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	if _, err := os.Stat(rulesFile); errors.Is(err, os.ErrNotExist) {
 		log.Warn().
-			Str("err", define.WARN_RULE_NOT_FOUND).
-			Msgf(define.WARN_RULE_NOT_FOUND)
+			Str("err", define.WarnRuleNotFound).
+			Msgf(define.WarnRuleNotFound)
 		return rules
 	}
 
@@ -60,9 +60,9 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	raw, err := io.ReadAll(file)
 	if err != nil {
 		log.Warn().
-			Err(fmt.Errorf("%s: %w", define.WARN_READ_RULE_ERR, err)).
+			Err(fmt.Errorf("%s: %w", define.WarnReadRuleErr, err)).
 			Str("file", rulesFile).
-			Msg(define.WARN_READ_RULE_ERR)
+			Msg(define.WarnReadRuleErr)
 		return rules
 	}
 

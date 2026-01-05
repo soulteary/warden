@@ -41,7 +41,7 @@ func generateLockValue() (string, error) {
 // Lock 获取分布式锁，兼容 gocron.Locker 接口
 //
 // 该函数实现了基于 Redis 的分布式锁，使用 SETNX 命令确保原子性。
-// 锁的默认过期时间为 DEFAULT_LOCK_TIME 秒，防止死锁。
+// 锁的默认过期时间为 DefaultLockTime 秒，防止死锁。
 //
 // 参数:
 //   - key: 锁的键名，用于标识不同的锁
@@ -67,7 +67,7 @@ func (s *Locker) Lock(key string) (success bool, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), LockOperationTimeout)
 	defer cancel()
 
-	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DEFAULT_LOCK_TIME).Result()
+	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DefaultLockTime).Result()
 	if err != nil {
 		return false, err
 	}
