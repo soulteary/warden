@@ -59,16 +59,14 @@ linters:
         - name: var-naming
           severity: error
           arguments:
-            - ["allowAllCaps"] # 允许 ALL_CAPS 命名风格（用于常量）
-            - ["allowPrivate"] # 允许私有变量使用 camelCase
+            - [allowAllCaps]
+            - [allowPrivate]
         - name: package-comments
           severity: warning
         # 常量命名规范（根据 CODE_STYLE.md 和 CONTRIBUTING.md）：
         # - 所有导出的常量必须使用 ALL_CAPS (UPPER_SNAKE_CASE)
         # - 错误变量（以 Err 开头）可以使用 PascalCase（这是 Go 的约定）
         # - 其他导出的变量使用 PascalCase
-        # 注意：var-naming 规则会检查所有导出的变量和常量
-        # 但由于 revive 无法精确区分常量和变量，需要手动确保常量使用 ALL_CAPS
 #
 #   gosec:
 #     # 排除一些误报
@@ -77,31 +75,33 @@ linters:
 #       - G107 # HTTP 请求（某些情况下需要）
 
 # 问题配置
-issues:
-  # 排除的问题规则
-  exclude-rules:
-    # 排除测试文件中的某些检查
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-    # 允许常量使用 ALL_CAPS 命名（根据 CODE_STYLE.md 和 CONTRIBUTING.md）
-    # 排除所有对常量使用 ALL_CAPS 的 var-naming 检查
-    - text: "don't use ALL_CAPS in Go names; use CamelCase"
-      linters:
-        - revive
-
-  # 最大问题数（0 表示无限制）
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
-  # 排除问题模式
-  exclude:
-    # 排除一些常见的误报
-    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-    - "exported: exported (type|function|method|field|const) .* should have comment"
-    # 允许常量使用 ALL_CAPS 命名（根据 CODE_STYLE.md 和 CONTRIBUTING.md）
-    - "var-naming: don't use ALL_CAPS in Go names; use CamelCase"
+# 注意：golangci-lint v2.5.0 不支持 issues 配置项
+# 如果需要使用 issues 配置，请升级到最新版本
+# issues:
+#   # 排除的问题规则
+#   exclude-rules:
+#     # 排除测试文件中的某些检查
+#     - path: _test\.go
+#       linters:
+#         - errcheck
+#         - gosec
+#     # 允许常量使用 ALL_CAPS 命名（根据 CODE_STYLE.md 和 CONTRIBUTING.md）
+#     # 排除所有对常量使用 ALL_CAPS 的 var-naming 检查
+#     - text: "don't use ALL_CAPS in Go names; use CamelCase"
+#       linters:
+#         - revive
+#
+#   # 最大问题数（0 表示无限制）
+#   max-issues-per-linter: 0
+#   max-same-issues: 0
+#
+#   # 排除问题模式
+#   exclude:
+#     # 排除一些常见的误报
+#     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+#     - "exported: exported (type|function|method|field|const) .* should have comment"
+#     # 允许常量使用 ALL_CAPS 命名（根据 CODE_STYLE.md 和 CONTRIBUTING.md）
+#     - "var-naming: don't use ALL_CAPS in Go names; use CamelCase"
 
 # 输出配置（v2.5.0 中某些输出选项可能不被支持）
 # output:
