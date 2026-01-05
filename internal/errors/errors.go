@@ -9,9 +9,9 @@ import (
 
 // AppError 应用错误类型，提供统一的错误处理
 type AppError struct {
-	Code    string // 错误码
-	Message string // 错误消息
-	Err     error  // 底层错误
+	Code    string // 错误码 (16 bytes)
+	Message string // 错误消息 (16 bytes)
+	Err     error  // 底层错误 (16 bytes interface)
 }
 
 // Error 实现 error 接口

@@ -664,9 +664,9 @@ func TestSetLocker(t *testing.T) {
 }
 
 type lockerResult struct {
-	key   string
-	cycle int
-	s, e  time.Time
+	s, e  time.Time // 48 bytes (24 + 24)
+	key   string    // 16 bytes
+	cycle int       // 8 bytes
 }
 
 func TestLocker(t *testing.T) {

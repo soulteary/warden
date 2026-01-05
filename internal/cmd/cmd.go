@@ -18,17 +18,16 @@ import (
 
 // Config 存储应用配置
 type Config struct {
-	Port          string
-	Redis         string
-	RedisPassword string // Redis 密码
-	RemoteConfig  string
-	RemoteKey     string
-	TaskInterval  int
-	Mode          string
-	// HTTP 客户端配置
-	HTTPTimeout      int  // HTTP 请求超时时间（秒）
-	HTTPMaxIdleConns int  // 最大空闲连接数
-	HTTPInsecureTLS  bool // 是否跳过 TLS 证书验证（仅用于开发环境）
+	Port             string // 16 bytes
+	Redis            string // 16 bytes
+	RedisPassword    string // 16 bytes
+	RemoteConfig     string // 16 bytes
+	RemoteKey        string // 16 bytes
+	Mode             string // 16 bytes
+	TaskInterval     int    // 8 bytes
+	HTTPTimeout      int    // 8 bytes
+	HTTPMaxIdleConns int    // 8 bytes
+	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
 }
 
 // GetArgs 解析命令行参数和环境变量，返回配置结构体

@@ -32,21 +32,20 @@ type Config struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port            string        `yaml:"port"`
-	ReadTimeout     time.Duration `yaml:"read_timeout"`
-	WriteTimeout    time.Duration `yaml:"write_timeout"`
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
-	MaxHeaderBytes  int           `yaml:"max_header_bytes"`
-	IdleTimeout     time.Duration `yaml:"idle_timeout"`
+	Port            string        `yaml:"port"`             // 16 bytes
+	ReadTimeout     time.Duration `yaml:"read_timeout"`     // 8 bytes
+	WriteTimeout    time.Duration `yaml:"write_timeout"`    // 8 bytes
+	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"` // 8 bytes
+	IdleTimeout     time.Duration `yaml:"idle_timeout"`     // 8 bytes
+	MaxHeaderBytes  int           `yaml:"max_header_bytes"` // 8 bytes
 }
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
-	Addr     string `yaml:"addr"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
-	// PasswordFile 密码文件路径（优先级高于 password）
-	PasswordFile string `yaml:"password_file"`
+	Addr         string `yaml:"addr"`          // 16 bytes
+	Password     string `yaml:"password"`      // 16 bytes
+	PasswordFile string `yaml:"password_file"` // 16 bytes
+	DB           int    `yaml:"db"`            // 8 bytes
 }
 
 // CacheConfig 缓存配置
@@ -147,7 +146,7 @@ func applyServerDefaults(cfg *Config) {
 		cfg.Server.WriteTimeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.Server.ShutdownTimeout == 0 {
-		cfg.Server.ShutdownTimeout = define.SHUTDOWN_TIMEOUT
+		cfg.Server.ShutdownTimeout = define.ShutdownTimeout
 	}
 	if cfg.Server.MaxHeaderBytes == 0 {
 		cfg.Server.MaxHeaderBytes = define.MaxHeaderBytes
@@ -190,7 +189,7 @@ func applyHTTPDefaults(cfg *Config) {
 		cfg.HTTP.MaxIdleConns = define.DEFAULT_MAX_IDLE_CONNS
 	}
 	if cfg.HTTP.MaxRetries == 0 {
-		cfg.HTTP.MaxRetries = define.HTTP_RETRY_MAX_RETRIES
+		cfg.HTTP.MaxRetries = define.HTTPRetryMaxRetries
 	}
 	if cfg.HTTP.RetryDelay == 0 {
 		cfg.HTTP.RetryDelay = define.HTTP_RETRY_DELAY
@@ -347,16 +346,16 @@ func (c *Config) GetRedisPassword() (string, error) {
 // LegacyConfig 旧的配置格式（用于向后兼容）
 // 注意：这个类型与 cmd.Config 结构相同，但定义在不同的包中
 type LegacyConfig struct {
-	Port             string
-	Redis            string
-	RedisPassword    string
-	RemoteConfig     string
-	RemoteKey        string
-	TaskInterval     int
-	Mode             string
-	HTTPTimeout      int
-	HTTPMaxIdleConns int
-	HTTPInsecureTLS  bool
+	Port             string // 16 bytes
+	Redis            string // 16 bytes
+	RedisPassword    string // 16 bytes
+	RemoteConfig     string // 16 bytes
+	RemoteKey        string // 16 bytes
+	Mode             string // 16 bytes
+	TaskInterval     int    // 8 bytes
+	HTTPTimeout      int    // 8 bytes
+	HTTPMaxIdleConns int    // 8 bytes
+	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
 }
 
 // ToLegacyConfig 转换为旧的 Config 格式（保持向后兼容）
@@ -382,16 +381,16 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 
 // CmdConfigData 配置数据结构（用于转换为 cmd.Config，避免循环依赖）
 type CmdConfigData struct {
-	Port             string
-	Redis            string
-	RedisPassword    string
-	RemoteConfig     string
-	RemoteKey        string
-	TaskInterval     int
-	Mode             string
-	HTTPTimeout      int
-	HTTPMaxIdleConns int
-	HTTPInsecureTLS  bool
+	Port             string // 16 bytes
+	Redis            string // 16 bytes
+	RedisPassword    string // 16 bytes
+	RemoteConfig     string // 16 bytes
+	RemoteKey        string // 16 bytes
+	Mode             string // 16 bytes
+	TaskInterval     int    // 8 bytes
+	HTTPTimeout      int    // 8 bytes
+	HTTPMaxIdleConns int    // 8 bytes
+	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
 }
 
 // ToCmdConfig 转换为 cmd.Config 格式

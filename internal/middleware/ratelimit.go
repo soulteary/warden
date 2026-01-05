@@ -21,21 +21,21 @@ import (
 
 // RateLimiter 实现简单的内存速率限制
 type RateLimiter struct {
-	visitors     map[string]*visitor
-	mu           sync.RWMutex
-	rate         int             // 允许的请求数
-	window       time.Duration   // 时间窗口
-	cleanup      *time.Ticker    // 清理过期记录的定时器
-	stopCh       chan struct{}   // 停止通道，用于控制 goroutine 生命周期
-	wg           sync.WaitGroup  // WaitGroup，用于等待 goroutine 退出
-	whitelist    map[string]bool // IP 白名单，白名单中的 IP 不受速率限制
-	maxVisitors  int             // 最大访问者数量
-	maxWhitelist int             // 最大白名单数量
+	mu           sync.RWMutex        // 24 bytes
+	wg           sync.WaitGroup      // 12 bytes (padding to 16)
+	visitors     map[string]*visitor // 8 bytes pointer
+	whitelist    map[string]bool     // 8 bytes pointer
+	cleanup      *time.Ticker        // 8 bytes pointer
+	stopCh       chan struct{}       // 8 bytes pointer
+	window       time.Duration       // 8 bytes
+	rate         int                 // 8 bytes
+	maxVisitors  int                 // 8 bytes
+	maxWhitelist int                 // 8 bytes
 }
 
 type visitor struct {
-	count    int
-	lastSeen time.Time
+	lastSeen time.Time // 24 bytes
+	count    int       // 8 bytes
 }
 
 // NewRateLimiter 创建新的速率限制器
@@ -88,8 +88,8 @@ func (rl *RateLimiter) cleanupVisitors() {
 func (rl *RateLimiter) cleanupOldestVisitors() {
 	// 找到最旧的记录
 	type visitorWithTime struct {
-		ip       string
-		lastSeen time.Time
+		lastSeen time.Time // 24 bytes
+		ip       string    // 16 bytes
 	}
 	visitors := make([]visitorWithTime, 0, len(rl.visitors))
 	for ip, v := range rl.visitors {

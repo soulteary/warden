@@ -25,10 +25,10 @@ func BodyLimitMiddleware(next http.Handler) http.Handler {
 		}
 
 		// 检查 Content-Length 头
-		if r.ContentLength > define.MAX_REQUEST_BODY_SIZE {
+		if r.ContentLength > define.MaxRequestBodySize {
 			hlog.FromRequest(r).Warn().
 				Int64("content_length", r.ContentLength).
-				Int("max_size", define.MAX_REQUEST_BODY_SIZE).
+				Int("max_size", define.MaxRequestBodySize).
 				Msg("请求体大小超过限制")
 			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
 			return
@@ -36,7 +36,7 @@ func BodyLimitMiddleware(next http.Handler) http.Handler {
 
 		// 限制请求体大小（MaxBytesReader 会在读取时检查）
 		// 如果超过限制，会在后续读取时返回错误
-		r.Body = http.MaxBytesReader(w, r.Body, define.MAX_REQUEST_BODY_SIZE)
+		r.Body = http.MaxBytesReader(w, r.Body, define.MaxRequestBodySize)
 
 		next.ServeHTTP(w, r)
 	})

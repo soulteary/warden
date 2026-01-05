@@ -25,10 +25,10 @@ var log = logger.GetLogger()
 // 维护顺序列表以保持插入顺序
 // 缓存哈希值以优化数据变化检测
 type SafeUserCache struct {
-	mu    sync.RWMutex
-	users map[string]define.AllowListUser // 使用 map，key 为 phone，用于快速查找
-	order []string                        // 维护插入顺序，存储 phone
-	hash  string                          // 缓存当前数据的哈希值，用于快速比较
+	mu    sync.RWMutex                    // 24 bytes
+	users map[string]define.AllowListUser // 8 bytes pointer
+	order []string                        // 24 bytes (8 pointer + 8 len + 8 cap)
+	hash  string                          // 16 bytes (8 pointer + 8 len)
 }
 
 // NewSafeUserCache 创建新的线程安全用户缓存

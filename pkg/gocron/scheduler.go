@@ -10,10 +10,10 @@ import (
 // Scheduler struct, the only data member is the list of jobs.
 // - implements the sort.Interface{} for sorting jobs, by the time nextRun
 type Scheduler struct {
-	jobs [MAX_JOB_NUM]*Job // Array store jobs
-	size int               // Size of jobs which jobs holding.
-	loc  *time.Location    // Location to use when scheduling jobs with specified times
-	ctx  context.Context   // Context for scheduler cancellation
+	jobs [MAX_JOB_NUM]*Job // 80000 bytes (MAX_JOB_NUM * 8) - Array store jobs
+	loc  *time.Location    // 8 bytes pointer - Location to use when scheduling jobs with specified times
+	ctx  context.Context   // 16 bytes interface - Context for scheduler cancellation
+	size int               // 8 bytes - Size of jobs which jobs holding.
 }
 
 var (

@@ -39,12 +39,12 @@ const (
 
 	// MaxHeaderBytes 最大请求头大小（1MB）
 	MaxHeaderBytes = 1 << 20
-	// MAX_REQUEST_BODY_SIZE 最大请求体大小（10KB）
-	MAX_REQUEST_BODY_SIZE = 10 * 1024
-	// SHUTDOWN_TIMEOUT 优雅关闭超时时间
-	SHUTDOWN_TIMEOUT = 5 * time.Second
-	// HTTP_RETRY_MAX_RETRIES HTTP 请求最大重试次数
-	HTTP_RETRY_MAX_RETRIES = 3
+	// MaxRequestBodySize 最大请求体大小（10KB）
+	MaxRequestBodySize = 10 * 1024
+	// ShutdownTimeout 优雅关闭超时时间
+	ShutdownTimeout = 5 * time.Second
+	// HTTPRetryMaxRetries HTTP 请求最大重试次数
+	HTTPRetryMaxRetries = 3
 	// HTTP_RETRY_DELAY HTTP 请求重试延迟
 	HTTP_RETRY_DELAY = 1 * time.Second
 	// IDLE_TIMEOUT HTTP 连接空闲超时时间

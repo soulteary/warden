@@ -37,16 +37,16 @@ const rulesFile = "./config.json"
 
 // App 应用结构体，封装所有应用状态
 type App struct {
-	userCache           *cache.SafeUserCache
-	redisUserCache      *cache.RedisUserCache
-	redisClient         *redis.Client
-	rateLimiter         *middleware.RateLimiter
-	port                string
-	configURL           string
-	authorizationHeader string
-	taskInterval        uint64
-	appMode             string
-	log                 zerolog.Logger
+	userCache           *cache.SafeUserCache    // 8 bytes pointer
+	redisUserCache      *cache.RedisUserCache   // 8 bytes pointer
+	redisClient         *redis.Client           // 8 bytes pointer
+	rateLimiter         *middleware.RateLimiter // 8 bytes pointer
+	port                string                  // 16 bytes
+	configURL           string                  // 16 bytes
+	authorizationHeader string                  // 16 bytes
+	appMode             string                  // 16 bytes
+	log                 zerolog.Logger          // 24 bytes (interface)
+	taskInterval        uint64                  // 8 bytes
 }
 
 // NewApp 创建新的应用实例
@@ -427,7 +427,7 @@ func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log *
 	}
 
 	// 优雅关闭 HTTP 服务器
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.ShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
@@ -468,11 +468,6 @@ func main() {
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
 	schedulerStopped := scheduler.Start()
-	defer func() {
-		close(schedulerStopped)
-		scheduler.Clear()
-		app.log.Info().Msg("定时任务调度器已关闭")
-	}()
 	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
 		// 在退出前先清理资源
 		close(schedulerStopped)
@@ -484,6 +479,11 @@ func main() {
 		stop()
 		os.Exit(1)
 	}
+	defer func() {
+		close(schedulerStopped)
+		scheduler.Clear()
+		app.log.Info().Msg("定时任务调度器已关闭")
+	}()
 
 	// 启动服务器
 	srv := startServer(app.port)

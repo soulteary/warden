@@ -29,22 +29,22 @@ var (
 
 // Job struct keeping information about job
 type Job struct {
-	interval uint64                   // pause interval * unit between runs
-	jobFunc  string                   // the job jobFunc to run, func[jobFunc]
-	unit     timeUnit                 // time units, ,e.g. 'minutes', 'hours'...
-	atTime   time.Duration            // optional time at which this job runs
-	err      error                    // error related to job
-	loc      *time.Location           // optional timezone that the atTime is in
-	lastRun  time.Time                // datetime of last run
-	nextRun  time.Time                // datetime of next run
-	startDay time.Weekday             // Specific day of the week to start on
-	funcs    map[string]interface{}   // Map for the function task store
-	fparams  map[string][]interface{} // Map for function and  params of function
-	lock     bool                     // lock the job from running at same time form multiple instances
-	tags     []string                 // allow the user to tag jobs with certain labels
-	ctx      context.Context          // optional context for job execution
-	timeout  time.Duration            // optional timeout for job execution
-	mu       sync.RWMutex             // mutex to protect concurrent access to lastRun and nextRun
+	mu       sync.RWMutex             // 24 bytes - mutex to protect concurrent access to lastRun and nextRun
+	lastRun  time.Time                // 24 bytes - datetime of last run
+	nextRun  time.Time                // 24 bytes - datetime of next run
+	funcs    map[string]interface{}   // 8 bytes pointer - Map for the function task store
+	fparams  map[string][]interface{} // 8 bytes pointer - Map for function and params of function
+	tags     []string                 // 24 bytes (8 pointer + 8 len + 8 cap) - allow the user to tag jobs with certain labels
+	loc      *time.Location           // 8 bytes pointer - optional timezone that the atTime is in
+	ctx      context.Context          // 16 bytes interface - optional context for job execution
+	err      error                    // 16 bytes interface - error related to job
+	jobFunc  string                   // 16 bytes - the job jobFunc to run, func[jobFunc]
+	atTime   time.Duration            // 8 bytes - optional time at which this job runs
+	timeout  time.Duration            // 8 bytes - optional timeout for job execution
+	interval uint64                   // 8 bytes - pause interval * unit between runs
+	unit     timeUnit                 // 1 byte - time units, e.g. 'minutes', 'hours'...
+	startDay time.Weekday             // 1 byte - Specific day of the week to start on
+	lock     bool                     // 1 byte - lock the job from running at same time form multiple instances
 }
 
 // NewJob creates a new job with the time interval.

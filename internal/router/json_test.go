@@ -298,7 +298,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("超出范围", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=100&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page=100&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -315,7 +315,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("无效的分页参数-非数字", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=abc&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page=abc&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -325,7 +325,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("无效的分页参数-负数", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=-1&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page=-1&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -334,7 +334,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("无效的分页参数-超出最大页码", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=2000000&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page=2000000&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -343,7 +343,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("无效的分页参数-超出最大页面大小", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=1&page_size=2000", nil)
+		req := httptest.NewRequest("GET", "/?page=1&page_size=2000", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -354,7 +354,7 @@ func TestJSON_Pagination(t *testing.T) {
 	t.Run("无效的分页参数-参数过长", func(t *testing.T) {
 		// 创建一个超过20字符的参数
 		longParam := strings.Repeat("1", 25)
-		req := httptest.NewRequest("GET", "/?page="+longParam+"&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page="+longParam+"&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
