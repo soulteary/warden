@@ -1,7 +1,7 @@
-FROM golang:1.19.0-alpine3.16 AS Builder
+FROM golang:1.25-alpine3.22 AS Builder
 RUN echo '' > /etc/apk/repositories && \
-    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.16/main"         >> /etc/apk/repositories && \
-    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.16/community"    >> /etc/apk/repositories && \
+    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.22/main"         >> /etc/apk/repositories && \
+    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.22/community"    >> /etc/apk/repositories && \
     echo "Asia/Shanghai" > /etc/timezone
 RUN apk add git bash gcc musl-dev upx
 ENV TZ=Asia/Shanghai
@@ -23,7 +23,7 @@ RUN VERSION=$(cat RELEASE_VERSION) && \
 RUN upx -9 -o warden.minify warden && mv warden.minify warden
 
 
-FROM alpine:3.16
+FROM alpine:3.22
 COPY --from=Builder /app/warden /bin/warden
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
