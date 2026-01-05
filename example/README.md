@@ -1,5 +1,7 @@
 # Warden 快速开始示例
 
+> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+
 本目录包含两个不同复杂度的 Warden 使用示例，帮助你快速上手。
 
 ## 📚 示例列表

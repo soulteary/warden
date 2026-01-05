@@ -1,5 +1,7 @@
 # 复杂示例 - 完整功能演示
 
+> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+
 这是 Warden 的完整功能示例，展示了所有核心特性，包括：
 - 本地数据文件
 - 远程 API 数据源

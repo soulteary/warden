@@ -1,5 +1,7 @@
 # Warden
 
+> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+
 一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
 
 > **Warden**（看守者）—— 守护星门的看守者，决定谁可以通过，谁将被拒绝。正如 Stargate 的看守者守护着星际之门，Warden 守护着你的允许列表，确保只有授权用户能够通过。
@@ -224,9 +226,9 @@ sequenceDiagram
 
 ## 📦 安装与运行
 
-> 💡 **快速开始**: 想要快速体验 Warden？查看我们的 [快速开始示例](example/README.md)：
-> - [简单示例](example/basic/README.md) - 基础使用，仅本地数据文件
-> - [复杂示例](example/advanced/README.md) - 完整功能，包含远程 API 和 Mock 服务
+> 💡 **快速开始**: 想要快速体验 Warden？查看我们的 [快速开始示例](example/README.md) / [Quick Start Examples](example/README.en.md)：
+> - [简单示例](example/basic/README.md) / [Simple Example](example/basic/README.en.md) - 基础使用，仅本地数据文件
+> - [复杂示例](example/advanced/README.md) / [Advanced Example](example/advanced/README.en.md) - 完整功能，包含远程 API 和 Mock 服务
 
 ### 前置要求
 
@@ -523,9 +525,9 @@ GET /metrics
 
 ## 🐳 Docker 部署
 
-> 🚀 **快速部署**: 查看 [示例目录](example/README.md) 获取完整的 Docker Compose 配置示例：
-> - [简单示例](example/basic/docker-compose.yml) - 基础 Docker Compose 配置
-> - [复杂示例](example/advanced/docker-compose.yml) - 包含 Mock API 的完整配置
+> 🚀 **快速部署**: 查看 [示例目录](example/README.md) / [Examples Directory](example/README.en.md) 获取完整的 Docker Compose 配置示例：
+> - [简单示例](example/basic/docker-compose.yml) / [Simple Example](example/basic/docker-compose.yml) - 基础 Docker Compose 配置
+> - [复杂示例](example/advanced/docker-compose.yml) / [Advanced Example](example/advanced/docker-compose.yml) - 包含 Mock API 的完整配置
 
 ### 使用 Docker Compose
 
@@ -682,7 +684,7 @@ warden/
 
 ## 🔧 开发指南
 
-> 📚 **参考示例**: 查看 [示例目录](example/README.md) 了解不同使用场景的完整示例代码和配置。
+> 📚 **参考示例**: 查看 [示例目录](example/README.md) / [Examples Directory](example/README.en.md) 了解不同使用场景的完整示例代码和配置。
 
 ### 添加新功能
 
@@ -708,8 +710,8 @@ go tool cover -html=coverage.out
 
 项目遵循 Go 官方代码规范和最佳实践。详细规范请参考：
 
-- [CODE_STYLE.md](CODE_STYLE.md) - 代码风格指南
-- [CONTRIBUTING.md](CONTRIBUTING.md) - 贡献指南
+- [CODE_STYLE.md](CODE_STYLE.md) / [CODE_STYLE.en.md](CODE_STYLE.en.md) - 代码风格指南
+- [CONTRIBUTING.md](CONTRIBUTING.md) / [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - 贡献指南
 
 ### API 文档
 

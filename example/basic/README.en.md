@@ -1,0 +1,216 @@
+# Simple Example - Quick Start
+
+> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+
+This is the simplest Warden usage example, using only local data files, suitable for quick testing and development environments.
+
+## 📋 Prerequisites
+
+- Go 1.25+ or Docker
+- Redis (for caching and distributed locks, required even when using only local files)
+
+## 🚀 Quick Start
+
+### Method 1: Using Go
+
+1. **Prepare Data File**
+
+Create a `data.json` file:
+
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com"
+    }
+]
+```
+
+2. **Start Redis**
+
+```bash
+# Start Redis using Docker (simplest)
+docker run -d --name redis -p 6379:6379 redis:6.2.4
+
+# Or use local Redis
+redis-server
+```
+
+3. **Run Warden**
+
+```bash
+# Execute in project root directory
+go run main.go \
+  --port 8081 \
+  --redis localhost:6379 \
+  --mode ONLY_LOCAL
+```
+
+4. **Test Service**
+
+```bash
+# Get user list (requires API Key)
+curl -H "X-API-Key: your-api-key" http://localhost:8081/
+
+# Health check (no API Key required)
+curl http://localhost:8081/health
+```
+
+### Method 2: Using Docker Compose
+
+1. **Prepare Data File**
+
+Copy the example data file to the current directory:
+
+```bash
+cp ../../data.example.json ./data.json
+```
+
+2. **Create Environment Variable File `.env`**
+
+```env
+PORT=8081
+REDIS=warden-redis:6379
+MODE=ONLY_LOCAL
+API_KEY=your-secret-api-key-here
+```
+
+3. **Start Service**
+
+```bash
+docker-compose up -d
+```
+
+4. **Test Service**
+
+```bash
+# Get user list
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
+
+# Health check
+curl http://localhost:8081/health
+```
+
+## 📝 Configuration
+
+### Running Mode
+
+This example uses `ONLY_LOCAL` mode, which means:
+- ✅ Only reads data from local `data.json` file
+- ❌ Does not use remote API
+- ✅ Data is cached in Redis for improved performance
+
+### Data File Format
+
+The `data.json` file must be in JSON array format, each element containing:
+- `phone`: Phone number (string)
+- `mail`: Email address (string)
+
+Example:
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    }
+]
+```
+
+## 🔍 Verify Service
+
+### 1. Check Service Status
+
+```bash
+curl http://localhost:8081/health
+```
+
+Expected response:
+```json
+{
+    "status": "ok",
+    "details": {
+        "redis": "ok",
+        "data_loaded": true,
+        "user_count": 2
+    },
+    "mode": "ONLY_LOCAL"
+}
+```
+
+### 2. Get User List
+
+```bash
+curl -H "X-API-Key: your-api-key" http://localhost:8081/
+```
+
+Expected response:
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com"
+    }
+]
+```
+
+### 3. Paginated Query
+
+```bash
+curl -H "X-API-Key: your-api-key" "http://localhost:8081/?page=1&page_size=1"
+```
+
+Expected response:
+```json
+{
+    "data": [
+        {
+            "phone": "13800138000",
+            "mail": "admin@example.com"
+        }
+    ],
+    "pagination": {
+        "page": 1,
+        "page_size": 1,
+        "total": 2,
+        "total_pages": 2
+    }
+}
+```
+
+## 🛠️ Common Questions
+
+### Q: Why is Redis needed?
+
+A: Warden uses Redis for:
+- Data caching (improve performance)
+- Distributed locks (prevent scheduled tasks from executing repeatedly)
+- Multi-instance data synchronization
+
+Even when using only local files, Redis is required.
+
+### Q: How to modify data?
+
+A: After modifying the `data.json` file, the service will automatically load it on the next scheduled task execution (default every 5 seconds). You can also restart the service to take effect immediately.
+
+### Q: How to set API Key?
+
+A: Set via environment variable:
+```bash
+export API_KEY=your-secret-api-key-here
+go run main.go --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
+```
+
+## 📚 Next Steps
+
+- Check [Advanced Example](../advanced/README.en.md) to learn how to use remote APIs
+- Read [Complete Documentation](../../README.en.md) to learn more features
+- Check [API Documentation](../../openapi.yaml) to learn all API endpoints
+

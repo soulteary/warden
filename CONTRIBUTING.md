@@ -1,5 +1,7 @@
 # 贡献指南
 
+> 🌐 **Language / 语言**: [English](CONTRIBUTING.en.md) | [中文](CONTRIBUTING.md)
+
 感谢你对 Warden 项目的关注！我们欢迎所有形式的贡献。
 
 ## 📋 目录

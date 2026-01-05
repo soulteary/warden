@@ -1,5 +1,7 @@
 # 简单示例 - 快速开始
 
+> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+
 这是 Warden 的最简单使用示例，仅使用本地数据文件，适合快速测试和开发环境。
 
 ## 📋 前置要求
