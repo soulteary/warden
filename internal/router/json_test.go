@@ -222,7 +222,7 @@ func TestJSON_MethodNotAllowed(t *testing.T) {
 	disallowedMethods := []string{"POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	for _, method := range disallowedMethods {
 		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, "/", nil)
+			req := httptest.NewRequest(method, "/", http.NoBody)
 			w := httptest.NewRecorder()
 
 			handler(w, req)
@@ -249,7 +249,7 @@ func TestJSON_Pagination(t *testing.T) {
 	handler := JSON(userCache)
 
 	t.Run("第一页", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=1&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page=1&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)
@@ -281,7 +281,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("最后一页", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/?page=4&page_size=3", nil)
+		req := httptest.NewRequest("GET", "/?page=4&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
 
 		handler(w, req)

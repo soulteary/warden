@@ -125,7 +125,7 @@ func (d *Dependencies) initHTTPServer() {
 		ReadTimeout:       define.DefaultTimeout * time.Second,
 		WriteTimeout:      define.DefaultTimeout * time.Second,
 		IdleTimeout:       define.IDLE_TIMEOUT,
-		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
+		MaxHeaderBytes:    define.MaxHeaderBytes,
 	}
 }
 

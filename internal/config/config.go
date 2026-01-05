@@ -150,7 +150,7 @@ func applyServerDefaults(cfg *Config) {
 		cfg.Server.ShutdownTimeout = define.SHUTDOWN_TIMEOUT
 	}
 	if cfg.Server.MaxHeaderBytes == 0 {
-		cfg.Server.MaxHeaderBytes = define.MAX_HEADER_BYTES
+		cfg.Server.MaxHeaderBytes = define.MaxHeaderBytes
 	}
 	if cfg.Server.IdleTimeout == 0 {
 		cfg.Server.IdleTimeout = define.IDLE_TIMEOUT

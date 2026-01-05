@@ -32,13 +32,13 @@ const (
 	// RateLimitCleanupInterval 速率限制器清理间隔
 	RateLimitCleanupInterval = 1 * time.Minute
 
-	// DEFAULT_PAGE_SIZE 默认每页大小
-	DEFAULT_PAGE_SIZE = 100
-	// MAX_PAGE_SIZE 最大每页大小
-	MAX_PAGE_SIZE = 1000
+	// DefaultPageSize 默认每页大小
+	DefaultPageSize = 100
+	// MaxPageSize 最大每页大小
+	MaxPageSize = 1000
 
-	// MAX_HEADER_BYTES 最大请求头大小（1MB）
-	MAX_HEADER_BYTES = 1 << 20
+	// MaxHeaderBytes 最大请求头大小（1MB）
+	MaxHeaderBytes = 1 << 20
 	// MAX_REQUEST_BODY_SIZE 最大请求体大小（10KB）
 	MAX_REQUEST_BODY_SIZE = 10 * 1024
 	// SHUTDOWN_TIMEOUT 优雅关闭超时时间

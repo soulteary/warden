@@ -48,7 +48,7 @@ func putBuffer(buf *bytes.Buffer) {
 // 加强输入验证：限制参数长度、验证数值范围、防止注入攻击
 func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination bool, err error) {
 	page = 1
-	pageSize = define.DEFAULT_PAGE_SIZE
+	pageSize = define.DefaultPageSize
 
 	pageStr := r.URL.Query().Get("page")
 	sizeStr := r.URL.Query().Get("page_size")
@@ -89,11 +89,11 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 				return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为数字")
 			}
 		}
-		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MAX_PAGE_SIZE {
+		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MaxPageSize {
 			pageSize = s
 		} else {
-			if s > define.MAX_PAGE_SIZE {
-				return 0, 0, false, fmt.Errorf("每页大小超出最大限制: %d", define.MAX_PAGE_SIZE)
+			if s > define.MaxPageSize {
+				return 0, 0, false, fmt.Errorf("每页大小超出最大限制: %d", define.MaxPageSize)
 			}
 			return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为正整数")
 		}

@@ -415,7 +415,7 @@ func startServer(port string) *http.Server {
 		ReadTimeout:       define.DefaultTimeout * time.Second,
 		WriteTimeout:      define.DefaultTimeout * time.Second,
 		IdleTimeout:       define.IDLE_TIMEOUT,
-		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
+		MaxHeaderBytes:    define.MaxHeaderBytes,
 	}
 }
 
