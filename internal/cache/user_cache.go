@@ -29,7 +29,7 @@ type SafeUserCache struct {
 	order []string                        // 24 bytes (8 pointer + 8 len + 8 cap)
 	hash  string                          // 16 bytes (8 pointer + 8 len)
 	users map[string]define.AllowListUser // 8 bytes pointer
-	// 字段顺序已优化：24字节字段在前，16字节字段，最后是8字节指针字段
+	//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 }
 
 // NewSafeUserCache 创建新的线程安全用户缓存

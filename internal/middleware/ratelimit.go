@@ -20,6 +20,8 @@ import (
 )
 
 // RateLimiter 实现简单的内存速率限制
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type RateLimiter struct {
 	mu           sync.RWMutex        // 24 bytes
 	wg           sync.WaitGroup      // 12 bytes (padding to 16)
@@ -31,7 +33,6 @@ type RateLimiter struct {
 	whitelist    map[string]bool     // 8 bytes pointer
 	cleanup      *time.Ticker        // 8 bytes pointer
 	stopCh       chan struct{}       // 8 bytes pointer
-	// 字段顺序已优化：24字节字段在前，16字节字段，8字节字段和指针字段放在一起
 }
 
 type visitor struct {

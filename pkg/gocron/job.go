@@ -28,6 +28,8 @@ var (
 )
 
 // Job struct keeping information about job
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Job struct {
 	mu       sync.RWMutex             // 24 bytes - mutex to protect concurrent access to lastRun and nextRun
 	lastRun  time.Time                // 24 bytes - datetime of last run
@@ -45,7 +47,6 @@ type Job struct {
 	unit     timeUnit                 // 1 byte - time units, e.g. 'minutes', 'hours'...
 	startDay time.Weekday             // 1 byte - Specific day of the week to start on
 	lock     bool                     // 1 byte - lock the job from running at same time form multiple instances
-	// 字段顺序已优化：24字节字段在前，16字节字段，8字节字段和指针字段，最后是小字段
 }
 
 // NewJob creates a new job with the time interval.

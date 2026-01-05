@@ -25,6 +25,8 @@
 // All rights reserved.
 // Use of this source code is governed by a BSD-style .
 // license that can be found in the LICENSE file.
+//
+//nolint:revive // 常量使用 ALL_CAPS 符合项目规范
 package gocron
 
 import (

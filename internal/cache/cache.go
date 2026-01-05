@@ -20,6 +20,7 @@ import (
 
 const (
 	// LOCK_OPERATION_TIMEOUT 锁操作超时时间
+	//nolint:revive // 常量使用 ALL_CAPS 符合项目规范
 	LOCK_OPERATION_TIMEOUT = 5 * time.Second
 )
 

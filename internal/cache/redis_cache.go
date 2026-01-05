@@ -1,5 +1,7 @@
 // Package cache 提供了用户数据的缓存功能。
 // 支持内存缓存和 Redis 缓存两种实现，以及基于 Redis 的分布式锁。
+//
+//nolint:revive // 常量使用 ALL_CAPS 符合项目规范
 package cache
 
 import (

@@ -479,6 +479,7 @@ func main() {
 		close(schedulerStopped)
 		scheduler.Clear()
 		stop()
+		//nolint:gocritic // exitAfterDefer: 需要在错误时立即退出，已手动清理资源
 		log.Fatal().
 			Err(err).
 			Msg("定时任务调度器初始化失败，程序退出")

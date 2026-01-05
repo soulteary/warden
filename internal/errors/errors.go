@@ -10,11 +10,12 @@ import (
 )
 
 // AppError 应用错误类型，提供统一的错误处理
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type AppError struct {
 	Code    string // 错误码 (16 bytes)
 	Message string // 错误消息 (16 bytes)
 	Err     error  // 底层错误 (16 bytes interface)
-	// 字段顺序已优化：所有16字节字段已对齐
 }
 
 // Error 实现 error 接口

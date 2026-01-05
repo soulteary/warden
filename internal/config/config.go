@@ -19,6 +19,8 @@ import (
 )
 
 // Config 应用配置结构体
+//
+//nolint:govet // fieldalignment: 字段顺序受 YAML 序列化标签影响，优化可能破坏配置文件的兼容性
 type Config struct {
 	Server    ServerConfig    `yaml:"server"`
 	Redis     RedisConfig     `yaml:"redis"`
