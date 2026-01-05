@@ -21,7 +21,7 @@ const DefaultRemoteKey = ""
 
 const (
 	DefaultTaskInterval = 5 // 5s
-	DefaultTimeout     = 5
+	DefaultTimeout      = 5
 	DEFAULT_LOCK_TIME   = 15
 	DefaultMode         = "DEFAULT" // 1: 2: 3: 4:
 

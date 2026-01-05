@@ -12,7 +12,7 @@ import (
 
 var (
 	// ErrTimeFormat 时间格式错误
-	ErrTimeFormat           = errors.New("time format error")
+	ErrTimeFormat = errors.New("time format error")
 	// ErrParamsNotAdapted 参数数量不匹配
 	ErrParamsNotAdapted     = errors.New("the number of params is not adapted")
 	ErrNotAFunction         = errors.New("only functions can be schedule into the job queue")
