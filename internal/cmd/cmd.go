@@ -157,13 +157,13 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMa
 // getArgsFromFlags 从命令行参数和环境变量加载配置（原有逻辑）
 func getArgsFromFlags() *Config {
 	cfg := &Config{
-		Port:             strconv.Itoa(define.DefaultPort),
-		Redis:            define.DefaultRedis,
-		RemoteConfig:     define.DefaultRemoteConfig,
-		RemoteKey:        define.DefaultRemoteKey,
-		TaskInterval:     define.DefaultTaskInterval,
-		Mode:             define.DefaultMode,
-		HTTPTimeout:      define.DefaultTimeout,
+		Port:             strconv.Itoa(define.DEFAULT_PORT),
+		Redis:            define.DEFAULT_REDIS,
+		RemoteConfig:     define.DEFAULT_REMOTE_CONFIG,
+		RemoteKey:        define.DEFAULT_REMOTE_KEY,
+		TaskInterval:     define.DEFAULT_TASK_INTERVAL,
+		Mode:             define.DEFAULT_MODE,
+		HTTPTimeout:      define.DEFAULT_TIMEOUT,
 		HTTPMaxIdleConns: 100,
 		HTTPInsecureTLS:  false,
 	}
@@ -178,14 +178,14 @@ func getArgsFromFlags() *Config {
 	var httpInsecureTLSFlag bool
 	var redisPasswordFlag string
 
-	fs.IntVar(&portFlag, "port", define.DefaultPort, "web port")
-	fs.StringVar(&redisFlag, "redis", define.DefaultRedis, "redis host and port")
+	fs.IntVar(&portFlag, "port", define.DEFAULT_PORT, "web port")
+	fs.StringVar(&redisFlag, "redis", define.DEFAULT_REDIS, "redis host and port")
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	fs.StringVar(&configFlag, "config", define.DefaultRemoteConfig, "remote config url")
-	fs.StringVar(&keyFlag, "key", define.DefaultRemoteKey, "remote config key")
-	fs.StringVar(&modeFlag, "mode", define.DefaultMode, "app mode")
-	fs.IntVar(&intervalFlag, "interval", define.DefaultTaskInterval, "task interval")
-	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DefaultTimeout, "HTTP request timeout in seconds")
+	fs.StringVar(&configFlag, "config", define.DEFAULT_REMOTE_CONFIG, "remote config url")
+	fs.StringVar(&keyFlag, "key", define.DEFAULT_REMOTE_KEY, "remote config key")
+	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
+	fs.IntVar(&intervalFlag, "interval", define.DEFAULT_TASK_INTERVAL, "task interval")
+	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DEFAULT_TIMEOUT, "HTTP request timeout in seconds")
 	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 100, "HTTP max idle connections")
 	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
 

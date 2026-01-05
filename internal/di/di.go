@@ -70,7 +70,7 @@ func (d *Dependencies) initRedis() error {
 	d.RedisClient = redis.NewClient(redisOptions)
 
 	// 验证 Redis 连接（带超时）
-	ctx, cancel := context.WithTimeout(context.Background(), define.RedisConnectionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
 	defer cancel()
 	if err := d.RedisClient.Ping(ctx).Err(); err != nil {
 		return errors.ErrRedisConnection.WithError(err)
@@ -87,7 +87,7 @@ func (d *Dependencies) initCache() {
 
 // initRateLimiter 初始化速率限制器
 func (d *Dependencies) initRateLimiter() {
-	d.RateLimiter = middleware.NewRateLimiter(define.DefaultRateLimit, define.DefaultRateLimitWindow)
+	d.RateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
 }
 
 // initHandlers 初始化 HTTP 处理器
@@ -121,11 +121,11 @@ func (d *Dependencies) initHandlers() {
 func (d *Dependencies) initHTTPServer() {
 	d.HTTPServer = &http.Server{
 		Addr:              ":" + d.Config.Port,
-		ReadHeaderTimeout: define.DefaultTimeout * time.Second,
-		ReadTimeout:       define.DefaultTimeout * time.Second,
-		WriteTimeout:      define.DefaultTimeout * time.Second,
-		IdleTimeout:       define.IdleTimeout,
-		MaxHeaderBytes:    define.MaxHeaderBytes,
+		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
+		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
+		WriteTimeout:      define.DEFAULT_TIMEOUT * time.Second,
+		IdleTimeout:       define.IDLE_TIMEOUT,
+		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
 	}
 }
 

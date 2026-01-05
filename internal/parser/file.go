@@ -34,8 +34,8 @@ import (
 func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	if _, err := os.Stat(rulesFile); errors.Is(err, os.ErrNotExist) {
 		log.Warn().
-			Str("err", define.WarnRuleNotFound).
-			Msgf(define.WarnRuleNotFound)
+			Str("err", define.WARN_RULE_NOT_FOUND).
+			Msgf(define.WARN_RULE_NOT_FOUND)
 		return rules
 	}
 
@@ -43,9 +43,9 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	file, err := os.Open(rulesFile)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ErrorCanNotOpenRule, err)).
+			Err(fmt.Errorf("%s: %w", define.ERROR_CAN_NOT_OPEN_RULE, err)).
 			Str("file", rulesFile).
-			Msg(define.ErrorCanNotOpenRule)
+			Msg(define.ERROR_CAN_NOT_OPEN_RULE)
 		return rules
 	}
 	defer func() {
@@ -60,18 +60,18 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	raw, err := io.ReadAll(file)
 	if err != nil {
 		log.Warn().
-			Err(fmt.Errorf("%s: %w", define.WarnReadRuleErr, err)).
+			Err(fmt.Errorf("%s: %w", define.WARN_READ_RULE_ERR, err)).
 			Str("file", rulesFile).
-			Msg(define.WarnReadRuleErr)
+			Msg(define.WARN_READ_RULE_ERR)
 		return rules
 	}
 
 	err = json.Unmarshal(raw, &rules)
 	if err != nil {
 		log.Warn().
-			Err(fmt.Errorf("%s: %w", define.WarnParseRuleErr, err)).
+			Err(fmt.Errorf("%s: %w", define.WARN_PARSE_RULE_ERR, err)).
 			Str("file", rulesFile).
-			Msg(define.WarnParseRuleErr)
+			Msg(define.WARN_PARSE_RULE_ERR)
 		return rules
 	}
 	return rules

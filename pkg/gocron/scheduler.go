@@ -9,10 +9,10 @@ import (
 // Scheduler struct, the only data member is the list of jobs.
 // - implements the sort.Interface{} for sorting jobs, by the time nextRun
 type Scheduler struct {
-	jobs [MAXJOBNUM]*Job // Array store jobs
-	size int             // Size of jobs which jobs holding.
-	loc  *time.Location  // Location to use when scheduling jobs with specified times
-	ctx  context.Context // Context for scheduler cancellation
+	jobs [MAX_JOB_NUM]*Job // Array store jobs
+	size int               // Size of jobs which jobs holding.
+	loc  *time.Location    // Location to use when scheduling jobs with specified times
+	ctx  context.Context   // Context for scheduler cancellation
 }
 
 var (
@@ -22,7 +22,7 @@ var (
 // NewScheduler creates a new scheduler
 func NewScheduler() *Scheduler {
 	return &Scheduler{
-		jobs: [MAXJOBNUM]*Job{},
+		jobs: [MAX_JOB_NUM]*Job{},
 		size: 0,
 		loc:  loc,
 		ctx:  context.Background(),
@@ -35,7 +35,7 @@ func NewSchedulerWithContext(ctx context.Context) *Scheduler {
 		ctx = context.Background()
 	}
 	return &Scheduler{
-		jobs: [MAXJOBNUM]*Job{},
+		jobs: [MAX_JOB_NUM]*Job{},
 		size: 0,
 		loc:  loc,
 		ctx:  ctx,
@@ -69,8 +69,8 @@ func (s *Scheduler) ChangeLoc(newLocation *time.Location) {
 }
 
 // Get the current runnable jobs, which shouldRun is True
-func (s *Scheduler) getRunnableJobs() (runningJobs [MAXJOBNUM]*Job, n int) {
-	runnableJobs := [MAXJOBNUM]*Job{}
+func (s *Scheduler) getRunnableJobs() (runningJobs [MAX_JOB_NUM]*Job, n int) {
+	runnableJobs := [MAX_JOB_NUM]*Job{}
 	n = 0
 	sort.Sort(s)
 	for i := 0; i < s.size; i++ {

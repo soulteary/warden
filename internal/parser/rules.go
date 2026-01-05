@@ -18,11 +18,11 @@ import (
 
 // httpClient 全局 HTTP 客户端，使用连接池复用连接
 var httpClient = &http.Client{
-	Timeout: define.DefaultTimeout * time.Second,
+	Timeout: define.DEFAULT_TIMEOUT * time.Second,
 	Transport: &http.Transport{
-		MaxIdleConns:        define.DefaultMaxIdleConns,
-		MaxIdleConnsPerHost: define.DefaultMaxIdleConnsPerHost,
-		IdleConnTimeout:     define.DefaultIdleConnTimeout,
+		MaxIdleConns:        define.DEFAULT_MAX_IDLE_CONNS,
+		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNSPerHost,
+		IdleConnTimeout:     define.DEFAULT_IDLE_CONN_TIMEOUT,
 		DisableKeepAlives:   false, // 明确设置，启用连接复用
 	},
 }
@@ -31,8 +31,8 @@ var httpClient = &http.Client{
 func InitHTTPClient(timeout int, maxIdleConns int, insecureTLS bool) {
 	transport := &http.Transport{
 		MaxIdleConns:        maxIdleConns,
-		MaxIdleConnsPerHost: define.DefaultMaxIdleConnsPerHost,
-		IdleConnTimeout:     define.DefaultIdleConnTimeout,
+		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNSPerHost,
+		IdleConnTimeout:     define.DEFAULT_IDLE_CONN_TIMEOUT,
 		DisableKeepAlives:   false,
 	}
 
@@ -126,10 +126,10 @@ func buildRemoteRequest(ctx context.Context, url string, authorizationHeader str
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ErrReqInitFailed, err)).
+			Err(fmt.Errorf("%s: %w", define.ERR_REQ_INIT_FAILED, err)).
 			Str("url", url).
-			Msg(define.ErrReqInitFailed)
-		return nil, fmt.Errorf("%s: %w", define.ErrReqInitFailed, err)
+			Msg(define.ERR_REQ_INIT_FAILED)
+		return nil, fmt.Errorf("%s: %w", define.ERR_REQ_INIT_FAILED, err)
 	}
 
 	req.Header = http.Header{
@@ -154,26 +154,26 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 		log.Warn().
 			Int("status_code", res.StatusCode).
 			Str("url", url).
-			Msgf("%s: HTTP status %d", define.ErrGetConfigFailed, res.StatusCode)
-		return nil, fmt.Errorf("%s: HTTP status %d", define.ErrGetConfigFailed, res.StatusCode)
+			Msgf("%s: HTTP status %d", define.ERR_GET_CONFIG_FAILED, res.StatusCode)
+		return nil, fmt.Errorf("%s: HTTP status %d", define.ERR_GET_CONFIG_FAILED, res.StatusCode)
 	}
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ErrReadConfigFailed, err)).
+			Err(fmt.Errorf("%s: %w", define.ERR_READ_CONFIG_FAILED, err)).
 			Str("url", url).
-			Msg(define.ErrReadConfigFailed)
-		return nil, fmt.Errorf("%s: %w", define.ErrReadConfigFailed, err)
+			Msg(define.ERR_READ_CONFIG_FAILED)
+		return nil, fmt.Errorf("%s: %w", define.ERR_READ_CONFIG_FAILED, err)
 	}
 
 	var data []define.AllowListUser
 	if err := json.Unmarshal(body, &data); err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ErrParseConfigFailed, err)).
+			Err(fmt.Errorf("%s: %w", define.ERR_PARSE_CONFIG_FAILED, err)).
 			Str("url", url).
-			Msg(define.ErrParseConfigFailed)
-		return nil, fmt.Errorf("%s: %w", define.ErrParseConfigFailed, err)
+			Msg(define.ERR_PARSE_CONFIG_FAILED)
+		return nil, fmt.Errorf("%s: %w", define.ERR_PARSE_CONFIG_FAILED, err)
 	}
 
 	return data, nil
@@ -204,13 +204,13 @@ func FromRemoteConfig(ctx context.Context, url string, authorizationHeader strin
 		return nil, err
 	}
 
-	res, err := doRequestWithRetry(ctx, req, define.HTTPRetryMaxRetries, define.HTTPRetryDelay)
+	res, err := doRequestWithRetry(ctx, req, define.HTTP_RETRY_MAX_RETRIES, define.HTTP_RETRY_DELAY)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ErrGetConfigFailed, err)).
+			Err(fmt.Errorf("%s: %w", define.ERR_GET_CONFIG_FAILED, err)).
 			Str("url", url).
-			Msg(define.ErrGetConfigFailed)
-		return nil, fmt.Errorf("%s: %w", define.ErrGetConfigFailed, err)
+			Msg(define.ERR_GET_CONFIG_FAILED)
+		return nil, fmt.Errorf("%s: %w", define.ERR_GET_CONFIG_FAILED, err)
 	}
 
 	return parseRemoteResponse(res, url)

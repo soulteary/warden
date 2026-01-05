@@ -74,7 +74,7 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 	app.redisClient = redis.NewClient(redisOptions)
 
 	// 验证 Redis 连接（带超时）
-	ctx, cancel := context.WithTimeout(context.Background(), define.RedisConnectionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
 	defer cancel()
 	if err := app.redisClient.Ping(ctx).Err(); err != nil {
 		return nil, errors.ErrRedisConnection.WithError(err)
@@ -100,12 +100,12 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 	metrics.CacheSize.Set(float64(app.userCache.Len()))
 
 	// 确保任务间隔不小于默认值
-	if app.taskInterval < define.DefaultTaskInterval {
-		app.taskInterval = uint64(define.DefaultTaskInterval)
+	if app.taskInterval < define.DEFAULT_TASK_INTERVAL {
+		app.taskInterval = uint64(define.DEFAULT_TASK_INTERVAL)
 	}
 
 	// 初始化速率限制器（封装到 App 中，避免使用全局变量）
-	app.rateLimiter = middleware.NewRateLimiter(define.DefaultRateLimit, define.DefaultRateLimitWindow)
+	app.rateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
 
 	return app, nil
 }
@@ -124,7 +124,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 	metrics.CacheMisses.Inc() // 记录缓存未命中
 
 	// 2. 尝试从远程 API 加载
-	ctx, cancel := context.WithTimeout(context.Background(), define.DefaultLoadDataTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
 	defer cancel()
 	users := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
 	if len(users) > 0 {
@@ -255,7 +255,7 @@ func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 
 // updateRedisCacheWithRetry 更新 Redis 缓存，带重试机制
 //
-// 该函数实现了带重试的 Redis 缓存更新逻辑，最多重试 define.RedisRetryMaxRetries 次。
+// 该函数实现了带重试的 Redis 缓存更新逻辑，最多重试 define.REDIS_RETRY_MAX_RETRIES 次。
 // 每次重试的延迟时间会递增。
 //
 // 参数:
@@ -265,9 +265,9 @@ func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 //   - error: 更新失败时返回错误，成功时返回 nil
 func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 	var lastErr error
-	for attempt := 0; attempt < define.RedisRetryMaxRetries; attempt++ {
+	for attempt := 0; attempt < define.REDIS_RETRY_MAX_RETRIES; attempt++ {
 		if attempt > 0 {
-			time.Sleep(time.Duration(attempt) * define.RedisRetryDelay)
+			time.Sleep(time.Duration(attempt) * define.REDIS_RETRY_DELAY)
 			app.log.Debug().
 				Int("attempt", attempt+1).
 				Msg("重试更新 Redis 缓存")
@@ -275,7 +275,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 
 		if err := app.redisUserCache.Set(users); err != nil {
 			lastErr = err
-			if attempt < define.RedisRetryMaxRetries-1 {
+			if attempt < define.REDIS_RETRY_MAX_RETRIES-1 {
 				continue
 			}
 		} else {
@@ -288,7 +288,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 		}
 	}
 
-	return fmt.Errorf("更新 Redis 缓存失败（已重试 %d 次）: %w", define.RedisRetryMaxRetries, lastErr)
+	return fmt.Errorf("更新 Redis 缓存失败（已重试 %d 次）: %w", define.REDIS_RETRY_MAX_RETRIES, lastErr)
 }
 
 // backgroundTask 后台任务，定期更新缓存数据
@@ -329,7 +329,7 @@ func (app *App) backgroundTask(rulesFile string) {
 	}()
 
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DefaultTimeout*2)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
 	defer cancel()
 	newUsers := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
 
@@ -411,11 +411,11 @@ func registerRoutes(app *App) {
 func startServer(port string) *http.Server {
 	return &http.Server{
 		Addr:              ":" + port,
-		ReadHeaderTimeout: define.DefaultTimeout * time.Second,
-		ReadTimeout:       define.DefaultTimeout * time.Second,
-		WriteTimeout:      define.DefaultTimeout * time.Second,
-		IdleTimeout:       define.IdleTimeout,
-		MaxHeaderBytes:    define.MaxHeaderBytes,
+		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
+		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
+		WriteTimeout:      define.DEFAULT_TIMEOUT * time.Second,
+		IdleTimeout:       define.IDLE_TIMEOUT,
+		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
 	}
 }
 
@@ -427,7 +427,7 @@ func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log z
 	}
 
 	// 优雅关闭 HTTP 服务器
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.ShutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
@@ -468,11 +468,6 @@ func main() {
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
 	schedulerStopped := scheduler.Start()
-	defer func() {
-		close(schedulerStopped)
-		scheduler.Clear()
-		app.log.Info().Msg("定时任务调度器已关闭")
-	}()
 	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
 		// 在退出前先清理资源
 		close(schedulerStopped)
@@ -481,6 +476,11 @@ func main() {
 			Err(err).
 			Msg("定时任务调度器初始化失败，程序退出")
 	}
+	defer func() {
+		close(schedulerStopped)
+		scheduler.Clear()
+		app.log.Info().Msg("定时任务调度器已关闭")
+	}()
 
 	// 启动服务器
 	srv := startServer(app.port)

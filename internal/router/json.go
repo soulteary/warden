@@ -44,7 +44,7 @@ func putBuffer(buf *bytes.Buffer) {
 // 加强输入验证：限制参数长度、验证数值范围、防止注入攻击
 func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination bool, err error) {
 	page = 1
-	pageSize = define.DefaultPageSize
+	pageSize = define.DEFAULT_PAGE_SIZE
 
 	pageStr := r.URL.Query().Get("page")
 	sizeStr := r.URL.Query().Get("page_size")
@@ -85,11 +85,11 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 				return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为数字")
 			}
 		}
-		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MaxPageSize {
+		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MAX_PAGE_SIZE {
 			pageSize = s
 		} else {
-			if s > define.MaxPageSize {
-				return 0, 0, false, fmt.Errorf("每页大小超出最大限制: %d", define.MaxPageSize)
+			if s > define.MAX_PAGE_SIZE {
+				return 0, 0, false, fmt.Errorf("每页大小超出最大限制: %d", define.MAX_PAGE_SIZE)
 			}
 			return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为正整数")
 		}
@@ -211,7 +211,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 		if !hasPagination {
 			// 对于小数据，直接编码；对于中等数据，使用 bufferPool；对于大数据，使用流式编码
 			switch {
-			case len(userData) < define.SmallDataThreshold:
+			case len(userData) < define.SMALL_DATA_THRESHOLD:
 				if err := json.NewEncoder(w).Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
@@ -219,7 +219,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 					http.Error(w, "Internal server error", http.StatusInternalServerError)
 					return
 				}
-			case len(userData) < define.LargeDataThreshold:
+			case len(userData) < define.LARGE_DATA_THRESHOLD:
 				// 中等数据：使用 bufferPool 优化
 				buf := getBuffer()
 				defer putBuffer(buf)

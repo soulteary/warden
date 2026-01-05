@@ -21,8 +21,9 @@ var (
 	ErrPeriodNotSpecified = errors.New("unspecified job period")
 	// ErrParameterCannotBeNil 参数不能为 nil 错误
 	ErrParameterCannotBeNil = errors.New("nil parameters cannot be used with reflection")
-	ErrJobTimeout           = errors.New("job execution timeout")
-	ErrJobCancelled         = errors.New("job execution cancelled")
+	// ErrJobTimeout 任务执行超时错误
+	ErrJobTimeout   = errors.New("job execution timeout")
+	ErrJobCancelled = errors.New("job execution cancelled")
 )
 
 // Job struct keeping information about job

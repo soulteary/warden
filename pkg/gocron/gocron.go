@@ -47,8 +47,8 @@ type Locker interface {
 
 type timeUnit int
 
-// MAXJOBNUM max number of jobs, hack it if you need.
-const MAXJOBNUM = 10000
+// MAX_JOB_NUM max number of jobs, hack it if you need.
+const MAX_JOB_NUM = 10000
 
 const (
 	seconds timeUnit = iota + 1
