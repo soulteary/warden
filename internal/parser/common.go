@@ -32,19 +32,16 @@ func mergeUsers(dict map[string]define.AllowListUser, order []string) []define.A
 // rules: 要添加的规则列表
 // logMessage: 是否记录日志消息（用于区分远程和本地规则）
 // 返回添加的新规则数量
-func addRulesToDict(dict map[string]define.AllowListUser, order *[]string, rules []define.AllowListUser, logMessage bool) int {
-	newCount := 0
+func addRulesToDict(dict map[string]define.AllowListUser, order *[]string, rules []define.AllowListUser, logMessage bool) {
 	for _, rule := range rules {
 		if _, exists := dict[rule.Phone]; !exists {
 			*order = append(*order, rule.Phone)
-			newCount++
 			if logMessage {
 				log.Debug().Msgf("载入远程规则 %s => %s", rule.Mail, rule.Phone)
 			}
 		}
 		dict[rule.Phone] = rule
 	}
-	return newCount
 }
 
 // GetRules 根据模式获取规则（支持 context）
@@ -72,21 +69,23 @@ func addRulesToDict(dict map[string]define.AllowListUser, order *[]string, rules
 //   - 会记录调试和警告日志
 //   - 可能进行网络请求（根据模式）
 //   - 可能读取本地文件（根据模式）
-func GetRules(ctx context.Context, rulesFile string, configUrl string, authorizationHeader string, appMode string) (result []define.AllowListUser) {
-	if appMode == "DEFAULT" || appMode == "REMOTE_FIRST" {
-		return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configUrl, authorizationHeader, false)
-	} else if appMode == "ONLY_REMOTE" {
-		return onlyRemoteRules(ctx, configUrl, authorizationHeader)
-	} else if appMode == "ONLY_LOCAL" {
+func GetRules(ctx context.Context, rulesFile string, configURL string, authorizationHeader string, appMode string) (result []define.AllowListUser) {
+	switch appMode {
+	case "DEFAULT", "REMOTE_FIRST":
+		return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configURL, authorizationHeader, false)
+	case "ONLY_REMOTE":
+		return onlyRemoteRules(ctx, configURL, authorizationHeader)
+	case "ONLY_LOCAL":
 		return onlyLocalRules(rulesFile)
-	} else if appMode == "LOCAL_FIRST" {
-		return localRulesFirstAppendNotExistsFromRemoteRules(ctx, rulesFile, configUrl, authorizationHeader, false)
-	} else if appMode == "REMOTE_FIRST_ALLOW_REMOTE_FAILED" {
-		return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configUrl, authorizationHeader, true)
-	} else if appMode == "LOCAL_FIRST_ALLOW_REMOTE_FAILED" {
-		return localRulesFirstAppendNotExistsFromRemoteRules(ctx, rulesFile, configUrl, authorizationHeader, true)
+	case "LOCAL_FIRST":
+		return localRulesFirstAppendNotExistsFromRemoteRules(ctx, rulesFile, configURL, authorizationHeader, false)
+	case "REMOTE_FIRST_ALLOW_REMOTE_FAILED":
+		return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configURL, authorizationHeader, true)
+	case "LOCAL_FIRST_ALLOW_REMOTE_FAILED":
+		return localRulesFirstAppendNotExistsFromRemoteRules(ctx, rulesFile, configURL, authorizationHeader, true)
+	default:
+		return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configURL, authorizationHeader, false)
 	}
-	return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configUrl, authorizationHeader, false)
 }
 
 // remoteRulesFirstAppendNotExistsFromLocalRules 远程规则优先，补充本地规则中不存在的项
@@ -106,12 +105,12 @@ func GetRules(ctx context.Context, rulesFile string, configUrl string, authoriza
 //
 // 返回:
 //   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
-func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFile string, configUrl string, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
+func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFile string, configURL string, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
 	var order = make([]string, 0) // 维护顺序列表
 
 	// 优先使用远程规则进行初始化
-	remoteRules, err := FromRemoteConfig(ctx, configUrl, authorizationHeader)
+	remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
 	if err != nil {
 		log.Warn().
 			Err(err).
@@ -150,7 +149,7 @@ func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFil
 //
 // 返回:
 //   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
-func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFile string, configUrl string, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
+func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFile string, configURL string, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
 	var order = make([]string, 0) // 维护顺序列表
 
@@ -159,7 +158,7 @@ func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFil
 	addRulesToDict(dict, &order, localRules, false)
 
 	// 补充本地规则中不存在的远程规则
-	remoteRules, err := FromRemoteConfig(ctx, configUrl, authorizationHeader)
+	remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
 	if err != nil {
 		log.Warn().
 			Err(err).
@@ -188,12 +187,12 @@ func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFil
 //
 // 返回:
 //   - []define.AllowListUser: 远程获取的用户列表，如果获取失败则返回空列表
-func onlyRemoteRules(ctx context.Context, configUrl string, authorizationHeader string) (result []define.AllowListUser) {
+func onlyRemoteRules(ctx context.Context, configURL string, authorizationHeader string) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
 	var order = make([]string, 0) // 维护顺序列表
 
 	// 使用远程规则进行初始化
-	remoteRules, err := FromRemoteConfig(ctx, configUrl, authorizationHeader)
+	remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
 	if err != nil {
 		log.Warn().
 			Err(err).

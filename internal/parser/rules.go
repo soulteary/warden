@@ -38,6 +38,7 @@ func InitHTTPClient(timeout int, maxIdleConns int, insecureTLS bool) {
 
 	// 配置 TLS
 	if insecureTLS {
+		// #nosec G402 -- 仅用于开发环境，允许跳过 TLS 验证
 		transport.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true, // 仅用于开发环境
 		}
@@ -98,7 +99,7 @@ func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, 
 		if err == nil {
 			// 检查状态码，5xx 错误也重试
 			if res.StatusCode >= 500 && res.StatusCode < 600 && attempt < maxRetries {
-				res.Body.Close()
+				_ = res.Body.Close()
 				lastErr = fmt.Errorf("服务器错误: HTTP %d", res.StatusCode)
 				continue
 			}
@@ -144,7 +145,9 @@ func buildRemoteRequest(ctx context.Context, url string, authorizationHeader str
 
 // parseRemoteResponse 解析远程响应
 func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser, error) {
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 
 	// 检查 HTTP 状态码
 	if res.StatusCode != http.StatusOK {

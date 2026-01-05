@@ -33,7 +33,7 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	// 验证远程配置 URL
-	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
+	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DefaultRemoteConfig {
 		if _, err := url.ParseRequestURI(cfg.RemoteConfig); err != nil {
 			errors = append(errors, fmt.Sprintf("无效的远程配置 URL: %s (%v)", cfg.RemoteConfig, err))
 		}

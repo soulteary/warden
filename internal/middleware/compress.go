@@ -73,7 +73,7 @@ func CompressMiddleware(next http.Handler) http.Handler {
 
 		// 确保资源正确释放：先关闭，再重置，最后放回池中
 		defer func() {
-			gw.Close()
+			_ = gw.Close()
 			gzWriter.Reset(nil)
 			gzipWriterPool.Put(gzWriter)
 		}()

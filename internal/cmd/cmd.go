@@ -82,13 +82,14 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
 	redisPasswordFile := strings.TrimSpace(os.Getenv("REDIS_PASSWORD_FILE"))
 
-	if redisPasswordEnv != "" {
+	switch {
+	case redisPasswordEnv != "":
 		cfg.RedisPassword = redisPasswordEnv
-	} else if redisPasswordFile != "" {
+	case redisPasswordFile != "":
 		if password, err := readPasswordFromFile(redisPasswordFile); err == nil {
 			cfg.RedisPassword = password
 		}
-	} else if hasFlag(fs, "redis-password") {
+	case hasFlag(fs, "redis-password"):
 		cfg.RedisPassword = redisPasswordFlag
 	}
 }
@@ -157,9 +158,9 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMa
 func getArgsFromFlags() *Config {
 	cfg := &Config{
 		Port:             strconv.Itoa(define.DEFAULT_PORT),
-		Redis:            define.DEFAULT_REDIS,
-		RemoteConfig:     define.DEFAULT_REMOTE_CONFIG,
-		RemoteKey:        define.DEFAULT_REMOTE_KEY,
+		Redis:            define.DefaultRedis,
+		RemoteConfig:     define.DefaultRemoteConfig,
+		RemoteKey:        define.DefaultRemoteKey,
 		TaskInterval:     define.DEFAULT_TASK_INTERVAL,
 		Mode:             define.DEFAULT_MODE,
 		HTTPTimeout:      define.DEFAULT_TIMEOUT,
@@ -178,10 +179,10 @@ func getArgsFromFlags() *Config {
 	var redisPasswordFlag string
 
 	fs.IntVar(&portFlag, "port", define.DEFAULT_PORT, "web port")
-	fs.StringVar(&redisFlag, "redis", define.DEFAULT_REDIS, "redis host and port")
+	fs.StringVar(&redisFlag, "redis", define.DefaultRedis, "redis host and port")
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	fs.StringVar(&configFlag, "config", define.DEFAULT_REMOTE_CONFIG, "remote config url")
-	fs.StringVar(&keyFlag, "key", define.DEFAULT_REMOTE_KEY, "remote config key")
+	fs.StringVar(&configFlag, "config", define.DefaultRemoteConfig, "remote config url")
+	fs.StringVar(&keyFlag, "key", define.DefaultRemoteKey, "remote config key")
 	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
 	fs.IntVar(&intervalFlag, "interval", define.DEFAULT_TASK_INTERVAL, "task interval")
 	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DEFAULT_TIMEOUT, "HTTP request timeout in seconds")
@@ -224,6 +225,7 @@ func readPasswordFromFile(filePath string) (string, error) {
 	}
 
 	// 读取文件内容
+	// #nosec G304 -- 文件路径已经通过 filepath.Abs 验证，是安全的
 	data, err := os.ReadFile(absPath)
 	if err != nil {
 		return "", err
@@ -311,15 +313,15 @@ func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
 func LoadConfig(configFile string) (*Config, error) {
 	// 尝试从配置文件加载
 	if configFile != "" {
-		if newCfg, err := config.LoadFromFile(configFile); err == nil {
+		newCfg, err := config.LoadFromFile(configFile)
+		if err == nil {
 			legacyCfg := newCfg.ToCmdConfig()
 			// 应用环境变量覆盖（环境变量优先级高于配置文件）
 			overrideFromEnvInternal(legacyCfg)
 			return convertToConfig(legacyCfg), nil
-		} else {
-			// 配置文件加载失败，返回错误
-			return nil, errors.ErrConfigLoad.WithError(err)
 		}
+		// 配置文件加载失败，返回错误
+		return nil, errors.ErrConfigLoad.WithError(err)
 	}
 
 	// 没有配置文件，使用原有逻辑

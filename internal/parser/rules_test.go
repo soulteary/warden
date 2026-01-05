@@ -22,9 +22,9 @@ func TestFromRemoteConfig_Success(t *testing.T) {
 		{Phone: "13800138001", Mail: "remote2@example.com"},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(testData)
+		_ = json.NewEncoder(w).Encode(testData)
 	}))
 	defer server.Close()
 
@@ -51,7 +51,7 @@ func TestFromRemoteConfig_WithAuthorization(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(testData)
+		_ = json.NewEncoder(w).Encode(testData)
 	}))
 	defer server.Close()
 
@@ -76,9 +76,9 @@ func TestFromRemoteConfig_InvalidURL(t *testing.T) {
 
 func TestFromRemoteConfig_InvalidJSON(t *testing.T) {
 	// 创建返回无效JSON的服务器
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("invalid json"))
+		_, _ = w.Write([]byte("invalid json"))
 	}))
 	defer server.Close()
 
@@ -91,9 +91,9 @@ func TestFromRemoteConfig_InvalidJSON(t *testing.T) {
 
 func TestFromRemoteConfig_EmptyResponse(t *testing.T) {
 	// 创建返回空响应的服务器
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("[]"))
+		_, _ = w.Write([]byte("[]"))
 	}))
 	defer server.Close()
 
@@ -115,7 +115,7 @@ func TestGetRules_DEFAULT(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0644)
+	err = os.WriteFile(testFile, data, 0600)
 	require.NoError(t, err)
 
 	// 创建模拟远程服务器
@@ -123,9 +123,9 @@ func TestGetRules_DEFAULT(t *testing.T) {
 		{Phone: "13800138001", Mail: "remote@example.com"},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(remoteData)
+		_ = json.NewEncoder(w).Encode(remoteData)
 	}))
 	defer server.Close()
 
@@ -143,9 +143,9 @@ func TestGetRules_ONLY_REMOTE(t *testing.T) {
 		{Phone: "13800138000", Mail: "remote@example.com"},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(remoteData)
+		_ = json.NewEncoder(w).Encode(remoteData)
 	}))
 	defer server.Close()
 
@@ -169,7 +169,7 @@ func TestGetRules_ONLY_LOCAL(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0644)
+	err = os.WriteFile(testFile, data, 0600)
 	require.NoError(t, err)
 
 	// 测试ONLY_LOCAL模式
@@ -199,7 +199,7 @@ func TestGetRules_REMOTE_FIRST(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0644)
+	err = os.WriteFile(testFile, data, 0600)
 	require.NoError(t, err)
 
 	// 创建模拟远程服务器
@@ -208,9 +208,9 @@ func TestGetRules_REMOTE_FIRST(t *testing.T) {
 		{Phone: "13800138001", Mail: "remote-only@example.com"},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(remoteData)
+		_ = json.NewEncoder(w).Encode(remoteData)
 	}))
 	defer server.Close()
 
@@ -244,7 +244,7 @@ func TestGetRules_LOCAL_FIRST(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0644)
+	err = os.WriteFile(testFile, data, 0600)
 	require.NoError(t, err)
 
 	// 创建模拟远程服务器
@@ -253,9 +253,9 @@ func TestGetRules_LOCAL_FIRST(t *testing.T) {
 		{Phone: "13800138001", Mail: "remote-only@example.com"},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(remoteData)
+		_ = json.NewEncoder(w).Encode(remoteData)
 	}))
 	defer server.Close()
 
@@ -288,7 +288,7 @@ func TestGetRules_InvalidMode(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0644)
+	err = os.WriteFile(testFile, data, 0600)
 	require.NoError(t, err)
 
 	// 测试无效模式，使用无效的远程URL
@@ -314,7 +314,7 @@ func TestGetRules_InvalidMode_WithAllowRemoteFailed(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0644)
+	err = os.WriteFile(testFile, data, 0600)
 	require.NoError(t, err)
 
 	// 测试无效模式，但使用一个会失败的远程URL

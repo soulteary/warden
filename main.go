@@ -1,3 +1,5 @@
+// Package main 是应用程序的入口点。
+// 提供 HTTP 服务器、缓存管理、定时任务调度等功能。
 package main
 
 import (
@@ -40,7 +42,7 @@ type App struct {
 	redisClient         *redis.Client
 	rateLimiter         *middleware.RateLimiter
 	port                string
-	configUrl           string
+	configURL           string
 	authorizationHeader string
 	taskInterval        uint64
 	appMode             string
@@ -51,11 +53,12 @@ type App struct {
 func NewApp(cfg *cmd.Config) (*App, error) {
 	app := &App{
 		port:                cfg.Port,
-		configUrl:           cfg.RemoteConfig,
+		configURL:           cfg.RemoteConfig,
 		authorizationHeader: cfg.RemoteKey,
 		appMode:             cfg.Mode,
-		taskInterval:        uint64(cfg.TaskInterval),
-		log:                 logger.GetLogger(),
+		// #nosec G115 -- 转换是安全的，TaskInterval 是正数
+		taskInterval: uint64(cfg.TaskInterval),
+		log:          logger.GetLogger(),
 	}
 
 	// 初始化 Redis 客户端（安全性改进）
@@ -123,7 +126,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 	// 2. 尝试从远程 API 加载
 	ctx, cancel := context.WithTimeout(context.Background(), define.DefaultLoadDataTimeout)
 	defer cancel()
-	users := parser.GetRules(ctx, rulesFile, app.configUrl, app.authorizationHeader, app.appMode)
+	users := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
 	if len(users) > 0 {
 		app.log.Info().
 			Int("count", len(users)).
@@ -172,26 +175,6 @@ func (app *App) loadInitialData(rulesFile string) error {
 //   - 如果提供了缓存的哈希值，可以显著提高性能
 func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
 	// 计算新数据的哈希值
-	newHash := calculateHash(newUsers)
-	return oldHash != newHash
-}
-
-// hasChangedByUsers 比较两个用户列表是否有变化（用于直接比较两个列表）
-//
-// 该函数通过比较长度和哈希值来判断数据是否发生变化。
-// 如果长度不同，直接返回 true；否则计算哈希值进行比较。
-//
-// 参数:
-//   - oldUsers: 旧的用户列表
-//   - newUsers: 新的用户列表
-//
-// 返回:
-//   - bool: true 表示数据有变化，false 表示数据未变化
-func hasChangedByUsers(oldUsers, newUsers []define.AllowListUser) bool {
-	if len(oldUsers) != len(newUsers) {
-		return true
-	}
-	oldHash := calculateHash(oldUsers)
 	newHash := calculateHash(newUsers)
 	return oldHash != newHash
 }
@@ -348,7 +331,7 @@ func (app *App) backgroundTask(rulesFile string) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
 	defer cancel()
-	newUsers := parser.GetRules(ctx, rulesFile, app.configUrl, app.authorizationHeader, app.appMode)
+	newUsers := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
 
 	// 检查数据是否有变化
 	if !app.checkDataChanged(newUsers) {

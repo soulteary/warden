@@ -102,7 +102,7 @@ func Jobs() []*Job {
 	return defaultScheduler.Jobs()
 }
 
-func formatTime(t string) (hour, min, sec int, err error) {
+func formatTime(t string) (hour, minute, sec int, err error) {
 	ts := strings.Split(t, ":")
 	if len(ts) < 2 || len(ts) > 3 {
 		return 0, 0, 0, ErrTimeFormat
@@ -111,7 +111,7 @@ func formatTime(t string) (hour, min, sec int, err error) {
 	if hour, err = strconv.Atoi(ts[0]); err != nil {
 		return 0, 0, 0, err
 	}
-	if min, err = strconv.Atoi(ts[1]); err != nil {
+	if minute, err = strconv.Atoi(ts[1]); err != nil {
 		return 0, 0, 0, err
 	}
 	if len(ts) == 3 {
@@ -120,11 +120,11 @@ func formatTime(t string) (hour, min, sec int, err error) {
 		}
 	}
 
-	if hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59 {
+	if hour < 0 || hour > 23 || minute < 0 || minute > 59 || sec < 0 || sec > 59 {
 		return 0, 0, 0, ErrTimeFormat
 	}
 
-	return hour, min, sec, nil
+	return hour, minute, sec, nil
 }
 
 // NextTick returns a pointer to a time that will run at the next tick

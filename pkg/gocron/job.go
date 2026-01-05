@@ -11,11 +11,12 @@ import (
 )
 
 var (
+	// ErrTimeFormat 时间格式错误
 	ErrTimeFormat           = errors.New("time format error")
 	ErrParamsNotAdapted     = errors.New("the number of params is not adapted")
 	ErrNotAFunction         = errors.New("only functions can be schedule into the job queue")
 	ErrPeriodNotSpecified   = errors.New("unspecified job period")
-	ErrParameterCannotBeNil = errors.New("nil paramaters cannot be used with reflection")
+	ErrParameterCannotBeNil = errors.New("nil parameters cannot be used with reflection")
 	ErrJobTimeout           = errors.New("job execution timeout")
 	ErrJobCancelled         = errors.New("job execution cancelled")
 )
@@ -64,7 +65,7 @@ func (j *Job) shouldRun() bool {
 }
 
 // Run the job and immediately reschedule it
-func (j *Job) run() ([]reflect.Value, error) {
+func (j *Job) run() error {
 	// Create execution context with timeout if specified
 	execCtx := j.ctx
 	if j.timeout > 0 {
@@ -76,33 +77,35 @@ func (j *Job) run() ([]reflect.Value, error) {
 	// Check if context is already cancelled
 	select {
 	case <-execCtx.Done():
-		return nil, fmt.Errorf("job %s cancelled before execution: %w", j.jobFunc, execCtx.Err())
+		return fmt.Errorf("job %s cancelled before execution: %w", j.jobFunc, execCtx.Err())
 	default:
 	}
 
 	if j.lock {
 		if locker == nil {
-			return nil, fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
+			return fmt.Errorf("trying to lock %s with nil locker", j.jobFunc)
 		}
 		key := getFunctionKey(j.jobFunc)
 
 		locked, err := locker.Lock(key)
 		if err != nil {
-			return nil, fmt.Errorf("failed to lock job %s: %w", j.jobFunc, err)
+			return fmt.Errorf("failed to lock job %s: %w", j.jobFunc, err)
 		}
 		if !locked {
 			// Job is already running in another instance, skip execution
-			return nil, nil
+			return nil
 		}
-		defer locker.Unlock(key)
+		defer func() {
+			_ = locker.Unlock(key)
+		}()
 	}
 
 	// Execute job with context support
-	result, err := j.runWithContext(execCtx)
+	_, err := j.runWithContext(execCtx)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return result, nil
+	return nil
 }
 
 // runWithContext executes the job function with context support
@@ -174,7 +177,7 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	shouldSchedule := !j.nextRun.After(now)
 	j.mu.RUnlock()
 	if shouldSchedule {
-		j.scheduleNextRun()
+		_ = j.scheduleNextRun()
 	}
 
 	return nil
@@ -201,13 +204,13 @@ func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) error {
 //	s.Every(1).Day().At("10:30:01").Do(task)
 //	s.Every(1).Monday().At("10:30:01").Do(task)
 func (j *Job) At(t string) *Job {
-	hour, min, sec, err := formatTime(t)
+	hour, minute, sec, err := formatTime(t)
 	if err != nil {
 		j.err = ErrTimeFormat
 		return j
 	}
 	// save atTime start as duration from midnight
-	j.atTime = time.Duration(hour)*time.Hour + time.Duration(min)*time.Minute + time.Duration(sec)*time.Second
+	j.atTime = time.Duration(hour)*time.Hour + time.Duration(minute)*time.Minute + time.Duration(sec)*time.Second
 	return j
 }
 
@@ -230,9 +233,7 @@ func (j *Job) Loc(loc *time.Location) *Job {
 // they don't impact the functionality of the job.
 func (j *Job) Tag(t string, others ...string) {
 	j.tags = append(j.tags, t)
-	for _, tag := range others {
-		j.tags = append(j.tags, tag)
-	}
+	j.tags = append(j.tags, others...)
 }
 
 // Untag removes a tag from a job
@@ -253,6 +254,7 @@ func (j *Job) Tags() []string {
 }
 
 func (j *Job) periodDuration() (time.Duration, error) {
+	// #nosec G115 -- 转换是安全的，interval 是 uint64
 	interval := time.Duration(j.interval)
 	var periodDuration time.Duration
 
@@ -284,7 +286,7 @@ func (j *Job) scheduleNextRun() error {
 	defer j.mu.Unlock()
 
 	now := time.Now()
-	if j.lastRun == time.Unix(0, 0) {
+	if j.lastRun.Equal(time.Unix(0, 0)) {
 		j.lastRun = now
 	}
 
@@ -325,9 +327,9 @@ func (j *Job) NextScheduledTime() time.Time {
 }
 
 // set the job's unit with seconds,minutes,hours...
-func (j *Job) mustInterval(i uint64) error {
-	if j.interval != i {
-		return fmt.Errorf("interval must be %d", i)
+func (j *Job) mustInterval(expected uint64) error {
+	if j.interval != expected {
+		return fmt.Errorf("interval must be %d", expected)
 	}
 	return nil
 }
@@ -373,19 +375,19 @@ func (j *Job) Weeks() *Job {
 
 // Second sets the unit with second
 func (j *Job) Second() *Job {
-	j.mustInterval(1)
+	_ = j.mustInterval(1)
 	return j.Seconds()
 }
 
 // Minute sets the unit  with minute, which interval is 1
 func (j *Job) Minute() *Job {
-	j.mustInterval(1)
+	_ = j.mustInterval(1)
 	return j.Minutes()
 }
 
 // Hour sets the unit with hour, which interval is 1
 func (j *Job) Hour() *Job {
-	j.mustInterval(1)
+	_ = j.mustInterval(1)
 	return j.Hours()
 }
 

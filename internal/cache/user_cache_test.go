@@ -19,7 +19,7 @@ func TestSafeUserCache_ConcurrentAccess(t *testing.T) {
 
 	wg.Add(numGoroutines)
 	for i := 0; i < numGoroutines; i++ {
-		go func(id int) {
+		go func(_ int) {
 			defer wg.Done()
 			for j := 0; j < numWrites; j++ {
 				users := []define.AllowListUser{

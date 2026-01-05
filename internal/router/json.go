@@ -210,7 +210,8 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 		// 如果没有显式指定分页参数，保持向后兼容，直接返回数组
 		if !hasPagination {
 			// 对于小数据，直接编码；对于中等数据，使用 bufferPool；对于大数据，使用流式编码
-			if len(userData) < define.SmallDataThreshold {
+			switch {
+			case len(userData) < define.SmallDataThreshold:
 				if err := json.NewEncoder(w).Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
@@ -218,7 +219,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 					http.Error(w, "Internal server error", http.StatusInternalServerError)
 					return
 				}
-			} else if len(userData) < define.LargeDataThreshold {
+			case len(userData) < define.LargeDataThreshold:
 				// 中等数据：使用 bufferPool 优化
 				buf := getBuffer()
 				defer putBuffer(buf)
@@ -235,7 +236,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 						Msg("写入响应失败")
 					return
 				}
-			} else {
+			default:
 				// 大数据：使用流式 JSON 编码，减少内存占用
 				encoder := json.NewEncoder(w)
 				if err := encoder.Encode(userData); err != nil {

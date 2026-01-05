@@ -18,11 +18,7 @@ import (
 var log = logger.GetLogger()
 
 // slicePool 复用切片，减少内存分配
-var slicePool = sync.Pool{
-	New: func() interface{} {
-		return make([]define.AllowListUser, 0, define.DefaultSlicePoolCapacity) // 预分配容量
-	},
-}
+// slicePool 已移除，因为需要返回独立副本，无法直接使用池
 
 // SafeUserCache 提供线程安全的用户缓存
 // 使用 map 结构提高查找效率，同时保持 API 兼容性

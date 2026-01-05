@@ -23,6 +23,7 @@ const (
 	LockOperationTimeout = 5 * time.Second
 )
 
+// Locker 提供分布式锁功能，兼容 gocron.Locker 接口
 type Locker struct {
 	Cache     *redis.Client
 	lockStore sync.Map // 存储 key -> lockValue 的映射

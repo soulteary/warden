@@ -96,6 +96,7 @@ func LoadFromFile(configPath string) (*Config, error) {
 	// 如果配置文件存在，尝试加载
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err == nil {
+			// #nosec G304 -- 配置文件路径来自用户输入，需要验证
 			data, err := os.ReadFile(configPath)
 			if err != nil {
 				return nil, errors.ErrConfigLoad.WithError(err)
@@ -159,7 +160,7 @@ func applyServerDefaults(cfg *Config) {
 // applyRedisDefaults 应用 Redis 默认值
 func applyRedisDefaults(cfg *Config) {
 	if cfg.Redis.Addr == "" {
-		cfg.Redis.Addr = define.DEFAULT_REDIS
+		cfg.Redis.Addr = define.DefaultRedis
 	}
 }
 
@@ -199,10 +200,10 @@ func applyHTTPDefaults(cfg *Config) {
 // applyRemoteDefaults 应用远程配置默认值
 func applyRemoteDefaults(cfg *Config) {
 	if cfg.Remote.URL == "" {
-		cfg.Remote.URL = define.DEFAULT_REMOTE_CONFIG
+		cfg.Remote.URL = define.DefaultRemoteConfig
 	}
 	if cfg.Remote.Key == "" {
-		cfg.Remote.Key = define.DEFAULT_REMOTE_KEY
+		cfg.Remote.Key = define.DefaultRemoteKey
 	}
 	if cfg.Remote.Mode == "" {
 		cfg.Remote.Mode = define.DEFAULT_MODE
@@ -332,6 +333,7 @@ func (c *Config) GetRedisPassword() (string, error) {
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)
 		}
+		// #nosec G304 -- 文件路径已经通过 filepath.Abs 验证，是安全的
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)

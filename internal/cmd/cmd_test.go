@@ -25,16 +25,16 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 		os.Args = oldArgs
 		for k, v := range oldEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
 
 	// 清理环境变量
-	os.Unsetenv("PORT")
-	os.Unsetenv("REDIS")
+	_ = os.Unsetenv("PORT")
+	_ = os.Unsetenv("REDIS")
 	os.Unsetenv("CONFIG")
 	os.Unsetenv("KEY")
 	os.Unsetenv("INTERVAL")
@@ -45,9 +45,9 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 	cfg := GetArgs()
 
 	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port)
-	assert.Equal(t, define.DEFAULT_REDIS, cfg.Redis)
-	assert.Equal(t, define.DEFAULT_REMOTE_CONFIG, cfg.RemoteConfig)
-	assert.Equal(t, define.DEFAULT_REMOTE_KEY, cfg.RemoteKey)
+	assert.Equal(t, define.DefaultRedis, cfg.Redis)
+	assert.Equal(t, define.DefaultRemoteConfig, cfg.RemoteConfig)
+	assert.Equal(t, define.DefaultRemoteKey, cfg.RemoteKey)
 	assert.Equal(t, define.DEFAULT_TASK_INTERVAL, cfg.TaskInterval)
 	assert.Equal(t, define.DEFAULT_MODE, cfg.Mode)
 }
@@ -68,16 +68,16 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 		os.Args = oldArgs
 		for k, v := range oldEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
 
 	// 清理环境变量
 	for k := range oldEnv {
-		os.Unsetenv(k)
+		_ = os.Unsetenv(k)
 	}
 
 	// 设置命令行参数
@@ -109,25 +109,25 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 		os.Args = oldArgs
 		for k, v := range oldEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
 
 	// 清理环境变量
 	for k := range oldEnv {
-		os.Unsetenv(k)
+		_ = os.Unsetenv(k)
 	}
 
 	// 设置环境变量
-	os.Setenv("PORT", "8888")
-	os.Setenv("REDIS", "192.168.1.1:6379")
-	os.Setenv("CONFIG", "http://test.com/config.json")
-	os.Setenv("KEY", "env-key")
-	os.Setenv("INTERVAL", "15")
-	os.Setenv("MODE", "REMOTE_FIRST")
+	_ = os.Setenv("PORT", "8888")
+	_ = os.Setenv("REDIS", "192.168.1.1:6379")
+	_ = os.Setenv("CONFIG", "http://test.com/config.json")
+	_ = os.Setenv("KEY", "env-key")
+	_ = os.Setenv("INTERVAL", "15")
+	_ = os.Setenv("MODE", "REMOTE_FIRST")
 
 	os.Args = []string{"test"}
 
