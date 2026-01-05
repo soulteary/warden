@@ -64,8 +64,8 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "ok",
-		"service": "mock-api",
+		"status":    "ok",
+		"service":   "mock-api",
 		"timestamp": time.Now().Unix(),
 	})
 }
@@ -102,4 +102,3 @@ func main() {
 		log.Fatalf("服务器启动失败: %v", err)
 	}
 }
-
