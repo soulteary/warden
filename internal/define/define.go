@@ -16,7 +16,7 @@ const DEFAULT_PORT = 8081
 const DEFAULT_REDIS = "localhost:6379"
 
 // DEFAULT_REMOTE_CONFIG 默认远程配置地址
-const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/config.json"
+const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/data.json"
 
 // DEFAULT_REMOTE_KEY 默认远程配置密钥
 const DEFAULT_REMOTE_KEY = ""

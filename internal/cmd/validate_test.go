@@ -10,7 +10,7 @@ func TestValidateConfig_ValidConfig(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/config.json",
+		RemoteConfig: "http://example.com/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
@@ -24,7 +24,7 @@ func TestValidateConfig_InvalidPort(t *testing.T) {
 	cfg := &Config{
 		Port:         "99999", // 无效端口
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/config.json",
+		RemoteConfig: "http://example.com/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
@@ -39,7 +39,7 @@ func TestValidateConfig_InvalidRedis(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "invalid", // 无效格式
-		RemoteConfig: "http://example.com/config.json",
+		RemoteConfig: "http://example.com/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
@@ -69,7 +69,7 @@ func TestValidateConfig_InvalidMode(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/config.json",
+		RemoteConfig: "http://example.com/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "INVALID_MODE", // 无效模式
@@ -84,7 +84,7 @@ func TestValidateConfig_InvalidTaskInterval(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/config.json",
+		RemoteConfig: "http://example.com/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 0, // 无效间隔
 		Mode:         "DEFAULT",

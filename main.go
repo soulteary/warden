@@ -33,7 +33,7 @@ import (
 	"soulteary.com/soulteary/warden/pkg/gocron"
 )
 
-const rulesFile = "./config.json"
+const rulesFile = "./data.json"
 
 // App 应用结构体，封装所有应用状态
 type App struct {

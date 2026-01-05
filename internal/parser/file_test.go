@@ -14,7 +14,7 @@ import (
 func TestFromFile_ValidFile(t *testing.T) {
 	// 创建临时测试文件
 	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test-config.json")
+	testFile := filepath.Join(tmpDir, "test-data.json")
 
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},

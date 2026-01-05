@@ -23,7 +23,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-      - ./config.json:/app/config.json:ro
+      - ./data.json:/app/data.json:ro
     healthcheck:
       test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
       interval: 10s
