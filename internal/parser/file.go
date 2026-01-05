@@ -57,7 +57,8 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 		}
 	}()
 
-	raw, err := io.ReadAll(file)
+	// 限制文件读取大小，防止内存耗尽攻击
+	raw, err := io.ReadAll(io.LimitReader(file, define.MAX_JSON_SIZE))
 	if err != nil {
 		log.Warn().
 			Err(fmt.Errorf("%s: %w", define.WARN_READ_RULE_ERR, err)).

@@ -24,6 +24,7 @@ type Config struct {
 	RemoteConfig     string // 16 bytes
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
+	APIKey           string // 16 bytes
 	TaskInterval     int    // 8 bytes
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
@@ -254,6 +255,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		HTTPTimeout:      cfg.HTTPTimeout,
 		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
 		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
+		APIKey:           cfg.APIKey,
 	}
 }
 
@@ -395,5 +397,9 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 
 	if insecureTLSEnv := os.Getenv("HTTP_INSECURE_TLS"); insecureTLSEnv != "" {
 		cfg.HTTPInsecureTLS = strings.EqualFold(insecureTLSEnv, "true") || insecureTLSEnv == "1"
+	}
+
+	if apiKeyEnv := strings.TrimSpace(os.Getenv("API_KEY")); apiKeyEnv != "" {
+		cfg.APIKey = apiKeyEnv
 	}
 }

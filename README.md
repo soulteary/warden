@@ -297,10 +297,21 @@ export MODE=DEFAULT
 export HTTP_TIMEOUT=5                  # HTTP 请求超时时间（秒）
 export HTTP_MAX_IDLE_CONNS=100         # HTTP 最大空闲连接数
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
+export API_KEY="your-secret-api-key"   # API Key 用于认证（强烈建议设置）
+export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # 信任的代理 IP 列表（逗号分隔）
+export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # 健康检查端点 IP 白名单（可选）
+export IP_WHITELIST="192.168.1.0/24"  # 全局 IP 白名单（可选）
+export LOG_LEVEL="info"                # 日志级别（可选，默认: info，可选值: trace, debug, info, warn, error, fatal, panic）
 ```
 
 **环境变量优先级**：
 - Redis 密码：`REDIS_PASSWORD_FILE` > `REDIS_PASSWORD` > 命令行参数 `--redis-password`
+
+**安全配置说明**：
+- `API_KEY`: 用于保护敏感端点（`/`、`/log/level`），强烈建议在生产环境设置
+- `TRUSTED_PROXY_IPS`: 配置信任的反向代理 IP，用于正确获取客户端真实 IP
+- `HEALTH_CHECK_IP_WHITELIST`: 限制健康检查端点的访问 IP（可选，支持 CIDR 网段）
+- `IP_WHITELIST`: 全局 IP 白名单（可选，支持 CIDR 网段）
 
 ## ⚙️ 配置说明
 
@@ -407,8 +418,13 @@ app:
 **请求**
 ```http
 GET /
+X-API-Key: your-secret-api-key
+
 GET /?page=1&page_size=100
+X-API-Key: your-secret-api-key
 ```
+
+**注意**: 此端点需要 API Key 认证，通过 `X-API-Key` 请求头或 `Authorization: Bearer <key>` 提供。
 
 **响应（无分页）**
 ```json
@@ -472,17 +488,21 @@ GET /healthcheck
 **获取当前日志级别**
 ```http
 GET /log/level
+X-API-Key: your-secret-api-key
 ```
 
 **设置日志级别**
 ```http
 POST /log/level
 Content-Type: application/json
+X-API-Key: your-secret-api-key
 
 {
     "level": "debug"
 }
 ```
+
+**注意**: 此端点需要 API Key 认证，所有日志级别修改操作都会被记录到安全审计日志中。
 
 支持的日志级别：`trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic`
 
@@ -502,15 +522,54 @@ GET /metrics
 ### 使用 Docker Compose
 
 1. **准备环境变量文件**
-创建 `.env` 文件：
-```env
-PORT=8081
-REDIS=warden-redis:6379
-CONFIG=http://example.com/api
-KEY=Bearer your-token
-INTERVAL=5
-MODE=DEFAULT
-```
+   
+   如果项目根目录存在 `.env.example` 文件，可以复制它：
+   ```bash
+   cp .env.example .env
+   ```
+   
+   如果不存在 `.env.example` 文件，可以手动创建 `.env` 文件，参考以下内容：
+   ```env
+   # 服务器配置
+   PORT=8081
+   
+   # Redis 配置
+   REDIS=warden-redis:6379
+   # Redis 密码（可选，建议使用环境变量而不是配置文件）
+   # REDIS_PASSWORD=your-redis-password
+   # 或使用密码文件（更安全）
+   # REDIS_PASSWORD_FILE=/path/to/redis-password.txt
+   
+   # 远程配置 API
+   CONFIG=http://example.com/api/config.json
+   # 远程配置 API 认证密钥
+   KEY=Bearer your-token-here
+   
+   # 任务配置
+   INTERVAL=5
+   
+   # 应用模式
+   MODE=DEFAULT
+   
+   # HTTP 客户端配置（可选）
+   # HTTP_TIMEOUT=5
+   # HTTP_MAX_IDLE_CONNS=100
+   # HTTP_INSECURE_TLS=false
+   
+   # API Key（用于 API 认证，生产环境必须设置）
+   API_KEY=your-api-key-here
+   
+   # 健康检查 IP 白名单（可选，逗号分隔）
+   # HEALTH_CHECK_IP_WHITELIST=127.0.0.1,::1,10.0.0.0/8
+   
+   # 信任的代理 IP 列表（可选，逗号分隔，用于反向代理环境）
+   # TRUSTED_PROXY_IPS=127.0.0.1,10.0.0.1
+   
+   # 日志级别（可选）
+   # LOG_LEVEL=info
+   ```
+   
+   > ⚠️ **安全提示**: `.env` 文件包含敏感信息，不要提交到版本控制系统。`.env` 文件已被 `.gitignore` 忽略。请使用上述内容作为模板创建 `.env` 文件。
 
 2. **启动服务**
 ```bash
@@ -568,6 +627,46 @@ warden/
 └── pkg/
     └── gocron/            # 定时任务调度器
 ```
+
+## 🔒 安全特性
+
+### 已实现的安全功能
+
+1. **API 认证**: 支持 API Key 认证，保护敏感端点
+2. **SSRF 防护**: 严格验证远程配置 URL，防止服务器端请求伪造攻击
+3. **输入验证**: 严格验证所有输入参数，防止注入攻击
+4. **速率限制**: 基于 IP 的速率限制，防止 DDoS 攻击
+5. **TLS 验证**: 生产环境强制启用 TLS 证书验证
+6. **错误处理**: 生产环境隐藏详细错误信息，防止信息泄露
+7. **安全响应头**: 自动添加安全相关的 HTTP 响应头
+8. **IP 白名单**: 支持为健康检查端点配置 IP 白名单
+9. **配置文件验证**: 防止路径遍历攻击
+10. **JSON 大小限制**: 限制 JSON 响应体大小，防止内存耗尽攻击
+
+### 安全最佳实践
+
+1. **生产环境配置**:
+   - 必须设置 `API_KEY` 环境变量
+   - 设置 `MODE=production` 启用生产模式
+   - 配置 `TRUSTED_PROXY_IPS` 以正确获取客户端 IP
+   - 使用 `HEALTH_CHECK_IP_WHITELIST` 限制健康检查访问
+
+2. **敏感信息管理**:
+   - 不要在配置文件中存储敏感信息（API Key、密码等）
+   - 使用环境变量或密码文件存储敏感信息
+   - 确保配置文件权限设置正确
+
+3. **网络安全**:
+   - 生产环境必须使用 HTTPS
+   - 配置防火墙规则限制访问
+   - 定期更新依赖项以修复已知漏洞
+
+4. **监控和审计**:
+   - 监控安全事件日志
+   - 定期审查访问日志
+   - 使用 CI/CD 中的安全扫描工具
+
+详细的安全审计报告请参考 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
 
 ## 🔧 开发指南
 

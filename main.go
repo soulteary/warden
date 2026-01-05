@@ -46,6 +46,7 @@ type App struct {
 	configURL           string                  // 16 bytes
 	authorizationHeader string                  // 16 bytes
 	appMode             string                  // 16 bytes
+	apiKey              string                  // 16 bytes
 	taskInterval        uint64                  // 8 bytes
 }
 
@@ -58,6 +59,7 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 		appMode:             cfg.Mode,
 		// #nosec G115 -- 转换是安全的，TaskInterval 是正数
 		taskInterval: uint64(cfg.TaskInterval),
+		apiKey:       cfg.APIKey,
 		log:          logger.GetLogger(),
 	}
 
@@ -85,6 +87,10 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 	parser.InitHTTPClient(cfg.HTTPTimeout, cfg.HTTPMaxIdleConns, cfg.HTTPInsecureTLS)
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg("HTTP TLS 证书验证已禁用（仅用于开发环境）")
+		// 在生产环境，强制启用 TLS 验证
+		if cfg.Mode == "production" || cfg.Mode == "prod" {
+			app.log.Fatal().Msg("生产环境不允许禁用 TLS 证书验证，程序退出")
+		}
 	}
 
 	// 初始化缓存
@@ -375,34 +381,66 @@ func (app *App) backgroundTask(rulesFile string) {
 
 // registerRoutes 注册所有 HTTP 路由
 func registerRoutes(app *App) {
-	// 注册 Prometheus metrics 端点
-	http.Handle("/metrics", metrics.Handler())
-
-	// 创建速率限制中间件
+	// 创建基础中间件
+	securityHeadersMiddleware := middleware.SecurityHeadersMiddleware
+	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.appMode)
 	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(app.rateLimiter)
+	authMiddleware := middleware.AuthMiddleware(app.apiKey)
 
-	// 注册主数据接口
-	mainHandler := middleware.CompressMiddleware(
-		middleware.BodyLimitMiddleware(
-			middleware.MetricsMiddleware(
-				rateLimitMiddleware(
-					router.ProcessWithLogger(router.JSON(app.userCache)),
+	// 健康检查端点 IP 白名单（从环境变量读取）
+	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
+	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
+
+	// 注册 Prometheus metrics 端点（可选认证）
+	metricsHandler := securityHeadersMiddleware(
+		errorHandlerMiddleware(
+			middleware.OptionalAuthMiddleware(app.apiKey)(
+				middleware.MetricsMiddleware(metrics.Handler()),
+			),
+		),
+	)
+	http.Handle("/metrics", metricsHandler)
+
+	// 注册主数据接口（需要认证）
+	mainHandler := securityHeadersMiddleware(
+		errorHandlerMiddleware(
+			middleware.CompressMiddleware(
+				middleware.BodyLimitMiddleware(
+					middleware.MetricsMiddleware(
+						rateLimitMiddleware(
+							authMiddleware(
+								router.ProcessWithLogger(router.JSON(app.userCache)),
+							),
+						),
+					),
 				),
 			),
 		),
 	)
 	http.Handle("/", mainHandler)
 
-	// 注册健康检查端点
-	healthHandler := middleware.MetricsMiddleware(
-		router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode)),
+	// 注册健康检查端点（IP 白名单保护，限制信息泄露）
+	healthHandler := securityHeadersMiddleware(
+		errorHandlerMiddleware(
+			healthIPWhitelist(
+				middleware.MetricsMiddleware(
+					router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode)),
+				),
+			),
+		),
 	)
 	http.Handle("/health", healthHandler)
 	http.Handle("/healthcheck", healthHandler)
 
-	// 注册日志级别控制端点
-	logLevelHandler := middleware.MetricsMiddleware(
-		router.ProcessWithLogger(router.LogLevelHandler()),
+	// 注册日志级别控制端点（需要认证）
+	logLevelHandler := securityHeadersMiddleware(
+		errorHandlerMiddleware(
+			middleware.MetricsMiddleware(
+				authMiddleware(
+					router.ProcessWithLogger(router.LogLevelHandler()),
+				),
+			),
+		),
 	)
 	http.Handle("/log/level", logLevelHandler)
 }

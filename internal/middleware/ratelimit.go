@@ -6,6 +6,7 @@ import (
 	// 标准库
 	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -280,12 +281,31 @@ func isPrivateIP(ip net.IP) bool {
 	return false
 }
 
+// trustedProxyIPs 信任的代理 IP 列表（从环境变量读取）
+var trustedProxyIPs = loadTrustedProxyIPs()
+
+// loadTrustedProxyIPs 从环境变量加载信任的代理 IP 列表
+func loadTrustedProxyIPs() map[string]bool {
+	trustedIPs := make(map[string]bool)
+
+	// 从环境变量 TRUSTED_PROXY_IPS 读取，支持逗号分隔的多个 IP
+	trustedIPsEnv := os.Getenv("TRUSTED_PROXY_IPS")
+	if trustedIPsEnv != "" {
+		ips := strings.Split(trustedIPsEnv, ",")
+		for _, ipStr := range ips {
+			ipStr = strings.TrimSpace(ipStr)
+			if ip := net.ParseIP(ipStr); ip != nil {
+				trustedIPs[ip.String()] = true
+			}
+		}
+	}
+
+	return trustedIPs
+}
+
 // isTrustedProxy 检查请求是否来自信任的代理
 // 在生产环境中，应该根据实际部署情况配置信任的代理 IP
 func isTrustedProxy(r *http.Request) bool {
-	// 这里可以根据实际需求配置信任的代理 IP 列表
-	// 例如：检查 RemoteAddr 是否在信任列表中
-	// 当前实现：如果 RemoteAddr 是私有 IP，则认为可能来自内部代理
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return false
@@ -294,7 +314,15 @@ func isTrustedProxy(r *http.Request) bool {
 	if ip == nil {
 		return false
 	}
-	// 在生产环境中，应该配置实际的信任代理列表
-	// 这里简化处理：如果是私有 IP，可能来自内部代理
+
+	// 检查是否在信任的代理 IP 列表中
+	if len(trustedProxyIPs) > 0 {
+		if trustedProxyIPs[ip.String()] {
+			return true
+		}
+	}
+
+	// 如果没有配置信任的代理 IP 列表，默认允许私有 IP（向后兼容）
+	// 在生产环境，建议通过环境变量明确配置信任的代理 IP
 	return isPrivateIP(ip)
 }

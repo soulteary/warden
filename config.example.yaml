@@ -40,4 +40,5 @@ task:
 
 app:
   mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
+  api_key: ""  # API Key 用于认证（敏感信息，强烈建议使用环境变量 API_KEY）
 

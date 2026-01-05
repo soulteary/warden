@@ -3,12 +3,12 @@ package cmd
 import (
 	// 标准库
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 
 	// 项目内部包
 	"soulteary.com/soulteary/warden/internal/define"
+	"soulteary.com/soulteary/warden/internal/validator"
 )
 
 // ValidateConfig 验证配置的有效性
@@ -32,9 +32,9 @@ func ValidateConfig(cfg *Config) error {
 		}
 	}
 
-	// 验证远程配置 URL
+	// 验证远程配置 URL（加强 SSRF 防护）
 	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
-		if _, err := url.ParseRequestURI(cfg.RemoteConfig); err != nil {
+		if err := validator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
 			errors = append(errors, fmt.Sprintf("无效的远程配置 URL: %s (%v)", cfg.RemoteConfig, err))
 		}
 	}
