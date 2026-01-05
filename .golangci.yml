@@ -30,38 +30,38 @@ linters:
     - unconvert         # 检查不必要的类型转换
     - unparam           # 检查未使用的参数
 
-# linter 配置
-linters-settings:
-  errcheck:
-    # 报告所有错误，包括未导出的函数
-    check-type-assertions: true
-    check-blank: true
+  # linter 配置（v2 格式：settings 嵌套在 linters 下）
+  settings:
+    errcheck:
+      # 报告所有错误，包括未导出的函数
+      check-type-assertions: true
+      check-blank: true
 
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # 允许重复导入（某些情况下需要）
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport # 允许重复导入（某些情况下需要）
 
-  govet:
-    # 启用所有检查
-    enable-all: true
+    govet:
+      # 启用所有检查
+      enable-all: true
 
-  revive:
-    # 规则配置
-    rules:
-      - name: exported
-        severity: warning
-      - name: var-naming
-        severity: warning
-        arguments:
-          - ["allowAllCaps"] # 允许 ALL_CAPS 命名风格
-      - name: package-comments
-        severity: warning
+    revive:
+      # 规则配置
+      rules:
+        - name: exported
+          severity: warning
+        - name: var-naming
+          severity: warning
+          arguments:
+            - ["allowAllCaps"] # 允许 ALL_CAPS 命名风格
+        - name: package-comments
+          severity: warning
 #
 #   gosec:
 #     # 排除一些误报

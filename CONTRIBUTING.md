@@ -60,6 +60,7 @@ go run main.go
 3. **代码检查**: 使用 `golangci-lint` 或 `go vet ./...`
 4. **编写测试**: 新功能必须包含测试
 5. **添加注释**: 公共函数和类型必须有文档注释
+6. **常量命名**: 所有常量必须使用 `ALL_CAPS` (UPPER_SNAKE_CASE) 命名风格
 
 详细的代码风格指南请参考 [CODE_STYLE.md](CODE_STYLE.md)。
 

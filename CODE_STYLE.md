@@ -66,18 +66,20 @@ package UserCache
 
 - **导出（公共）**: 使用 PascalCase
 - **未导出（私有）**: 使用 camelCase
-- **常量**: 使用 PascalCase 或 UPPER_SNAKE_CASE
+- **常量**: 使用 ALL_CAPS (UPPER_SNAKE_CASE)
 
 ```go
 // ✅ 正确
 var UserCache *cache.SafeUserCache
 var redisClient *redis.Client
-const DefaultTimeout = 5 * time.Second
+const DEFAULT_TIMEOUT = 5 * time.Second
 const MAX_RETRIES = 3
+const DEFAULT_RATE_LIMIT = 60
 
 // ❌ 错误
 var user_cache *cache.SafeUserCache
 var RedisClient *redis.Client
+const DefaultTimeout = 5 * time.Second  // 常量应使用 ALL_CAPS
 ```
 
 ### 接口名
@@ -436,8 +438,8 @@ go tool cover -html=coverage.out
 
 ```go
 // ✅ 正确
-const maxParamLength = 20
-if len(input) > maxParamLength {
+const MAX_PARAM_LENGTH = 20
+if len(input) > MAX_PARAM_LENGTH {
     return fmt.Errorf("参数长度超过限制")
 }
 

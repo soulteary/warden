@@ -21,7 +21,7 @@ var httpClient = &http.Client{
 	Timeout: define.DEFAULT_TIMEOUT * time.Second,
 	Transport: &http.Transport{
 		MaxIdleConns:        define.DEFAULT_MAX_IDLE_CONNS,
-		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNSPerHost,
+		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNS_PER_HOST,
 		IdleConnTimeout:     define.DEFAULT_IDLE_CONN_TIMEOUT,
 		DisableKeepAlives:   false, // 明确设置，启用连接复用
 	},
@@ -31,7 +31,7 @@ var httpClient = &http.Client{
 func InitHTTPClient(timeout int, maxIdleConns int, insecureTLS bool) {
 	transport := &http.Transport{
 		MaxIdleConns:        maxIdleConns,
-		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNSPerHost,
+		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNS_PER_HOST,
 		IdleConnTimeout:     define.DEFAULT_IDLE_CONN_TIMEOUT,
 		DisableKeepAlives:   false,
 	}
