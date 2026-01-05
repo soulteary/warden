@@ -75,5 +75,7 @@ func TestLocker_Integration(t *testing.T) {
 	assert.True(t, success3, "解锁后应该可以再次锁定")
 
 	// 清理
-	_ = locker.Unlock(key)
+	if err := locker.Unlock(key); err != nil {
+		t.Logf("清理锁失败: %v", err)
+	}
 }

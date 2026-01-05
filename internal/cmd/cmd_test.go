@@ -25,16 +25,24 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 		os.Args = oldArgs
 		for k, v := range oldEnv {
 			if v == "" {
-				_ = os.Unsetenv(k)
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("恢复环境变量失败: %s", k)
+				}
 			} else {
-				_ = os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Logf("恢复环境变量失败: %s", k)
+				}
 			}
 		}
 	}()
 
 	// 清理环境变量
-	_ = os.Unsetenv("PORT")
-	_ = os.Unsetenv("REDIS")
+	if err := os.Unsetenv("PORT"); err != nil {
+		t.Logf("清理环境变量失败: PORT")
+	}
+	if err := os.Unsetenv("REDIS"); err != nil {
+		t.Logf("清理环境变量失败: REDIS")
+	}
 	_ = os.Unsetenv("CONFIG")
 	_ = os.Unsetenv("KEY")
 	_ = os.Unsetenv("INTERVAL")
@@ -44,9 +52,9 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 
 	cfg := GetArgs()
 
-	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port)
-	assert.Equal(t, define.DEFAULT_REDIS, cfg.Redis)
-	assert.Equal(t, define.DEFAULT_REMOTE_CONFIG, cfg.RemoteConfig)
+	assert.Equal(t, strconv.Itoa(define.DefaultPort), cfg.Port)
+	assert.Equal(t, define.DefaultRedis, cfg.Redis)
+	assert.Equal(t, define.DefaultRemoteConfig, cfg.RemoteConfig)
 	assert.Equal(t, define.DEFAULT_REMOTE_KEY, cfg.RemoteKey)
 	assert.Equal(t, define.DEFAULT_TASK_INTERVAL, cfg.TaskInterval)
 	assert.Equal(t, define.DEFAULT_MODE, cfg.Mode)
@@ -68,9 +76,13 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 		os.Args = oldArgs
 		for k, v := range oldEnv {
 			if v == "" {
-				_ = os.Unsetenv(k)
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("恢复环境变量失败: %s", k)
+				}
 			} else {
-				_ = os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Logf("恢复环境变量失败: %s", k)
+				}
 			}
 		}
 	}()
@@ -109,9 +121,13 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 		os.Args = oldArgs
 		for k, v := range oldEnv {
 			if v == "" {
-				_ = os.Unsetenv(k)
+				if err := os.Unsetenv(k); err != nil {
+					t.Logf("恢复环境变量失败: %s", k)
+				}
 			} else {
-				_ = os.Setenv(k, v)
+				if err := os.Setenv(k, v); err != nil {
+					t.Logf("恢复环境变量失败: %s", k)
+				}
 			}
 		}
 	}()
@@ -122,12 +138,24 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 	}
 
 	// 设置环境变量
-	_ = os.Setenv("PORT", "8888")
-	_ = os.Setenv("REDIS", "192.168.1.1:6379")
-	_ = os.Setenv("CONFIG", "http://test.com/config.json")
-	_ = os.Setenv("KEY", "env-key")
-	_ = os.Setenv("INTERVAL", "15")
-	_ = os.Setenv("MODE", "REMOTE_FIRST")
+	if err := os.Setenv("PORT", "8888"); err != nil {
+		t.Fatalf("设置环境变量失败: PORT")
+	}
+	if err := os.Setenv("REDIS", "192.168.1.1:6379"); err != nil {
+		t.Fatalf("设置环境变量失败: REDIS")
+	}
+	if err := os.Setenv("CONFIG", "http://test.com/config.json"); err != nil {
+		t.Fatalf("设置环境变量失败: CONFIG")
+	}
+	if err := os.Setenv("KEY", "env-key"); err != nil {
+		t.Fatalf("设置环境变量失败: KEY")
+	}
+	if err := os.Setenv("INTERVAL", "15"); err != nil {
+		t.Fatalf("设置环境变量失败: INTERVAL")
+	}
+	if err := os.Setenv("MODE", "REMOTE_FIRST"); err != nil {
+		t.Fatalf("设置环境变量失败: MODE")
+	}
 
 	os.Args = []string{"test"}
 

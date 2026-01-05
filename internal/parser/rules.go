@@ -28,7 +28,7 @@ var httpClient = &http.Client{
 }
 
 // InitHTTPClient 初始化 HTTP 客户端（使用配置）
-func InitHTTPClient(timeout int, maxIdleConns int, insecureTLS bool) {
+func InitHTTPClient(timeout, maxIdleConns int, insecureTLS bool) {
 	transport := &http.Transport{
 		MaxIdleConns:        maxIdleConns,
 		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNS_PER_HOST,
@@ -99,7 +99,9 @@ func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, 
 		if err == nil {
 			// 检查状态码，5xx 错误也重试
 			if res.StatusCode >= 500 && res.StatusCode < 600 && attempt < maxRetries {
-				_ = res.Body.Close()
+				if err := res.Body.Close(); err != nil {
+					log.Warn().Err(err).Msg("关闭响应体失败")
+				}
 				lastErr = fmt.Errorf("服务器错误: HTTP %d", res.StatusCode)
 				continue
 			}
@@ -122,8 +124,8 @@ func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, 
 }
 
 // buildRemoteRequest 构建远程请求
-func buildRemoteRequest(ctx context.Context, url string, authorizationHeader string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func buildRemoteRequest(ctx context.Context, url, authorizationHeader string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
 		log.Error().
 			Err(fmt.Errorf("%s: %w", define.ERR_REQ_INIT_FAILED, err)).
@@ -146,7 +148,9 @@ func buildRemoteRequest(ctx context.Context, url string, authorizationHeader str
 // parseRemoteResponse 解析远程响应
 func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser, error) {
 	defer func() {
-		_ = res.Body.Close()
+		if err := res.Body.Close(); err != nil {
+			log.Warn().Err(err).Str("url", url).Msg("关闭响应体失败")
+		}
 	}()
 
 	// 检查 HTTP 状态码
@@ -198,7 +202,7 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 // 副作用:
 //   - 会记录错误和警告日志
 //   - 会设置请求头（Content-Type、Cache-Control、Authorization）
-func FromRemoteConfig(ctx context.Context, url string, authorizationHeader string) ([]define.AllowListUser, error) {
+func FromRemoteConfig(ctx context.Context, url, authorizationHeader string) ([]define.AllowListUser, error) {
 	req, err := buildRemoteRequest(ctx, url, authorizationHeader)
 	if err != nil {
 		return nil, err

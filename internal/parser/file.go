@@ -49,9 +49,9 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 		return rules
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
+		if closeErr := file.Close(); closeErr != nil {
 			log.Error().
-				Err(err).
+				Err(closeErr).
 				Str("file", rulesFile).
 				Msg("关闭文件失败")
 		}

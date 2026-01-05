@@ -54,7 +54,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 	// 前2个请求应该成功
 	for i := 0; i < 2; i++ {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest("GET", "/", http.NoBody)
 		req.RemoteAddr = "127.0.0.1:12345"
 		rr := httptest.NewRecorder()
 		wrappedHandler.ServeHTTP(rr, req)

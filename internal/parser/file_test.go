@@ -24,7 +24,7 @@ func TestFromFile_ValidFile(t *testing.T) {
 	// 写入测试数据
 	data, err := json.Marshal(testData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 测试读取
@@ -115,7 +115,7 @@ func TestFromFile_ValidSingleRecord(t *testing.T) {
 
 	data, err := json.Marshal(singleRecord)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	result := FromFile(testFile)
@@ -153,7 +153,7 @@ func TestFromFile_Unicode(t *testing.T) {
 
 	data, err := json.Marshal(unicodeData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	result := FromFile(testFile)

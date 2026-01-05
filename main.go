@@ -279,9 +279,9 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 				continue
 			}
 		} else {
-			if version, err := app.redisUserCache.GetVersion(); err == nil {
+			if cacheVersion, err := app.redisUserCache.GetVersion(); err == nil {
 				app.log.Debug().
-					Int64("version", version).
+					Int64("version", cacheVersion).
 					Msg("Redis 缓存已更新")
 			}
 			return nil
@@ -420,7 +420,7 @@ func startServer(port string) *http.Server {
 }
 
 // shutdownServer 优雅关闭服务器
-func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log zerolog.Logger) {
+func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, logger zerolog.Logger) {
 	// 停止速率限制器
 	if rateLimiter != nil {
 		rateLimiter.Stop()
@@ -430,7 +430,7 @@ func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log z
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
+		logger.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
 	}
 }
 
@@ -472,9 +472,10 @@ func main() {
 		// 在退出前先清理资源
 		close(schedulerStopped)
 		scheduler.Clear()
-		log.Fatal().
+		log.Error().
 			Err(err).
 			Msg("定时任务调度器初始化失败，程序退出")
+		os.Exit(1)
 	}
 	defer func() {
 		close(schedulerStopped)

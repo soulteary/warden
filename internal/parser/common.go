@@ -69,7 +69,7 @@ func addRulesToDict(dict map[string]define.AllowListUser, order *[]string, rules
 //   - 会记录调试和警告日志
 //   - 可能进行网络请求（根据模式）
 //   - 可能读取本地文件（根据模式）
-func GetRules(ctx context.Context, rulesFile string, configURL string, authorizationHeader string, appMode string) (result []define.AllowListUser) {
+func GetRules(ctx context.Context, rulesFile, configURL, authorizationHeader, appMode string) (result []define.AllowListUser) {
 	switch appMode {
 	case "DEFAULT", "REMOTE_FIRST":
 		return remoteRulesFirstAppendNotExistsFromLocalRules(ctx, rulesFile, configURL, authorizationHeader, false)
@@ -105,7 +105,7 @@ func GetRules(ctx context.Context, rulesFile string, configURL string, authoriza
 //
 // 返回:
 //   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
-func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFile string, configURL string, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
+func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFile, configURL, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
 	var order = make([]string, 0) // 维护顺序列表
 
@@ -149,7 +149,7 @@ func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFil
 //
 // 返回:
 //   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
-func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFile string, configURL string, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
+func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFile, configURL, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
 	var order = make([]string, 0) // 维护顺序列表
 
@@ -187,7 +187,7 @@ func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFil
 //
 // 返回:
 //   - []define.AllowListUser: 远程获取的用户列表，如果获取失败则返回空列表
-func onlyRemoteRules(ctx context.Context, configURL string, authorizationHeader string) (result []define.AllowListUser) {
+func onlyRemoteRules(ctx context.Context, configURL, authorizationHeader string) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
 	var order = make([]string, 0) // 维护顺序列表
 

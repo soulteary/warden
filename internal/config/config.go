@@ -138,7 +138,7 @@ func LoadFromFile(configPath string) (*Config, error) {
 // applyServerDefaults 应用服务器默认值
 func applyServerDefaults(cfg *Config) {
 	if cfg.Server.Port == "" {
-		cfg.Server.Port = fmt.Sprintf("%d", define.DEFAULT_PORT)
+		cfg.Server.Port = fmt.Sprintf("%d", define.DefaultPort)
 	}
 	if cfg.Server.ReadTimeout == 0 {
 		cfg.Server.ReadTimeout = define.DEFAULT_TIMEOUT * time.Second
@@ -160,7 +160,7 @@ func applyServerDefaults(cfg *Config) {
 // applyRedisDefaults 应用 Redis 默认值
 func applyRedisDefaults(cfg *Config) {
 	if cfg.Redis.Addr == "" {
-		cfg.Redis.Addr = define.DEFAULT_REDIS
+		cfg.Redis.Addr = define.DefaultRedis
 	}
 }
 
@@ -200,7 +200,7 @@ func applyHTTPDefaults(cfg *Config) {
 // applyRemoteDefaults 应用远程配置默认值
 func applyRemoteDefaults(cfg *Config) {
 	if cfg.Remote.URL == "" {
-		cfg.Remote.URL = define.DEFAULT_REMOTE_CONFIG
+		cfg.Remote.URL = define.DefaultRemoteConfig
 	}
 	if cfg.Remote.Key == "" {
 		cfg.Remote.Key = define.DEFAULT_REMOTE_KEY
@@ -281,7 +281,7 @@ func overrideFromEnv(cfg *Config) {
 		}
 	}
 	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
-		cfg.HTTP.InsecureTLS = strings.ToLower(insecureTLS) == "true" || insecureTLS == "1"
+		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
 	}
 }
 
@@ -361,7 +361,11 @@ type LegacyConfig struct {
 
 // ToLegacyConfig 转换为旧的 Config 格式（保持向后兼容）
 func (c *Config) ToLegacyConfig() *LegacyConfig {
-	redisPassword, _ := c.GetRedisPassword()
+	redisPassword, err := c.GetRedisPassword()
+	if err != nil {
+		// 如果获取密码失败，使用空字符串
+		redisPassword = ""
+	}
 	return &LegacyConfig{
 		Port:             c.Server.Port,
 		Redis:            c.Redis.Addr,
@@ -392,7 +396,11 @@ type CmdConfigData struct {
 
 // ToCmdConfig 转换为 cmd.Config 格式
 func (c *Config) ToCmdConfig() *CmdConfigData {
-	redisPassword, _ := c.GetRedisPassword()
+	redisPassword, err := c.GetRedisPassword()
+	if err != nil {
+		// 如果获取密码失败，使用空字符串
+		redisPassword = ""
+	}
 	return &CmdConfigData{
 		Port:             c.Server.Port,
 		Redis:            c.Redis.Addr,

@@ -36,7 +36,7 @@ func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeB
 	var mu sync.Mutex
 	numberOfIterations := 2
 
-	_ = job.Do(func() {
+	if err := job.Do(func() {
 		mu.Lock()
 		executionTimes = append(executionTimes, time.Now().Unix())
 		count := len(executionTimes)
@@ -44,7 +44,9 @@ func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeB
 		if count >= numberOfIterations {
 			jobDone <- true
 		}
-	})
+	}); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	stop := sched.Start()
 	<-jobDone // Wait job done
@@ -68,10 +70,12 @@ func TestSafeExecution(t *testing.T) {
 	var wc sync.WaitGroup
 	wc.Add(1)
 
-	_ = sched.Every(1).Second().Do(func(mutableValue *bool) {
+	if err := sched.Every(1).Second().Do(func(mutableValue *bool) {
 		*mutableValue = !*mutableValue
 		wc.Done()
-	}, &success)
+	}, &success); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	sched.RunAll()
 	wc.Wait()
@@ -87,15 +91,19 @@ func TestSafeExecutionWithPanic(t *testing.T) {
 	}()
 
 	sched := NewScheduler()
-	_ = sched.Every(1).Second().DoSafely(func() {
+	if err := sched.Every(1).Second().DoSafely(func() {
 		log.Panic("I am panicking!")
-	})
+	}); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	sched.RunAll()
 }
 
 func TestScheduled(t *testing.T) {
 	n := NewScheduler()
-	_ = n.Every(1).Second().Do(task)
+	if err := n.Every(1).Second().Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	if !n.Scheduled(task) {
 		t.Fatal("Task was scheduled but function couldn't find it")
 	}
@@ -107,8 +115,12 @@ func TestScheduler_Weekdays(t *testing.T) {
 
 	job1 := scheduler.Every(1).Monday().At("23:59")
 	job2 := scheduler.Every(1).Wednesday().At("23:59")
-	_ = job1.Do(task)
-	_ = job2.Do(task)
+	if err := job1.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
+	if err := job2.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	t.Logf("job1 scheduled for %s", job1.NextScheduledTime())
 	t.Logf("job2 scheduled for %s", job2.NextScheduledTime())
 	assert.NotEqual(t, job1.NextScheduledTime(), job2.NextScheduledTime(), "Two jobs scheduled at the same time on two different weekdays should never run at the same time")
@@ -123,7 +135,9 @@ func TestScheduler_WeekdaysTodayAfter(t *testing.T) {
 	timeToSchedule := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()-1, 0, 0, time.Local)
 
 	job := callTodaysWeekday(scheduler.Every(1)).At(fmt.Sprintf("%02d:%02d", timeToSchedule.Hour(), timeToSchedule.Minute()))
-	_ = job.Do(task)
+	if err := job.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	t.Logf("job is scheduled for %s", job.NextScheduledTime())
 	if job.NextScheduledTime().Weekday() != timeToSchedule.Weekday() {
 		t.Errorf("Job scheduled for current weekday for earlier time, should still be scheduled for current weekday (but next week)")
@@ -179,7 +193,9 @@ func TestScheduleNextRunLoc(t *testing.T) {
 	// job just ran (this is 20:45 UTC), so next run should be tomorrow
 	today := time.Now().In(laLocation)
 	job.lastRun = time.Date(today.Year(), today.Month(), today.Day(), 13, 45, 0, 0, laLocation)
-	_ = job.Do(task)
+	if err := job.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	tomorrow := today.AddDate(0, 0, 1)
 	assert.Equal(t, 20, job.NextScheduledTime().UTC().Hour())
@@ -194,7 +210,9 @@ func TestScheduleNextRunFromNow(t *testing.T) {
 	sched.ChangeLoc(time.UTC)
 
 	job := sched.Every(1).Hour().From(NextTick())
-	_ = job.Do(task)
+	if err := job.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	next := job.NextScheduledTime()
 	nextRounded := time.Date(next.Year(), next.Month(), next.Day(), next.Hour(), next.Minute(), next.Second(), 0, time.UTC)
@@ -213,7 +231,9 @@ func TestScheduler_WeekdaysTodayBefore(t *testing.T) {
 	timeToSchedule := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()+1, 0, 0, time.Local)
 
 	job := callTodaysWeekday(scheduler.Every(1)).At(fmt.Sprintf("%02d:%02d", timeToSchedule.Hour(), timeToSchedule.Minute()))
-	_ = job.Do(task)
+	if err := job.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	t.Logf("job is scheduled for %s", job.NextScheduledTime())
 	if !job.NextScheduledTime().Equal(timeToSchedule) {
 		t.Error("Job should be run today, at the set time.")
@@ -328,8 +348,12 @@ func callTodaysWeekday(job *Job) *Job {
 
 func TestScheduler_Remove(t *testing.T) {
 	scheduler := NewScheduler()
-	_ = scheduler.Every(1).Minute().Do(task)
-	_ = scheduler.Every(1).Minute().Do(taskWithParams, 1, "hello")
+	if err := scheduler.Every(1).Minute().Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
+	if err := scheduler.Every(1).Minute().Do(taskWithParams, 1, "hello"); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	assert.Equal(t, 2, scheduler.Len(), "Incorrect number of jobs")
 
@@ -345,9 +369,13 @@ func TestScheduler_Remove(t *testing.T) {
 func TestScheduler_RemoveByRef(t *testing.T) {
 	scheduler := NewScheduler()
 	job1 := scheduler.Every(1).Minute()
-	_ = job1.Do(task)
+	if err := job1.Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	job2 := scheduler.Every(1).Minute()
-	_ = job2.Do(taskWithParams, 1, "hello")
+	if err := job2.Do(taskWithParams, 1, "hello"); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	assert.Equal(t, 2, scheduler.Len(), "Incorrect number of jobs")
 
@@ -366,9 +394,11 @@ func TestTaskAt(t *testing.T) {
 	dayJob := s.Every(1).Day().At(startAt)
 
 	dayJobDone := make(chan bool, 1)
-	_ = dayJob.Do(func() {
+	if err := dayJob.Do(func() {
 		dayJobDone <- true
-	})
+	}); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	// Expected start time
 	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Add(time.Minute).Minute(), 0, 0, loc)
@@ -398,9 +428,11 @@ func TestTaskAtFuture(t *testing.T) {
 	dayJob := s.Every(1).Day().At(startAt)
 	shouldBeFalse := false
 
-	_ = dayJob.Do(func() {
+	if err := dayJob.Do(func() {
 		shouldBeFalse = true
-	})
+	}); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 
 	// Check first run
 	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Add(time.Minute).Minute(), 0, 0, loc)
@@ -423,14 +455,18 @@ func TestDaily(t *testing.T) {
 
 	// schedule next run 1 day
 	dayJob := s.Every(1).Day()
-	_ = dayJob.scheduleNextRun()
+	if err := dayJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	tomorrow := now.AddDate(0, 0, 1)
 	expectedTime := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, expectedTime, dayJob.nextRun)
 
 	// schedule next run 2 days
 	dayJob = s.Every(2).Days()
-	_ = dayJob.scheduleNextRun()
+	if err := dayJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	twoDaysFromNow := now.AddDate(0, 0, 2)
 	expectedTime = time.Date(twoDaysFromNow.Year(), twoDaysFromNow.Month(), twoDaysFromNow.Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, expectedTime, dayJob.nextRun)
@@ -439,7 +475,9 @@ func TestDaily(t *testing.T) {
 	dayJob = s.Every(1).Day()
 	twoHoursFromNow := now.Add(2 * time.Hour)
 	dayJob.lastRun = time.Date(twoHoursFromNow.Year(), twoHoursFromNow.Month(), twoHoursFromNow.Day(), twoHoursFromNow.Hour(), 0, 0, 0, loc)
-	_ = dayJob.scheduleNextRun()
+	if err := dayJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	expectedTime = time.Date(twoHoursFromNow.Year(), twoHoursFromNow.Month(), twoHoursFromNow.AddDate(0, 0, 1).Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, expectedTime, dayJob.nextRun)
 
@@ -447,7 +485,9 @@ func TestDaily(t *testing.T) {
 	twoHoursBefore := now.Add(-2 * time.Hour)
 	startAt := fmt.Sprintf("%02d:%02d", twoHoursBefore.Hour(), twoHoursBefore.Minute())
 	dayJob = s.Every(1).Day().At(startAt)
-	_ = dayJob.scheduleNextRun()
+	if err := dayJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 
 	expectedTime = time.Date(twoHoursBefore.Year(), twoHoursBefore.Month(),
 		twoHoursBefore.AddDate(0, 0, 1).Day(),
@@ -519,7 +559,9 @@ func TestWeekdayBeforeToday(t *testing.T) {
 		weekJob = s.Every(1).Saturday()
 	}
 
-	_ = weekJob.scheduleNextRun()
+	if err := weekJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	sixDaysFromNow := now.AddDate(0, 0, 6)
 
 	exp := time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
@@ -528,7 +570,9 @@ func TestWeekdayBeforeToday(t *testing.T) {
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
-	_ = weekJob.scheduleNextRun()
+	if err := weekJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	exp = time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 }
@@ -563,14 +607,18 @@ func TestWeekdayAt(t *testing.T) {
 	}
 
 	// First run
-	_ = weekJob.scheduleNextRun()
+	if err := weekJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	exp := time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), hour, minute, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 
 	// Simulate job run 7 days before
 	weekJob.lastRun = weekJob.nextRun.AddDate(0, 0, -7)
 	// Next run
-	_ = weekJob.scheduleNextRun()
+	if err := weekJob.scheduleNextRun(); err != nil {
+		t.Fatalf("调度下次运行失败: %v", err)
+	}
 	exp = time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), hour, minute, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 }
@@ -642,13 +690,19 @@ func TestLocker(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		s1 := NewScheduler()
-		_ = s1.Every(1).Seconds().Lock().Do(task, "A", i)
+		if err := s1.Every(1).Seconds().Lock().Do(task, "A", i); err != nil {
+			t.Fatalf("调度任务失败: %v", err)
+		}
 
 		s2 := NewScheduler()
-		_ = s2.Every(1).Seconds().Lock().Do(task, "B", i)
+		if err := s2.Every(1).Seconds().Lock().Do(task, "B", i); err != nil {
+			t.Fatalf("调度任务失败: %v", err)
+		}
 
 		s3 := NewScheduler()
-		_ = s3.Every(1).Seconds().Lock().Do(task, "C", i)
+		if err := s3.Every(1).Seconds().Lock().Do(task, "C", i); err != nil {
+			t.Fatalf("调度任务失败: %v", err)
+		}
 
 		stop1 := s1.Start()
 		stop2 := s2.Start()
@@ -676,10 +730,18 @@ func TestLocker(t *testing.T) {
 
 func TestGetAllJobs(t *testing.T) {
 	defaultScheduler = NewScheduler()
-	_ = Every(1).Minute().Do(task)
-	_ = Every(2).Minutes().Do(task)
-	_ = Every(3).Minutes().Do(task)
-	_ = Every(4).Minutes().Do(task)
+	if err := Every(1).Minute().Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
+	if err := Every(2).Minutes().Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
+	if err := Every(3).Minutes().Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
+	if err := Every(4).Minutes().Do(task); err != nil {
+		t.Fatalf("调度任务失败: %v", err)
+	}
 	js := Jobs()
 	assert.Len(t, js, 4)
 }

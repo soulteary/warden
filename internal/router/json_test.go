@@ -265,7 +265,10 @@ func TestJSON_Pagination(t *testing.T) {
 		assert.Contains(t, result, "pagination")
 
 		// 验证数据
-		data := result["data"].([]interface{})
+		data, ok := result["data"].([]interface{})
+		if !ok {
+			t.Fatal("data 类型断言失败")
+		}
 		assert.Len(t, data, 3, "第一页应该返回3条记录")
 
 		// 验证分页信息

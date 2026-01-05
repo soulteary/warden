@@ -41,7 +41,9 @@ func GetArgs() *Config {
 	fs.StringVar(&configFileFlag, "config-file", "", "配置文件路径 (支持 YAML 格式)")
 
 	// 先解析一次以获取配置文件路径
-	_ = fs.Parse(os.Args[1:])
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		// 忽略解析错误，继续使用默认值
+	}
 
 	// 如果指定了配置文件，尝试从配置文件加载
 	if configFileFlag != "" {
@@ -150,16 +152,16 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMa
 	if hasFlag(fs, "http-insecure-tls") {
 		cfg.HTTPInsecureTLS = httpInsecureTLSFlag
 	} else if insecureTLSEnv := os.Getenv("HTTP_INSECURE_TLS"); insecureTLSEnv != "" {
-		cfg.HTTPInsecureTLS = strings.ToLower(insecureTLSEnv) == "true" || insecureTLSEnv == "1"
+		cfg.HTTPInsecureTLS = strings.EqualFold(insecureTLSEnv, "true") || insecureTLSEnv == "1"
 	}
 }
 
 // getArgsFromFlags 从命令行参数和环境变量加载配置（原有逻辑）
 func getArgsFromFlags() *Config {
 	cfg := &Config{
-		Port:             strconv.Itoa(define.DEFAULT_PORT),
-		Redis:            define.DEFAULT_REDIS,
-		RemoteConfig:     define.DEFAULT_REMOTE_CONFIG,
+		Port:             strconv.Itoa(define.DefaultPort),
+		Redis:            define.DefaultRedis,
+		RemoteConfig:     define.DefaultRemoteConfig,
 		RemoteKey:        define.DEFAULT_REMOTE_KEY,
 		TaskInterval:     define.DEFAULT_TASK_INTERVAL,
 		Mode:             define.DEFAULT_MODE,
@@ -178,10 +180,10 @@ func getArgsFromFlags() *Config {
 	var httpInsecureTLSFlag bool
 	var redisPasswordFlag string
 
-	fs.IntVar(&portFlag, "port", define.DEFAULT_PORT, "web port")
-	fs.StringVar(&redisFlag, "redis", define.DEFAULT_REDIS, "redis host and port")
+	fs.IntVar(&portFlag, "port", define.DefaultPort, "web port")
+	fs.StringVar(&redisFlag, "redis", define.DefaultRedis, "redis host and port")
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	fs.StringVar(&configFlag, "config", define.DEFAULT_REMOTE_CONFIG, "remote config url")
+	fs.StringVar(&configFlag, "config", define.DefaultRemoteConfig, "remote config url")
 	fs.StringVar(&keyFlag, "key", define.DEFAULT_REMOTE_KEY, "remote config key")
 	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
 	fs.IntVar(&intervalFlag, "interval", define.DEFAULT_TASK_INTERVAL, "task interval")
@@ -190,7 +192,9 @@ func getArgsFromFlags() *Config {
 	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
 
 	// 解析命令行参数
-	_ = fs.Parse(os.Args[1:])
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		// 忽略解析错误，继续使用默认值
+	}
 
 	// 处理各个配置项
 	processPortFromFlags(cfg, fs, portFlag)
@@ -273,7 +277,9 @@ func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
 	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
 	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
 
-	_ = fs.Parse(os.Args[1:])
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		// 忽略解析错误，继续使用默认值
+	}
 
 	// 如果命令行参数被设置，覆盖配置
 	if hasFlag(fs, "port") && portFlag > 0 {

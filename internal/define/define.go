@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-// DEFAULT_PORT 默认端口号
-const DEFAULT_PORT = 8081
+// DefaultPort 默认端口号
+const DefaultPort = 8081
 
-// DEFAULT_REDIS 默认 Redis 地址
-const DEFAULT_REDIS = "localhost:6379"
+// DefaultRedis 默认 Redis 地址
+const DefaultRedis = "localhost:6379"
 
-// DEFAULT_REMOTE_CONFIG 默认远程配置地址
-const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/config.json"
+// DefaultRemoteConfig 默认远程配置地址
+const DefaultRemoteConfig = "http://localhost:8080/config.json"
 
 // DEFAULT_REMOTE_KEY 默认远程配置密钥
 const DEFAULT_REMOTE_KEY = ""

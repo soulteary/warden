@@ -29,7 +29,11 @@ var bufferPool = sync.Pool{
 
 // getBuffer 从池中获取 buffer
 func getBuffer() *bytes.Buffer {
-	return bufferPool.Get().(*bytes.Buffer)
+	buf, ok := bufferPool.Get().(*bytes.Buffer)
+	if !ok {
+		return &bytes.Buffer{}
+	}
+	return buf
 }
 
 // putBuffer 将 buffer 放回池中
@@ -99,13 +103,13 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 }
 
 // paginate 对数据进行分页
-func paginate(data []define.AllowListUser, page, pageSize int) ([]define.AllowListUser, int, int) {
-	total := len(data)
+func paginate(data []define.AllowListUser, page, pageSize int) (result []define.AllowListUser, total, totalPages int) {
+	total = len(data)
 	if total == 0 {
 		return []define.AllowListUser{}, 0, 0
 	}
 
-	totalPages := (total + pageSize - 1) / pageSize
+	totalPages = (total + pageSize - 1) / pageSize
 
 	// 如果请求的页面超出范围，返回空数组
 	if page > totalPages || page < 1 {

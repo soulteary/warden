@@ -22,7 +22,8 @@ var (
 	// ErrParameterCannotBeNil 参数不能为 nil 错误
 	ErrParameterCannotBeNil = errors.New("nil parameters cannot be used with reflection")
 	// ErrJobTimeout 任务执行超时错误
-	ErrJobTimeout   = errors.New("job execution timeout")
+	ErrJobTimeout = errors.New("job execution timeout")
+	// ErrJobCancelled 任务执行被取消错误
 	ErrJobCancelled = errors.New("job execution cancelled")
 )
 
@@ -101,7 +102,9 @@ func (j *Job) run() error {
 			return nil
 		}
 		defer func() {
-			_ = locker.Unlock(key)
+			if err := locker.Unlock(key); err != nil {
+				log.Printf("解锁失败: %v", err)
+			}
 		}()
 	}
 
@@ -182,7 +185,9 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	shouldSchedule := !j.nextRun.After(now)
 	j.mu.RUnlock()
 	if shouldSchedule {
-		_ = j.scheduleNextRun()
+		if err := j.scheduleNextRun(); err != nil {
+			j.err = err
+		}
 	}
 
 	return nil
@@ -198,7 +203,10 @@ func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) error {
 			}
 		}()
 
-		_, _ = callJobFuncWithParams(jobFun, params)
+		_, err := callJobFuncWithParams(jobFun, params)
+		if err != nil {
+			log.Printf("执行任务失败: %v", err)
+		}
 	}
 
 	return j.Do(recoveryWrapperFunc)
@@ -383,19 +391,25 @@ func (j *Job) Weeks() *Job {
 
 // Second sets the unit with second
 func (j *Job) Second() *Job {
-	_ = j.mustInterval(1)
+	if err := j.mustInterval(1); err != nil {
+		j.err = err
+	}
 	return j.Seconds()
 }
 
 // Minute sets the unit  with minute, which interval is 1
 func (j *Job) Minute() *Job {
-	_ = j.mustInterval(1)
+	if err := j.mustInterval(1); err != nil {
+		j.err = err
+	}
 	return j.Minutes()
 }
 
 // Hour sets the unit with hour, which interval is 1
 func (j *Job) Hour() *Job {
-	_ = j.mustInterval(1)
+	if err := j.mustInterval(1); err != nil {
+		j.err = err
+	}
 	return j.Hours()
 }
 

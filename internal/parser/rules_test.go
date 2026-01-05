@@ -24,7 +24,9 @@ func TestFromRemoteConfig_Success(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(testData)
+		if err := json.NewEncoder(w).Encode(testData); err != nil {
+			t.Errorf("编码JSON失败: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -78,7 +80,9 @@ func TestFromRemoteConfig_InvalidJSON(t *testing.T) {
 	// 创建返回无效JSON的服务器
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("invalid json"))
+		if _, err := w.Write([]byte("invalid json")); err != nil {
+			t.Errorf("写入响应失败: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -93,7 +97,9 @@ func TestFromRemoteConfig_EmptyResponse(t *testing.T) {
 	// 创建返回空响应的服务器
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("[]"))
+		if _, err := w.Write([]byte("[]")); err != nil {
+			t.Errorf("写入响应失败: %v", err)
+		}
 	}))
 	defer server.Close()
 

@@ -110,13 +110,17 @@ func (s *Scheduler) RunPending() {
 	if n != 0 {
 		for i := 0; i < n; i++ {
 			go func(job *Job) {
-				_ = job.run()
+				if err := job.run(); err != nil {
+					log.Printf("任务执行失败: %v", err)
+				}
 			}(runnableJobs[i])
 			// Update lastRun and schedule next run atomically
 			runnableJobs[i].mu.Lock()
 			runnableJobs[i].lastRun = time.Now()
 			runnableJobs[i].mu.Unlock()
-			_ = runnableJobs[i].scheduleNextRun()
+			if err := runnableJobs[i].scheduleNextRun(); err != nil {
+				log.Printf("调度下次运行失败: %v", err)
+			}
 		}
 	}
 }
@@ -130,7 +134,9 @@ func (s *Scheduler) RunAll() {
 func (s *Scheduler) RunAllwithDelay(d int) {
 	for i := 0; i < s.size; i++ {
 		go func(job *Job) {
-			_ = job.run()
+			if err := job.run(); err != nil {
+				log.Printf("任务执行失败: %v", err)
+			}
 		}(s.jobs[i])
 		if d != 0 {
 			time.Sleep(time.Duration(d))
@@ -193,8 +199,8 @@ func (s *Scheduler) removeByCondition(shouldRemove func(*Job) bool) {
 
 // Scheduled checks if specific job j was already added
 func (s *Scheduler) Scheduled(j interface{}) bool {
-	for _, job := range s.jobs {
-		if job.jobFunc == getFunctionName(j) {
+	for i := 0; i < s.size; i++ {
+		if s.jobs[i] != nil && s.jobs[i].jobFunc == getFunctionName(j) {
 			return true
 		}
 	}
@@ -289,8 +295,8 @@ func Remove(j interface{}) {
 
 // Scheduled checks if specific job j was already added
 func Scheduled(j interface{}) bool {
-	for _, job := range defaultScheduler.jobs {
-		if job.jobFunc == getFunctionName(j) {
+	for i := 0; i < defaultScheduler.size; i++ {
+		if defaultScheduler.jobs[i] != nil && defaultScheduler.jobs[i].jobFunc == getFunctionName(j) {
 			return true
 		}
 	}
@@ -298,6 +304,6 @@ func Scheduled(j interface{}) bool {
 }
 
 // NextRun gets the next running time
-func NextRun() (job *Job, time time.Time) {
+func NextRun() (job *Job, nextTime time.Time) {
 	return defaultScheduler.NextRun()
 }

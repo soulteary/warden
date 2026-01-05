@@ -47,7 +47,7 @@ func SetLevel(level zerolog.Level) {
 // SanitizeString 脱敏敏感信息
 // 对可能包含敏感信息的字符串进行部分脱敏处理
 func SanitizeString(s string) string {
-	if len(s) == 0 {
+	if s == "" {
 		return s
 	}
 
