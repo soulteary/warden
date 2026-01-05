@@ -138,13 +138,13 @@ func LoadFromFile(configPath string) (*Config, error) {
 // applyServerDefaults 应用服务器默认值
 func applyServerDefaults(cfg *Config) {
 	if cfg.Server.Port == "" {
-		cfg.Server.Port = fmt.Sprintf("%d", define.DEFAULT_PORT)
+		cfg.Server.Port = fmt.Sprintf("%d", define.DefaultPort)
 	}
 	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = define.DEFAULT_TIMEOUT * time.Second
+		cfg.Server.ReadTimeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.Server.WriteTimeout == 0 {
-		cfg.Server.WriteTimeout = define.DEFAULT_TIMEOUT * time.Second
+		cfg.Server.WriteTimeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.Server.ShutdownTimeout == 0 {
 		cfg.Server.ShutdownTimeout = define.ShutdownTimeout
@@ -167,7 +167,7 @@ func applyRedisDefaults(cfg *Config) {
 // applyCacheDefaults 应用缓存默认值
 func applyCacheDefaults(cfg *Config) {
 	if cfg.Cache.UpdateInterval == 0 {
-		cfg.Cache.UpdateInterval = define.DEFAULT_TASK_INTERVAL * time.Second
+		cfg.Cache.UpdateInterval = define.DefaultTaskInterval * time.Second
 	}
 }
 
@@ -184,7 +184,7 @@ func applyRateLimitDefaults(cfg *Config) {
 // applyHTTPDefaults 应用 HTTP 默认值
 func applyHTTPDefaults(cfg *Config) {
 	if cfg.HTTP.Timeout == 0 {
-		cfg.HTTP.Timeout = define.DEFAULT_TIMEOUT * time.Second
+		cfg.HTTP.Timeout = define.DefaultTimeout * time.Second
 	}
 	if cfg.HTTP.MaxIdleConns == 0 {
 		cfg.HTTP.MaxIdleConns = define.DefaultMaxIdleConns
@@ -206,21 +206,21 @@ func applyRemoteDefaults(cfg *Config) {
 		cfg.Remote.Key = define.DefaultRemoteKey
 	}
 	if cfg.Remote.Mode == "" {
-		cfg.Remote.Mode = define.DEFAULT_MODE
+		cfg.Remote.Mode = define.DefaultMode
 	}
 }
 
 // applyTaskDefaults 应用任务默认值
 func applyTaskDefaults(cfg *Config) {
 	if cfg.Task.Interval == 0 {
-		cfg.Task.Interval = define.DEFAULT_TASK_INTERVAL * time.Second
+		cfg.Task.Interval = define.DefaultTaskInterval * time.Second
 	}
 }
 
 // applyAppDefaults 应用应用默认值
 func applyAppDefaults(cfg *Config) {
 	if cfg.App.Mode == "" {
-		cfg.App.Mode = define.DEFAULT_MODE
+		cfg.App.Mode = define.DefaultMode
 	}
 }
 

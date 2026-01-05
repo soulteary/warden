@@ -39,6 +39,7 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 		return rules
 	}
 
+	// #nosec G304 -- rulesFile 来自配置文件，已通过验证
 	file, err := os.Open(rulesFile)
 	if err != nil {
 		log.Error().

@@ -179,7 +179,7 @@ func TestScheduleNextRunLoc(t *testing.T) {
 	// job just ran (this is 20:45 UTC), so next run should be tomorrow
 	today := time.Now().In(laLocation)
 	job.lastRun = time.Date(today.Year(), today.Month(), today.Day(), 13, 45, 0, 0, laLocation)
-	job.Do(task)
+	_ = job.Do(task)
 
 	tomorrow := today.AddDate(0, 0, 1)
 	assert.Equal(t, 20, job.NextScheduledTime().UTC().Hour())
@@ -194,7 +194,7 @@ func TestScheduleNextRunFromNow(t *testing.T) {
 	sched.ChangeLoc(time.UTC)
 
 	job := sched.Every(1).Hour().From(NextTick())
-	job.Do(task)
+	_ = job.Do(task)
 
 	next := job.NextScheduledTime()
 	nextRounded := time.Date(next.Year(), next.Month(), next.Day(), next.Hour(), next.Minute(), next.Second(), 0, time.UTC)
@@ -213,7 +213,7 @@ func TestScheduler_WeekdaysTodayBefore(t *testing.T) {
 	timeToSchedule := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()+1, 0, 0, time.Local)
 
 	job := callTodaysWeekday(scheduler.Every(1)).At(fmt.Sprintf("%02d:%02d", timeToSchedule.Hour(), timeToSchedule.Minute()))
-	job.Do(task)
+	_ = job.Do(task)
 	t.Logf("job is scheduled for %s", job.NextScheduledTime())
 	if !job.NextScheduledTime().Equal(timeToSchedule) {
 		t.Error("Job should be run today, at the set time.")
@@ -482,7 +482,7 @@ func TestWeekdayAfterToday(t *testing.T) {
 	}
 
 	// First run
-	weekJob.scheduleNextRun()
+	_ = weekJob.scheduleNextRun()
 	exp := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 
@@ -519,7 +519,7 @@ func TestWeekdayBeforeToday(t *testing.T) {
 		weekJob = s.Every(1).Saturday()
 	}
 
-	weekJob.scheduleNextRun()
+	_ = weekJob.scheduleNextRun()
 	sixDaysFromNow := now.AddDate(0, 0, 6)
 
 	exp := time.Date(sixDaysFromNow.Year(), sixDaysFromNow.Month(), sixDaysFromNow.Day(), 0, 0, 0, 0, loc)
@@ -642,13 +642,13 @@ func TestLocker(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		s1 := NewScheduler()
-		s1.Every(1).Seconds().Lock().Do(task, "A", i)
+		_ = s1.Every(1).Seconds().Lock().Do(task, "A", i)
 
 		s2 := NewScheduler()
-		s2.Every(1).Seconds().Lock().Do(task, "B", i)
+		_ = s2.Every(1).Seconds().Lock().Do(task, "B", i)
 
 		s3 := NewScheduler()
-		s3.Every(1).Seconds().Lock().Do(task, "C", i)
+		_ = s3.Every(1).Seconds().Lock().Do(task, "C", i)
 
 		stop1 := s1.Start()
 		stop2 := s2.Start()

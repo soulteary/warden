@@ -35,21 +35,21 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 	// 清理环境变量
 	_ = os.Unsetenv("PORT")
 	_ = os.Unsetenv("REDIS")
-	os.Unsetenv("CONFIG")
-	os.Unsetenv("KEY")
-	os.Unsetenv("INTERVAL")
-	os.Unsetenv("MODE")
+	_ = os.Unsetenv("CONFIG")
+	_ = os.Unsetenv("KEY")
+	_ = os.Unsetenv("INTERVAL")
+	_ = os.Unsetenv("MODE")
 
 	os.Args = []string{"test"}
 
 	cfg := GetArgs()
 
-	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port)
+	assert.Equal(t, strconv.Itoa(define.DefaultPort), cfg.Port)
 	assert.Equal(t, define.DefaultRedis, cfg.Redis)
 	assert.Equal(t, define.DefaultRemoteConfig, cfg.RemoteConfig)
 	assert.Equal(t, define.DefaultRemoteKey, cfg.RemoteKey)
-	assert.Equal(t, define.DEFAULT_TASK_INTERVAL, cfg.TaskInterval)
-	assert.Equal(t, define.DEFAULT_MODE, cfg.Mode)
+	assert.Equal(t, define.DefaultTaskInterval, cfg.TaskInterval)
+	assert.Equal(t, define.DefaultMode, cfg.Mode)
 }
 
 func TestGetArgs_WithCommandLineArgs(t *testing.T) {

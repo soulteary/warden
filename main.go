@@ -100,8 +100,8 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 	metrics.CacheSize.Set(float64(app.userCache.Len()))
 
 	// 确保任务间隔不小于默认值
-	if app.taskInterval < define.DEFAULT_TASK_INTERVAL {
-		app.taskInterval = uint64(define.DEFAULT_TASK_INTERVAL)
+	if app.taskInterval < define.DefaultTaskInterval {
+		app.taskInterval = uint64(define.DefaultTaskInterval)
 	}
 
 	// 初始化速率限制器（封装到 App 中，避免使用全局变量）
@@ -329,7 +329,7 @@ func (app *App) backgroundTask(rulesFile string) {
 	}()
 
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DefaultTimeout*2)*time.Second)
 	defer cancel()
 	newUsers := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
 
@@ -411,9 +411,9 @@ func registerRoutes(app *App) {
 func startServer(port string) *http.Server {
 	return &http.Server{
 		Addr:              ":" + port,
-		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
-		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
-		WriteTimeout:      define.DEFAULT_TIMEOUT * time.Second,
+		ReadHeaderTimeout: define.DefaultTimeout * time.Second,
+		ReadTimeout:       define.DefaultTimeout * time.Second,
+		WriteTimeout:      define.DefaultTimeout * time.Second,
 		IdleTimeout:       define.IdleTimeout,
 		MaxHeaderBytes:    define.MaxHeaderBytes,
 	}

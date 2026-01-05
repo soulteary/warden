@@ -29,7 +29,10 @@ func LogLevelHandler() http.HandlerFunc {
 				"level": currentLevel.String(),
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				log := logger.GetLogger()
+				log.Error().Err(err).Msg("编码日志级别响应失败")
+			}
 
 		case http.MethodPost:
 			// 设置新的日志级别
@@ -39,18 +42,24 @@ func LogLevelHandler() http.HandlerFunc {
 
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]string{
+				if err := json.NewEncoder(w).Encode(map[string]string{
 					"error": "无效的请求体",
-				})
+				}); err != nil {
+					log := logger.GetLogger()
+					log.Error().Err(err).Msg("编码错误响应失败")
+				}
 				return
 			}
 
 			level, err := zerolog.ParseLevel(strings.ToLower(request.Level))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]string{
+				if err := json.NewEncoder(w).Encode(map[string]string{
 					"error": "无效的日志级别，支持: trace, debug, info, warn, error, fatal, panic",
-				})
+				}); err != nil {
+					log := logger.GetLogger()
+					log.Error().Err(err).Msg("编码错误响应失败")
+				}
 				return
 			}
 
@@ -60,13 +69,19 @@ func LogLevelHandler() http.HandlerFunc {
 				"level":   level.String(),
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				log := logger.GetLogger()
+				log.Error().Err(err).Msg("编码日志级别响应失败")
+			}
 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(map[string]string{
+			if err := json.NewEncoder(w).Encode(map[string]string{
 				"error": "不支持的方法，请使用 GET 或 POST",
-			})
+			}); err != nil {
+				log := logger.GetLogger()
+				log.Error().Err(err).Msg("编码错误响应失败")
+			}
 		}
 	}
 }

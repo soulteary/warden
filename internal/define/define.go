@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// DEFAULT_PORT 默认端口号
-const DEFAULT_PORT = 8081
+// DefaultPort 默认端口号
+const DefaultPort = 8081
 
 // DefaultRedis 默认 Redis 地址
 const DefaultRedis = "localhost:6379"
@@ -20,10 +20,10 @@ const DefaultRemoteConfig = "http://localhost:8080/config.json"
 const DefaultRemoteKey = ""
 
 const (
-	DEFAULT_TASK_INTERVAL = 5 // 5s
-	DEFAULT_TIMEOUT       = 5
-	DEFAULT_LOCK_TIME     = 15
-	DEFAULT_MODE          = "DEFAULT" // 1: 2: 3: 4:
+	DefaultTaskInterval = 5 // 5s
+	DefaultTimeout     = 5
+	DEFAULT_LOCK_TIME   = 15
+	DefaultMode         = "DEFAULT" // 1: 2: 3: 4:
 
 	// RateLimitCleanupInterval 速率限制器清理间隔
 	RateLimitCleanupInterval = 1 * time.Minute

@@ -13,6 +13,7 @@ import (
 var (
 	// ErrTimeFormat 时间格式错误
 	ErrTimeFormat           = errors.New("time format error")
+	// ErrParamsNotAdapted 参数数量不匹配
 	ErrParamsNotAdapted     = errors.New("the number of params is not adapted")
 	ErrNotAFunction         = errors.New("only functions can be schedule into the job queue")
 	ErrPeriodNotSpecified   = errors.New("unspecified job period")
@@ -327,6 +328,7 @@ func (j *Job) NextScheduledTime() time.Time {
 }
 
 // set the job's unit with seconds,minutes,hours...
+// #nosec G107 -- expected 参数总是为 1，这是设计上的要求
 func (j *Job) mustInterval(expected uint64) error {
 	if j.interval != expected {
 		return fmt.Errorf("interval must be %d", expected)
@@ -393,19 +395,19 @@ func (j *Job) Hour() *Job {
 
 // Day sets the job's unit with day, which interval is 1
 func (j *Job) Day() *Job {
-	j.mustInterval(1)
+	_ = j.mustInterval(1)
 	return j.Days()
 }
 
 // Week sets the job's unit with week, which interval is 1
 func (j *Job) Week() *Job {
-	j.mustInterval(1)
+	_ = j.mustInterval(1)
 	return j.Weeks()
 }
 
 // Weekday start job on specific Weekday
 func (j *Job) Weekday(startDay time.Weekday) *Job {
-	j.mustInterval(1)
+	_ = j.mustInterval(1)
 	j.startDay = startDay
 	return j.Weeks()
 }

@@ -24,7 +24,7 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 	// 判断是否为生产环境
 	isProduction := appMode == "production" || appMode == "prod"
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		status := "ok"
 		code := http.StatusOK
 		details := make(map[string]interface{})

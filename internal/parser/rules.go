@@ -18,7 +18,7 @@ import (
 
 // httpClient 全局 HTTP 客户端，使用连接池复用连接
 var httpClient = &http.Client{
-	Timeout: define.DEFAULT_TIMEOUT * time.Second,
+	Timeout: define.DefaultTimeout * time.Second,
 	Transport: &http.Transport{
 		MaxIdleConns:        define.DefaultMaxIdleConns,
 		MaxIdleConnsPerHost: define.DefaultMaxIdleConnsPerHost,
