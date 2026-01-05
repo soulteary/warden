@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"sync"
 	"time"
 )
 
@@ -36,6 +37,7 @@ type Job struct {
 	tags     []string                 // allow the user to tag jobs with certain labels
 	ctx      context.Context          // optional context for job execution
 	timeout  time.Duration            // optional timeout for job execution
+	mu       sync.RWMutex             // mutex to protect concurrent access to lastRun and nextRun
 }
 
 // NewJob creates a new job with the time interval.
@@ -56,6 +58,8 @@ func NewJob(interval uint64) *Job {
 
 // True if the job should be run now
 func (j *Job) shouldRun() bool {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
 	return time.Now().Unix() >= j.nextRun.Unix()
 }
 
@@ -166,7 +170,10 @@ func (j *Job) Do(jobFun interface{}, params ...interface{}) error {
 	j.jobFunc = fname
 
 	now := time.Now().In(j.loc)
-	if !j.nextRun.After(now) {
+	j.mu.RLock()
+	shouldSchedule := !j.nextRun.After(now)
+	j.mu.RUnlock()
+	if shouldSchedule {
 		j.scheduleNextRun()
 	}
 
@@ -273,6 +280,9 @@ func (j *Job) roundToMidnight(t time.Time) time.Time {
 
 // scheduleNextRun Compute the instant when this job should run next
 func (j *Job) scheduleNextRun() error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
 	now := time.Now()
 	if j.lastRun == time.Unix(0, 0) {
 		j.lastRun = now
@@ -309,6 +319,8 @@ func (j *Job) scheduleNextRun() error {
 
 // NextScheduledTime returns the time of when this job is to run next
 func (j *Job) NextScheduledTime() time.Time {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
 	return j.nextRun
 }
 
@@ -322,6 +334,8 @@ func (j *Job) mustInterval(i uint64) error {
 
 // From schedules the next run of the job
 func (j *Job) From(t *time.Time) *Job {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	j.nextRun = *t
 	return j
 }

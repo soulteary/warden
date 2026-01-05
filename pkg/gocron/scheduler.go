@@ -56,6 +56,10 @@ func (s *Scheduler) Swap(i, j int) {
 }
 
 func (s *Scheduler) Less(i, j int) bool {
+	s.jobs[i].mu.RLock()
+	s.jobs[j].mu.RLock()
+	defer s.jobs[i].mu.RUnlock()
+	defer s.jobs[j].mu.RUnlock()
 	return s.jobs[j].nextRun.Unix() >= s.jobs[i].nextRun.Unix()
 }
 
@@ -86,6 +90,8 @@ func (s *Scheduler) NextRun() (*Job, time.Time) {
 		return nil, time.Now()
 	}
 	sort.Sort(s)
+	s.jobs[0].mu.RLock()
+	defer s.jobs[0].mu.RUnlock()
 	return s.jobs[0], s.jobs[0].nextRun
 }
 
@@ -104,7 +110,10 @@ func (s *Scheduler) RunPending() {
 	if n != 0 {
 		for i := 0; i < n; i++ {
 			go runnableJobs[i].run()
+			// Update lastRun and schedule next run atomically
+			runnableJobs[i].mu.Lock()
 			runnableJobs[i].lastRun = time.Now()
+			runnableJobs[i].mu.Unlock()
 			runnableJobs[i].scheduleNextRun()
 		}
 	}
