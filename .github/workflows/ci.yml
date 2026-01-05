@@ -93,10 +93,19 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 设置 Go 环境
+      - name: 设置 Go 环境（临时使用 1.24 以匹配 golangci-lint）
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          # 临时使用 Go 1.24，因为当前 golangci-lint 是用 Go 1.24 构建的
+          # 当 golangci-lint 更新到支持 Go 1.25 的版本后，可以改回 ${{ env.GO_VERSION }}
+          go-version: '1.24'
+
+      - name: 临时修改 go.mod 以匹配 golangci-lint 的 Go 版本
+        run: |
+          # 备份原始 go.mod
+          cp go.mod go.mod.backup
+          # 临时将 Go 版本改为 1.24
+          sed -i 's/^go 1\.25$/go 1.24/' go.mod
 
       - name: 运行 golangci-lint
         uses: golangci/golangci-lint-action@v4
@@ -104,6 +113,12 @@ jobs:
           version: latest
           args: --timeout=5m
           only-new-issues: false
+
+      - name: 恢复 go.mod
+        if: always()
+        run: |
+          # 恢复原始 go.mod
+          mv go.mod.backup go.mod
 
   # Docker 构建
   docker-build:

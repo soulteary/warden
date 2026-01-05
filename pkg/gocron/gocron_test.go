@@ -33,11 +33,15 @@ func TestSeconds(t *testing.T) {
 func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeBetweenRuns int64) {
 	jobDone := make(chan bool)
 	executionTimes := make([]int64, 0)
+	var mu sync.Mutex
 	numberOfIterations := 2
 
 	job.Do(func() {
+		mu.Lock()
 		executionTimes = append(executionTimes, time.Now().Unix())
-		if len(executionTimes) >= numberOfIterations {
+		count := len(executionTimes)
+		mu.Unlock()
+		if count >= numberOfIterations {
 			jobDone <- true
 		}
 	})
@@ -46,10 +50,14 @@ func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeB
 	<-jobDone // Wait job done
 	close(stop)
 
-	assert.Equal(t, numberOfIterations, len(executionTimes), "did not run expected number of times")
+	mu.Lock()
+	times := executionTimes
+	mu.Unlock()
+
+	assert.Equal(t, numberOfIterations, len(times), "did not run expected number of times")
 
 	for i := 1; i < numberOfIterations; i++ {
-		durationBetweenExecutions := executionTimes[i] - executionTimes[i-1]
+		durationBetweenExecutions := times[i] - times[i-1]
 		assert.Equal(t, expectedTimeBetweenRuns, durationBetweenExecutions, "Duration between tasks does not correspond to expectations")
 	}
 }
