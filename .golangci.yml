@@ -1,0 +1,114 @@
+# golangci-lint 配置文件
+# 更多信息: https://golangci-lint.run/usage/configuration/
+
+run:
+  # 超时时间
+  timeout: 5m
+  
+  # 要检查的模块（空表示所有）
+  modules-download-mode: readonly
+  
+  # 跳过目录
+  skip-dirs:
+    - vendor
+    - .git
+  
+  # 跳过文件
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
+# 启用的 linter
+linters:
+  enable:
+    - errcheck          # 检查错误是否被处理
+    - gosimple          # 简化代码
+    - govet             # go vet 检查
+    - ineffassign       # 检查未使用的赋值
+    - staticcheck       # 静态分析
+    - typecheck         # 类型检查
+    - unused            # 检查未使用的代码
+    - gofmt             # 代码格式检查
+    - goimports         # import 语句检查
+    - misspell          # 拼写检查
+    - revive            # Go 代码检查工具
+    - gocritic          # Go 代码审查工具
+    - exportloopref     # 检查循环中的引用
+    - gosec             # 安全检查
+    - unconvert         # 检查不必要的类型转换
+    - unparam           # 检查未使用的参数
+
+# 禁用的 linter
+linters:
+  disable:
+    - deadcode          # 已废弃
+    - varcheck          # 已废弃
+    - structcheck       # 已废弃
+    - maligned          # 已废弃
+
+# linter 配置
+linters-settings:
+  errcheck:
+    # 报告所有错误，包括未导出的函数
+    check-type-assertions: true
+    check-blank: true
+  
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # 允许重复导入（某些情况下需要）
+  
+  govet:
+    # 启用所有检查
+    enable-all: true
+  
+  revive:
+    # 规则配置
+    rules:
+      - name: exported
+        severity: warning
+      - name: var-naming
+        severity: warning
+      - name: package-comments
+        severity: warning
+  
+  gosec:
+    # 排除一些误报
+    excludes:
+      - G104 # 错误未检查（某些情况下可以接受）
+      - G107 # HTTP 请求（某些情况下需要）
+
+# 问题配置
+issues:
+  # 排除的问题
+  exclude-rules:
+    # 排除测试文件中的某些检查
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+  
+  # 最大问题数（0 表示无限制）
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  
+  # 排除问题模式
+  exclude:
+    # 排除一些常见的误报
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+    - "exported: exported (type|function|method|field|const) .* should have comment"
+
+# 输出配置
+output:
+  # 输出格式
+  format: colored-line-number
+  
+  # 打印问题编号
+  print-issued-lines: true
+  print-linter-name: true
+
