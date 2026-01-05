@@ -18,8 +18,9 @@ run:
     - ".*\\.pb\\.go$"
     - ".*\\.gen\\.go$"
 
-# 启用的 linter
+# Linter 配置
 linters:
+  # 启用的 linter
   enable:
     - errcheck          # 检查错误是否被处理
     - gosimple          # 简化代码
@@ -37,9 +38,7 @@ linters:
     - gosec             # 安全检查
     - unconvert         # 检查不必要的类型转换
     - unparam           # 检查未使用的参数
-
-# 禁用的 linter
-linters:
+  # 禁用的 linter
   disable:
     - deadcode          # 已废弃
     - varcheck          # 已废弃
