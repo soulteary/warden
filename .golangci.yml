@@ -76,25 +76,32 @@ linters:
 #       - G104 # 错误未检查（某些情况下可以接受）
 #       - G107 # HTTP 请求（某些情况下需要）
 
-# 问题配置（v2.5.0 中某些 issues 选项可能不被支持，暂时注释掉）
-# issues:
-#   # 排除的问题规则
-#   exclude-rules:
-#     # 排除测试文件中的某些检查
-#     - path: _test\.go
-#       linters:
-#         - errcheck
-#         - gosec
-#   
-#   # 最大问题数（0 表示无限制）
-#   max-issues-per-linter: 0
-#   max-same-issues: 0
-#   
-#   # 排除问题模式
-#   exclude:
-#     # 排除一些常见的误报
-#     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-#     - "exported: exported (type|function|method|field|const) .* should have comment"
+# 问题配置
+issues:
+  # 排除的问题规则
+  exclude-rules:
+    # 排除测试文件中的某些检查
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+    # 允许常量使用 ALL_CAPS 命名（根据 CODE_STYLE.md 和 CONTRIBUTING.md）
+    # 排除所有对常量使用 ALL_CAPS 的 var-naming 检查
+    - text: "don't use ALL_CAPS in Go names; use CamelCase"
+      linters:
+        - revive
+
+  # 最大问题数（0 表示无限制）
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  # 排除问题模式
+  exclude:
+    # 排除一些常见的误报
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+    - "exported: exported (type|function|method|field|const) .* should have comment"
+    # 允许常量使用 ALL_CAPS 命名（根据 CODE_STYLE.md 和 CONTRIBUTING.md）
+    - "var-naming: don't use ALL_CAPS in Go names; use CamelCase"
 
 # 输出配置（v2.5.0 中某些输出选项可能不被支持）
 # output:
