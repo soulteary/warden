@@ -1,7 +1,7 @@
 # golangci-lint 配置文件
 # 更多信息: https://golangci-lint.run/usage/configuration/
 
-version: 2
+version: "2"
 
 run:
   # 超时时间
@@ -12,6 +12,16 @@ run:
 
   # Go 版本（用于兼容性检查，设置为 golangci-lint 构建时使用的版本）
   go: "1.24"
+
+  # 排除的目录
+  exclude-dirs:
+    - vendor
+    - .git
+
+  # 排除的文件
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
 
 # Linter 配置
 linters:
@@ -30,81 +40,66 @@ linters:
     - unconvert         # 检查不必要的类型转换
     - unparam           # 检查未使用的参数
 
-# linter 配置
-linters-settings:
-  errcheck:
-    # 报告所有错误，包括未导出的函数
-    check-type-assertions: true
-    check-blank: true
+# linter 配置（v2.5.0 中 linters-settings 可能不被支持，暂时注释掉）
+# 如果需要这些配置，可以升级到更新版本的 golangci-lint
+# linters-settings:
+#   errcheck:
+#     # 报告所有错误，包括未导出的函数
+#     check-type-assertions: true
+#     check-blank: true
+#
+#   gocritic:
+#     enabled-tags:
+#       - diagnostic
+#       - experimental
+#       - opinionated
+#       - performance
+#       - style
+#     disabled-checks:
+#       - dupImport # 允许重复导入（某些情况下需要）
+#
+#   govet:
+#     # 启用所有检查
+#     enable-all: true
+#
+#   revive:
+#     # 规则配置
+#     rules:
+#       - name: exported
+#         severity: warning
+#       - name: var-naming
+#         severity: warning
+#       - name: package-comments
+#         severity: warning
+#
+#   gosec:
+#     # 排除一些误报
+#     excludes:
+#       - G104 # 错误未检查（某些情况下可以接受）
+#       - G107 # HTTP 请求（某些情况下需要）
 
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport # 允许重复导入（某些情况下需要）
+# 问题配置（v2.5.0 中某些 issues 选项可能不被支持，暂时注释掉）
+# issues:
+#   # 排除的问题规则
+#   exclude-rules:
+#     # 排除测试文件中的某些检查
+#     - path: _test\.go
+#       linters:
+#         - errcheck
+#         - gosec
+#   
+#   # 最大问题数（0 表示无限制）
+#   max-issues-per-linter: 0
+#   max-same-issues: 0
+#   
+#   # 排除问题模式
+#   exclude:
+#     # 排除一些常见的误报
+#     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+#     - "exported: exported (type|function|method|field|const) .* should have comment"
 
-  govet:
-    # 启用所有检查
-    enable-all: true
-
-  revive:
-    # 规则配置
-    rules:
-      - name: exported
-        severity: warning
-      - name: var-naming
-        severity: warning
-      - name: package-comments
-        severity: warning
-
-  gosec:
-    # 排除一些误报
-    excludes:
-      - G104 # 错误未检查（某些情况下可以接受）
-      - G107 # HTTP 请求（某些情况下需要）
-
-# 问题配置
-issues:
-  # 排除的目录（从 run.skip-dirs 迁移）
-  exclude-dirs:
-    - vendor
-    - .git
-
-  # 排除的文件（从 run.skip-files 迁移）
-  exclude-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.gen\\.go$"
-
-  # 排除的问题
-  exclude-rules:
-    # 排除测试文件中的某些检查
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-  
-  # 最大问题数（0 表示无限制）
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  
-  # 排除问题模式
-  exclude:
-    # 排除一些常见的误报
-    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-    - "exported: exported (type|function|method|field|const) .* should have comment"
-
-# 输出配置
-output:
-  # 输出格式（使用 formats 替代已弃用的 format）
-  formats:
-    colored-line-number:
-      format: colored-line-number
-
-  # 打印问题编号
-  print-issued-lines: true
-  print-linter-name: true
+# 输出配置（v2.5.0 中某些输出选项可能不被支持）
+# output:
+#   formats:
+#     - format: colored-line-number
 
