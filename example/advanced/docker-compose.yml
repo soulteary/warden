@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # Warden 主服务
+  warden:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    container_name: warden-advanced
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8081}:8081"
+    environment:
+      - PORT=${PORT:-8081}
+      - REDIS=warden-redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - CONFIG=${CONFIG:-http://mock-api:8080/api/users}
+      - KEY=${KEY:-Bearer mock-token}
+      - MODE=${MODE:-DEFAULT}
+      - INTERVAL=${INTERVAL:-10}
+      - API_KEY=${API_KEY:-your-secret-api-key-here}
+      - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5}
+      - HTTP_MAX_IDLE_CONNS=${HTTP_MAX_IDLE_CONNS:-100}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./data.json:/app/data.json:ro
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      warden-redis:
+        condition: service_healthy
+      mock-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - warden-network
+    labels:
+      - "com.warden.description=Warden API Service"
+
+  # Redis 缓存服务
+  warden-redis:
+    image: redis:6.2.4-alpine
+    container_name: warden-redis-advanced
+    restart: unless-stopped
+    command: >
+      sh -c "redis-server
+      ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "${REDIS_PASSWORD:+-a $REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - warden-network
+    labels:
+      - "com.warden.description=Redis Cache and Lock Service"
+
+  # Mock 远程 API 服务（用于演示）
+  mock-api:
+    build:
+      context: ./mock-api
+      dockerfile: Dockerfile
+    container_name: warden-mock-api
+    restart: unless-stopped
+    ports:
+      - "${MOCK_API_PORT:-8080}:8080"
+    volumes:
+      - ./mock-api/data.json:/app/data.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - warden-network
+    labels:
+      - "com.warden.description=Mock Remote API for Demo"
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  warden-network:
+    driver: bridge
+    name: warden-advanced-network
+

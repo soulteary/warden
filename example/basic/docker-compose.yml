@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  warden:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    container_name: warden-basic
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=${PORT:-8081}
+      - REDIS=warden-redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - MODE=ONLY_LOCAL
+      - API_KEY=${API_KEY:-your-secret-api-key-here}
+      - INTERVAL=5
+    volumes:
+      - ./data.json:/app/data.json:ro
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      warden-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - warden-network
+
+  warden-redis:
+    image: redis:6.2.4-alpine
+    container_name: warden-redis-basic
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - warden-network
+
+volumes:
+  redis-data:
+
+networks:
+  warden-network:
+    driver: bridge
+

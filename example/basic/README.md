@@ -1,0 +1,214 @@
+# 简单示例 - 快速开始
+
+这是 Warden 的最简单使用示例，仅使用本地数据文件，适合快速测试和开发环境。
+
+## 📋 前置要求
+
+- Go 1.25+ 或 Docker
+- Redis（用于缓存和分布式锁，即使只使用本地文件也需要）
+
+## 🚀 快速开始
+
+### 方式一：使用 Go 运行
+
+1. **准备数据文件**
+
+创建 `data.json` 文件：
+
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com"
+    }
+]
+```
+
+2. **启动 Redis**
+
+```bash
+# 使用 Docker 启动 Redis（最简单）
+docker run -d --name redis -p 6379:6379 redis:6.2.4
+
+# 或使用本地 Redis
+redis-server
+```
+
+3. **运行 Warden**
+
+```bash
+# 在项目根目录执行
+go run main.go \
+  --port 8081 \
+  --redis localhost:6379 \
+  --mode ONLY_LOCAL
+```
+
+4. **测试服务**
+
+```bash
+# 获取用户列表（需要设置 API Key）
+curl -H "X-API-Key: your-api-key" http://localhost:8081/
+
+# 健康检查（不需要 API Key）
+curl http://localhost:8081/health
+```
+
+### 方式二：使用 Docker Compose
+
+1. **准备数据文件**
+
+将示例数据文件复制到当前目录：
+
+```bash
+cp ../../data.example.json ./data.json
+```
+
+2. **创建环境变量文件 `.env`**
+
+```env
+PORT=8081
+REDIS=warden-redis:6379
+MODE=ONLY_LOCAL
+API_KEY=your-secret-api-key-here
+```
+
+3. **启动服务**
+
+```bash
+docker-compose up -d
+```
+
+4. **测试服务**
+
+```bash
+# 获取用户列表
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
+
+# 健康检查
+curl http://localhost:8081/health
+```
+
+## 📝 配置说明
+
+### 运行模式
+
+本示例使用 `ONLY_LOCAL` 模式，表示：
+- ✅ 仅从本地 `data.json` 文件读取数据
+- ❌ 不使用远程 API
+- ✅ 数据会缓存在 Redis 中以提高性能
+
+### 数据文件格式
+
+`data.json` 文件必须是 JSON 数组格式，每个元素包含：
+- `phone`: 手机号（字符串）
+- `mail`: 邮箱地址（字符串）
+
+示例：
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    }
+]
+```
+
+## 🔍 验证服务
+
+### 1. 检查服务状态
+
+```bash
+curl http://localhost:8081/health
+```
+
+预期响应：
+```json
+{
+    "status": "ok",
+    "details": {
+        "redis": "ok",
+        "data_loaded": true,
+        "user_count": 2
+    },
+    "mode": "ONLY_LOCAL"
+}
+```
+
+### 2. 获取用户列表
+
+```bash
+curl -H "X-API-Key: your-api-key" http://localhost:8081/
+```
+
+预期响应：
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com"
+    }
+]
+```
+
+### 3. 分页查询
+
+```bash
+curl -H "X-API-Key: your-api-key" "http://localhost:8081/?page=1&page_size=1"
+```
+
+预期响应：
+```json
+{
+    "data": [
+        {
+            "phone": "13800138000",
+            "mail": "admin@example.com"
+        }
+    ],
+    "pagination": {
+        "page": 1,
+        "page_size": 1,
+        "total": 2,
+        "total_pages": 2
+    }
+}
+```
+
+## 🛠️ 常见问题
+
+### Q: 为什么需要 Redis？
+
+A: Warden 使用 Redis 进行：
+- 数据缓存（提高性能）
+- 分布式锁（防止定时任务重复执行）
+- 多实例数据同步
+
+即使只使用本地文件，Redis 也是必需的。
+
+### Q: 如何修改数据？
+
+A: 修改 `data.json` 文件后，服务会在下次定时任务执行时自动加载（默认每 5 秒）。你也可以重启服务立即生效。
+
+### Q: 如何设置 API Key？
+
+A: 通过环境变量设置：
+```bash
+export API_KEY=your-secret-api-key-here
+go run main.go --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
+```
+
+## 📚 下一步
+
+- 查看 [复杂示例](../advanced/README.md) 了解如何使用远程 API
+- 阅读 [完整文档](../../README.md) 了解更多功能
+- 查看 [API 文档](../../openapi.yaml) 了解所有 API 端点
+
