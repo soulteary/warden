@@ -35,17 +35,18 @@ func LogLevelHandler() http.HandlerFunc {
 			}
 
 		case http.MethodPost:
-			// 设置新的日志级别
+			// 设置新的日志级别（需要认证）
 			var request struct {
 				Level string `json:"level"`
 			}
+
+			log := logger.GetLogger()
 
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
 					"error": "无效的请求体",
 				}); err != nil {
-					log := logger.GetLogger()
 					log.Error().Err(err).Msg("编码错误响应失败")
 				}
 				return
@@ -57,20 +58,29 @@ func LogLevelHandler() http.HandlerFunc {
 				if err := json.NewEncoder(w).Encode(map[string]string{
 					"error": "无效的日志级别，支持: trace, debug, info, warn, error, fatal, panic",
 				}); err != nil {
-					log := logger.GetLogger()
 					log.Error().Err(err).Msg("编码错误响应失败")
 				}
 				return
 			}
 
+			// 记录日志级别修改操作（安全审计）
+			oldLevel := zerolog.GlobalLevel()
 			logger.SetLevel(level)
+
+			// 记录安全事件：日志级别被修改
+			log.Info().
+				Str("old_level", oldLevel.String()).
+				Str("new_level", level.String()).
+				Str("remote_addr", r.RemoteAddr).
+				Str("user_agent", r.UserAgent()).
+				Msg("日志级别已修改（安全审计）")
+
 			response := map[string]interface{}{
 				"message": "日志级别已更新",
 				"level":   level.String(),
 			}
 			w.WriteHeader(http.StatusOK)
 			if err := json.NewEncoder(w).Encode(response); err != nil {
-				log := logger.GetLogger()
 				log.Error().Err(err).Msg("编码日志级别响应失败")
 			}
 

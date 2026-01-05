@@ -162,7 +162,8 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 		return nil, fmt.Errorf("%s: HTTP status %d", define.ERR_GET_CONFIG_FAILED, res.StatusCode)
 	}
 
-	body, err := io.ReadAll(res.Body)
+	// 限制响应体大小，防止内存耗尽攻击
+	body, err := io.ReadAll(io.LimitReader(res.Body, define.MAX_JSON_SIZE))
 	if err != nil {
 		log.Error().
 			Err(fmt.Errorf("%s: %w", define.ERR_READ_CONFIG_FAILED, err)).

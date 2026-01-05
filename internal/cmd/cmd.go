@@ -28,6 +28,7 @@ type Config struct {
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
+	APIKey           string // 16 bytes
 }
 
 // GetArgs 解析命令行参数和环境变量，返回配置结构体
@@ -254,6 +255,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		HTTPTimeout:      cfg.HTTPTimeout,
 		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
 		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
+		APIKey:           cfg.APIKey,
 	}
 }
 
@@ -395,5 +397,9 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 
 	if insecureTLSEnv := os.Getenv("HTTP_INSECURE_TLS"); insecureTLSEnv != "" {
 		cfg.HTTPInsecureTLS = strings.EqualFold(insecureTLSEnv, "true") || insecureTLSEnv == "1"
+	}
+
+	if apiKeyEnv := strings.TrimSpace(os.Getenv("API_KEY")); apiKeyEnv != "" {
+		cfg.APIKey = apiKeyEnv
 	}
 }

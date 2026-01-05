@@ -17,3 +17,18 @@
 *.tar
 
 coverage.*
+
+# 配置文件（可能包含敏感信息，如 Redis 密码等）
+# 注意：请使用 config.example.yaml 作为模板，不要提交实际配置文件
+config.yaml
+config.yml
+config.json
+*.local.yaml
+*.local.yml
+*.local.json
+
+# 环境变量文件（可能包含敏感信息，如 API keys、密码等）
+# 注意：请使用 .env.example 作为模板，不要提交实际 .env 文件
+.env
+.env.local
+.env.*.local

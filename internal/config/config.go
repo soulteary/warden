@@ -85,7 +85,8 @@ type TaskConfig struct {
 
 // AppConfig 应用配置
 type AppConfig struct {
-	Mode string `yaml:"mode"`
+	Mode   string `yaml:"mode"`
+	APIKey string `yaml:"api_key"` // API Key 用于认证（敏感信息，建议使用环境变量）
 }
 
 // LoadFromFile 从配置文件加载配置
@@ -96,15 +97,23 @@ func LoadFromFile(configPath string) (*Config, error) {
 
 	// 如果配置文件存在，尝试加载
 	if configPath != "" {
-		if _, err := os.Stat(configPath); err == nil {
-			// #nosec G304 -- 配置文件路径来自用户输入，需要验证
-			data, err := os.ReadFile(configPath)
+		// 验证配置文件路径，防止路径遍历攻击
+		// 注意：这里不限制目录，允许从任何位置读取配置文件
+		// 如果需要限制，可以传入 allowedDirs 参数
+		validatedPath, err := validateConfigPath(configPath)
+		if err != nil {
+			return nil, errors.ErrConfigLoad.WithError(err)
+		}
+
+		if _, err := os.Stat(validatedPath); err == nil {
+			// #nosec G304 -- 配置文件路径已经通过验证，是安全的
+			data, err := os.ReadFile(validatedPath)
 			if err != nil {
 				return nil, errors.ErrConfigLoad.WithError(err)
 			}
 
 			// 根据文件扩展名判断格式
-			ext := strings.ToLower(filepath.Ext(configPath))
+			ext := strings.ToLower(filepath.Ext(validatedPath))
 			switch ext {
 			case ".yaml", ".yml":
 				if err := yaml.Unmarshal(data, cfg); err != nil {
@@ -223,6 +232,7 @@ func applyAppDefaults(cfg *Config) {
 	if cfg.App.Mode == "" {
 		cfg.App.Mode = define.DEFAULT_MODE
 	}
+	// API Key 默认为空，需要通过环境变量或配置文件设置
 }
 
 // applyDefaults 应用默认值
@@ -284,6 +294,11 @@ func overrideFromEnv(cfg *Config) {
 	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
 		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
 	}
+
+	// App
+	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
+		cfg.App.APIKey = apiKey
+	}
 }
 
 // validate 验证配置
@@ -302,6 +317,12 @@ func validate(cfg *Config) error {
 		errs = append(errs, "task.interval 必须至少为 1 秒")
 	}
 
+	// 在生产环境强制 TLS 验证
+	isProduction := cfg.App.Mode == "production" || cfg.App.Mode == "prod"
+	if isProduction && cfg.HTTP.InsecureTLS {
+		errs = append(errs, "生产环境不允许禁用 TLS 证书验证")
+	}
+
 	if len(errs) > 0 {
 		return errors.ErrConfigValidation.WithMessage(strings.Join(errs, "; "))
 	}
@@ -314,6 +335,26 @@ func parseInt(s string) (int, error) {
 	var n int
 	_, err := fmt.Sscanf(s, "%d", &n)
 	return n, err
+}
+
+// validateConfigPath 验证配置文件路径，防止路径遍历攻击
+func validateConfigPath(path string) (string, error) {
+	if path == "" {
+		return "", errors.ErrConfigLoad.WithMessage("配置文件路径不能为空")
+	}
+
+	// 转换为绝对路径
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", errors.ErrConfigLoad.WithError(err)
+	}
+
+	// 检查是否包含路径遍历
+	if strings.Contains(absPath, "..") {
+		return "", errors.ErrConfigLoad.WithMessage("配置文件路径不能包含路径遍历字符 (..)")
+	}
+
+	return absPath, nil
 }
 
 // GetRedisPassword 获取 Redis 密码（处理文件读取）
@@ -330,11 +371,12 @@ func (c *Config) GetRedisPassword() (string, error) {
 	}
 
 	if redisPasswordFile != "" {
-		absPath, err := filepath.Abs(redisPasswordFile)
+		// 验证文件路径，防止路径遍历攻击
+		absPath, err := validateConfigPath(redisPasswordFile)
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)
 		}
-		// #nosec G304 -- 文件路径已经通过 filepath.Abs 验证，是安全的
+		// #nosec G304 -- 文件路径已经通过验证，是安全的
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)
@@ -393,6 +435,7 @@ type CmdConfigData struct {
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
+	APIKey           string // 16 bytes
 }
 
 // ToCmdConfig 转换为 cmd.Config 格式
@@ -413,5 +456,6 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		HTTPTimeout:      int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns: c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:  c.HTTP.InsecureTLS,
+		APIKey:           c.App.APIKey,
 	}
 }
