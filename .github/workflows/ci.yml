@@ -113,7 +113,7 @@ jobs:
       - name: 运行 golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.5.0
+          version: latest
           args: --timeout=5m
           only-new-issues: false
 
