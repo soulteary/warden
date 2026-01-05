@@ -22,7 +22,8 @@ const DefaultRemoteKey = ""
 const (
 	// DefaultTaskInterval 默认任务间隔时间（秒）
 	DefaultTaskInterval = 5 // 5s
-	DefaultTimeout      = 5
+	// DefaultTimeout 默认超时时间（秒）
+	DefaultTimeout = 5
 	// DefaultLockTime 默认锁过期时间（秒）
 	DefaultLockTime = 15
 	DefaultMode     = "DEFAULT" // 1: 2: 3: 4:
@@ -87,13 +88,13 @@ const (
 	WarnRuleNotFound = "没有找到规则文件"
 	// WarnReadRuleErr 读取规则文件遇到错误
 	WarnReadRuleErr = "读取规则文件遇到错误"
-	// WARN_PARSE_RULE_ERR 解析规则文件遇到错误
-	WARN_PARSE_RULE_ERR = "解析规则文件遇到错误"
-	// ERROR_CAN_NOT_OPEN_RULE 读取规则文件出错
-	ERROR_CAN_NOT_OPEN_RULE = "读取规则文件出错"
+	// WarnParseRuleErr 解析规则文件遇到错误
+	WarnParseRuleErr = "解析规则文件遇到错误"
+	// ErrorCanNotOpenRule 读取规则文件出错
+	ErrorCanNotOpenRule = "读取规则文件出错"
 
-	// ERR_REQ_INIT_FAILED 网络请求组件初始化失败
-	ERR_REQ_INIT_FAILED = "网络请求组件初始化失败"
+	// ErrReqInitFailed 网络请求组件初始化失败
+	ErrReqInitFailed = "网络请求组件初始化失败"
 	// ERR_GET_CONFIG_FAILED 获取远程配置失败
 	ERR_GET_CONFIG_FAILED = "获取远程配置失败"
 	// ERR_READ_CONFIG_FAILED 读取远程配置失败

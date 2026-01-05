@@ -43,9 +43,9 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	file, err := os.Open(rulesFile)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ERROR_CAN_NOT_OPEN_RULE, err)).
+			Err(fmt.Errorf("%s: %w", define.ErrorCanNotOpenRule, err)).
 			Str("file", rulesFile).
-			Msg(define.ERROR_CAN_NOT_OPEN_RULE)
+			Msg(define.ErrorCanNotOpenRule)
 		return rules
 	}
 	defer func() {
@@ -69,9 +69,9 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	err = json.Unmarshal(raw, &rules)
 	if err != nil {
 		log.Warn().
-			Err(fmt.Errorf("%s: %w", define.WARN_PARSE_RULE_ERR, err)).
+			Err(fmt.Errorf("%s: %w", define.WarnParseRuleErr, err)).
 			Str("file", rulesFile).
-			Msg(define.WARN_PARSE_RULE_ERR)
+			Msg(define.WarnParseRuleErr)
 		return rules
 	}
 	return rules

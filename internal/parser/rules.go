@@ -126,10 +126,10 @@ func buildRemoteRequest(ctx context.Context, url string, authorizationHeader str
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		log.Error().
-			Err(fmt.Errorf("%s: %w", define.ERR_REQ_INIT_FAILED, err)).
+			Err(fmt.Errorf("%s: %w", define.ErrReqInitFailed, err)).
 			Str("url", url).
-			Msg(define.ERR_REQ_INIT_FAILED)
-		return nil, fmt.Errorf("%s: %w", define.ERR_REQ_INIT_FAILED, err)
+			Msg(define.ErrReqInitFailed)
+		return nil, fmt.Errorf("%s: %w", define.ErrReqInitFailed, err)
 	}
 
 	req.Header = http.Header{
