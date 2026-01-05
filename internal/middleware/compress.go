@@ -79,6 +79,7 @@ func CompressMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if err := gw.Close(); err != nil {
 				// 记录错误但不影响请求处理
+				_ = err // 明确忽略错误
 			}
 			gzWriter.Reset(nil)
 			gzipWriterPool.Put(gzWriter)

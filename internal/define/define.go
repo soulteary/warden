@@ -24,13 +24,13 @@ const (
 	DefaultTaskInterval = 5 // 5s
 	// DefaultTimeout 默认超时时间（秒）
 	DefaultTimeout = 5
-	// DEFAULT_LOCK_TIME 默认锁过期时间（秒）
-	DEFAULT_LOCK_TIME = 15
-	// DEFAULT_MODE 默认模式
-	DEFAULT_MODE = "DEFAULT" // 1: 2: 3: 4:
+	// DefaultLockTime 默认锁过期时间（秒）
+	DefaultLockTime = 15
+	// DefaultMode 默认模式
+	DefaultMode = "DEFAULT" // 1: 2: 3: 4:
 
-	// RATE_LIMIT_CLEANUP_INTERVAL 速率限制器清理间隔
-	RATE_LIMIT_CLEANUP_INTERVAL = 1 * time.Minute
+	// RateLimitCleanupInterval 速率限制器清理间隔
+	RateLimitCleanupInterval = 1 * time.Minute
 
 	// DEFAULT_PAGE_SIZE 默认每页大小
 	DEFAULT_PAGE_SIZE = 100

@@ -53,7 +53,9 @@ func TestFromRemoteConfig_WithAuthorization(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(testData)
+		if err := json.NewEncoder(w).Encode(testData); err != nil {
+			t.Errorf("编码JSON失败: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -121,7 +123,7 @@ func TestGetRules_DEFAULT(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 创建模拟远程服务器
@@ -179,7 +181,7 @@ func TestGetRules_ONLY_LOCAL(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 测试ONLY_LOCAL模式
@@ -209,7 +211,7 @@ func TestGetRules_REMOTE_FIRST(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 创建模拟远程服务器
@@ -220,7 +222,9 @@ func TestGetRules_REMOTE_FIRST(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(remoteData)
+		if err := json.NewEncoder(w).Encode(remoteData); err != nil {
+			t.Errorf("编码JSON失败: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -254,7 +258,7 @@ func TestGetRules_LOCAL_FIRST(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 创建模拟远程服务器
@@ -265,7 +269,9 @@ func TestGetRules_LOCAL_FIRST(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(remoteData)
+		if err := json.NewEncoder(w).Encode(remoteData); err != nil {
+			t.Errorf("编码JSON失败: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -298,7 +304,7 @@ func TestGetRules_InvalidMode(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 测试无效模式，使用无效的远程URL
@@ -324,7 +330,7 @@ func TestGetRules_InvalidMode_WithAllowRemoteFailed(t *testing.T) {
 
 	data, err := json.Marshal(localData)
 	require.NoError(t, err)
-	err = os.WriteFile(testFile, data, 0600)
+	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
 	// 测试无效模式，但使用一个会失败的远程URL

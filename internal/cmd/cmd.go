@@ -165,7 +165,7 @@ func getArgsFromFlags() *Config {
 		RemoteConfig:     define.DefaultRemoteConfig,
 		RemoteKey:        define.DefaultRemoteKey,
 		TaskInterval:     define.DefaultTaskInterval,
-		Mode:             define.DEFAULT_MODE,
+		Mode:             define.DefaultMode,
 		HTTPTimeout:      define.DefaultTimeout,
 		HTTPMaxIdleConns: 100,
 		HTTPInsecureTLS:  false,
@@ -186,7 +186,7 @@ func getArgsFromFlags() *Config {
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
 	fs.StringVar(&configFlag, "config", define.DefaultRemoteConfig, "remote config url")
 	fs.StringVar(&keyFlag, "key", define.DefaultRemoteKey, "remote config key")
-	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
+	fs.StringVar(&modeFlag, "mode", define.DefaultMode, "app mode")
 	fs.IntVar(&intervalFlag, "interval", define.DefaultTaskInterval, "task interval")
 	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DefaultTimeout, "HTTP request timeout in seconds")
 	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 100, "HTTP max idle connections")

@@ -67,7 +67,7 @@ func (s *Locker) Lock(key string) (success bool, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), LockOperationTimeout)
 	defer cancel()
 
-	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DEFAULT_LOCK_TIME).Result()
+	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DefaultLockTime).Result()
 	if err != nil {
 		return false, err
 	}

@@ -420,7 +420,7 @@ func startServer(port string) *http.Server {
 }
 
 // shutdownServer 优雅关闭服务器
-func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, logger *zerolog.Logger) {
+func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log *zerolog.Logger) {
 	// 停止速率限制器
 	if rateLimiter != nil {
 		rateLimiter.Stop()
@@ -430,7 +430,7 @@ func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, logge
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
+		log.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
 	}
 }
 
@@ -468,6 +468,11 @@ func main() {
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
 	schedulerStopped := scheduler.Start()
+	defer func() {
+		close(schedulerStopped)
+		scheduler.Clear()
+		app.log.Info().Msg("定时任务调度器已关闭")
+	}()
 	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
 		// 在退出前先清理资源
 		close(schedulerStopped)
@@ -479,11 +484,6 @@ func main() {
 		stop()
 		os.Exit(1)
 	}
-	defer func() {
-		close(schedulerStopped)
-		scheduler.Clear()
-		app.log.Info().Msg("定时任务调度器已关闭")
-	}()
 
 	// 启动服务器
 	srv := startServer(app.port)

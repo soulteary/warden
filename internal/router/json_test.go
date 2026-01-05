@@ -81,7 +81,7 @@ func TestJSON_SingleRecord(t *testing.T) {
 	userCache.Set(singleData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -106,7 +106,7 @@ func TestJSON_Unicode(t *testing.T) {
 	userCache.Set(unicodeData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -131,7 +131,7 @@ func TestJSON_ContentType(t *testing.T) {
 	userCache.Set(testData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -150,7 +150,7 @@ func TestJSON_StatusCode(t *testing.T) {
 	userCache.Set(testData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -170,7 +170,7 @@ func TestJSON_MultipleRecords(t *testing.T) {
 	userCache.Set(multipleData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -195,7 +195,7 @@ func TestJSON_DataModification(t *testing.T) {
 	// 修改原始数据（不应该影响缓存中的数据）
 	originalData[0].Mail = "modified@example.com"
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -309,7 +309,8 @@ func TestJSON_Pagination(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &result)
 		require.NoError(t, err)
 
-		data := result["data"].([]interface{})
+		data, ok := result["data"].([]interface{})
+		require.True(t, ok, "data 类型断言失败")
 		assert.Empty(t, data, "超出范围的页面应该返回空数组")
 	})
 
@@ -373,7 +374,7 @@ func TestJSON_BackwardCompatibility(t *testing.T) {
 	userCache.Set(testData)
 	handler := JSON(userCache)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)

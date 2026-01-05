@@ -206,7 +206,7 @@ func applyRemoteDefaults(cfg *Config) {
 		cfg.Remote.Key = define.DefaultRemoteKey
 	}
 	if cfg.Remote.Mode == "" {
-		cfg.Remote.Mode = define.DEFAULT_MODE
+		cfg.Remote.Mode = define.DefaultMode
 	}
 }
 
@@ -220,7 +220,7 @@ func applyTaskDefaults(cfg *Config) {
 // applyAppDefaults 应用应用默认值
 func applyAppDefaults(cfg *Config) {
 	if cfg.App.Mode == "" {
-		cfg.App.Mode = define.DEFAULT_MODE
+		cfg.App.Mode = define.DefaultMode
 	}
 }
 

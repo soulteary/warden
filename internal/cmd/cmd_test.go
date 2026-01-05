@@ -65,7 +65,7 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 	assert.Equal(t, define.DefaultRemoteConfig, cfg.RemoteConfig)
 	assert.Equal(t, define.DefaultRemoteKey, cfg.RemoteKey)
 	assert.Equal(t, define.DefaultTaskInterval, cfg.TaskInterval)
-	assert.Equal(t, define.DEFAULT_MODE, cfg.Mode)
+	assert.Equal(t, define.DefaultMode, cfg.Mode)
 }
 
 func TestGetArgs_WithCommandLineArgs(t *testing.T) {
@@ -97,7 +97,9 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 
 	// 清理环境变量
 	for k := range oldEnv {
-		_ = os.Unsetenv(k)
+		if err := os.Unsetenv(k); err != nil {
+			t.Logf("清理环境变量失败: %s", k)
+		}
 	}
 
 	// 设置命令行参数
@@ -142,7 +144,9 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 
 	// 清理环境变量
 	for k := range oldEnv {
-		_ = os.Unsetenv(k)
+		if err := os.Unsetenv(k); err != nil {
+			t.Logf("清理环境变量失败: %s", k)
+		}
 	}
 
 	// 设置环境变量

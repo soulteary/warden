@@ -137,6 +137,7 @@ func (d *Dependencies) Cleanup() {
 	if d.RedisClient != nil {
 		if err := d.RedisClient.Close(); err != nil {
 			// 记录错误但不影响清理流程
+			_ = err // 明确忽略错误
 		}
 	}
 }
