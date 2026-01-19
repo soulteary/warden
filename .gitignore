@@ -25,6 +25,7 @@ config.yml
 *.local.yaml
 *.local.yml
 *.local.json
+console.json
 
 # 用户数据文件（可能包含敏感信息，如用户手机号、邮箱等）
 # 注意：请使用 data.example.json 作为模板，不要提交实际数据文件
