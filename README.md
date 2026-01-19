@@ -29,7 +29,7 @@ graph TB
     subgraph "客户端层"
         Client[HTTP 客户端]
     end
-    
+
     subgraph "Warden 服务"
         subgraph "HTTP 层"
             Router[路由处理器]
@@ -38,30 +38,30 @@ graph TB
             Compress[压缩中间件]
             Metrics[指标收集]
         end
-        
+
         subgraph "业务层"
             UserCache[内存缓存<br/>SafeUserCache]
             RedisCache[Redis 缓存<br/>RedisUserCache]
             Parser[数据解析器]
             Scheduler[定时调度器<br/>gocron]
         end
-        
+
         subgraph "基础设施层"
             Logger[日志系统<br/>zerolog]
             Prometheus[Prometheus 指标]
             RedisLock[分布式锁<br/>Redis Lock]
         end
     end
-    
+
     subgraph "数据源"
         LocalFile[本地数据文件<br/>data.json]
         RemoteAPI[远程数据 API]
     end
-    
+
     subgraph "外部服务"
         Redis[(Redis 服务器)]
     end
-    
+
     Client -->|HTTP 请求| Router
     Router --> Middleware
     Middleware --> RateLimit
@@ -125,7 +125,7 @@ sequenceDiagram
     participant Remote as 远程 API
     participant Local as 本地文件
     participant Memory as 内存缓存
-    
+
     App->>Redis: 1. 尝试从 Redis 加载
     alt Redis 有数据
         Redis-->>App: 返回缓存数据
@@ -156,7 +156,7 @@ sequenceDiagram
     participant Local as 本地文件
     participant Memory as 内存缓存
     participant Redis as Redis 缓存
-    
+
     Scheduler->>Lock: 1. 尝试获取分布式锁
     alt 获取锁成功
         Lock-->>Scheduler: 锁获取成功
@@ -194,7 +194,7 @@ sequenceDiagram
     participant Router as 路由处理器
     participant Cache as 内存缓存
     participant Metrics as 指标收集
-    
+
     Client->>RateLimit: 1. HTTP 请求
     alt 超过速率限制
         RateLimit-->>Client: 429 Too Many Requests
@@ -431,6 +431,84 @@ X-API-Key: your-secret-api-key
 ```
 
 **注意**: 此端点需要 API Key 认证，通过 `X-API-Key` 请求头或 `Authorization: Bearer <key>` 提供。
+
+## 🔌 SDK 使用
+
+Warden 提供了 Go SDK，方便其他项目集成使用。SDK 提供了简洁的 API 接口，支持缓存、认证等功能。
+
+### 安装 SDK
+
+```bash
+go get soulteary.com/soulteary/warden/pkg/warden
+```
+
+### 快速开始
+
+```go
+package main
+
+import (
+    "context"
+    "time"
+
+    "soulteary.com/soulteary/warden/pkg/warden"
+)
+
+func main() {
+    // 创建客户端选项
+    opts := warden.DefaultOptions().
+        WithBaseURL("http://localhost:8081").
+        WithAPIKey("your-api-key").
+        WithTimeout(10 * time.Second).
+        WithCacheTTL(5 * time.Minute)
+
+    // 创建客户端
+    client, err := warden.NewClient(opts)
+    if err != nil {
+        panic(err)
+    }
+
+    // 获取用户列表
+    ctx := context.Background()
+    users, err := client.GetUsers(ctx)
+    if err != nil {
+        panic(err)
+    }
+
+    // 检查用户是否在列表中
+    exists := client.CheckUserInList(ctx, "13800138000", "user@example.com")
+    if exists {
+        println("User is in the allow list")
+    }
+}
+```
+
+### 主要功能
+
+- **获取用户列表**: `GetUsers(ctx)` - 获取所有用户，支持缓存
+- **分页查询**: `GetUsersPaginated(ctx, page, pageSize)` - 获取分页用户列表
+- **用户检查**: `CheckUserInList(ctx, phone, mail)` - 检查用户是否在允许列表中
+- **缓存管理**: `ClearCache()` - 清除客户端缓存
+
+### 使用自定义日志
+
+SDK 支持自定义日志实现。例如，使用 logrus:
+
+```go
+import (
+    "github.com/sirupsen/logrus"
+    "soulteary.com/soulteary/warden/pkg/warden"
+)
+
+logger := logrus.StandardLogger()
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithLogger(warden.NewLogrusAdapter(logger))
+```
+
+### 详细文档
+
+更多使用说明和 API 参考，请查看 [SDK 文档](pkg/warden/README.md)。
 
 **响应（无分页）**
 ```json
