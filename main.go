@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -82,6 +83,7 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 		return nil, errors.ErrRedisConnection.WithError(err)
 	}
 	app.log.Info().Str("redis", cfg.Redis).Msg("Redis 连接成功 ✓")
+	app.log.Debug().Str("mode", app.appMode).Msg("当前运行模式")
 
 	// 初始化 HTTP 客户端（使用配置）
 	parser.InitHTTPClient(cfg.HTTPTimeout, cfg.HTTPMaxIdleConns, cfg.HTTPInsecureTLS)
@@ -118,6 +120,27 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 
 // loadInitialData 多级降级加载数据
 func (app *App) loadInitialData(rulesFile string) error {
+	// ONLY_LOCAL 模式：仅使用本地文件，不进行任何远程请求
+	app.log.Debug().Str("appMode", app.appMode).Msg("loadInitialData: 检查运行模式")
+	// 使用 strings.ToUpper 进行大小写不敏感的比较
+	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
+		app.log.Debug().Msg("loadInitialData: 检测到 ONLY_LOCAL 模式，跳过远程请求")
+		localUsers := parser.FromFile(rulesFile)
+		if len(localUsers) > 0 {
+			app.log.Info().
+				Int("count", len(localUsers)).
+				Msg("从本地文件加载数据 ✓")
+			app.userCache.Set(localUsers)
+			// 同时更新 Redis 缓存
+			if err := app.redisUserCache.Set(localUsers); err != nil {
+				app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+			}
+			return nil
+		}
+		app.log.Warn().Msg("ONLY_LOCAL 模式下本地文件加载失败，使用空数据")
+		return nil
+	}
+
 	// 1. 尝试从 Redis 缓存加载
 	if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
 		metrics.CacheHits.Inc() // 记录缓存命中
@@ -335,9 +358,17 @@ func (app *App) backgroundTask(rulesFile string) {
 	}()
 
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
-	defer cancel()
-	newUsers := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
+	var newUsers []define.AllowListUser
+
+	// ONLY_LOCAL 模式：仅使用本地文件，不进行任何远程请求
+	// 使用大小写不敏感的比较，并去除空格
+	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
+		newUsers = parser.FromFile(rulesFile)
+	} else {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
+		defer cancel()
+		newUsers = parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
+	}
 
 	// 检查数据是否有变化
 	if !app.checkDataChanged(newUsers) {
@@ -392,24 +423,30 @@ func registerRoutes(app *App) {
 	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
 
 	// 注册 Prometheus metrics 端点（可选认证）
-	metricsHandler := securityHeadersMiddleware(
-		errorHandlerMiddleware(
-			middleware.OptionalAuthMiddleware(app.apiKey)(
-				middleware.MetricsMiddleware(metrics.Handler()),
+	// 将访问日志中间件放在最外层，确保所有请求都能记录
+	metricsHandler := router.AccessLogMiddleware()(
+		securityHeadersMiddleware(
+			errorHandlerMiddleware(
+				middleware.OptionalAuthMiddleware(app.apiKey)(
+					middleware.MetricsMiddleware(metrics.Handler()),
+				),
 			),
 		),
 	)
 	http.Handle("/metrics", metricsHandler)
 
 	// 注册主数据接口（需要认证）
-	mainHandler := securityHeadersMiddleware(
-		errorHandlerMiddleware(
-			middleware.CompressMiddleware(
-				middleware.BodyLimitMiddleware(
-					middleware.MetricsMiddleware(
-						rateLimitMiddleware(
-							authMiddleware(
-								router.ProcessWithLogger(router.JSON(app.userCache)),
+	// 将访问日志中间件放在最外层，确保所有请求（包括认证失败的）都能记录
+	mainHandler := router.AccessLogMiddleware()(
+		securityHeadersMiddleware(
+			errorHandlerMiddleware(
+				middleware.CompressMiddleware(
+					middleware.BodyLimitMiddleware(
+						middleware.MetricsMiddleware(
+							rateLimitMiddleware(
+								authMiddleware(
+									router.ProcessWithLogger(router.JSON(app.userCache)),
+								),
 							),
 						),
 					),
@@ -420,11 +457,14 @@ func registerRoutes(app *App) {
 	http.Handle("/", mainHandler)
 
 	// 注册健康检查端点（IP 白名单保护，限制信息泄露）
-	healthHandler := securityHeadersMiddleware(
-		errorHandlerMiddleware(
-			healthIPWhitelist(
-				middleware.MetricsMiddleware(
-					router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode)),
+	// 将访问日志中间件放在最外层，确保所有请求都能记录
+	healthHandler := router.AccessLogMiddleware()(
+		securityHeadersMiddleware(
+			errorHandlerMiddleware(
+				healthIPWhitelist(
+					middleware.MetricsMiddleware(
+						router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode)),
+					),
 				),
 			),
 		),
@@ -433,11 +473,14 @@ func registerRoutes(app *App) {
 	http.Handle("/healthcheck", healthHandler)
 
 	// 注册日志级别控制端点（需要认证）
-	logLevelHandler := securityHeadersMiddleware(
-		errorHandlerMiddleware(
-			middleware.MetricsMiddleware(
-				authMiddleware(
-					router.ProcessWithLogger(router.LogLevelHandler()),
+	// 将访问日志中间件放在最外层，确保所有请求（包括认证失败的）都能记录
+	logLevelHandler := router.AccessLogMiddleware()(
+		securityHeadersMiddleware(
+			errorHandlerMiddleware(
+				middleware.MetricsMiddleware(
+					authMiddleware(
+						router.ProcessWithLogger(router.LogLevelHandler()),
+					),
 				),
 			),
 		),

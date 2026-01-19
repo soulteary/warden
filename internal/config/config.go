@@ -409,6 +409,15 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 		// 如果获取密码失败，使用空字符串
 		redisPassword = ""
 	}
+	// 优先使用 Remote.Mode，如果为空则使用 App.Mode
+	mode := strings.TrimSpace(c.Remote.Mode)
+	if mode == "" {
+		mode = strings.TrimSpace(c.App.Mode)
+	}
+	// 如果仍然为空，使用默认值
+	if mode == "" {
+		mode = define.DEFAULT_MODE
+	}
 	return &LegacyConfig{
 		Port:             c.Server.Port,
 		Redis:            c.Redis.Addr,
@@ -416,7 +425,7 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 		RemoteConfig:     c.Remote.URL,
 		RemoteKey:        c.Remote.Key,
 		TaskInterval:     int(c.Task.Interval.Seconds()),
-		Mode:             c.App.Mode,
+		Mode:             mode,
 		HTTPTimeout:      int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns: c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:  c.HTTP.InsecureTLS,
@@ -445,6 +454,15 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		// 如果获取密码失败，使用空字符串
 		redisPassword = ""
 	}
+	// 优先使用 Remote.Mode，如果为空则使用 App.Mode
+	mode := strings.TrimSpace(c.Remote.Mode)
+	if mode == "" {
+		mode = strings.TrimSpace(c.App.Mode)
+	}
+	// 如果仍然为空，使用默认值
+	if mode == "" {
+		mode = define.DEFAULT_MODE
+	}
 	return &CmdConfigData{
 		Port:             c.Server.Port,
 		Redis:            c.Redis.Addr,
@@ -452,7 +470,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		RemoteConfig:     c.Remote.URL,
 		RemoteKey:        c.Remote.Key,
 		TaskInterval:     int(c.Task.Interval.Seconds()),
-		Mode:             c.App.Mode,
+		Mode:             mode,
 		HTTPTimeout:      int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns: c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:  c.HTTP.InsecureTLS,
