@@ -19,7 +19,7 @@ COPY . .
 RUN VERSION=$(cat RELEASE_VERSION) && \
     COMMIT=$(cat RELEASE_COMMIT) && \
     BUILD_DATE=`date +%FT%T%z` && \
-    GO111MODULE=on GOARCH=amd64 go build -ldflags "-w -s -X 'soulteary.com/soulteary/warden/internal/version.Version=$VERSION' -X 'soulteary.com/soulteary/warden/internal/version.Commit=$COMMIT' -X 'soulteary.com/soulteary/warden/internal/version.BuildDate=$BUILD_DATE' " -o warden main.go
+    GO111MODULE=on GOARCH=amd64 go build -ldflags "-w -s -X 'github.com/soulteary/warden/internal/version.Version=$VERSION' -X 'github.com/soulteary/warden/internal/version.Commit=$COMMIT' -X 'github.com/soulteary/warden/internal/version.BuildDate=$BUILD_DATE' " -o warden main.go
 RUN upx -9 -o warden.minify warden && mv warden.minify warden
 
 

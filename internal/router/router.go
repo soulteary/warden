@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // ProcessWithLogger 为 HTTP 处理器添加日志记录中间件

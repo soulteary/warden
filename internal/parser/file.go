@@ -11,7 +11,7 @@ import (
 	"os"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/define"
 )
 
 // FromFile 从本地文件读取用户规则列表。

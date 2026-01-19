@@ -7,8 +7,8 @@ import (
 	"context"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 var log = logger.GetLogger()

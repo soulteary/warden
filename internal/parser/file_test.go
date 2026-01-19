@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"soulteary.com/soulteary/warden/internal/define"
 )
 
 func TestFromFile_ValidFile(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/metrics"
 )
 
 // MetricsMiddleware 创建 Prometheus 指标收集中间件

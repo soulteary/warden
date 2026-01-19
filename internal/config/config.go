@@ -14,8 +14,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/errors"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/errors"
 )
 
 // Config 应用配置结构体

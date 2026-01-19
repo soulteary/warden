@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"soulteary.com/soulteary/warden/internal/define"
 )
 
 func TestFromRemoteConfig_Success(t *testing.T) {

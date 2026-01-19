@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/logger"
-	"soulteary.com/soulteary/warden/internal/validator"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/validator"
 )
 
 var log = logger.GetLogger()

@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/config"
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/errors"
+	"github.com/soulteary/warden/internal/config"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/errors"
 )
 
 // Config 存储应用配置

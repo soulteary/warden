@@ -15,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/define"
 )
 
 const (

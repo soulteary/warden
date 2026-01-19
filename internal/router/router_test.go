@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
-	"soulteary.com/soulteary/warden/internal/cache"
-	"soulteary.com/soulteary/warden/internal/define"
 )
 
 func TestProcessWithLogger(t *testing.T) {

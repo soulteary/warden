@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
-	"soulteary.com/soulteary/warden/internal/define"
 )
 
 func TestGetArgs_DefaultValues(t *testing.T) {

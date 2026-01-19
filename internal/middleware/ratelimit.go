@@ -16,8 +16,8 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/metrics"
 )
 
 // RateLimiter 实现简单的内存速率限制

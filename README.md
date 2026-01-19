@@ -439,7 +439,7 @@ Warden 提供了 Go SDK，方便其他项目集成使用。SDK 提供了简洁�
 ### 安装 SDK
 
 ```bash
-go get soulteary.com/soulteary/warden/pkg/warden
+go get github.com/soulteary/warden/pkg/warden
 ```
 
 ### 快速开始
@@ -451,7 +451,7 @@ import (
     "context"
     "time"
 
-    "soulteary.com/soulteary/warden/pkg/warden"
+    "github.com/soulteary/warden/pkg/warden"
 )
 
 func main() {
@@ -497,7 +497,7 @@ SDK 支持自定义日志实现。例如，使用 logrus:
 ```go
 import (
     "github.com/sirupsen/logrus"
-    "soulteary.com/soulteary/warden/pkg/warden"
+    "github.com/soulteary/warden/pkg/warden"
 )
 
 logger := logrus.StandardLogger()

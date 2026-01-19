@@ -12,12 +12,12 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/cache"
-	"soulteary.com/soulteary/warden/internal/cmd"
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/errors"
-	"soulteary.com/soulteary/warden/internal/middleware"
-	"soulteary.com/soulteary/warden/internal/router"
+	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/cmd"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/errors"
+	"github.com/soulteary/warden/internal/middleware"
+	"github.com/soulteary/warden/internal/router"
 )
 
 // Dependencies 依赖容器，封装所有应用依赖

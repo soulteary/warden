@@ -13,7 +13,7 @@ import (
 	"time"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/define"
 )
 
 // httpClient 全局 HTTP 客户端，使用连接池复用连接

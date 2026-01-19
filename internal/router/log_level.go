@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // LogLevelHandler 处理日志级别调整的 HTTP 端点

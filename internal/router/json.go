@@ -15,9 +15,9 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/cache"
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/metrics"
 )
 
 // bufferPool 复用 bytes.Buffer 对象

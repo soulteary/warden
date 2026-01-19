@@ -1,4 +1,4 @@
-module soulteary.com/soulteary/warden
+module github.com/soulteary/warden
 
 go 1.25
 

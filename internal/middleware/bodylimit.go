@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/define"
 )
 
 // BodyLimitMiddleware 创建请求体大小限制中间件

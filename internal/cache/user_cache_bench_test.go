@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"soulteary.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/define"
 )
 
 // BenchmarkSafeUserCache_Get 测试 Get 方法的性能

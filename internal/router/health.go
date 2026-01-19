@@ -13,8 +13,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/cache"
-	"soulteary.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // HealthCheck 返回健康检查处理器

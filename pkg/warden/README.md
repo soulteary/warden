@@ -13,7 +13,7 @@ Warden SDK 是一个用于与 Warden API 交互的 Go 客户端库。它提供�
 ## 安装
 
 ```bash
-go get soulteary.com/soulteary/warden/pkg/warden
+go get github.com/soulteary/warden/pkg/warden
 ```
 
 ## 快速开始
@@ -27,7 +27,7 @@ import (
     "context"
     "time"
     
-    "soulteary.com/soulteary/warden/pkg/warden"
+    "github.com/soulteary/warden/pkg/warden"
 )
 
 func main() {
@@ -66,7 +66,7 @@ SDK 支持自定义日志实现。例如，使用 logrus:
 ```go
 import (
     "github.com/sirupsen/logrus"
-    "soulteary.com/soulteary/warden/pkg/warden"
+    "github.com/soulteary/warden/pkg/warden"
 )
 
 func main() {

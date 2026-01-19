@@ -21,17 +21,17 @@ import (
 	"github.com/rs/zerolog"
 
 	// 项目内部包
-	"soulteary.com/soulteary/warden/internal/cache"
-	"soulteary.com/soulteary/warden/internal/cmd"
-	"soulteary.com/soulteary/warden/internal/define"
-	"soulteary.com/soulteary/warden/internal/errors"
-	"soulteary.com/soulteary/warden/internal/logger"
-	"soulteary.com/soulteary/warden/internal/metrics"
-	"soulteary.com/soulteary/warden/internal/middleware"
-	"soulteary.com/soulteary/warden/internal/parser"
-	"soulteary.com/soulteary/warden/internal/router"
-	"soulteary.com/soulteary/warden/internal/version"
-	"soulteary.com/soulteary/warden/pkg/gocron"
+	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/cmd"
+	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/errors"
+	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/middleware"
+	"github.com/soulteary/warden/internal/parser"
+	"github.com/soulteary/warden/internal/router"
+	"github.com/soulteary/warden/internal/version"
+	"github.com/soulteary/warden/pkg/gocron"
 )
 
 const rulesFile = "./data.json"

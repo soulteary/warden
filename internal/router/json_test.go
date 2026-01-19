@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"soulteary.com/soulteary/warden/internal/cache"
-	"soulteary.com/soulteary/warden/internal/define"
 )
 
 func TestJSON_Handler(t *testing.T) {

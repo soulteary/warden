@@ -164,8 +164,8 @@ import (
     "github.com/rs/zerolog"
     
     // Project internal packages
-    "soulteary.com/soulteary/warden/internal/cache"
-    "soulteary.com/soulteary/warden/internal/define"
+    "github.com/soulteary/warden/internal/cache"
+    "github.com/soulteary/warden/internal/define"
 )
 ```
 
