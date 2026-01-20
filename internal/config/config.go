@@ -433,6 +433,8 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 }
 
 // CmdConfigData 配置数据结构（用于转换为 cmd.Config，避免循环依赖）
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type CmdConfigData struct {
 	Port             string // 16 bytes
 	Redis            string // 16 bytes

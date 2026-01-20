@@ -25,14 +25,15 @@ func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
 		if attemptCount < 3 {
 			// 前两次返回 500 错误
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Internal Server Error"))
+			_, err := w.Write([]byte("Internal Server Error"))
+			require.NoError(t, err)
 		} else {
 			// 第三次成功
 			testData := []define.AllowListUser{
 				{Phone: "13800138000", Mail: "test@example.com"},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(testData)
+			require.NoError(t, json.NewEncoder(w).Encode(testData))
 		}
 	}))
 	defer server.Close()
@@ -57,7 +58,8 @@ func TestFromRemoteConfig_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("[]"))
+		_, err := w.Write([]byte("[]"))
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -83,7 +85,8 @@ func TestFromRemoteConfig_ContextTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("[]"))
+		_, err := w.Write([]byte("[]"))
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -112,7 +115,8 @@ func TestFromRemoteConfig_Non200Status(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte("Error"))
+				_, err := w.Write([]byte("Error"))
+				require.NoError(t, err)
 			}))
 			defer server.Close()
 
@@ -138,7 +142,7 @@ func TestFromRemoteConfig_LargeResponse(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(largeData)
+		require.NoError(t, json.NewEncoder(w).Encode(largeData))
 	}))
 	defer server.Close()
 
@@ -160,7 +164,8 @@ func TestFromRemoteConfig_ResponseSizeLimit(t *testing.T) {
 		for i := range largeString {
 			largeString[i] = 'a'
 		}
-		w.Write([]byte(`[{"phone":"13800138000","mail":"` + string(largeString) + `"}]`))
+		_, err := w.Write([]byte(`[{"phone":"13800138000","mail":"` + string(largeString) + `"}]`))
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -181,7 +186,7 @@ func TestFromRemoteConfig_Headers(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaders = r.Header
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]define.AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]define.AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -201,7 +206,7 @@ func TestFromRemoteConfig_NoAuthorization(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaders = r.Header
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]define.AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]define.AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -226,7 +231,7 @@ func TestFromRemoteConfig_UserNormalization(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(testData)
+		require.NoError(t, json.NewEncoder(w).Encode(testData))
 	}))
 	defer server.Close()
 

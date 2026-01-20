@@ -347,7 +347,9 @@ func TestValidateConfigPath_PathTraversal(t *testing.T) {
 	// filepath.Abs会解析".."，所以absPath中可能不包含".."
 	// 这个测试主要验证函数不会panic
 	assert.NotPanics(t, func() {
-		_, _ = ValidateConfigPath("../../etc/passwd", nil)
+		_, validateErr := ValidateConfigPath("../../etc/passwd", nil)
+		_ = validateErr // 忽略错误，因为行为取决于filepath.Abs的实现
 	})
-	_ = err // 忽略错误，因为行为取决于filepath.Abs的实现
+	// 忽略错误，因为行为取决于filepath.Abs的实现
+	_ = err
 }

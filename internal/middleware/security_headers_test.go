@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -17,10 +18,11 @@ func init() {
 func TestSecurityHeadersMiddleware(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -39,7 +41,7 @@ func TestSecurityHeadersMiddleware_AllHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -82,7 +84,7 @@ func TestSecurityHeadersMiddleware_DifferentStatusCodes(t *testing.T) {
 				w.WriteHeader(statusCode)
 			}))
 
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			w := httptest.NewRecorder()
 
 			middleware.ServeHTTP(w, req)
@@ -98,14 +100,15 @@ func TestSecurityHeadersMiddleware_DifferentStatusCodes(t *testing.T) {
 func TestSecurityHeadersMiddleware_Concurrent(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	done := make(chan bool, 10)
 
 	for i := 0; i < 10; i++ {
 		go func() {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			w := httptest.NewRecorder()
 
 			middleware.ServeHTTP(w, req)
@@ -130,7 +133,7 @@ func TestSecurityHeadersMiddleware_DoesNotOverride(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -147,7 +150,7 @@ func TestSecurityHeadersMiddleware_CSPContent(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)

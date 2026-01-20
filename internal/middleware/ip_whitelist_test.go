@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -19,10 +20,11 @@ func TestIPWhitelistMiddleware_EmptyWhitelist(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:12345"
 	w := httptest.NewRecorder()
 
@@ -37,7 +39,8 @@ func TestIPWhitelistMiddleware_SingleIP(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	tests := []struct {
@@ -59,7 +62,7 @@ func TestIPWhitelistMiddleware_SingleIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			req.RemoteAddr = tt.remoteAddr
 			w := httptest.NewRecorder()
 
@@ -76,7 +79,8 @@ func TestIPWhitelistMiddleware_MultipleIPs(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	tests := []struct {
@@ -108,7 +112,7 @@ func TestIPWhitelistMiddleware_MultipleIPs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			req.RemoteAddr = tt.remoteAddr
 			w := httptest.NewRecorder()
 
@@ -125,10 +129,11 @@ func TestIPWhitelistMiddleware_WithSpaces(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.RemoteAddr = "192.168.1.1:12345"
 	w := httptest.NewRecorder()
 
@@ -143,10 +148,11 @@ func TestIPWhitelistMiddleware_XForwardedFor(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.RemoteAddr = "10.0.0.1:12345"
 	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 	w := httptest.NewRecorder()
@@ -164,10 +170,11 @@ func TestIPWhitelistMiddleware_XRealIP(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.RemoteAddr = "10.0.0.1:12345"
 	req.Header.Set("X-Real-IP", "192.168.1.1")
 	w := httptest.NewRecorder()
@@ -185,7 +192,8 @@ func TestIPWhitelistMiddleware_CIDR(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	tests := []struct {
@@ -207,7 +215,7 @@ func TestIPWhitelistMiddleware_CIDR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			req.RemoteAddr = tt.remoteAddr
 			w := httptest.NewRecorder()
 
@@ -224,7 +232,8 @@ func TestIPWhitelistMiddleware_MixedIPsAndCIDR(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	tests := []struct {
@@ -256,7 +265,7 @@ func TestIPWhitelistMiddleware_MixedIPsAndCIDR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			req.RemoteAddr = tt.remoteAddr
 			w := httptest.NewRecorder()
 

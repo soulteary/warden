@@ -1,3 +1,4 @@
+//nolint:revive // 包名与标准库冲突，但这是测试文件，保持包名一致性
 package errors
 
 import (

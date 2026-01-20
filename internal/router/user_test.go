@@ -30,7 +30,7 @@ func TestGetUserByIdentifier_ByPhone(t *testing.T) {
 
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user?phone=13800138000", nil)
+	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -57,7 +57,7 @@ func TestGetUserByIdentifier_ByMail(t *testing.T) {
 
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user?mail=test2@example.com", nil)
+	req := httptest.NewRequest("GET", "/user?mail=test2@example.com", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -84,7 +84,7 @@ func TestGetUserByIdentifier_ByUserID(t *testing.T) {
 
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user?user_id=user1", nil)
+	req := httptest.NewRequest("GET", "/user?user_id=user1", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -104,7 +104,7 @@ func TestGetUserByIdentifier_MissingIdentifier(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user", nil)
+	req := httptest.NewRequest("GET", "/user", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -117,7 +117,7 @@ func TestGetUserByIdentifier_MultipleIdentifiers(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user?phone=13800138000&mail=test@example.com", nil)
+	req := httptest.NewRequest("GET", "/user?phone=13800138000&mail=test@example.com", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -136,7 +136,7 @@ func TestGetUserByIdentifier_UserNotFound(t *testing.T) {
 
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user?phone=99999999999", nil)
+	req := httptest.NewRequest("GET", "/user?phone=99999999999", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -153,7 +153,7 @@ func TestGetUserByIdentifier_InvalidMethod(t *testing.T) {
 
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, "/user?phone=13800138000", nil)
+			req := httptest.NewRequest(method, "/user?phone=13800138000", http.NoBody)
 			w := httptest.NewRecorder()
 
 			handler(w, req)
@@ -175,7 +175,7 @@ func TestGetUserByIdentifier_WithSpaces(t *testing.T) {
 	handler := GetUserByIdentifier(userCache)
 
 	// 测试带空格的手机号（URL 编码空格为 %20）
-	req := httptest.NewRequest("GET", "/user?phone=%2013800138000%20", nil)
+	req := httptest.NewRequest("GET", "/user?phone=%2013800138000%20", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -196,7 +196,7 @@ func TestGetUserByIdentifier_JSONEncodingError(t *testing.T) {
 
 	handler := GetUserByIdentifier(userCache)
 
-	req := httptest.NewRequest("GET", "/user?phone=13800138000", nil)
+	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)

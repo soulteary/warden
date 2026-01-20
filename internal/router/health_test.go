@@ -31,7 +31,7 @@ func TestHealthCheck_ProductionMode(t *testing.T) {
 
 	handler := HealthCheck(nil, userCache, "production", false)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -66,7 +66,7 @@ func TestHealthCheck_DevelopmentMode(t *testing.T) {
 
 	handler := HealthCheck(nil, userCache, "development", false)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -96,7 +96,7 @@ func TestHealthCheck_RedisDisabled(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := HealthCheck(nil, userCache, "development", false)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -123,7 +123,7 @@ func TestHealthCheck_RedisUnavailable(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := HealthCheck(redisClient, userCache, "development", true)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -153,7 +153,7 @@ func TestHealthCheck_NoData(t *testing.T) {
 
 	handler := HealthCheck(nil, userCache, "development", false)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -176,7 +176,7 @@ func TestHealthCheck_NoData(t *testing.T) {
 func TestHealthCheck_NilCache(t *testing.T) {
 	handler := HealthCheck(nil, nil, "development", false)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -216,7 +216,7 @@ func TestHealthCheck_RedisOK(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := HealthCheck(redisClient, userCache, "development", true)
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)

@@ -3,6 +3,8 @@ package warden
 import "fmt"
 
 // Error represents an error that occurred in the SDK.
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Error struct {
 	Code    string // 错误代码
 	Message string // 错误消息

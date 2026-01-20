@@ -236,7 +236,9 @@ func TestLocalLocker_Concurrent(t *testing.T) {
 	assert.Equal(t, 1, successCount, "并发时只有一个应该成功获取锁")
 
 	// 清理
-	_ = locker.Unlock(key)
+	if err := locker.Unlock(key); err != nil {
+		t.Logf("清理锁时出错: %v", err)
+	}
 }
 
 // TestLocalLocker_MultipleKeys 测试多个键的锁

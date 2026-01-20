@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -20,10 +21,11 @@ func init() {
 func TestCompressMiddleware_NoGzipSupport(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, err := w.Write([]byte("test response"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	// 不设置 Accept-Encoding
 	w := httptest.NewRecorder()
 
@@ -38,10 +40,11 @@ func TestCompressMiddleware_NoGzipSupport(t *testing.T) {
 func TestCompressMiddleware_WithGzipSupport(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, err := w.Write([]byte("test response"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 
@@ -62,7 +65,7 @@ func TestCompressMiddleware_WithGzipSupport(t *testing.T) {
 				decompressed, err := io.ReadAll(reader)
 				assert.NoError(t, err, "应该能够解压响应")
 				assert.Equal(t, "test response", string(decompressed), "解压后的内容应该正确")
-				reader.Close()
+				require.NoError(t, reader.Close())
 			}
 		}
 	}
@@ -72,10 +75,11 @@ func TestCompressMiddleware_WithGzipSupport(t *testing.T) {
 func TestCompressMiddleware_MultipleEncodings(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, err := w.Write([]byte("test response"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	w := httptest.NewRecorder()
 
@@ -91,7 +95,7 @@ func TestCompressMiddleware_EmptyResponse(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 
@@ -105,10 +109,11 @@ func TestCompressMiddleware_LargeResponse(t *testing.T) {
 	largeData := strings.Repeat("test data ", 1000)
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(largeData))
+		_, err := w.Write([]byte(largeData))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 
@@ -127,14 +132,15 @@ func TestCompressMiddleware_LargeResponse(t *testing.T) {
 func TestCompressMiddleware_ConcurrentRequests(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, err := w.Write([]byte("test response"))
+		require.NoError(t, err)
 	}))
 
 	done := make(chan bool, 10)
 
 	for i := 0; i < 10; i++ {
 		go func() {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/", http.NoBody)
 			req.Header.Set("Accept-Encoding", "gzip")
 			w := httptest.NewRecorder()
 
@@ -155,12 +161,13 @@ func TestCompressMiddleware_ConcurrentRequests(t *testing.T) {
 func TestCompressMiddleware_GzipWriterPool(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, err := w.Write([]byte("test response"))
+		require.NoError(t, err)
 	}))
 
 	// 多次请求应该复用 writer
 	for i := 0; i < 5; i++ {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest("GET", "/", http.NoBody)
 		req.Header.Set("Accept-Encoding", "gzip")
 		w := httptest.NewRecorder()
 

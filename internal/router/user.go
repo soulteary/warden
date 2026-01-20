@@ -75,11 +75,12 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		var found bool
 
 		// 根据标识符类型查询用户
-		if phone != "" {
+		switch {
+		case phone != "":
 			user, found = userCache.GetByPhone(phone)
-		} else if mail != "" {
+		case mail != "":
 			user, found = userCache.GetByMail(mail)
-		} else if userID != "" {
+		case userID != "":
 			user, found = userCache.GetByUserID(userID)
 		}
 

@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // mockLogger is a simple logger implementation for testing.
@@ -51,6 +53,7 @@ func (m *mockLogger) Errorf(format string, args ...interface{}) {
 }
 
 func TestNewClient(t *testing.T) {
+	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
 	tests := []struct {
 		name    string
 		opts    *Options
@@ -119,7 +122,7 @@ func TestClient_GetUsers(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
 	}))
 	defer server.Close()
 
@@ -189,8 +192,10 @@ func TestClient_GetUsersPaginated(t *testing.T) {
 
 		// Simple pagination logic for testing
 		var start, end int
-		fmt.Sscanf(page, "%d", &start)
-		fmt.Sscanf(pageSize, "%d", &end)
+		_, err := fmt.Sscanf(page, "%d", &start)
+		require.NoError(t, err)
+		_, err = fmt.Sscanf(pageSize, "%d", &end)
+		require.NoError(t, err)
 		start = (start - 1) * end
 		end = start + end
 		if end > len(mockUsers) {
@@ -208,7 +213,7 @@ func TestClient_GetUsersPaginated(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		require.NoError(t, json.NewEncoder(w).Encode(response))
 	}))
 	defer server.Close()
 
@@ -251,7 +256,7 @@ func TestClient_CheckUserInList(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
 	}))
 	defer server.Close()
 
@@ -295,7 +300,7 @@ func TestClient_ClearCache(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
 	}))
 	defer server.Close()
 
@@ -325,6 +330,7 @@ func TestClient_ClearCache(t *testing.T) {
 }
 
 func TestOptions_Validate(t *testing.T) {
+	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
 	tests := []struct {
 		name    string
 		opts    *Options
@@ -413,7 +419,7 @@ func TestCache(t *testing.T) {
 
 // Helper function
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || containsHelper(s, substr))
+	return len(s) >= len(substr) && (s == substr || substr == "" || containsHelper(s, substr))
 }
 
 func containsHelper(s, substr string) bool {
@@ -428,6 +434,7 @@ func containsHelper(s, substr string) bool {
 // ========== 补充测试：错误处理 ==========
 
 func TestClient_GetUsers_HTTPErrors(t *testing.T) {
+	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
 	tests := []struct {
 		name            string
 		statusCode      int
@@ -500,7 +507,8 @@ func TestClient_GetUsers_InvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("invalid json"))
+		_, err := w.Write([]byte("invalid json"))
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -529,7 +537,7 @@ func TestClient_GetUsers_InvalidJSON(t *testing.T) {
 func TestClient_GetUsers_EmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -553,7 +561,7 @@ func TestClient_GetUsers_EmptyResponse(t *testing.T) {
 func TestClient_GetUsersPaginated_InvalidParams(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -621,7 +629,7 @@ func TestClient_CheckUserInList_EdgeCases(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
 	}))
 	defer server.Close()
 
@@ -667,7 +675,7 @@ func TestClient_AddAuthHeaders(t *testing.T) {
 		receivedAPIKey = r.Header.Get("X-API-Key")
 		receivedAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -1044,7 +1052,7 @@ func TestClient_GetUsers_ContextCancellation(t *testing.T) {
 		// 模拟慢请求
 		time.Sleep(2 * time.Second)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -1071,7 +1079,7 @@ func TestClient_GetUsers_ContextTimeout(t *testing.T) {
 		// 模拟慢请求
 		time.Sleep(2 * time.Second)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]AllowListUser{})
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
 	}))
 	defer server.Close()
 
@@ -1107,7 +1115,7 @@ func TestClient_GetUsersPaginated_EmptyResult(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		require.NoError(t, json.NewEncoder(w).Encode(response))
 	}))
 	defer server.Close()
 

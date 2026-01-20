@@ -8,6 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -18,10 +19,11 @@ func init() {
 func TestMetricsMiddleware_RecordsMetrics(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	w := httptest.NewRecorder()
 
 	start := time.Now()
@@ -49,7 +51,7 @@ func TestMetricsMiddleware_DifferentStatusCodes(t *testing.T) {
 				w.WriteHeader(statusCode)
 			}))
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest("GET", "/test", http.NoBody)
 			w := httptest.NewRecorder()
 
 			middleware.ServeHTTP(w, req)
@@ -69,7 +71,7 @@ func TestMetricsMiddleware_DifferentMethods(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			req := httptest.NewRequest(method, "/test", nil)
+			req := httptest.NewRequest(method, "/test", http.NoBody)
 			w := httptest.NewRecorder()
 
 			middleware.ServeHTTP(w, req)
@@ -89,7 +91,7 @@ func TestMetricsMiddleware_DifferentEndpoints(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			req := httptest.NewRequest("GET", endpoint, nil)
+			req := httptest.NewRequest("GET", endpoint, http.NoBody)
 			w := httptest.NewRecorder()
 
 			middleware.ServeHTTP(w, req)
@@ -110,7 +112,7 @@ func TestMetricsMiddleware_EmptyPath(t *testing.T) {
 	}))
 
 	// 使用有效的 URL，但测试中间件对空路径的处理
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -123,11 +125,13 @@ func TestMetricsMiddleware_ResponseWriter(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 测试多次写入
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello"))
-		w.Write([]byte(" World"))
+		_, err := w.Write([]byte("Hello"))
+		require.NoError(t, err)
+		_, err = w.Write([]byte(" World"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -140,14 +144,15 @@ func TestMetricsMiddleware_ResponseWriter(t *testing.T) {
 func TestMetricsMiddleware_Concurrent(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	done := make(chan bool, 10)
 
 	for i := 0; i < 10; i++ {
 		go func() {
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest("GET", "/test", http.NoBody)
 			w := httptest.NewRecorder()
 
 			middleware.ServeHTTP(w, req)
@@ -171,7 +176,7 @@ func TestMetricsMiddleware_DurationMeasurement(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", http.NoBody)
 	w := httptest.NewRecorder()
 
 	start := time.Now()

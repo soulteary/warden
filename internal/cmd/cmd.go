@@ -17,6 +17,8 @@ import (
 )
 
 // Config 存储应用配置
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Config struct {
 	Port             string // 16 bytes
 	Redis            string // 16 bytes

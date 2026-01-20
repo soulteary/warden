@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/soulteary/warden/internal/define"
 )
@@ -21,10 +22,11 @@ func init() {
 func TestBodyLimitMiddleware_GETRequest(t *testing.T) {
 	middleware := BodyLimitMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -38,7 +40,7 @@ func TestBodyLimitMiddleware_HEADRequest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("HEAD", "/", nil)
+	req := httptest.NewRequest("HEAD", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
@@ -56,7 +58,8 @@ func TestBodyLimitMiddleware_ValidSize(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(body)
+		_, err = w.Write(body)
+		require.NoError(t, err)
 	}))
 
 	// 创建一个小于限制的请求体
@@ -80,7 +83,7 @@ func TestBodyLimitMiddleware_ExceedsLimit(t *testing.T) {
 
 	// 创建一个超过限制的请求体
 	bodySize := define.MAX_REQUEST_BODY_SIZE + 1
-	req := httptest.NewRequest("POST", "/", nil)
+	req := httptest.NewRequest("POST", "/", http.NoBody)
 	req.ContentLength = int64(bodySize)
 	w := httptest.NewRecorder()
 
@@ -93,7 +96,8 @@ func TestBodyLimitMiddleware_ExceedsLimit(t *testing.T) {
 func TestBodyLimitMiddleware_ExactLimit(t *testing.T) {
 	middleware := BodyLimitMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	// 创建一个正好等于限制的请求体
@@ -113,7 +117,8 @@ func TestBodyLimitMiddleware_ExactLimit(t *testing.T) {
 func TestBodyLimitMiddleware_NoContentLength(t *testing.T) {
 	middleware := BodyLimitMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	// 创建一个没有 Content-Length 的请求
@@ -132,7 +137,8 @@ func TestBodyLimitMiddleware_NoContentLength(t *testing.T) {
 func TestBodyLimitMiddleware_DifferentMethods(t *testing.T) {
 	middleware := BodyLimitMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		require.NoError(t, err)
 	}))
 
 	methods := []string{"POST", "PUT", "PATCH", "DELETE"}
@@ -140,7 +146,7 @@ func TestBodyLimitMiddleware_DifferentMethods(t *testing.T) {
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			bodySize := define.MAX_REQUEST_BODY_SIZE + 1
-			req := httptest.NewRequest(method, "/", nil)
+			req := httptest.NewRequest(method, "/", http.NoBody)
 			req.ContentLength = int64(bodySize)
 			w := httptest.NewRecorder()
 

@@ -10,6 +10,8 @@ import (
 //
 // 该结构体用于存储用户的基本信息，包括手机号、邮箱地址、用户ID、状态等。
 // 这些信息用于验证和授权用户访问。
+//
+//nolint:govet // fieldalignment: 字段顺序受 JSON 序列化标签影响，优化可能破坏 API 兼容性
 type AllowListUser struct {
 	Phone  string   `json:"phone"`   // 用户手机号
 	Mail   string   `json:"mail"`    // 用户邮箱地址

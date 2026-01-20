@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -19,22 +20,24 @@ func init() {
 func TestErrorHandlerMiddleware_ProductionMode(t *testing.T) {
 	// 保存原始环境变量
 	originalMode := os.Getenv("MODE")
-	defer os.Setenv("MODE", originalMode)
+	defer func() {
+		require.NoError(t, os.Setenv("MODE", originalMode))
+	}()
 
-	os.Setenv("MODE", "production")
+	require.NoError(t, os.Setenv("MODE", "production"))
 
 	middleware := ErrorHandlerMiddleware("production")
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		require.NoError(t, json.NewEncoder(w).Encode(ErrorResponse{
 			Error:   "detailed error",
 			Message: "this is a detailed error message",
 			Code:    "ERR_DETAILED",
-		})
+		}))
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -56,14 +59,14 @@ func TestErrorHandlerMiddleware_DevelopmentMode(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		require.NoError(t, json.NewEncoder(w).Encode(ErrorResponse{
 			Error:   "validation error",
 			Message: "invalid input",
 			Code:    "ERR_VALIDATION",
-		})
+		}))
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -84,10 +87,11 @@ func TestErrorHandlerMiddleware_NonErrorStatus(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, err := w.Write([]byte("success"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -102,10 +106,11 @@ func TestErrorHandlerMiddleware_NonJSONError(t *testing.T) {
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("plain text error"))
+		_, err := w.Write([]byte("plain text error"))
+		require.NoError(t, err)
 	}))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -121,6 +126,7 @@ func TestErrorHandlerMiddleware_NonJSONError(t *testing.T) {
 
 // TestGetGenericErrorMessage 测试通用错误消息生成
 func TestGetGenericErrorMessage(t *testing.T) {
+	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
 	tests := []struct {
 		statusCode int
 		expected   string
@@ -147,11 +153,13 @@ func TestGetGenericErrorMessage(t *testing.T) {
 // TestSafeError_ProductionMode 测试 SafeError 函数（生产模式）
 func TestSafeError_ProductionMode(t *testing.T) {
 	originalMode := os.Getenv("MODE")
-	defer os.Setenv("MODE", originalMode)
+	defer func() {
+		require.NoError(t, os.Setenv("MODE", originalMode))
+	}()
 
-	os.Setenv("MODE", "production")
+	require.NoError(t, os.Setenv("MODE", "production"))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	SafeError(w, req, http.StatusInternalServerError, nil, "detailed error message")
@@ -168,11 +176,13 @@ func TestSafeError_ProductionMode(t *testing.T) {
 // TestSafeError_DevelopmentMode 测试 SafeError 函数（开发模式）
 func TestSafeError_DevelopmentMode(t *testing.T) {
 	originalMode := os.Getenv("MODE")
-	defer os.Setenv("MODE", originalMode)
+	defer func() {
+		require.NoError(t, os.Setenv("MODE", originalMode))
+	}()
 
-	os.Setenv("MODE", "development")
+	require.NoError(t, os.Setenv("MODE", "development"))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	SafeError(w, req, http.StatusBadRequest, nil, "detailed error message")
@@ -189,11 +199,13 @@ func TestSafeError_DevelopmentMode(t *testing.T) {
 // TestSafeError_WithError 测试 SafeError 函数（带 error）
 func TestSafeError_WithError(t *testing.T) {
 	originalMode := os.Getenv("MODE")
-	defer os.Setenv("MODE", originalMode)
+	defer func() {
+		require.NoError(t, os.Setenv("MODE", originalMode))
+	}()
 
-	os.Setenv("MODE", "development")
+	require.NoError(t, os.Setenv("MODE", "development"))
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	testErr := assert.AnError

@@ -199,7 +199,8 @@ func TestDependencies_Handlers_NotNil(t *testing.T) {
 	assert.NotNil(t, deps.LogLevelHandler)
 
 	// 验证处理器可以处理请求（不会panic）
-	req, _ := http.NewRequest("GET", "/", nil)
+	req, err := http.NewRequest("GET", "/", http.NoBody)
+	require.NoError(t, err)
 	rr := httptest.NewRecorder()
 	assert.NotPanics(t, func() {
 		deps.MainHandler.ServeHTTP(rr, req)
@@ -309,7 +310,9 @@ func TestDependencies_Cleanup_RedisCloseError(t *testing.T) {
 
 	// 先关闭Redis客户端
 	if deps.RedisClient != nil {
-		_ = deps.RedisClient.Close()
+		if err := deps.RedisClient.Close(); err != nil {
+			t.Logf("关闭Redis客户端时出错: %v", err)
+		}
 	}
 
 	// 再次调用Cleanup应该不会panic

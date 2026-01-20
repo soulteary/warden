@@ -14,7 +14,7 @@ func TestHandler(t *testing.T) {
 	require.NotNil(t, handler)
 
 	// 创建一个测试请求
-	req, err := http.NewRequest("GET", "/metrics", nil)
+	req, err := http.NewRequest("GET", "/metrics", http.NoBody)
 	require.NoError(t, err)
 
 	// 创建响应记录器
@@ -38,7 +38,7 @@ func TestHandler_MultipleRequests(t *testing.T) {
 
 	// 发送多个请求
 	for i := 0; i < 5; i++ {
-		req, err := http.NewRequest("GET", "/metrics", nil)
+		req, err := http.NewRequest("GET", "/metrics", http.NoBody)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
@@ -57,7 +57,7 @@ func TestHandler_ConcurrentRequests(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		go func() {
-			req, err := http.NewRequest("GET", "/metrics", nil)
+			req, err := http.NewRequest("GET", "/metrics", http.NoBody)
 			if err != nil {
 				done <- false
 				return
@@ -89,7 +89,7 @@ func TestHandler_ResponseHeaders(t *testing.T) {
 	handler := Handler()
 	require.NotNil(t, handler)
 
-	req, err := http.NewRequest("GET", "/metrics", nil)
+	req, err := http.NewRequest("GET", "/metrics", http.NoBody)
 	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
@@ -106,7 +106,7 @@ func TestHandler_InvalidMethod(t *testing.T) {
 	require.NotNil(t, handler)
 
 	// 测试POST请求（虽然Prometheus通常只使用GET）
-	req, err := http.NewRequest("POST", "/metrics", nil)
+	req, err := http.NewRequest("POST", "/metrics", http.NoBody)
 	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()

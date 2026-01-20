@@ -31,10 +31,11 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 		details := make(map[string]interface{})
 
 		// 检查 Redis 连接状态
-		if !redisEnabled {
+		switch {
+		case !redisEnabled:
 			// Redis 被显式禁用
 			details["redis"] = "disabled"
-		} else if redisClient != nil {
+		case redisClient != nil:
 			// Redis 已启用，检查连接状态
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -50,7 +51,7 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 			} else {
 				details["redis"] = "ok"
 			}
-		} else {
+		default:
 			// Redis 客户端为 nil（可能是连接失败后的 fallback 状态）
 			status = "redis_unavailable"
 			code = http.StatusServiceUnavailable

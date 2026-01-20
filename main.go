@@ -25,7 +25,6 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
-	"github.com/soulteary/warden/internal/errors"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/metrics"
 	"github.com/soulteary/warden/internal/middleware"
@@ -54,7 +53,7 @@ type App struct {
 }
 
 // NewApp 创建新的应用实例
-func NewApp(cfg *cmd.Config) (*App, error) {
+func NewApp(cfg *cmd.Config) *App {
 	app := &App{
 		port:                cfg.Port,
 		configURL:           cfg.RemoteConfig,
@@ -136,7 +135,7 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 	// 初始化速率限制器（封装到 App 中，避免使用全局变量）
 	app.rateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
 
-	return app, nil
+	return app
 }
 
 // loadInitialData 多级降级加载数据
@@ -318,8 +317,6 @@ func calculateHash(users []define.AllowListUser) string {
 	// 计算哈希（包含所有字段以确保数据变化检测准确，与 cache.calculateHashInternal 保持一致）
 	h := sha256.New()
 	for _, user := range sorted {
-		// 使用分隔符确保不同字段不会混淆
-		// 包含所有字段以确保数据变化检测准确
 		scopeStr := strings.Join(user.Scope, ",")
 		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
 	}
@@ -364,7 +361,7 @@ func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 	// 如果 Redis 缓存不可用，直接返回错误
 	if app.redisUserCache == nil {
-		return fmt.Errorf("Redis 缓存不可用")
+		return fmt.Errorf("redis 缓存不可用")
 	}
 
 	var lastErr error
@@ -626,12 +623,7 @@ func main() {
 	}
 
 	// 初始化应用
-	app, err := NewApp(cfg)
-	if err != nil {
-		log.Fatal().
-			Err(errors.ErrAppInit.WithError(err)).
-			Msg("应用初始化失败，程序退出")
-	}
+	app := NewApp(cfg)
 
 	// 注册路由
 	registerRoutes(app)

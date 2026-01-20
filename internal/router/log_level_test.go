@@ -22,7 +22,7 @@ func init() {
 func TestLogLevelHandler_GET(t *testing.T) {
 	handler := LogLevelHandler()
 
-	req := httptest.NewRequest("GET", "/log/level", nil)
+	req := httptest.NewRequest("GET", "/log/level", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -75,7 +75,8 @@ func TestLogLevelHandler_POST_ValidLevel(t *testing.T) {
 
 			// 验证级别确实被设置
 			currentLevel := zerolog.GlobalLevel()
-			expectedLevel, _ := zerolog.ParseLevel(level)
+			expectedLevel, err := zerolog.ParseLevel(level)
+			require.NoError(t, err, "应该能够解析日志级别")
 			assert.Equal(t, expectedLevel, currentLevel, "日志级别应该被正确设置")
 		})
 	}
@@ -162,7 +163,7 @@ func TestLogLevelHandler_InvalidMethod(t *testing.T) {
 
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, "/log/level", nil)
+			req := httptest.NewRequest(method, "/log/level", http.NoBody)
 			w := httptest.NewRecorder()
 
 			handler(w, req)

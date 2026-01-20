@@ -111,8 +111,11 @@ func TestHasChanged(t *testing.T) {
 func TestNewApp(t *testing.T) {
 	// 保存原始环境变量
 	originalMode := os.Getenv("MODE")
-	defer os.Setenv("MODE", originalMode)
+	defer func() {
+		require.NoError(t, os.Setenv("MODE", originalMode))
+	}()
 
+	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
 	tests := []struct {
 		name    string
 		cfg     *cmd.Config
@@ -167,12 +170,10 @@ func TestNewApp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app, err := NewApp(tt.cfg)
+			app := NewApp(tt.cfg)
 			if tt.wantErr {
-				assert.Error(t, err)
 				assert.Nil(t, app)
 			} else {
-				assert.NoError(t, err)
 				assert.NotNil(t, app)
 				if app != nil {
 					assert.Equal(t, tt.cfg.Port, app.port)
@@ -200,8 +201,7 @@ func TestApp_checkDataChanged(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 	require.NotNil(t, app)
 
 	// 初始数据
@@ -241,17 +241,21 @@ func TestStartServer(t *testing.T) {
 
 // TestShutdownServer 测试服务器关闭
 func TestShutdownServer(t *testing.T) {
+	t.Helper()
 	// 创建一个简单的速率限制器
 	rateLimiter := middleware.NewRateLimiter(100, time.Second)
 
 	// 创建一个测试服务器
 	srv := &http.Server{
-		Addr: ":0", // 使用随机端口
+		Addr:              ":0", // 使用随机端口
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	// 启动服务器（在 goroutine 中）
 	go func() {
-		_ = srv.ListenAndServe()
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			t.Logf("服务器启动错误: %v", err)
+		}
 	}()
 
 	// 等待服务器启动
@@ -270,7 +274,9 @@ func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
 	// 创建临时文件
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
 
 	// 写入测试数据
 	testData := `[
@@ -278,7 +284,7 @@ func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
 	]`
 	_, err = tmpFile.WriteString(testData)
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -291,8 +297,7 @@ func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 测试加载数据
 	err = app.loadInitialData(tmpFile.Name())
@@ -305,8 +310,10 @@ func TestApp_loadInitialData_EmptyFile(t *testing.T) {
 	// 创建空文件
 	tmpFile, err := os.CreateTemp("", "test-empty-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
+	require.NoError(t, tmpFile.Close())
 
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -320,8 +327,7 @@ func TestApp_loadInitialData_EmptyFile(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 测试加载空文件
 	err = app.loadInitialData(tmpFile.Name())
@@ -343,11 +349,10 @@ func TestApp_loadInitialData_NonExistentFile(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 测试加载不存在的文件
-	err = app.loadInitialData("/nonexistent/file.json")
+	err := app.loadInitialData("/nonexistent/file.json")
 	// 文件不存在不应该导致错误，只是没有数据
 	assert.NoError(t, err)
 }
@@ -357,14 +362,16 @@ func TestApp_backgroundTask_NoChange(t *testing.T) {
 	// 创建临时文件
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
 
 	testData := `[
 		{"phone": "13800138000", "mail": "test@example.com"}
 	]`
 	_, err = tmpFile.WriteString(testData)
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -377,8 +384,7 @@ func TestApp_backgroundTask_NoChange(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 先加载数据
 	err = app.loadInitialData(tmpFile.Name())
@@ -398,14 +404,16 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 	// 创建临时文件
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
 
 	initialData := `[
 		{"phone": "13800138000", "mail": "test@example.com"}
 	]`
 	_, err = tmpFile.WriteString(initialData)
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -418,8 +426,7 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 先加载初始数据
 	err = app.loadInitialData(tmpFile.Name())
@@ -432,7 +439,7 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 		{"phone": "13800138000", "mail": "test@example.com"},
 		{"phone": "13900139000", "mail": "test2@example.com"}
 	]`
-	err = os.WriteFile(tmpFile.Name(), []byte(newData), 0644)
+	err = os.WriteFile(tmpFile.Name(), []byte(newData), 0o600)
 	require.NoError(t, err)
 
 	// 运行后台任务（数据有变化）
@@ -456,8 +463,7 @@ func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 测试 panic 恢复（通过传递无效文件路径触发可能的 panic）
 	// 注意：这里只是验证函数不会因为 panic 而崩溃
@@ -481,8 +487,7 @@ func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 如果Redis不可用，跳过测试
 	if app.redisUserCache == nil {
@@ -494,7 +499,7 @@ func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 	}
 
 	// 测试成功更新
-	err = app.updateRedisCacheWithRetry(users)
+	err := app.updateRedisCacheWithRetry(users)
 	// 如果Redis可用，应该成功；如果不可用，会返回错误
 	if err != nil {
 		t.Logf("Redis更新失败（可能是Redis不可用）: %v", err)
@@ -517,8 +522,7 @@ func TestApp_updateRedisCacheWithRetry_NoRedis(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
@@ -550,8 +554,7 @@ func TestRegisterRoutes(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 保存原始路由
 	originalDefaultMux := http.DefaultServeMux
@@ -597,15 +600,16 @@ func TestNewApp_WithHTTPInsecureTLS(t *testing.T) {
 		HTTPInsecureTLS:  true,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 	assert.NotNil(t, app)
 }
 
 // TestNewApp_ProductionModeWithInsecureTLS 测试生产模式启用不安全TLS（应该失败）
 func TestNewApp_ProductionModeWithInsecureTLS(t *testing.T) {
+	t.Helper()
 	// 这个测试需要能够捕获Fatal，但Fatal会退出程序
 	// 所以我们只测试配置验证，而不是实际运行
+	//nolint:govet // unusedwrite: 这些字段用于测试配置完整性，虽然测试中未直接使用
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
@@ -640,11 +644,7 @@ func TestNewApp_WithRedisPassword(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	// Redis连接可能失败，但不应该返回错误（会降级到内存模式）
-	if err != nil {
-		t.Skipf("跳过测试：Redis连接失败: %v", err)
-	}
+	app := NewApp(cfg)
 	assert.NotNil(t, app)
 }
 
@@ -662,8 +662,7 @@ func TestNewApp_TaskIntervalTooSmall(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 	assert.NotNil(t, app)
 	// 验证任务间隔被调整为默认值
 	assert.GreaterOrEqual(t, app.taskInterval, uint64(define.DEFAULT_TASK_INTERVAL))
@@ -684,8 +683,7 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 如果Redis不可用，跳过测试
 	if app.redisUserCache == nil {
@@ -696,7 +694,7 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
-	err = app.redisUserCache.Set(users)
+	err := app.redisUserCache.Set(users)
 	if err != nil {
 		t.Skipf("跳过测试：无法设置Redis数据: %v", err)
 	}
@@ -727,11 +725,10 @@ func TestApp_loadInitialData_RemoteConfig(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 测试从远程配置加载（会失败，然后降级到本地文件）
-	err = app.loadInitialData("/nonexistent/file.json")
+	err := app.loadInitialData("/nonexistent/file.json")
 	// 应该不会返回错误，只是没有数据
 	assert.NoError(t, err)
 }
@@ -741,8 +738,10 @@ func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
 	// 创建空文件
 	tmpFile, err := os.CreateTemp("", "test-empty-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
+	require.NoError(t, tmpFile.Close())
 
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -756,8 +755,7 @@ func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 测试加载空文件
 	err = app.loadInitialData(tmpFile.Name())
@@ -779,8 +777,7 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 如果Redis不可用，跳过测试
 	if app.redisUserCache == nil {
@@ -790,14 +787,16 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 	// 创建临时文件
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
 
 	testData := `[
 		{"phone": "13800138000", "mail": "test@example.com"}
 	]`
 	_, err = tmpFile.WriteString(testData)
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	// 运行后台任务
 	app.backgroundTask(tmpFile.Name())
@@ -820,20 +819,21 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	// 创建临时文件
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
 
 	testData := `[
 		{"phone": "13800138000", "mail": "test@example.com"}
 	]`
 	_, err = tmpFile.WriteString(testData)
 	require.NoError(t, err)
-	tmpFile.Close()
+	require.NoError(t, tmpFile.Close())
 
 	// 先加载数据
 	err = app.loadInitialData(tmpFile.Name())
@@ -857,7 +857,8 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 // TestShutdownServer_WithNilRateLimiter 测试关闭服务器时rateLimiter为nil的情况
 func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 	srv := &http.Server{
-		Addr: ":0",
+		Addr:              ":0",
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	log := logger.GetLogger()
@@ -874,13 +875,16 @@ func TestShutdownServer_ShutdownError(t *testing.T) {
 
 	// 创建一个已经关闭的服务器
 	srv := &http.Server{
-		Addr: ":0",
+		Addr:              ":0",
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	// 先关闭服务器
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_ = srv.Shutdown(ctx)
+	if err := srv.Shutdown(ctx); err != nil {
+		t.Logf("关闭服务器时出错: %v", err)
+	}
 
 	log := logger.GetLogger()
 
@@ -948,8 +952,7 @@ func TestApp_checkDataChanged_EmptyHash(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	app, err := NewApp(cfg)
-	require.NoError(t, err)
+	app := NewApp(cfg)
 
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},

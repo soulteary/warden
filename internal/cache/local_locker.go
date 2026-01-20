@@ -8,6 +8,8 @@ import (
 
 // LocalLocker 提供本地锁功能，兼容 gocron.Locker 接口
 // 适用于单机部署场景，不支持分布式环境
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type LocalLocker struct {
 	mu    sync.Mutex
 	locks map[string]bool

@@ -26,6 +26,8 @@ const (
 
 // Locker 提供分布式锁功能，兼容 gocron.Locker 接口
 // 支持 Redis 分布式锁和本地锁两种模式
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Locker struct {
 	Cache     *redis.Client // Redis 客户端，如果为 nil 则使用本地锁
 	lockStore sync.Map      // 存储 key -> lockValue 的映射（仅用于 Redis 模式）

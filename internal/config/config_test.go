@@ -25,7 +25,7 @@ app:
   mode: "development"
   api_key: "test-key"
 `
-	err := os.WriteFile(configFile, []byte(yamlContent), 0644)
+	err := os.WriteFile(configFile, []byte(yamlContent), 0o600)
 	require.NoError(t, err)
 
 	cfg, err := LoadFromFile(configFile)
@@ -43,7 +43,7 @@ func TestLoadFromFile_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "empty.yaml")
 
-	err := os.WriteFile(configFile, []byte(""), 0644)
+	err := os.WriteFile(configFile, []byte(""), 0o600)
 	require.NoError(t, err)
 
 	cfg, err := LoadFromFile(configFile)
@@ -72,7 +72,7 @@ func TestLoadFromFile_InvalidYAML(t *testing.T) {
 	invalidYAML := `server:
   port: "8081"
   invalid: [unclosed bracket`
-	err := os.WriteFile(configFile, []byte(invalidYAML), 0644)
+	err := os.WriteFile(configFile, []byte(invalidYAML), 0o600)
 	require.NoError(t, err)
 
 	cfg, err := LoadFromFile(configFile)
@@ -87,7 +87,7 @@ func TestLoadFromFile_TOMLNotSupported(t *testing.T) {
 
 	tomlContent := `[server]
 port = "8081"`
-	err := os.WriteFile(configFile, []byte(tomlContent), 0644)
+	err := os.WriteFile(configFile, []byte(tomlContent), 0o600)
 	require.NoError(t, err)
 
 	cfg, err := LoadFromFile(configFile)
@@ -121,20 +121,20 @@ func TestOverrideFromEnv(t *testing.T) {
 	originalRedis := os.Getenv("REDIS")
 	defer func() {
 		if originalPort != "" {
-			os.Setenv("PORT", originalPort)
+			require.NoError(t, os.Setenv("PORT", originalPort))
 		} else {
-			os.Unsetenv("PORT")
+			require.NoError(t, os.Unsetenv("PORT"))
 		}
 		if originalRedis != "" {
-			os.Setenv("REDIS", originalRedis)
+			require.NoError(t, os.Setenv("REDIS", originalRedis))
 		} else {
-			os.Unsetenv("REDIS")
+			require.NoError(t, os.Unsetenv("REDIS"))
 		}
 	}()
 
 	// 设置环境变量
-	os.Setenv("PORT", "9999")
-	os.Setenv("REDIS", "custom-redis:6379")
+	require.NoError(t, os.Setenv("PORT", "9999"))
+	require.NoError(t, os.Setenv("REDIS", "custom-redis:6379"))
 
 	cfg := &Config{}
 	overrideFromEnv(cfg)
@@ -271,19 +271,19 @@ func TestGetRedisPassword(t *testing.T) {
 	originalPasswordFile := os.Getenv("REDIS_PASSWORD_FILE")
 	defer func() {
 		if originalPassword != "" {
-			os.Setenv("REDIS_PASSWORD", originalPassword)
+			require.NoError(t, os.Setenv("REDIS_PASSWORD", originalPassword))
 		} else {
-			os.Unsetenv("REDIS_PASSWORD")
+			require.NoError(t, os.Unsetenv("REDIS_PASSWORD"))
 		}
 		if originalPasswordFile != "" {
-			os.Setenv("REDIS_PASSWORD_FILE", originalPasswordFile)
+			require.NoError(t, os.Setenv("REDIS_PASSWORD_FILE", originalPasswordFile))
 		} else {
-			os.Unsetenv("REDIS_PASSWORD_FILE")
+			require.NoError(t, os.Unsetenv("REDIS_PASSWORD_FILE"))
 		}
 	}()
 
 	t.Run("从环境变量获取", func(t *testing.T) {
-		os.Setenv("REDIS_PASSWORD", "env-password")
+		require.NoError(t, os.Setenv("REDIS_PASSWORD", "env-password"))
 		cfg := &Config{}
 		password, err := cfg.GetRedisPassword()
 		require.NoError(t, err)
@@ -291,8 +291,8 @@ func TestGetRedisPassword(t *testing.T) {
 	})
 
 	t.Run("从配置文件获取", func(t *testing.T) {
-		os.Unsetenv("REDIS_PASSWORD")
-		os.Unsetenv("REDIS_PASSWORD_FILE")
+		require.NoError(t, os.Unsetenv("REDIS_PASSWORD"))
+		require.NoError(t, os.Unsetenv("REDIS_PASSWORD_FILE"))
 		cfg := &Config{
 			Redis: RedisConfig{
 				Password: "config-password",
@@ -306,10 +306,10 @@ func TestGetRedisPassword(t *testing.T) {
 	t.Run("从密码文件获取", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		passwordFile := filepath.Join(tmpDir, "password.txt")
-		err := os.WriteFile(passwordFile, []byte("file-password\n"), 0644)
+		err := os.WriteFile(passwordFile, []byte("file-password\n"), 0o600)
 		require.NoError(t, err)
 
-		os.Unsetenv("REDIS_PASSWORD")
+		require.NoError(t, os.Unsetenv("REDIS_PASSWORD"))
 		cfg := &Config{
 			Redis: RedisConfig{
 				PasswordFile: passwordFile,

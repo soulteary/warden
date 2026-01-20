@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetLogger(t *testing.T) {
@@ -260,9 +261,9 @@ func TestGetLogger_WithEnvLevel(t *testing.T) {
 	originalLevel := os.Getenv("LOG_LEVEL")
 	defer func() {
 		if originalLevel != "" {
-			os.Setenv("LOG_LEVEL", originalLevel)
+			require.NoError(t, os.Setenv("LOG_LEVEL", originalLevel))
 		} else {
-			os.Unsetenv("LOG_LEVEL")
+			require.NoError(t, os.Unsetenv("LOG_LEVEL"))
 		}
 	}()
 
@@ -270,7 +271,7 @@ func TestGetLogger_WithEnvLevel(t *testing.T) {
 	levels := []string{"debug", "info", "warn", "error", "fatal", "panic"}
 
 	for _, level := range levels {
-		os.Setenv("LOG_LEVEL", level)
+		require.NoError(t, os.Setenv("LOG_LEVEL", level))
 		// 注意：由于init函数已经执行，环境变量的改变不会立即生效
 		// 这里主要验证GetLogger不会panic
 		logger := GetLogger()
