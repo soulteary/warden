@@ -162,13 +162,46 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 // CheckUserInList checks if a user (by phone or mail) is in the allow list and has active status.
 // Returns false if the user is not found, has inactive/suspended status, or if there's an error.
 // This method uses GetUserByIdentifier for better performance and includes status validation.
+// If both phone and mail are provided, phone takes priority. If phone lookup fails with NotFound error,
+// it will fall back to mail lookup.
 func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 	// Normalize input
 	phone = strings.TrimSpace(phone)
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
-	// Use GetUserByIdentifier for direct query (better performance than fetching all users)
-	user, err := c.GetUserByIdentifier(ctx, phone, mail, "")
+	// If both phone and mail are provided, prioritize phone
+	// GetUserByIdentifier requires exactly one identifier
+	var user *AllowListUser
+	var err error
+
+	if phone != "" {
+		// Try phone first if provided
+		user, err = c.GetUserByIdentifier(ctx, phone, "", "")
+		if err != nil {
+			// Check if error is NotFound and mail is available for fallback
+			if sdkErr, ok := err.(*Error); ok && sdkErr.Code == ErrCodeNotFound && mail != "" {
+				c.logger.Debugf("User not found by phone, falling back to mail: phone=%s, mail=%s", phone, mail)
+				// Fall back to mail lookup
+				user, err = c.GetUserByIdentifier(ctx, "", mail, "")
+			} else {
+				// Log error but don't expose details to caller (security: don't reveal if user exists)
+				c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, phone, mail)
+				return false
+			}
+		} else if user != nil && !user.IsActive() {
+			// User found by phone but not active - don't try mail (user exists but inactive)
+			c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+			return false
+		}
+	} else if mail != "" {
+		// Fall back to mail if phone is empty
+		user, err = c.GetUserByIdentifier(ctx, "", mail, "")
+	} else {
+		// Both are empty
+		c.logger.Debug("CheckUserInList called with both phone and mail empty")
+		return false
+	}
+
 	if err != nil {
 		// Log error but don't expose details to caller (security: don't reveal if user exists)
 		c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, phone, mail)
@@ -208,7 +241,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	}
 
 	// Build request URL
-	reqURL := fmt.Sprintf("%s/user", c.baseURL)
+	reqURL := strings.TrimSuffix(c.baseURL, "/") + "/user"
 	params := url.Values{}
 	switch {
 	case phone != "":
