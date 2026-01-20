@@ -25,6 +25,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/metrics"
 	"github.com/soulteary/warden/internal/middleware"
@@ -69,10 +70,10 @@ func NewApp(cfg *cmd.Config) *App {
 	// 初始化 HTTP 客户端（使用配置）
 	parser.InitHTTPClient(cfg.HTTPTimeout, cfg.HTTPMaxIdleConns, cfg.HTTPInsecureTLS)
 	if cfg.HTTPInsecureTLS {
-		app.log.Warn().Msg("HTTP TLS 证书验证已禁用（仅用于开发环境）")
+		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))
 		// 在生产环境，强制启用 TLS 验证
 		if cfg.Mode == "production" || cfg.Mode == "prod" {
-			app.log.Fatal().Msg("生产环境不允许禁用 TLS 证书验证，程序退出")
+			app.log.Fatal().Msg(i18n.TWithLang(i18n.LangZH, "log.prod_tls_required"))
 		}
 	}
 
@@ -88,7 +89,7 @@ func NewApp(cfg *cmd.Config) *App {
 			// 安全检查：如果密码是通过命令行参数传递的，记录警告
 			// 注意：这里无法直接判断密码来源，但可以通过环境变量检查来推断
 			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
-				app.log.Warn().Msg("⚠️  安全警告：Redis 密码通过命令行参数传递，建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE")
+				app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_password_warning"))
 			}
 		}
 		app.redisClient = redis.NewClient(redisOptions)
@@ -101,27 +102,27 @@ func NewApp(cfg *cmd.Config) *App {
 			app.log.Warn().
 				Err(err).
 				Str("redis", cfg.Redis).
-				Msg("⚠️  Redis 连接失败，降级到内存模式（fallback）")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connection_failed_fallback"))
 			app.redisClient = nil
 			app.redisUserCache = nil
 		} else {
 			cancel()
-			app.log.Info().Str("redis", cfg.Redis).Msg("Redis 连接成功 ✓")
+			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
 			// 初始化 Redis 缓存
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
 		}
 	} else {
 		// Redis 被显式禁用
-		app.log.Info().Msg("Redis 已禁用，使用内存模式")
+		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_disabled"))
 		app.redisClient = nil
 		app.redisUserCache = nil
 	}
 
-	app.log.Debug().Str("mode", app.appMode).Msg("当前运行模式")
+	app.log.Debug().Str("mode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.current_mode"))
 
 	// 加载初始数据（多级降级）
 	if err := app.loadInitialData(rulesFile); err != nil {
-		app.log.Warn().Err(fmt.Errorf("加载初始数据失败: %w", err)).Msg("加载初始数据失败，使用空数据")
+		app.log.Warn().Err(fmt.Errorf("加载初始数据失败: %w", err)).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
 	}
 
 	// 初始化缓存大小指标
@@ -141,20 +142,20 @@ func NewApp(cfg *cmd.Config) *App {
 // loadInitialData 多级降级加载数据
 func (app *App) loadInitialData(rulesFile string) error {
 	// ONLY_LOCAL 模式：仅使用本地文件，不进行任何远程请求
-	app.log.Debug().Str("appMode", app.appMode).Msg("loadInitialData: 检查运行模式")
+	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
 	// 使用 strings.ToUpper 进行大小写不敏感的比较
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
-		app.log.Debug().Msg("loadInitialData: 检测到 ONLY_LOCAL 模式，跳过远程请求")
+		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
 		localUsers := parser.FromFile(rulesFile)
 		if len(localUsers) > 0 {
 			app.log.Info().
 				Int("count", len(localUsers)).
-				Msg("从本地文件加载数据 ✓")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
 			app.userCache.Set(localUsers)
 			// 同时更新 Redis 缓存（如果 Redis 可用）
 			if app.redisUserCache != nil {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
-					app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 				}
 			}
 			return nil
@@ -165,13 +166,13 @@ func (app *App) loadInitialData(rulesFile string) error {
 			app.log.Warn().
 				Str("data_file", rulesFile).
 				Str("example_file", "data.example.json").
-				Msg("⚠️  数据文件不存在")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found"))
 			app.log.Info().
-				Msg("💡 提示：ONLY_LOCAL 模式下需要本地数据文件")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
 			app.log.Info().
-				Msgf("   请创建 %s 文件（可参考 %s）", rulesFile, "data.example.json")
+				Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
 		}
-		app.log.Warn().Msg("ONLY_LOCAL 模式下本地文件加载失败，使用空数据")
+		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_load_failed"))
 		return nil
 	}
 
@@ -181,7 +182,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 			metrics.CacheHits.Inc() // 记录缓存命中
 			app.log.Info().
 				Int("count", len(cachedUsers)).
-				Msg("从 Redis 缓存加载数据 ✓")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
 			app.userCache.Set(cachedUsers)
 			return nil
 		}
@@ -195,12 +196,12 @@ func (app *App) loadInitialData(rulesFile string) error {
 	if len(users) > 0 {
 		app.log.Info().
 			Int("count", len(users)).
-			Msg("从远程 API 加载数据 ✓")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
 		app.userCache.Set(users)
 		// 同时更新 Redis 缓存（如果 Redis 可用）
 		if app.redisUserCache != nil {
 			if err := app.redisUserCache.Set(users); err != nil {
-				app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 			}
 		}
 		return nil
@@ -211,12 +212,12 @@ func (app *App) loadInitialData(rulesFile string) error {
 	if len(localUsers) > 0 {
 		app.log.Info().
 			Int("count", len(localUsers)).
-			Msg("从本地文件加载数据 ✓")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
 		app.userCache.Set(localUsers)
 		// 同时更新 Redis 缓存（如果 Redis 可用）
 		if app.redisUserCache != nil {
 			if err := app.redisUserCache.Set(localUsers); err != nil {
-				app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 			}
 		}
 		return nil
@@ -232,18 +233,18 @@ func (app *App) loadInitialData(rulesFile string) error {
 		app.log.Warn().
 			Str("data_file", rulesFile).
 			Str("example_file", "data.example.json").
-			Msg("⚠️  数据文件不存在且未配置远程数据地址")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found_no_remote"))
 		app.log.Info().
-			Msg("💡 提示：请执行以下操作之一：")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.tip_actions"))
 		app.log.Info().
-			Msgf("   1. 创建 %s 文件（可参考 %s）", rulesFile, "data.example.json")
+			Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file_or_config"), rulesFile, "data.example.json")
 		app.log.Info().
-			Msg("   2. 或通过 --config 参数指定远程数据地址")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.config_remote_param"))
 		app.log.Info().
-			Msg("   3. 或通过环境变量 CONFIG 指定远程数据地址")
-		app.log.Warn().Msg("当前使用空数据，服务将继续运行但无法提供用户数据")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.config_remote_env"))
+		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.using_empty_data"))
 	} else {
-		app.log.Warn().Msg("所有数据源都失败，使用空数据")
+		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
 	}
 	return nil
 }
@@ -370,7 +371,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 			time.Sleep(time.Duration(attempt) * define.REDIS_RETRY_DELAY)
 			app.log.Debug().
 				Int("attempt", attempt+1).
-				Msg("重试更新 Redis 缓存")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.retry_redis_cache"))
 		}
 
 		if err := app.redisUserCache.Set(users); err != nil {
@@ -382,7 +383,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 			if cacheVersion, err := app.redisUserCache.GetVersion(); err == nil {
 				app.log.Debug().
 					Int64("version", cacheVersion).
-					Msg("Redis 缓存已更新")
+					Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_updated"))
 			}
 			return nil
 		}
@@ -424,7 +425,7 @@ func (app *App) backgroundTask(rulesFile string) {
 			metrics.BackgroundTaskErrors.Inc()
 			app.log.Error().
 				Interface("panic", r).
-				Msg("后台任务发生 panic，已恢复")
+				Msg(i18n.TWithLang(i18n.LangZH, "log.background_task_panic"))
 		}
 	}()
 
@@ -443,7 +444,7 @@ func (app *App) backgroundTask(rulesFile string) {
 
 	// 检查数据是否有变化
 	if !app.checkDataChanged(newUsers) {
-		app.log.Debug().Msg("数据未变化，跳过更新")
+		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
 	}
 
@@ -459,7 +460,7 @@ func (app *App) backgroundTask(rulesFile string) {
 			if err := app.updateRedisCacheWithRetry(newUsers); err != nil {
 				app.log.Warn().
 					Err(err).
-					Msg("更新 Redis 缓存失败，继续使用内存缓存")
+					Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
 				metrics.BackgroundTaskErrors.Inc()
 			}
 		}
@@ -468,7 +469,7 @@ func (app *App) backgroundTask(rulesFile string) {
 		app.log.Debug().
 			Int("expected_count", len(newUsers)).
 			Int("actual_count", currentLen).
-			Msg("数据在更新过程中被修改，跳过 Redis 更新")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.data_modified_during_update"))
 	}
 
 	// 更新指标
@@ -480,12 +481,13 @@ func (app *App) backgroundTask(rulesFile string) {
 	app.log.Info().
 		Int("count", len(newUsers)).
 		Float64("duration", duration).
-		Msg("后台更新数据 📦")
+		Msg(i18n.TWithLang(i18n.LangZH, "log.background_update"))
 }
 
 // registerRoutes 注册所有 HTTP 路由
 func registerRoutes(app *App) {
 	// 创建基础中间件
+	i18nMiddleware := middleware.I18nMiddleware()
 	securityHeadersMiddleware := middleware.SecurityHeadersMiddleware
 	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.appMode)
 	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(app.rateLimiter)
@@ -496,12 +498,14 @@ func registerRoutes(app *App) {
 	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
 
 	// 注册 Prometheus metrics 端点（可选认证）
-	// 将访问日志中间件放在最外层，确保所有请求都能记录
-	metricsHandler := router.AccessLogMiddleware()(
-		securityHeadersMiddleware(
-			errorHandlerMiddleware(
-				middleware.OptionalAuthMiddleware(app.apiKey)(
-					middleware.MetricsMiddleware(metrics.Handler()),
+	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	metricsHandler := i18nMiddleware(
+		router.AccessLogMiddleware()(
+			securityHeadersMiddleware(
+				errorHandlerMiddleware(
+					middleware.OptionalAuthMiddleware(app.apiKey)(
+						middleware.MetricsMiddleware(metrics.Handler()),
+					),
 				),
 			),
 		),
@@ -509,16 +513,18 @@ func registerRoutes(app *App) {
 	http.Handle("/metrics", metricsHandler)
 
 	// 注册主数据接口（需要认证）
-	// 将访问日志中间件放在最外层，确保所有请求（包括认证失败的）都能记录
-	mainHandler := router.AccessLogMiddleware()(
-		securityHeadersMiddleware(
-			errorHandlerMiddleware(
-				middleware.CompressMiddleware(
-					middleware.BodyLimitMiddleware(
-						middleware.MetricsMiddleware(
-							rateLimitMiddleware(
-								authMiddleware(
-									router.ProcessWithLogger(router.JSON(app.userCache)),
+	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	mainHandler := i18nMiddleware(
+		router.AccessLogMiddleware()(
+			securityHeadersMiddleware(
+				errorHandlerMiddleware(
+					middleware.CompressMiddleware(
+						middleware.BodyLimitMiddleware(
+							middleware.MetricsMiddleware(
+								rateLimitMiddleware(
+									authMiddleware(
+										router.ProcessWithLogger(router.JSON(app.userCache)),
+									),
 								),
 							),
 						),
@@ -530,16 +536,18 @@ func registerRoutes(app *App) {
 	http.Handle("/", mainHandler)
 
 	// 注册用户查询接口（需要认证）
-	// 将访问日志中间件放在最外层，确保所有请求（包括认证失败的）都能记录
-	userHandler := router.AccessLogMiddleware()(
-		securityHeadersMiddleware(
-			errorHandlerMiddleware(
-				middleware.CompressMiddleware(
-					middleware.BodyLimitMiddleware(
-						middleware.MetricsMiddleware(
-							rateLimitMiddleware(
-								authMiddleware(
-									router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
+	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	userHandler := i18nMiddleware(
+		router.AccessLogMiddleware()(
+			securityHeadersMiddleware(
+				errorHandlerMiddleware(
+					middleware.CompressMiddleware(
+						middleware.BodyLimitMiddleware(
+							middleware.MetricsMiddleware(
+								rateLimitMiddleware(
+									authMiddleware(
+										router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
+									),
 								),
 							),
 						),
@@ -551,13 +559,15 @@ func registerRoutes(app *App) {
 	http.Handle("/user", userHandler)
 
 	// 注册健康检查端点（IP 白名单保护，限制信息泄露）
-	// 将访问日志中间件放在最外层，确保所有请求都能记录
-	healthHandler := router.AccessLogMiddleware()(
-		securityHeadersMiddleware(
-			errorHandlerMiddleware(
-				healthIPWhitelist(
-					middleware.MetricsMiddleware(
-						router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode, app.redisEnabled)),
+	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	healthHandler := i18nMiddleware(
+		router.AccessLogMiddleware()(
+			securityHeadersMiddleware(
+				errorHandlerMiddleware(
+					healthIPWhitelist(
+						middleware.MetricsMiddleware(
+							router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode, app.redisEnabled)),
+						),
 					),
 				),
 			),
@@ -567,13 +577,15 @@ func registerRoutes(app *App) {
 	http.Handle("/healthcheck", healthHandler)
 
 	// 注册日志级别控制端点（需要认证）
-	// 将访问日志中间件放在最外层，确保所有请求（包括认证失败的）都能记录
-	logLevelHandler := router.AccessLogMiddleware()(
-		securityHeadersMiddleware(
-			errorHandlerMiddleware(
-				middleware.MetricsMiddleware(
-					authMiddleware(
-						router.ProcessWithLogger(router.LogLevelHandler()),
+	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	logLevelHandler := i18nMiddleware(
+		router.AccessLogMiddleware()(
+			securityHeadersMiddleware(
+				errorHandlerMiddleware(
+					middleware.MetricsMiddleware(
+						authMiddleware(
+							router.ProcessWithLogger(router.LogLevelHandler()),
+						),
 					),
 				),
 			),
@@ -605,7 +617,7 @@ func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log *
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg("程序强制关闭")
+		log.Info().Err(fmt.Errorf("程序强制关闭: %w", err)).Msg(i18n.TWithLang(i18n.LangZH, "log.forced_shutdown"))
 	}
 }
 
@@ -619,7 +631,7 @@ func main() {
 	if err := cmd.ValidateConfig(cfg); err != nil {
 		log.Fatal().
 			Err(err).
-			Msg("配置验证失败，程序退出")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
 	}
 
 	// 初始化应用
@@ -632,7 +644,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	app.log.Info().Msgf("程序版本：%s, 构建时间：%s, 代码版本：%s", version.Version, version.BuildDate, version.Commit)
+	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.app_version"), version.Version, version.BuildDate, version.Commit)
 
 	// 启动定时任务调度器
 	// 根据 Redis 可用性选择锁实现
@@ -642,7 +654,7 @@ func main() {
 	defer func() {
 		close(schedulerStopped)
 		scheduler.Clear()
-		app.log.Info().Msg("定时任务调度器已关闭")
+		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_closed"))
 	}()
 	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
 		// 在退出前先清理资源（defer 会在函数返回时执行，但 log.Fatal 会立即退出）
@@ -653,28 +665,28 @@ func main() {
 		//nolint:gocritic // exitAfterDefer: 需要在错误时立即退出，已手动清理资源
 		log.Fatal().
 			Err(err).
-			Msg("定时任务调度器初始化失败，程序退出")
+			Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_init_failed"))
 	}
 
 	// 启动服务器
 	srv := startServer(app.port)
-	app.log.Info().Msgf("服务监听端口：%s", app.port)
+	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.service_listening"), app.port)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			app.log.Fatal().
 				Err(err).
-				Msgf("程序启动出错: %s", err)
+				Msgf(i18n.TWithLang(i18n.LangZH, "log.startup_error"), err)
 		}
 	}()
 
-	app.log.Info().Msg("程序已启动完毕 🚀")
+	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.app_started"))
 	<-ctx.Done()
 
 	stop()
-	app.log.Info().Msg("程序正在关闭中，如需立即结束请按 CTRL+C")
+	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.shutting_down"))
 
 	// 优雅关闭
 	shutdownServer(srv, app.rateLimiter, &app.log)
 
-	app.log.Info().Msg("期待与你的再次相遇 ❤️")
+	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.goodbye"))
 }

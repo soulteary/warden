@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	// 项目内部包
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -67,13 +68,14 @@ func AccessLogMiddleware() func(http.Handler) http.Handler {
 
 		// 然后添加访问日志处理器
 		c = c.Append(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
+			// 访问日志使用默认语言，因为这是系统日志
 			hlog.FromRequest(r).Info().
 				Str("method", r.Method).
 				Stringer("url", r.URL).
 				Int("status", status).
 				Int("size", size).
 				Dur("duration", duration).
-				Msg("HTTP 请求")
+				Msg("HTTP request")
 		}))
 
 		return c.Then(next)

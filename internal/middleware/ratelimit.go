@@ -17,6 +17,7 @@ import (
 
 	// 项目内部包
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/metrics"
 )
 
@@ -218,8 +219,8 @@ func RateLimitMiddlewareWithLimiter(limiter *RateLimiter) func(http.Handler) htt
 					Str("method", r.Method).
 					Str("user_agent", r.UserAgent()).
 					Str("referer", r.Referer()).
-					Msg("Rate limit exceeded")
-				http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+					Msg(i18n.T(r, "error.rate_limit_exceeded"))
+				http.Error(w, i18n.T(r, "http.rate_limit_exceeded"), http.StatusTooManyRequests)
 				return
 			}
 

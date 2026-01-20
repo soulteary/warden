@@ -17,6 +17,7 @@ import (
 	// 项目内部包
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/metrics"
 )
 
@@ -59,7 +60,8 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 	// 安全验证：限制参数长度，防止过长的输入
 	const maxParamLength = 20
 	if len(pageStr) > maxParamLength || len(sizeStr) > maxParamLength {
-		return 0, 0, false, fmt.Errorf("参数长度超过限制")
+		// 注意：这里没有请求上下文，使用默认语言
+		return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 	}
 
 	// 安全验证：检查参数是否包含非法字符（只允许数字）
@@ -67,18 +69,18 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 		// 验证是否为纯数字
 		for _, c := range pageStr {
 			if c < '0' || c > '9' {
-				return 0, 0, false, fmt.Errorf("无效的分页参数: page 必须为数字")
+				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 		}
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 			// 限制最大页码，防止过大的值导致性能问题
 			const maxPage = 1000000
 			if p > maxPage {
-				return 0, 0, false, fmt.Errorf("页码超出最大限制: %d", maxPage)
+				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 			page = p
 		} else {
-			return 0, 0, false, fmt.Errorf("无效的分页参数: page 必须为正整数")
+			return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 		}
 	}
 
@@ -86,16 +88,16 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 		// 验证是否为纯数字
 		for _, c := range sizeStr {
 			if c < '0' || c > '9' {
-				return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为数字")
+				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 		}
 		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MAX_PAGE_SIZE {
 			pageSize = s
 		} else {
 			if s > define.MAX_PAGE_SIZE {
-				return 0, 0, false, fmt.Errorf("每页大小超出最大限制: %d", define.MAX_PAGE_SIZE)
+				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
-			return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为正整数")
+			return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 		}
 	}
 
@@ -150,15 +152,15 @@ func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}
 	if err := json.NewEncoder(buf).Encode(data); err != nil {
 		hlog.FromRequest(r).Error().
 			Err(err).
-			Msg("JSON 编码失败")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+			Msg(i18n.T(r, "error.json_encode_failed"))
+		http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 		return err
 	}
 
 	if _, err := w.Write(buf.Bytes()); err != nil {
 		hlog.FromRequest(r).Error().
 			Err(err).
-			Msg("写入响应失败")
+			Msg(i18n.T(r, "error.write_response_failed"))
 		return err
 	}
 
@@ -189,8 +191,8 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 		if r.Method != http.MethodGet {
 			hlog.FromRequest(r).Warn().
 				Str("method", r.Method).
-				Msg("不支持的请求方法")
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				Msg(i18n.T(r, "log.unsupported_method"))
+			http.Error(w, i18n.T(r, "http.method_not_allowed"), http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -199,8 +201,8 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 		if err != nil {
 			hlog.FromRequest(r).Warn().
 				Err(err).
-				Msg("分页参数验证失败")
-			http.Error(w, "Invalid pagination parameters", http.StatusBadRequest)
+				Msg(i18n.T(r, "log.pagination_validation_failed"))
+			http.Error(w, i18n.T(r, "http.invalid_pagination_parameters"), http.StatusBadRequest)
 			return
 		}
 
@@ -219,8 +221,8 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 				if err := json.NewEncoder(w).Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("JSON 编码失败")
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+						Msg(i18n.T(r, "error.json_encode_failed"))
+					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 			case len(userData) < define.LARGE_DATA_THRESHOLD:
@@ -230,14 +232,14 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 				if err := json.NewEncoder(buf).Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("JSON 编码失败")
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+						Msg(i18n.T(r, "error.json_encode_failed"))
+					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 				if _, err := w.Write(buf.Bytes()); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("写入响应失败")
+						Msg(i18n.T(r, "error.write_response_failed"))
 					return
 				}
 			default:
@@ -246,12 +248,12 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 				if err := encoder.Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("流式 JSON 编码失败")
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+						Msg(i18n.T(r, "error.stream_encode_failed"))
+					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 			}
-			hlog.FromRequest(r).Info().Msg(define.INFO_REQ_REMOTE_API)
+			hlog.FromRequest(r).Info().Msg(i18n.T(r, "log.request_data_api"))
 			return
 		}
 
@@ -267,6 +269,6 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			Int("page", page).
 			Int("page_size", pageSize).
 			Int("total", total).
-			Msg(define.INFO_REQ_REMOTE_API)
+			Msg(i18n.T(r, "log.request_data_api"))
 	}
 }

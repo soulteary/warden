@@ -9,6 +9,9 @@ import (
 
 	// 第三方库
 	"github.com/rs/zerolog/hlog"
+
+	// 项目内部包
+	"github.com/soulteary/warden/internal/i18n"
 )
 
 // AuthMiddleware 创建 API Key 认证中间件
@@ -36,8 +39,8 @@ func AuthMiddleware(apiKey string) func(http.Handler) http.Handler {
 				// 检查是否为开发环境（通过环境变量判断）
 				// 在生产环境，应该设置 API Key
 				hlog.FromRequest(r).Warn().
-					Msg("API Key 未配置，请求被拒绝（生产环境必须配置 API Key）")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					Msg(i18n.T(r, "error.api_key_not_configured"))
+				http.Error(w, i18n.T(r, "http.unauthorized"), http.StatusUnauthorized)
 				return
 			}
 
@@ -58,8 +61,8 @@ func AuthMiddleware(apiKey string) func(http.Handler) http.Handler {
 					Str("ip", getClientIP(r)).
 					Str("path", r.URL.Path).
 					Str("method", r.Method).
-					Msg("认证失败：无效的 API Key")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					Msg(i18n.T(r, "error.auth_failed"))
+				http.Error(w, i18n.T(r, "http.unauthorized"), http.StatusUnauthorized)
 				return
 			}
 
@@ -102,8 +105,8 @@ func OptionalAuthMiddleware(apiKey string) func(http.Handler) http.Handler {
 					Str("ip", getClientIP(r)).
 					Str("path", r.URL.Path).
 					Str("method", r.Method).
-					Msg("认证失败：无效的 API Key")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					Msg(i18n.T(r, "error.auth_failed"))
+				http.Error(w, i18n.T(r, "http.unauthorized"), http.StatusUnauthorized)
 				return
 			}
 

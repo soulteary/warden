@@ -7,6 +7,10 @@ package errors
 import (
 	// 标准库
 	"fmt"
+	"net/http"
+
+	// 项目内部包
+	"github.com/soulteary/warden/internal/i18n"
 )
 
 // AppError 应用错误类型，提供统一的错误处理
@@ -46,6 +50,69 @@ func (e *AppError) WithMessage(msg string) *AppError {
 		Code:    e.Code,
 		Message: msg,
 		Err:     e.Err,
+	}
+}
+
+// WithLanguage 根据请求上下文获取本地化的错误消息
+// 如果请求为 nil 或无法获取语言，则返回原始消息
+func (e *AppError) WithLanguage(r *http.Request) *AppError {
+	if r == nil {
+		return e
+	}
+
+	// 根据错误码获取 i18n 键
+	key := getI18nKey(e.Code)
+	if key == "" {
+		return e
+	}
+
+	// 获取本地化消息
+	localizedMsg := i18n.T(r, key)
+	if localizedMsg == key {
+		// 如果翻译不存在，使用原始消息
+		return e
+	}
+
+	return &AppError{
+		Code:    e.Code,
+		Message: localizedMsg,
+		Err:     e.Err,
+	}
+}
+
+// getI18nKey 根据错误码获取 i18n 键
+func getI18nKey(code string) string {
+	switch code {
+	case "REDIS_CONN_ERR":
+		return "error.redis_connection_failed"
+	case "REDIS_OP_ERR":
+		return "error.redis_operation_failed"
+	case "REDIS_LOCK_ERR":
+		return "error.redis_lock_failed"
+	case "CONFIG_LOAD_ERR":
+		return "error.config_load_failed"
+	case "CONFIG_VALIDATION_ERR":
+		return "error.config_validation_failed"
+	case "CONFIG_PARSE_ERR":
+		return "error.config_parse_failed"
+	case "APP_INIT_ERR":
+		return "error.app_init_failed"
+	case "HTTP_REQ_ERR":
+		return "error.http_request_failed"
+	case "HTTP_RESP_ERR":
+		return "error.http_response_failed"
+	case "DATA_LOAD_ERR":
+		return "error.data_load_failed"
+	case "DATA_PARSE_ERR":
+		return "error.data_parse_failed"
+	case "CACHE_OP_ERR":
+		return "error.cache_operation_failed"
+	case "INVALID_PARAM_ERR":
+		return "error.invalid_parameter"
+	case "TASK_EXEC_ERR":
+		return "error.task_execution_failed"
+	default:
+		return ""
 	}
 }
 

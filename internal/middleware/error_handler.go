@@ -10,6 +10,9 @@ import (
 
 	// 第三方库
 	"github.com/rs/zerolog/hlog"
+
+	// 项目内部包
+	"github.com/soulteary/warden/internal/i18n"
 )
 
 // ErrorResponse 错误响应结构
@@ -68,7 +71,7 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 		if err := json.Unmarshal(b, &errResp); err == nil {
 			// 在生产环境，只返回通用错误消息
 			genericResp := ErrorResponse{
-				Error: getGenericErrorMessage(rw.statusCode),
+				Error: getGenericErrorMessage(rw.request, rw.statusCode),
 			}
 			// 记录详细错误到日志
 			hlog.FromRequest(rw.request).Error().
@@ -76,7 +79,7 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 				Str("original_error", errResp.Error).
 				Str("original_message", errResp.Message).
 				Str("original_code", errResp.Code).
-				Msg("错误响应（详细信息已隐藏）")
+				Msg(i18n.T(rw.request, "error.error_response_hidden"))
 
 			// 重新编码通用错误响应
 			if newBody, err := json.Marshal(genericResp); err == nil {
@@ -87,10 +90,10 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 			hlog.FromRequest(rw.request).Error().
 				Int("status_code", rw.statusCode).
 				Str("original_response", string(b)).
-				Msg("错误响应（详细信息已隐藏）")
+				Msg(i18n.T(rw.request, "error.error_response_hidden"))
 			// 返回通用错误消息
 			genericResp := ErrorResponse{
-				Error: getGenericErrorMessage(rw.statusCode),
+				Error: getGenericErrorMessage(rw.request, rw.statusCode),
 			}
 			if newBody, err := json.Marshal(genericResp); err == nil {
 				b = newBody
@@ -101,24 +104,31 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
-// getGenericErrorMessage 根据状态码返回通用错误消息
-func getGenericErrorMessage(statusCode int) string {
+// getGenericErrorMessage 根据状态码返回通用错误消息（支持国际化）
+func getGenericErrorMessage(r *http.Request, statusCode int) string {
+	var key string
 	switch {
 	case statusCode >= 500:
-		return "内部服务器错误，请稍后重试"
+		key = "error.internal_server_error"
 	case statusCode == 404:
-		return "请求的资源不存在"
+		key = "error.not_found"
 	case statusCode == 403:
-		return "访问被拒绝"
+		key = "error.forbidden"
 	case statusCode == 401:
-		return "未授权访问"
+		key = "error.unauthorized"
 	case statusCode == 400:
-		return "请求参数无效"
+		key = "error.bad_request"
 	case statusCode == 429:
-		return "请求过于频繁，请稍后重试"
+		key = "error.too_many_requests"
 	default:
-		return "请求处理失败"
+		key = "error.request_failed"
 	}
+
+	if r != nil {
+		return i18n.T(r, key)
+	}
+	// 如果没有请求上下文，使用默认语言
+	return i18n.TWithLang(i18n.LangEN, key)
 }
 
 // SafeError 安全地返回错误响应（根据环境决定是否隐藏详细信息）
@@ -131,19 +141,19 @@ func SafeError(w http.ResponseWriter, r *http.Request, statusCode int, err error
 		Int("status_code", statusCode).
 		Err(err).
 		Str("detail", detailMessage).
-		Msg("处理请求时发生错误")
+		Msg(i18n.T(r, "error.request_error"))
 
 	// 构建错误响应
 	var resp ErrorResponse
 	if isProduction {
 		// 生产环境：只返回通用错误消息
 		resp = ErrorResponse{
-			Error: getGenericErrorMessage(statusCode),
+			Error: getGenericErrorMessage(r, statusCode),
 		}
 	} else {
 		// 开发环境：返回详细错误信息
 		resp = ErrorResponse{
-			Error:   getGenericErrorMessage(statusCode),
+			Error:   getGenericErrorMessage(r, statusCode),
 			Message: detailMessage,
 		}
 		if err != nil {
@@ -156,6 +166,6 @@ func SafeError(w http.ResponseWriter, r *http.Request, statusCode int, err error
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		hlog.FromRequest(r).Error().
 			Err(err).
-			Msg("编码错误响应失败")
+			Msg(i18n.T(r, "error.encode_error_response_failed"))
 	}
 }

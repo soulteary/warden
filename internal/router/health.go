@@ -14,6 +14,7 @@ import (
 
 	// 项目内部包
 	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -100,9 +101,10 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 		w.WriteHeader(code)
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log := logger.GetLogger()
+			// 注意：health check 可能没有请求上下文，使用默认语言
 			log.Error().
 				Err(err).
-				Msg("健康检查响应编码失败")
+				Msg(i18n.TWithLang(i18n.LangEN, "log.health_check_encode_failed"))
 			// 如果已经写入了状态码，无法再修改，只能记录错误
 		}
 	}

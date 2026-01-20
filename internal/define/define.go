@@ -90,26 +90,36 @@ const (
 
 const (
 	// WARN_RULE_NOT_FOUND 没有找到规则文件
+	// 注意：此常量已废弃，请使用 i18n.T(r, "log.data_file_not_found") 代替
 	WARN_RULE_NOT_FOUND = "没有找到规则文件"
 	// WARN_READ_RULE_ERR 读取规则文件遇到错误
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.data_load_failed") 代替
 	WARN_READ_RULE_ERR = "读取规则文件遇到错误"
 	// WARN_PARSE_RULE_ERR 解析规则文件遇到错误
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.data_parse_failed") 代替
 	WARN_PARSE_RULE_ERR = "解析规则文件遇到错误"
 	// ERROR_CAN_NOT_OPEN_RULE 读取规则文件出错
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.data_load_failed") 代替
 	ERROR_CAN_NOT_OPEN_RULE = "读取规则文件出错"
 
 	// ERR_REQ_INIT_FAILED 网络请求组件初始化失败
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.http_request_failed") 代替
 	ERR_REQ_INIT_FAILED = "网络请求组件初始化失败"
 	// ERR_GET_CONFIG_FAILED 获取远程配置失败
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.config_load_failed") 代替
 	ERR_GET_CONFIG_FAILED = "获取远程配置失败"
 	// ERR_READ_CONFIG_FAILED 读取远程配置失败
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.config_load_failed") 代替
 	ERR_READ_CONFIG_FAILED = "读取远程配置失败"
 	// ERR_PARSE_CONFIG_FAILED 解析远程配置失败
+	// 注意：此常量已废弃，请使用 i18n.T(r, "error.config_parse_failed") 代替
 	ERR_PARSE_CONFIG_FAILED = "解析远程配置失败"
 
 	// WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL 获取远程规则出错，仅使用本地规则
+	// 注意：此常量已废弃，请使用 i18n.T(r, "log.all_sources_failed") 代替
 	WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL = "获取远程规则出错，仅使用本地规则"
 
 	// INFO_REQ_REMOTE_API 请求数据接口
+	// 注意：此常量已废弃，请使用 i18n.T(r, "log.request_data_api") 代替
 	INFO_REQ_REMOTE_API = "请求数据接口 🎩"
 )
