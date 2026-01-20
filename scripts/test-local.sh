@@ -7,7 +7,9 @@
 set -e
 
 # 配置
-API_KEY="${API_KEY:-test-api-key-$(date +%s)}"
+# 使用固定的测试 API_KEY，确保与服务配置一致
+# 如果环境变量已设置 API_KEY，则使用环境变量的值；否则使用固定的测试 key
+API_KEY="${API_KEY:-test-api-key-local-test}"
 BASE_URL="${BASE_URL:-http://localhost:8081}"
 REDIS_URL="${REDIS_URL:-localhost:6379}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,10 +40,24 @@ test_endpoint() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     echo -n "测试 $name... "
     
-    if [ "$method" = "GET" ]; then
-        response=$(curl -s -w "\n%{http_code}" $headers "$url" 2>/dev/null || echo -e "\n000")
+    # 构建 curl 命令，正确处理 headers 参数
+    # 如果 headers 不为空，需要去掉外层引号并正确展开
+    local curl_cmd
+    if [ -n "$headers" ]; then
+        # 使用 eval 来正确处理可能包含引号的 headers 参数
+        # 这样可以支持 "-H \"X-API-Key: value\"" 这种格式
+        if [ "$method" = "GET" ]; then
+            curl_cmd="curl -s -w \"\\n%{http_code}\" $headers \"$url\""
+        else
+            curl_cmd="curl -s -w \"\\n%{http_code}\" -X \"$method\" $headers \"$url\""
+        fi
+        response=$(eval "$curl_cmd" 2>/dev/null || echo -e "\n000")
     else
-        response=$(curl -s -w "\n%{http_code}" -X "$method" $headers "$url" 2>/dev/null || echo -e "\n000")
+        if [ "$method" = "GET" ]; then
+            response=$(curl -s -w "\n%{http_code}" "$url" 2>/dev/null || echo -e "\n000")
+        else
+            response=$(curl -s -w "\n%{http_code}" -X "$method" "$url" 2>/dev/null || echo -e "\n000")
+        fi
     fi
     
     http_code=$(echo "$response" | tail -n1)
@@ -136,29 +152,74 @@ fi
 # 检查 warden 服务
 if ! curl -s "$BASE_URL/health" > /dev/null 2>&1; then
     echo -e "${RED}错误: Warden 服务未运行${NC}"
-    echo "请先启动服务:"
+    echo -e "请先启动服务:"
     echo ""
     echo -e "${YELLOW}方式 1: 使用环境变量 ${NC}"
     if [ "$REDIS_AVAILABLE" = true ]; then
-        echo "  PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go"
+        echo -e "  ${GREEN}PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
     else
-        echo "  PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go"
+        echo -e "  ${GREEN}PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
     fi
     echo ""
     echo -e "${YELLOW}方式 2: 使用命令行参数 ${NC}"
     if [ "$REDIS_AVAILABLE" = true ]; then
-        echo "  API_KEY=$API_KEY go run main.go -port 8081 -redis $REDIS_URL -mode ONLY_LOCAL"
+        echo -e "  ${GREEN}API_KEY=$API_KEY go run main.go -port 8081 -redis $REDIS_URL -mode ONLY_LOCAL${NC}"
     else
-        echo "  API_KEY=$API_KEY go run main.go -port 8081 -redis-enabled=false -mode ONLY_LOCAL"
+        echo -e "  ${GREEN}API_KEY=$API_KEY go run main.go -port 8081 -redis-enabled=false -mode ONLY_LOCAL${NC}"
     fi
     echo ""
-    echo "或使用 Docker Compose:"
-    echo "  API_KEY=$API_KEY docker-compose up -d"
+    echo -e "或使用 Docker Compose:"
+    echo -e "  ${GREEN}API_KEY=$API_KEY docker-compose up -d${NC}"
     echo ""
-    echo "提示: 确保已创建 $DATA_FILE 文件（可参考 data.example.json）"
+    echo -e "提示: 确保已创建 $DATA_FILE 文件（可参考 data.example.json）"
     exit 1
 fi
 echo -e "${GREEN}✓ Warden 服务运行中${NC}"
+
+# 验证 API_KEY 配置
+echo -e "${BLUE}验证 API_KEY 配置...${NC}"
+test_auth_response=$(curl -s -w "\n%{http_code}" -H "X-API-Key: $API_KEY" "$BASE_URL/" 2>/dev/null || echo -e "\n000")
+test_auth_code=$(echo "$test_auth_response" | tail -n1)
+
+if [ "$test_auth_code" = "200" ]; then
+    echo -e "${GREEN}✓ API_KEY 验证成功${NC}"
+elif [ "$test_auth_code" = "401" ]; then
+    echo -e "${RED}✗ API_KEY 验证失败：服务返回 401 Unauthorized${NC}"
+    echo ""
+    echo -e "${YELLOW}可能的原因：${NC}"
+    echo -e "  1. 服务使用的 API_KEY 与测试脚本不匹配"
+    echo -e "  2. 服务未配置 API_KEY（服务会拒绝所有请求）"
+    echo ""
+    echo -e "${YELLOW}解决方案：${NC}"
+    echo ""
+    echo -e "方案 1: 使用测试脚本的 API_KEY 重启服务"
+    echo -e "  当前测试使用的 API_KEY: ${BLUE}$API_KEY${NC}"
+    echo -e "  ${YELLOW}注意: 如果服务正在运行，请先停止它（Ctrl+C 或 kill 进程）${NC}"
+    if [ "$REDIS_AVAILABLE" = true ]; then
+        echo -e "  启动命令:"
+        echo -e "    ${GREEN}PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
+    else
+        echo -e "  启动命令:"
+        echo -e "    ${GREEN}PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
+    fi
+    echo ""
+    echo -e "方案 2: 使用服务当前的 API_KEY 运行测试"
+    echo -e "  如果服务已经使用其他 API_KEY 启动，请设置环境变量:"
+    echo -e "    ${GREEN}export API_KEY=<服务使用的实际 API_KEY>${NC}"
+    echo -e "    ${GREEN}./scripts/test-local.sh${NC}"
+    echo ""
+    echo -e "方案 3: 如果服务未配置 API_KEY，需要先配置"
+    echo -e "  根据代码逻辑，服务必须配置 API_KEY 才能接受请求"
+    echo -e "  请使用方案 1 或方案 2 设置 API_KEY"
+    echo ""
+    echo -e "${YELLOW}提示: 可以通过以下方式查看服务进程使用的环境变量（如果服务是通过命令行启动的）:${NC}"
+    echo -e "  ${GREEN}ps aux | grep 'go run main.go' | grep -v grep${NC}"
+    echo -e "  ${GREEN}ps eww -o command $(pgrep -f 'go run main.go' | head -1) 2>/dev/null | grep -o 'API_KEY=[^ ]*' || echo '无法获取 API_KEY'${NC}"
+    echo ""
+    exit 1
+else
+    echo -e "${YELLOW}⚠️  无法验证 API_KEY（状态码: $test_auth_code），继续测试...${NC}"
+fi
 echo ""
 
 # 准备测试数据
@@ -266,17 +327,17 @@ echo ""
 echo -e "${YELLOW}2. 用户列表端点${NC}"
 test_endpoint "获取用户列表（无认证）" "GET" "$BASE_URL/" "" "401"
 test_endpoint "获取用户列表（有认证）" "GET" "$BASE_URL/" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "-H \"X-API-Key: $API_KEY\"" "200"
 echo ""
 
 # 测试 3: 分页查询
 echo -e "${YELLOW}3. 分页查询${NC}"
 test_endpoint "分页查询 (page=1, page_size=2)" "GET" \
     "$BASE_URL/?page=1&page_size=2" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "-H \"X-API-Key: $API_KEY\"" "200"
 test_endpoint "分页查询 (无效页码)" "GET" \
     "$BASE_URL/?page=999&page_size=10" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "-H \"X-API-Key: $API_KEY\"" "200"
 echo ""
 
 # 测试 4: 查询单个用户（通过 phone）
@@ -285,49 +346,50 @@ test_endpoint "查询用户（phone，无认证）" "GET" \
     "$BASE_URL/user?phone=13800138000" "" "401"
 test_endpoint "查询用户（phone，有认证）" "GET" \
     "$BASE_URL/user?phone=13800138000" \
-    "-H 'X-API-Key: $API_KEY'" "200" "13800138000"
+    "-H \"X-API-Key: $API_KEY\"" "200" "13800138000"
 echo ""
 
 # 测试 5: 查询单个用户（通过 mail）
 echo -e "${YELLOW}5. 查询单个用户（通过 mail）${NC}"
 test_endpoint "查询用户（mail）" "GET" \
     "$BASE_URL/user?mail=admin@example.com" \
-    "-H 'X-API-Key: $API_KEY'" "200" "admin@example.com"
+    "-H \"X-API-Key: $API_KEY\"" "200" "admin@example.com"
 echo ""
 
 # 测试 6: 查询单个用户（通过 user_id）
 echo -e "${YELLOW}6. 查询单个用户（通过 user_id）${NC}"
 test_endpoint "查询用户（user_id）" "GET" \
     "$BASE_URL/user?user_id=test-admin-001" \
-    "-H 'X-API-Key: $API_KEY'" "200" "test-admin-001"
+    "-H \"X-API-Key: $API_KEY\"" "200" "test-admin-001"
 echo ""
 
 # 测试 7: 错误场景测试
 echo -e "${YELLOW}7. 错误场景测试${NC}"
 test_endpoint "查询用户（缺少参数）" "GET" \
     "$BASE_URL/user" \
-    "-H 'X-API-Key: $API_KEY'" "400"
+    "-H \"X-API-Key: $API_KEY\"" "400"
 test_endpoint "查询用户（多个参数）" "GET" \
     "$BASE_URL/user?phone=13800138000&mail=admin@example.com" \
-    "-H 'X-API-Key: $API_KEY'" "400"
+    "-H \"X-API-Key: $API_KEY\"" "400"
 test_endpoint "查询用户（不存在）" "GET" \
     "$BASE_URL/user?phone=99999999999" \
-    "-H 'X-API-Key: $API_KEY'" "404"
+    "-H \"X-API-Key: $API_KEY\"" "404"
 echo ""
 
 # 测试 8: Prometheus 指标
 echo -e "${YELLOW}8. 监控指标${NC}"
-test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" "" "200"
+test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" \
+    "-H \"X-API-Key: $API_KEY\"" "200"
 echo ""
 
 # 测试 9: 日志级别管理
 echo -e "${YELLOW}9. 日志级别管理${NC}"
 test_endpoint "获取日志级别（无认证）" "GET" "$BASE_URL/log/level" "" "401"
 test_endpoint "获取日志级别（有认证）" "GET" "$BASE_URL/log/level" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "-H \"X-API-Key: $API_KEY\"" "200"
 
 test_endpoint "设置日志级别" "POST" "$BASE_URL/log/level" \
-    "-H 'X-API-Key: $API_KEY' -H 'Content-Type: application/json' -d '{\"level\":\"debug\"}'" "200"
+    "-H \"X-API-Key: $API_KEY\" -H 'Content-Type: application/json' -d '{\"level\":\"debug\"}'" "200"
 echo ""
 
 # 测试 10: 验证新字段

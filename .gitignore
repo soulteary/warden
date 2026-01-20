@@ -37,3 +37,5 @@ data.json
 .env
 .env.local
 .env.*.local
+
+data.json.backup
