@@ -7,7 +7,7 @@ import (
 	"github.com/soulteary/warden/internal/define"
 )
 
-// BenchmarkSafeUserCache_Get 测试 Get 方法的性能
+// BenchmarkSafeUserCache_Get tests performance of Get method
 func BenchmarkSafeUserCache_Get(b *testing.B) {
 	cache := NewSafeUserCache()
 	users := make([]define.AllowListUser, 1000)
@@ -25,7 +25,7 @@ func BenchmarkSafeUserCache_Get(b *testing.B) {
 	}
 }
 
-// BenchmarkSafeUserCache_Set 测试 Set 方法的性能
+// BenchmarkSafeUserCache_Set tests performance of Set method
 func BenchmarkSafeUserCache_Set(b *testing.B) {
 	cache := NewSafeUserCache()
 	users := make([]define.AllowListUser, 1000)
@@ -42,7 +42,7 @@ func BenchmarkSafeUserCache_Set(b *testing.B) {
 	}
 }
 
-// BenchmarkSafeUserCache_GetByPhone 测试 GetByPhone 方法的性能（O(1) 查找）
+// BenchmarkSafeUserCache_GetByPhone tests performance of GetByPhone method (O(1) lookup)
 func BenchmarkSafeUserCache_GetByPhone(b *testing.B) {
 	cache := NewSafeUserCache()
 	users := make([]define.AllowListUser, 1000)
@@ -60,7 +60,7 @@ func BenchmarkSafeUserCache_GetByPhone(b *testing.B) {
 	}
 }
 
-// BenchmarkSafeUserCache_ConcurrentRead 测试并发读取性能
+// BenchmarkSafeUserCache_ConcurrentRead tests concurrent read performance
 func BenchmarkSafeUserCache_ConcurrentRead(b *testing.B) {
 	cache := NewSafeUserCache()
 	users := make([]define.AllowListUser, 1000)
@@ -80,7 +80,7 @@ func BenchmarkSafeUserCache_ConcurrentRead(b *testing.B) {
 	})
 }
 
-// BenchmarkSafeUserCache_ConcurrentWrite 测试并发写入性能
+// BenchmarkSafeUserCache_ConcurrentWrite tests concurrent write performance
 func BenchmarkSafeUserCache_ConcurrentWrite(b *testing.B) {
 	cache := NewSafeUserCache()
 	users := make([]define.AllowListUser, 100)
@@ -99,7 +99,7 @@ func BenchmarkSafeUserCache_ConcurrentWrite(b *testing.B) {
 	})
 }
 
-// BenchmarkSafeUserCache_ConcurrentReadWrite 测试并发读写性能
+// BenchmarkSafeUserCache_ConcurrentReadWrite tests concurrent read-write performance
 func BenchmarkSafeUserCache_ConcurrentReadWrite(b *testing.B) {
 	cache := NewSafeUserCache()
 	users := make([]define.AllowListUser, 100)
@@ -114,7 +114,7 @@ func BenchmarkSafeUserCache_ConcurrentReadWrite(b *testing.B) {
 	var wg sync.WaitGroup
 	b.ResetTimer()
 
-	// 启动读取协程
+	// Start read goroutine
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -123,7 +123,7 @@ func BenchmarkSafeUserCache_ConcurrentReadWrite(b *testing.B) {
 		}
 	}()
 
-	// 启动写入协程
+	// Start write goroutine
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

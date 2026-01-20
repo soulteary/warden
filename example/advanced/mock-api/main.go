@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// User 用户数据结构
+// User represents user data structure
 type User struct {
 	Phone string `json:"phone"`
 	Mail  string `json:"mail"`
@@ -18,7 +18,7 @@ type User struct {
 
 var users []User
 
-// loadData 从文件加载数据
+// loadData loads data from file
 func loadData(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -38,9 +38,9 @@ func loadData(filename string) error {
 	return nil
 }
 
-// usersHandler 处理用户列表请求
+// usersHandler handles user list requests
 func usersHandler(w http.ResponseWriter, r *http.Request) {
-	// 检查认证头
+	// Check authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "Bearer mock-token" && authHeader != "" {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -50,7 +50,7 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 重新加载数据（支持热更新）
+	// Reload data (supports hot reload)
 	if err := loadData("./data.json"); err != nil {
 		log.Printf("加载数据失败: %v", err)
 	}
@@ -60,7 +60,7 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// healthHandler 健康检查端点
+// healthHandler is the health check endpoint
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -71,7 +71,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// 加载初始数据
+	// Load initial data
 	dataFile := "./data.json"
 	if len(os.Args) > 1 {
 		dataFile = os.Args[1]
@@ -83,11 +83,11 @@ func main() {
 
 	log.Printf("已加载 %d 个用户", len(users))
 
-	// 注册路由
+	// Register routes
 	http.HandleFunc("/api/users", usersHandler)
 	http.HandleFunc("/health", healthHandler)
 
-	// 启动服务器
+	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

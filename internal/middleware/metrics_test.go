@@ -15,7 +15,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestMetricsMiddleware_RecordsMetrics 测试指标记录
+// TestMetricsMiddleware_RecordsMetrics tests metrics recording
 func TestMetricsMiddleware_RecordsMetrics(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -30,12 +30,12 @@ func TestMetricsMiddleware_RecordsMetrics(t *testing.T) {
 	middleware.ServeHTTP(w, req)
 	duration := time.Since(start)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
-	assert.Less(t, duration, 100*time.Millisecond, "请求应该快速完成")
-	// 注意：实际验证指标需要访问 metrics 包，这里只验证中间件不会 panic
+	assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
+	assert.Less(t, duration, 100*time.Millisecond, "Request should complete quickly")
+	// Note: Actual metrics verification requires accessing metrics package, here only verify middleware doesn't panic
 }
 
-// TestMetricsMiddleware_DifferentStatusCodes 测试不同状态码的指标记录
+// TestMetricsMiddleware_DifferentStatusCodes tests metrics recording for different status codes
 func TestMetricsMiddleware_DifferentStatusCodes(t *testing.T) {
 	statusCodes := []int{
 		http.StatusOK,
@@ -56,12 +56,12 @@ func TestMetricsMiddleware_DifferentStatusCodes(t *testing.T) {
 
 			middleware.ServeHTTP(w, req)
 
-			assert.Equal(t, statusCode, w.Code, "状态码应该正确设置")
+			assert.Equal(t, statusCode, w.Code, "Status code should be set correctly")
 		})
 	}
 }
 
-// TestMetricsMiddleware_DifferentMethods 测试不同 HTTP 方法的指标记录
+// TestMetricsMiddleware_DifferentMethods tests metrics recording for different HTTP methods
 func TestMetricsMiddleware_DifferentMethods(t *testing.T) {
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
 
@@ -76,12 +76,12 @@ func TestMetricsMiddleware_DifferentMethods(t *testing.T) {
 
 			middleware.ServeHTTP(w, req)
 
-			assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
+			assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
 		})
 	}
 }
 
-// TestMetricsMiddleware_DifferentEndpoints 测试不同端点的指标记录
+// TestMetricsMiddleware_DifferentEndpoints tests metrics recording for different endpoints
 func TestMetricsMiddleware_DifferentEndpoints(t *testing.T) {
 	endpoints := []string{"/", "/health", "/user", "/metrics", "/api/v1/test"}
 
@@ -96,34 +96,34 @@ func TestMetricsMiddleware_DifferentEndpoints(t *testing.T) {
 
 			middleware.ServeHTTP(w, req)
 
-			assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
+			assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
 		})
 	}
 }
 
-// TestMetricsMiddleware_EmptyPath 测试空路径处理
+// TestMetricsMiddleware_EmptyPath tests empty path handling
 func TestMetricsMiddleware_EmptyPath(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 在处理器中，如果路径为空，应该被处理为 "/"
+		// In handler, if path is empty, should be treated as "/"
 		if r.URL.Path == "" {
 			r.URL.Path = "/"
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// 使用有效的 URL，但测试中间件对空路径的处理
+	// Use valid URL, but test middleware handling of empty path
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
+	assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
 }
 
-// TestMetricsMiddleware_ResponseWriter 测试 ResponseWriter 包装
+// TestMetricsMiddleware_ResponseWriter tests ResponseWriter wrapping
 func TestMetricsMiddleware_ResponseWriter(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 测试多次写入
+		// Test multiple writes
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("Hello"))
 		require.NoError(t, err)
@@ -136,11 +136,11 @@ func TestMetricsMiddleware_ResponseWriter(t *testing.T) {
 
 	middleware.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
-	assert.Equal(t, "Hello World", w.Body.String(), "响应体应该正确")
+	assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
+	assert.Equal(t, "Hello World", w.Body.String(), "Response body should be correct")
 }
 
-// TestMetricsMiddleware_Concurrent 测试并发安全性
+// TestMetricsMiddleware_Concurrent tests concurrency safety
 func TestMetricsMiddleware_Concurrent(t *testing.T) {
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -162,15 +162,15 @@ func TestMetricsMiddleware_Concurrent(t *testing.T) {
 		}()
 	}
 
-	// 等待所有请求完成
+	// Wait for all requests to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 }
 
-// TestMetricsMiddleware_DurationMeasurement 测试持续时间测量
+// TestMetricsMiddleware_DurationMeasurement tests duration measurement
 func TestMetricsMiddleware_DurationMeasurement(t *testing.T) {
-	// 创建一个有延迟的处理器
+	// Create a handler with delay
 	middleware := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(50 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -183,12 +183,12 @@ func TestMetricsMiddleware_DurationMeasurement(t *testing.T) {
 	middleware.ServeHTTP(w, req)
 	duration := time.Since(start)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
-	assert.GreaterOrEqual(t, duration, 50*time.Millisecond, "持续时间应该至少为 50ms")
-	assert.Less(t, duration, 200*time.Millisecond, "持续时间不应该超过 200ms（包含开销）")
+	assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
+	assert.GreaterOrEqual(t, duration, 50*time.Millisecond, "Duration should be at least 50ms")
+	assert.Less(t, duration, 200*time.Millisecond, "Duration should not exceed 200ms (including overhead)")
 }
 
-// TestResponseWriter_WriteHeader 测试 ResponseWriter 的 WriteHeader 方法
+// TestResponseWriter_WriteHeader tests ResponseWriter's WriteHeader method
 func TestResponseWriter_WriteHeader(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	rw := &responseWriter{
@@ -196,13 +196,13 @@ func TestResponseWriter_WriteHeader(t *testing.T) {
 		statusCode:     http.StatusOK,
 	}
 
-	// 测试设置状态码
+	// Test setting status code
 	rw.WriteHeader(http.StatusNotFound)
-	assert.Equal(t, http.StatusNotFound, rw.statusCode, "状态码应该被更新")
-	assert.Equal(t, http.StatusNotFound, recorder.Code, "底层 ResponseWriter 的状态码应该被更新")
+	assert.Equal(t, http.StatusNotFound, rw.statusCode, "Status code should be updated")
+	assert.Equal(t, http.StatusNotFound, recorder.Code, "Underlying ResponseWriter's status code should be updated")
 }
 
-// TestResponseWriter_WriteHeader_MultipleCalls 测试多次调用 WriteHeader
+// TestResponseWriter_WriteHeader_MultipleCalls tests multiple calls to WriteHeader
 func TestResponseWriter_WriteHeader_MultipleCalls(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	rw := &responseWriter{
@@ -210,11 +210,11 @@ func TestResponseWriter_WriteHeader_MultipleCalls(t *testing.T) {
 		statusCode:     http.StatusOK,
 	}
 
-	// 第一次调用
+	// First call
 	rw.WriteHeader(http.StatusBadRequest)
 	assert.Equal(t, http.StatusBadRequest, rw.statusCode)
 
-	// 第二次调用（应该更新状态码）
+	// Second call (should update status code)
 	rw.WriteHeader(http.StatusInternalServerError)
 	assert.Equal(t, http.StatusInternalServerError, rw.statusCode)
 }

@@ -1,19 +1,19 @@
-// Package metrics 提供了 Prometheus 指标收集功能。
-// 包括 HTTP 请求指标、缓存指标、后台任务指标等。
+// Package metrics provides Prometheus metrics collection functionality.
+// Includes HTTP request metrics, cache metrics, background task metrics, etc.
 package metrics
 
 import (
-	// 标准库
+	// Standard library
 	"net/http"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
-	// HTTPRequestTotal 记录 HTTP 请求总数
+	// HTTPRequestTotal records total number of HTTP requests
 	HTTPRequestTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
@@ -22,7 +22,7 @@ var (
 		[]string{"method", "endpoint", "status"},
 	)
 
-	// HTTPRequestDuration 记录 HTTP 请求延迟
+	// HTTPRequestDuration records HTTP request latency
 	HTTPRequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "http_request_duration_seconds",
@@ -32,7 +32,7 @@ var (
 		[]string{"method", "endpoint"},
 	)
 
-	// CacheSize 记录缓存中的用户数量
+	// CacheSize records number of users in cache
 	CacheSize = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "cache_size",
@@ -40,7 +40,7 @@ var (
 		},
 	)
 
-	// BackgroundTaskTotal 记录后台任务执行总数
+	// BackgroundTaskTotal records total number of background tasks executed
 	BackgroundTaskTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "background_task_total",
@@ -48,7 +48,7 @@ var (
 		},
 	)
 
-	// BackgroundTaskDuration 记录后台任务执行时间
+	// BackgroundTaskDuration records background task execution time
 	BackgroundTaskDuration = promauto.NewHistogram(
 		prometheus.HistogramOpts{
 			Name:    "background_task_duration_seconds",
@@ -57,7 +57,7 @@ var (
 		},
 	)
 
-	// BackgroundTaskErrors 记录后台任务错误数
+	// BackgroundTaskErrors records number of background task errors
 	BackgroundTaskErrors = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "background_task_errors_total",
@@ -65,7 +65,7 @@ var (
 		},
 	)
 
-	// CacheHits 记录缓存命中次数
+	// CacheHits records number of cache hits
 	CacheHits = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "cache_hits_total",
@@ -73,7 +73,7 @@ var (
 		},
 	)
 
-	// CacheMisses 记录缓存未命中次数
+	// CacheMisses records number of cache misses
 	CacheMisses = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "cache_misses_total",
@@ -81,7 +81,7 @@ var (
 		},
 	)
 
-	// RateLimitHits 记录速率限制触发次数
+	// RateLimitHits records number of rate limit hits
 	RateLimitHits = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "rate_limit_hits_total",
@@ -91,7 +91,7 @@ var (
 	)
 )
 
-// Handler 返回 Prometheus metrics 端点处理器
+// Handler returns Prometheus metrics endpoint handler
 func Handler() http.Handler {
 	return promhttp.Handler()
 }

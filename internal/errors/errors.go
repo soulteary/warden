@@ -1,28 +1,28 @@
-// Package errors 提供了统一的错误处理功能。
-// 定义了应用错误类型和预定义的错误变量，支持错误包装和上下文信息。
+// Package errors provides unified error handling functionality.
+// Defines application error types and predefined error variables, supports error wrapping and context information.
 //
-//nolint:revive // 包名与标准库冲突，但这是项目内部包，可以接受
+//nolint:revive // Package name conflicts with standard library, but this is an internal package, acceptable
 package errors
 
 import (
-	// 标准库
+	// Standard library
 	"fmt"
 	"net/http"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/i18n"
 )
 
-// AppError 应用错误类型，提供统一的错误处理
+// AppError application error type, provides unified error handling
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type AppError struct {
-	Code    string // 错误码 (16 bytes)
-	Message string // 错误消息 (16 bytes)
-	Err     error  // 底层错误 (16 bytes interface)
+	Code    string // Error code (16 bytes)
+	Message string // Error message (16 bytes)
+	Err     error  // Underlying error (16 bytes interface)
 }
 
-// Error 实现 error 接口
+// Error implements error interface
 func (e *AppError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.Err)
@@ -30,12 +30,12 @@ func (e *AppError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
-// Unwrap 实现错误包装接口，支持 errors.Unwrap
+// Unwrap implements error wrapping interface, supports errors.Unwrap
 func (e *AppError) Unwrap() error {
 	return e.Err
 }
 
-// WithError 包装底层错误
+// WithError wraps underlying error
 func (e *AppError) WithError(err error) *AppError {
 	return &AppError{
 		Code:    e.Code,
@@ -44,7 +44,7 @@ func (e *AppError) WithError(err error) *AppError {
 	}
 }
 
-// WithMessage 添加自定义消息
+// WithMessage adds custom message
 func (e *AppError) WithMessage(msg string) *AppError {
 	return &AppError{
 		Code:    e.Code,
@@ -53,23 +53,23 @@ func (e *AppError) WithMessage(msg string) *AppError {
 	}
 }
 
-// WithLanguage 根据请求上下文获取本地化的错误消息
-// 如果请求为 nil 或无法获取语言，则返回原始消息
+// WithLanguage gets localized error message based on request context
+// If request is nil or language cannot be obtained, returns original message
 func (e *AppError) WithLanguage(r *http.Request) *AppError {
 	if r == nil {
 		return e
 	}
 
-	// 根据错误码获取 i18n 键
+	// Get i18n key based on error code
 	key := getI18nKey(e.Code)
 	if key == "" {
 		return e
 	}
 
-	// 获取本地化消息
+	// Get localized message
 	localizedMsg := i18n.T(r, key)
 	if localizedMsg == key {
-		// 如果翻译不存在，使用原始消息
+		// If translation does not exist, use original message
 		return e
 	}
 
@@ -80,7 +80,7 @@ func (e *AppError) WithLanguage(r *http.Request) *AppError {
 	}
 }
 
-// getI18nKey 根据错误码获取 i18n 键
+// getI18nKey gets i18n key based on error code
 func getI18nKey(code string) string {
 	switch code {
 	case "REDIS_CONN_ERR":
@@ -116,9 +116,9 @@ func getI18nKey(code string) string {
 	}
 }
 
-// 预定义的错误类型
+// Predefined error types
 var (
-	// Redis 相关错误
+	// Redis related errors
 	ErrRedisConnection = &AppError{
 		Code:    "REDIS_CONN_ERR",
 		Message: "Redis 连接失败",
@@ -132,7 +132,7 @@ var (
 		Message: "Redis 分布式锁操作失败",
 	}
 
-	// 配置相关错误
+	// Configuration related errors
 	ErrConfigLoad = &AppError{
 		Code:    "CONFIG_LOAD_ERR",
 		Message: "配置加载失败",
@@ -146,13 +146,13 @@ var (
 		Message: "配置解析失败",
 	}
 
-	// 应用初始化错误
+	// Application initialization errors
 	ErrAppInit = &AppError{
 		Code:    "APP_INIT_ERR",
 		Message: "应用初始化失败",
 	}
 
-	// HTTP 相关错误
+	// HTTP related errors
 	ErrHTTPRequest = &AppError{
 		Code:    "HTTP_REQ_ERR",
 		Message: "HTTP 请求失败",
@@ -162,7 +162,7 @@ var (
 		Message: "HTTP 响应处理失败",
 	}
 
-	// 数据相关错误
+	// Data related errors
 	ErrDataLoad = &AppError{
 		Code:    "DATA_LOAD_ERR",
 		Message: "数据加载失败",
@@ -172,26 +172,26 @@ var (
 		Message: "数据解析失败",
 	}
 
-	// 缓存相关错误
+	// Cache related errors
 	ErrCacheOperation = &AppError{
 		Code:    "CACHE_OP_ERR",
 		Message: "缓存操作失败",
 	}
 
-	// 参数验证错误
+	// Parameter validation errors
 	ErrInvalidParameter = &AppError{
 		Code:    "INVALID_PARAM_ERR",
 		Message: "无效的参数",
 	}
 
-	// 任务执行错误
+	// Task execution errors
 	ErrTaskExecution = &AppError{
 		Code:    "TASK_EXEC_ERR",
 		Message: "任务执行失败",
 	}
 )
 
-// Wrap 包装错误，提供上下文信息
+// Wrap wraps error, provides context information
 func Wrap(err error, code, message string) *AppError {
 	return &AppError{
 		Code:    code,
@@ -200,7 +200,7 @@ func Wrap(err error, code, message string) *AppError {
 	}
 }
 
-// Wrapf 使用格式化字符串包装错误
+// Wrapf wraps error using formatted string
 func Wrapf(err error, code, format string, args ...interface{}) *AppError {
 	return &AppError{
 		Code:    code,

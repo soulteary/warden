@@ -1,13 +1,13 @@
-// Package logger 提供了日志记录功能。
-// 基于 zerolog 实现结构化日志，支持日志级别控制和敏感信息脱敏。
+// Package logger provides logging functionality.
+// Implements structured logging based on zerolog, supports log level control and sensitive information sanitization.
 package logger
 
 import (
-	// 标准库
+	// Standard library
 	"os"
 	"strings"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog"
 )
 
@@ -16,7 +16,7 @@ var globalLevel zerolog.Level = zerolog.InfoLevel
 func init() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	// 从环境变量读取日志级别
+	// Read log level from environment variable
 	if levelStr := os.Getenv("LOG_LEVEL"); levelStr != "" {
 		level, err := zerolog.ParseLevel(strings.ToLower(levelStr))
 		if err == nil {
@@ -27,7 +27,7 @@ func init() {
 	zerolog.SetGlobalLevel(globalLevel)
 }
 
-// GetLogger 获取日志实例
+// GetLogger gets logger instance
 func GetLogger() zerolog.Logger {
 	logger := zerolog.New(os.Stderr).
 		With().
@@ -38,34 +38,34 @@ func GetLogger() zerolog.Logger {
 	return logger
 }
 
-// SetLevel 设置日志级别（用于运行时调整）
+// SetLevel sets log level (for runtime adjustment)
 func SetLevel(level zerolog.Level) {
 	globalLevel = level
 	zerolog.SetGlobalLevel(level)
 }
 
-// SanitizeString 脱敏敏感信息
-// 对可能包含敏感信息的字符串进行部分脱敏处理
+// SanitizeString sanitizes sensitive information
+// Performs partial sanitization on strings that may contain sensitive information
 func SanitizeString(s string) string {
 	if s == "" {
 		return s
 	}
 
-	// 如果字符串较短，只显示首尾
+	// If string is short, only show first and last characters
 	if len(s) <= 4 {
 		return "***"
 	}
 
-	// 显示前2个字符和后2个字符，中间用*替代
+	// Show first 2 characters and last 2 characters, replace middle with *
 	prefix := s[:2]
 	suffix := s[len(s)-2:]
 	masked := strings.Repeat("*", len(s)-4)
 	return prefix + masked + suffix
 }
 
-// SanitizeHeader 脱敏 HTTP 头信息
+// SanitizeHeader sanitizes HTTP header information
 func SanitizeHeader(header string) string {
-	// 对 Authorization 等敏感头进行脱敏
+	// Sanitize sensitive headers like Authorization
 	lowerHeader := strings.ToLower(header)
 	if strings.Contains(lowerHeader, "authorization") ||
 		strings.Contains(lowerHeader, "token") ||

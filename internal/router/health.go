@@ -1,29 +1,29 @@
-// Package router 提供了 HTTP 路由处理功能。
-// 包括请求日志记录、JSON 响应、健康检查等路由处理器。
+// Package router provides HTTP routing functionality.
+// Includes request logging, JSON responses, health checks and other route handlers.
 package router
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
 
-// HealthCheck 返回健康检查处理器
-// 检查 Redis 连接状态和数据是否已加载
-// appMode 控制响应详细程度：生产环境（"production"）隐藏详细信息，开发环境显示详细信息
-// redisEnabled 表示 Redis 是否被显式启用（用于区分 disabled 和 unavailable 状态）
+// HealthCheck returns health check handler
+// Checks Redis connection status and whether data is loaded
+// appMode controls response detail level: production environment ("production") hides detailed information, development environment shows detailed information
+// redisEnabled indicates whether Redis is explicitly enabled (used to distinguish between disabled and unavailable states)
 func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode string, redisEnabled bool) http.HandlerFunc {
-	// 判断是否为生产环境
+	// Determine if it's production environment
 	isProduction := appMode == "production" || appMode == "prod"
 
 	return func(w http.ResponseWriter, _ *http.Request) {
@@ -31,58 +31,58 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 		code := http.StatusOK
 		details := make(map[string]interface{})
 
-		// 检查 Redis 连接状态
+		// Check Redis connection status
 		switch {
 		case !redisEnabled:
-			// Redis 被显式禁用
+			// Redis is explicitly disabled
 			details["redis"] = "disabled"
 		case redisClient != nil:
-			// Redis 已启用，检查连接状态
+			// Redis is enabled, check connection status
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := redisClient.Ping(ctx).Err(); err != nil {
 				status = "redis_unavailable"
 				code = http.StatusServiceUnavailable
 				details["redis"] = "unavailable"
-				// 生产环境不返回详细错误信息，避免泄露敏感信息
+				// Production environment does not return detailed error information to avoid leaking sensitive information
 				if !isProduction {
-					// 仅在非生产环境返回详细错误信息
+					// Only return detailed error information in non-production environment
 					details["redis_error"] = err.Error()
 				}
 			} else {
 				details["redis"] = "ok"
 			}
 		default:
-			// Redis 客户端为 nil（可能是连接失败后的 fallback 状态）
+			// Redis client is nil (may be fallback state after connection failure)
 			status = "redis_unavailable"
 			code = http.StatusServiceUnavailable
 			details["redis"] = "unavailable"
 		}
 
-		// 检查数据是否已加载
+		// Check if data is loaded
 		if userCache != nil {
 			userCount := userCache.Len()
 			details["data_loaded"] = userCount > 0
-			// 生产环境隐藏具体用户数量，只返回是否已加载
+			// Production environment hides specific user count, only returns whether data is loaded
 			if isProduction {
-				// 生产环境：只返回布尔值，不返回具体数量
+				// Production environment: only return boolean value, not specific count
 				details["data_loaded"] = userCount > 0
 			} else {
-				// 开发环境：返回详细信息
+				// Development environment: return detailed information
 				details["data_loaded"] = userCount > 0
 				details["user_count"] = userCount
 			}
 			if userCount == 0 {
-				// 数据未加载不影响健康状态，但记录在 details 中
+				// Data not loaded does not affect health status, but recorded in details
 				if !isProduction {
-					// 仅在非生产环境返回警告信息
+					// Only return warning information in non-production environment
 					details["data_warning"] = "no data loaded yet"
 				}
 			}
 		} else {
 			details["data_loaded"] = false
 			if !isProduction {
-				// 仅在非生产环境返回警告信息
+				// Only return warning information in non-production environment
 				details["data_warning"] = "cache not initialized"
 			}
 		}
@@ -92,7 +92,7 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 			"details": details,
 		}
 
-		// 生产环境不返回模式信息
+		// Production environment does not return mode information
 		if !isProduction {
 			response["mode"] = appMode
 		}
@@ -101,11 +101,11 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 		w.WriteHeader(code)
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log := logger.GetLogger()
-			// 注意：health check 可能没有请求上下文，使用默认语言
+			// Note: health check may not have request context, use default language
 			log.Error().
 				Err(err).
 				Msg(i18n.TWithLang(i18n.LangEN, "log.health_check_encode_failed"))
-			// 如果已经写入了状态码，无法再修改，只能记录错误
+			// If status code has already been written, cannot modify it, only log error
 		}
 	}
 }

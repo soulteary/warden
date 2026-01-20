@@ -21,7 +21,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestHealthCheck_ProductionMode 测试生产模式下的健康检查
+// TestHealthCheck_ProductionMode tests health check in production mode
 func TestHealthCheck_ProductionMode(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	testUsers := []define.AllowListUser{
@@ -46,17 +46,17 @@ func TestHealthCheck_ProductionMode(t *testing.T) {
 	assert.Equal(t, "ok", response["status"])
 
 	details, ok := response["details"].(map[string]interface{})
-	require.True(t, ok, "details 应该是 map")
+	require.True(t, ok, "details should be map")
 
-	// 生产环境不应该返回用户数量
-	assert.NotContains(t, details, "user_count", "生产环境不应该返回用户数量")
-	assert.Contains(t, details, "data_loaded", "应该包含 data_loaded 字段")
+	// Production environment should not return user count
+	assert.NotContains(t, details, "user_count", "Production environment should not return user count")
+	assert.Contains(t, details, "data_loaded", "Should contain data_loaded field")
 
-	// 生产环境不应该返回模式信息
-	assert.NotContains(t, response, "mode", "生产环境不应该返回模式信息")
+	// Production environment should not return mode information
+	assert.NotContains(t, response, "mode", "Production environment should not return mode information")
 }
 
-// TestHealthCheck_DevelopmentMode 测试开发模式下的健康检查
+// TestHealthCheck_DevelopmentMode tests health check in development mode
 func TestHealthCheck_DevelopmentMode(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	testUsers := []define.AllowListUser{
@@ -82,16 +82,16 @@ func TestHealthCheck_DevelopmentMode(t *testing.T) {
 	details, ok := response["details"].(map[string]interface{})
 	require.True(t, ok)
 
-	// 开发环境应该返回用户数量
-	assert.Contains(t, details, "user_count", "开发环境应该返回用户数量")
-	assert.Equal(t, float64(1), details["user_count"], "用户数量应该是 1")
+	// Development environment should return user count
+	assert.Contains(t, details, "user_count", "Development environment should return user count")
+	assert.Equal(t, float64(1), details["user_count"], "User count should be 1")
 
-	// 开发环境应该返回模式信息
-	assert.Contains(t, response, "mode", "开发环境应该返回模式信息")
+	// Development environment should return mode information
+	assert.Contains(t, response, "mode", "Development environment should return mode information")
 	assert.Equal(t, "development", response["mode"])
 }
 
-// TestHealthCheck_RedisDisabled 测试 Redis 禁用状态
+// TestHealthCheck_RedisDisabled tests Redis disabled state
 func TestHealthCheck_RedisDisabled(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := HealthCheck(nil, userCache, "development", false)
@@ -110,14 +110,14 @@ func TestHealthCheck_RedisDisabled(t *testing.T) {
 	details, ok := response["details"].(map[string]interface{})
 	require.True(t, ok)
 
-	assert.Equal(t, "disabled", details["redis"], "Redis 状态应该是 disabled")
+	assert.Equal(t, "disabled", details["redis"], "Redis status should be disabled")
 }
 
-// TestHealthCheck_RedisUnavailable 测试 Redis 不可用状态
+// TestHealthCheck_RedisUnavailable tests Redis unavailable state
 func TestHealthCheck_RedisUnavailable(t *testing.T) {
-	// 创建一个无法连接的 Redis 客户端
+	// Create a Redis client that cannot connect
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:9999", // 不存在的地址
+		Addr: "localhost:9999", // Non-existent address
 	})
 
 	userCache := cache.NewSafeUserCache()
@@ -128,10 +128,10 @@ func TestHealthCheck_RedisUnavailable(t *testing.T) {
 
 	handler(w, req)
 
-	// 注意：由于超时，可能需要等待
-	// 但根据实现，应该返回 503
+	// Note: May need to wait due to timeout
+	// But according to implementation, should return 503
 	assert.True(t, w.Code == http.StatusOK || w.Code == http.StatusServiceUnavailable,
-		"应该返回 200 或 503")
+		"Should return 200 or 503")
 
 	var response map[string]interface{}
 	err := json.NewDecoder(w.Body).Decode(&response)
@@ -140,16 +140,16 @@ func TestHealthCheck_RedisUnavailable(t *testing.T) {
 	details, ok := response["details"].(map[string]interface{})
 	require.True(t, ok)
 
-	// Redis 状态应该是 unavailable
+	// Redis status should be unavailable
 	if w.Code == http.StatusServiceUnavailable {
 		assert.Equal(t, "unavailable", details["redis"])
 	}
 }
 
-// TestHealthCheck_NoData 测试没有数据的情况
+// TestHealthCheck_NoData tests case with no data
 func TestHealthCheck_NoData(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
-	// 不设置任何数据
+	// Don't set any data
 
 	handler := HealthCheck(nil, userCache, "development", false)
 
@@ -169,10 +169,10 @@ func TestHealthCheck_NoData(t *testing.T) {
 
 	dataLoaded, ok := details["data_loaded"].(bool)
 	require.True(t, ok)
-	assert.False(t, dataLoaded, "data_loaded 应该是 false")
+	assert.False(t, dataLoaded, "data_loaded should be false")
 }
 
-// TestHealthCheck_NilCache 测试缓存为 nil 的情况
+// TestHealthCheck_NilCache tests case when cache is nil
 func TestHealthCheck_NilCache(t *testing.T) {
 	handler := HealthCheck(nil, nil, "development", false)
 
@@ -192,16 +192,16 @@ func TestHealthCheck_NilCache(t *testing.T) {
 
 	dataLoaded, ok := details["data_loaded"].(bool)
 	require.True(t, ok)
-	assert.False(t, dataLoaded, "缓存为 nil 时 data_loaded 应该是 false")
+	assert.False(t, dataLoaded, "data_loaded should be false when cache is nil")
 }
 
-// TestHealthCheck_RedisOK 测试 Redis 正常情况（需要真实的 Redis）
+// TestHealthCheck_RedisOK tests Redis normal case (requires real Redis)
 func TestHealthCheck_RedisOK(t *testing.T) {
 	if testing.Short() {
-		t.Skip("跳过需要 Redis 的测试")
+		t.Skip("Skipping test that requires Redis")
 	}
 
-	// 尝试连接本地 Redis
+	// Try to connect to local Redis
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
@@ -210,7 +210,7 @@ func TestHealthCheck_RedisOK(t *testing.T) {
 	defer cancel()
 
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		t.Skipf("跳过测试：无法连接到 Redis: %v", err)
+		t.Skipf("Skipping test: unable to connect to Redis: %v", err)
 	}
 
 	userCache := cache.NewSafeUserCache()
@@ -230,5 +230,5 @@ func TestHealthCheck_RedisOK(t *testing.T) {
 	details, ok := response["details"].(map[string]interface{})
 	require.True(t, ok)
 
-	assert.Equal(t, "ok", details["redis"], "Redis 状态应该是 ok")
+	assert.Equal(t, "ok", details["redis"], "Redis status should be ok")
 }

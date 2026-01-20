@@ -1,38 +1,38 @@
-// Package router 提供了 HTTP 路由处理功能。
-// 包括用户查询、JSON 响应等路由处理器。
+// Package router provides HTTP routing functionality.
+// Includes user queries, JSON responses and other route handlers.
 package router
 
 import (
-	// 标准库
+	// Standard library
 	"encoding/json"
 	"net/http"
 	"strings"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 )
 
-// GetUserByIdentifier 根据标识符查询单个用户
+// GetUserByIdentifier queries a single user by identifier
 //
-// 该函数创建一个 HTTP 处理器，用于根据 phone、mail 或 user_id 查询单个用户。
-// 支持以下查询方式：
-// - GET /user?phone=<phone> - 通过手机号查询
-// - GET /user?mail=<mail> - 通过邮箱查询
-// - GET /user?user_id=<user_id> - 通过用户 ID 查询
+// This function creates an HTTP handler for querying a single user by phone, mail, or user_id.
+// Supports the following query methods:
+// - GET /user?phone=<phone> - Query by phone number
+// - GET /user?mail=<mail> - Query by email
+// - GET /user?user_id=<user_id> - Query by user ID
 //
-// 参数:
-//   - userCache: 用户缓存实例，用于获取用户数据
+// Parameters:
+//   - userCache: user cache instance for retrieving user data
 //
-// 返回:
-//   - func(http.ResponseWriter, *http.Request): HTTP 请求处理函数
+// Returns:
+//   - func(http.ResponseWriter, *http.Request): HTTP request handler function
 func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 验证请求方法，只允许 GET
+		// Validate request method, only allow GET
 		if r.Method != http.MethodGet {
 			hlog.FromRequest(r).Warn().
 				Str("method", r.Method).
@@ -41,12 +41,12 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			return
 		}
 
-		// 获取查询参数
+		// Get query parameters
 		phone := strings.TrimSpace(r.URL.Query().Get("phone"))
 		mail := strings.TrimSpace(r.URL.Query().Get("mail"))
 		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
 
-		// 验证至少提供一个标识符
+		// Validate at least one identifier is provided
 		if phone == "" && mail == "" && userID == "" {
 			hlog.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.missing_query_params"))
@@ -54,7 +54,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			return
 		}
 
-		// 验证只提供一个标识符
+		// Validate only one identifier is provided
 		identifierCount := 0
 		if phone != "" {
 			identifierCount++
@@ -75,7 +75,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		var user define.AllowListUser
 		var found bool
 
-		// 根据标识符类型查询用户
+		// Query user by identifier type
 		switch {
 		case phone != "":
 			user, found = userCache.GetByPhone(phone)
@@ -85,7 +85,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			user, found = userCache.GetByUserID(userID)
 		}
 
-		// 如果用户不存在，返回 404
+		// If user not found, return 404
 		if !found {
 			hlog.FromRequest(r).Info().
 				Str("phone", phone).
@@ -96,7 +96,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			return
 		}
 
-		// 返回用户信息
+		// Return user information
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 

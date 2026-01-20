@@ -1,11 +1,11 @@
-// Package i18n 提供了国际化支持功能。
-// 支持从请求上下文获取语言，实现多语言文本翻译。
+// Package i18n provides internationalization support.
+// Supports language detection from request context and multi-language text translation.
 //
-//nolint:misspell // 此文件包含多语言翻译，misspell linter 会误报非英语单词
+//nolint:misspell // This file contains multi-language translations, misspell linter may false-positive non-English words
 package i18n
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 	"fmt"
 	"net/http"
@@ -32,17 +32,17 @@ const (
 	LangKO Language = "ko"
 )
 
-// contextKey 用于在上下文中存储语言
+// contextKey is used to store language in context
 type contextKey string
 
 const languageKey contextKey = "language"
 
-// SetLanguageInContext 将语言设置到请求上下文中
+// SetLanguageInContext sets the language in the request context
 func SetLanguageInContext(r *http.Request, lang Language) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), languageKey, lang))
 }
 
-// GetLanguageFromContext 从请求上下文中获取语言
+// GetLanguageFromContext gets the language from the request context
 func GetLanguageFromContext(r *http.Request) Language {
 	if r == nil {
 		return LangEN
@@ -53,7 +53,7 @@ func GetLanguageFromContext(r *http.Request) Language {
 	return LangEN
 }
 
-// GetLanguageFromContextValue 从 context.Context 中获取语言（用于没有 http.Request 的场景）
+// GetLanguageFromContextValue gets the language from context.Context (for scenarios without http.Request)
 func GetLanguageFromContextValue(ctx context.Context) Language {
 	if ctx == nil {
 		return LangEN
@@ -64,7 +64,7 @@ func GetLanguageFromContextValue(ctx context.Context) Language {
 	return LangEN
 }
 
-// NormalizeLanguage 规范化语言代码
+// NormalizeLanguage normalizes language code
 func NormalizeLanguage(lang string) Language {
 	lang = strings.ToLower(strings.TrimSpace(lang))
 	switch lang {
@@ -806,7 +806,7 @@ func TfWithLang(lang Language, key string, args ...interface{}) string {
 	return fmt.Sprintf(TWithLang(lang, key), args...)
 }
 
-// translate 内部翻译函数
+// translate is an internal translation function
 func translate(lang Language, key string) string {
 	if langMap, ok := translations[lang]; ok {
 		if translation, ok := langMap[key]; ok {

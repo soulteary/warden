@@ -1,9 +1,9 @@
-// Package validator 提供了配置验证功能。
-// 包括 URL 验证、路径验证等安全验证功能。
+// Package validator provides configuration validation functionality.
+// Includes URL validation, path validation and other security validation features.
 package validator
 
 import (
-	// 标准库
+	// Standard library
 	"fmt"
 	"net"
 	"net/url"
@@ -11,70 +11,70 @@ import (
 	"strings"
 )
 
-// ValidateRemoteURL 验证远程配置 URL，防止 SSRF 攻击
+// ValidateRemoteURL validates remote configuration URL to prevent SSRF attacks
 //
-// 该函数对远程配置 URL 进行严格验证，包括：
-// - 只允许 http:// 和 https:// 协议
-// - 禁止访问私有 IP 地址（10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8）
-// - 禁止访问 localhost
-// - 验证 URL 格式的有效性
+// This function performs strict validation on remote configuration URL, including:
+// - Only allows http:// and https:// protocols
+// - Prohibits access to private IP addresses (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8)
+// - Prohibits access to localhost
+// - Validates URL format validity
 //
-// 参数:
-//   - urlStr: 要验证的 URL 字符串
+// Parameters:
+//   - urlStr: URL string to validate
 //
-// 返回:
-//   - error: 如果 URL 无效或存在安全风险，返回错误；否则返回 nil
+// Returns:
+//   - error: returns error if URL is invalid or has security risks; otherwise returns nil
 func ValidateRemoteURL(urlStr string) error {
 	if urlStr == "" {
-		return fmt.Errorf("URL 不能为空")
+		return fmt.Errorf("URL cannot be empty")
 	}
 
-	// 解析 URL
+	// Parse URL
 	u, err := url.ParseRequestURI(urlStr)
 	if err != nil {
-		return fmt.Errorf("无效的 URL 格式: %w", err)
+		return fmt.Errorf("invalid URL format: %w", err)
 	}
 
-	// 只允许 http 和 https 协议
+	// Only allow http and https protocols
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("只允许 http 和 https 协议，当前协议: %s", u.Scheme)
+		return fmt.Errorf("only http and https protocols are allowed, current protocol: %s", u.Scheme)
 	}
 
-	// 验证 host
+	// Validate host
 	host := u.Hostname()
 	if host == "" {
-		return fmt.Errorf("URL 必须包含有效的 host")
+		return fmt.Errorf("URL must contain a valid host")
 	}
 
-	// 禁止 localhost 和 127.0.0.1
+	// Prohibit localhost and 127.0.0.1
 	hostLower := strings.ToLower(host)
 	if hostLower == "localhost" || hostLower == "127.0.0.1" || hostLower == "::1" {
-		return fmt.Errorf("不允许访问 localhost")
+		return fmt.Errorf("access to localhost is not allowed")
 	}
 
-	// 解析 IP 地址
+	// Parse IP address
 	ip := net.ParseIP(host)
 	if ip != nil {
-		// 禁止私有 IP 地址
+		// Prohibit private IP addresses
 		if isPrivateIP(ip) {
-			return fmt.Errorf("不允许访问私有 IP 地址: %s", ip.String())
+			return fmt.Errorf("access to private IP address is not allowed: %s", ip.String())
 		}
-		// 禁止回环地址
+		// Prohibit loopback addresses
 		if ip.IsLoopback() {
-			return fmt.Errorf("不允许访问回环地址: %s", ip.String())
+			return fmt.Errorf("access to loopback address is not allowed: %s", ip.String())
 		}
 	}
 
 	return nil
 }
 
-// isPrivateIP 检查 IP 是否为私有 IP
+// isPrivateIP checks if IP is a private IP
 //
-// 私有 IP 地址范围：
-// - 10.0.0.0/8 (10.0.0.0 到 10.255.255.255)
-// - 172.16.0.0/12 (172.16.0.0 到 172.31.255.255)
-// - 192.168.0.0/16 (192.168.0.0 到 192.168.255.255)
-// - 127.0.0.0/8 (127.0.0.0 到 127.255.255.255) - 回环地址
+// Private IP address ranges:
+// - 10.0.0.0/8 (10.0.0.0 to 10.255.255.255)
+// - 172.16.0.0/12 (172.16.0.0 to 172.31.255.255)
+// - 192.168.0.0/16 (192.168.0.0 to 192.168.255.255)
+// - 127.0.0.0/8 (127.0.0.0 to 127.255.255.255) - loopback address
 func isPrivateIP(ip net.IP) bool {
 	if ip4 := ip.To4(); ip4 != nil {
 		return ip4[0] == 10 ||
@@ -82,44 +82,44 @@ func isPrivateIP(ip net.IP) bool {
 			(ip4[0] == 192 && ip4[1] == 168) ||
 			ip4[0] == 127
 	}
-	// IPv6 私有地址检查
+	// IPv6 private address check
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 		return true
 	}
 	return false
 }
 
-// ValidateConfigPath 验证配置文件路径，防止路径遍历攻击
+// ValidateConfigPath validates configuration file path to prevent path traversal attacks
 //
-// 该函数对配置文件路径进行验证，包括：
-// - 检查路径是否包含路径遍历字符（..）
-// - 验证路径是否为绝对路径或相对路径
-// - 可选：限制配置文件只能从特定目录读取
+// This function validates configuration file path, including:
+// - Checks if path contains path traversal characters (..)
+// - Validates if path is absolute or relative path
+// - Optional: restrict configuration files to be read only from specific directories
 //
-// 参数:
-//   - path: 要验证的文件路径
-//   - allowedDirs: 允许的目录列表（可选，如果为空则不限制目录）
+// Parameters:
+//   - path: file path to validate
+//   - allowedDirs: list of allowed directories (optional, if empty then no directory restriction)
 //
-// 返回:
-//   - string: 规范化后的绝对路径
-//   - error: 如果路径无效或存在安全风险，返回错误；否则返回 nil
+// Returns:
+//   - string: normalized absolute path
+//   - error: returns error if path is invalid or has security risks; otherwise returns nil
 func ValidateConfigPath(path string, allowedDirs []string) (string, error) {
 	if path == "" {
-		return "", fmt.Errorf("配置文件路径不能为空")
+		return "", fmt.Errorf("configuration file path cannot be empty")
 	}
 
-	// 转换为绝对路径
+	// Convert to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return "", fmt.Errorf("无法解析配置文件路径: %w", err)
+		return "", fmt.Errorf("unable to parse configuration file path: %w", err)
 	}
 
-	// 检查是否包含路径遍历
+	// Check if contains path traversal
 	if strings.Contains(absPath, "..") {
-		return "", fmt.Errorf("配置文件路径不能包含路径遍历字符 (..)")
+		return "", fmt.Errorf("configuration file path cannot contain path traversal characters (..)")
 	}
 
-	// 如果指定了允许的目录，检查路径是否在允许的目录下
+	// If allowed directories are specified, check if path is under allowed directories
 	if len(allowedDirs) > 0 {
 		allowed := false
 		for _, allowedDir := range allowedDirs {
@@ -133,7 +133,7 @@ func ValidateConfigPath(path string, allowedDirs []string) (string, error) {
 			}
 		}
 		if !allowed {
-			return "", fmt.Errorf("配置文件必须在允许的目录下: %v", allowedDirs)
+			return "", fmt.Errorf("configuration file must be under allowed directories: %v", allowedDirs)
 		}
 	}
 

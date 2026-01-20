@@ -1,68 +1,68 @@
-// Package cache 提供了用户数据的缓存功能。
-// 支持内存缓存和 Redis 缓存两种实现，以及基于 Redis 的分布式锁。
+// Package cache provides user data caching functionality.
+// Supports both in-memory cache and Redis cache implementations, as well as Redis-based distributed locks.
 package cache
 
 import (
 	"sync"
 )
 
-// LocalLocker 提供本地锁功能，兼容 gocron.Locker 接口
-// 适用于单机部署场景，不支持分布式环境
+// LocalLocker provides local lock functionality, compatible with gocron.Locker interface
+// Suitable for single-machine deployment scenarios, does not support distributed environments
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type LocalLocker struct {
 	mu    sync.Mutex
 	locks map[string]bool
 }
 
-// NewLocalLocker 创建新的本地锁实例
+// NewLocalLocker creates a new local lock instance
 func NewLocalLocker() *LocalLocker {
 	return &LocalLocker{
 		locks: make(map[string]bool),
 	}
 }
 
-// Lock 获取本地锁，兼容 gocron.Locker 接口
+// Lock acquires local lock, compatible with gocron.Locker interface
 //
-// 该函数实现了基于 sync.Mutex 的本地锁，适用于单机部署场景。
-// 在分布式环境下，多个实例之间无法协调，可能导致重复执行。
+// This function implements sync.Mutex-based local lock, suitable for single-machine deployment scenarios.
+// In distributed environments, multiple instances cannot coordinate, may lead to duplicate execution.
 //
-// 参数:
-//   - key: 锁的键名，用于标识不同的锁
+// Parameters:
+//   - key: lock key name, used to identify different locks
 //
-// 返回:
-//   - success: true 表示成功获取锁，false 表示锁已被持有
-//   - err: 获取锁时发生的错误（本地锁不会返回错误）
+// Returns:
+//   - success: true means successfully acquired lock, false means lock is already held
+//   - err: error occurred when acquiring lock (local lock will not return error)
 //
-// 注意:
-//   - 本地锁仅适用于单机部署，多实例时无法防止重复执行
-//   - 锁在进程退出时会自动释放
+// Notes:
+//   - Local lock only suitable for single-machine deployment, cannot prevent duplicate execution in multi-instance scenarios
+//   - Lock will be automatically released when process exits
 func (l *LocalLocker) Lock(key string) (success bool, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// 如果锁已被持有，返回 false
+	// If lock is already held, return false
 	if l.locks[key] {
 		return false, nil
 	}
 
-	// 获取锁
+	// Acquire lock
 	l.locks[key] = true
 	return true, nil
 }
 
-// Unlock 释放本地锁，兼容 gocron.Locker 接口
+// Unlock releases local lock, compatible with gocron.Locker interface
 //
-// 参数:
-//   - key: 锁的键名，必须与 Lock 时使用的键名一致
+// Parameters:
+//   - key: lock key name, must match the key name used in Lock
 //
-// 返回:
-//   - error: 释放锁时发生的错误（本地锁不会返回错误）
+// Returns:
+//   - error: error occurred when releasing lock (local lock will not return error)
 func (l *LocalLocker) Unlock(key string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// 释放锁
+	// Release lock
 	delete(l.locks, key)
 	return nil
 }

@@ -1,36 +1,36 @@
-// Package parser 提供了数据解析功能。
-// 支持从本地文件和远程 API 解析用户数据，并提供多种数据合并策略。
+// Package parser provides data parsing functionality.
+// Supports parsing user data from local files and remote APIs, and provides multiple data merging strategies.
 package parser
 
 import (
-	// 标准库
+	// Standard library
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 )
 
-// FromFile 从本地文件读取用户规则列表。
+// FromFile reads user rules list from local file.
 //
-// 该函数从指定的 JSON 文件中读取用户数据，支持以下特性：
-// - 自动处理文件不存在的情况（返回空列表）
-// - 自动处理文件读取错误（记录警告日志）
-// - 自动处理 JSON 解析错误（记录警告日志）
+// This function reads user data from specified JSON file with the following features:
+// - Automatically handles file not found (returns empty list)
+// - Automatically handles file read errors (logs warning)
+// - Automatically handles JSON parsing errors (logs warning)
 //
-// 参数:
-//   - rulesFile: 规则文件的路径，应为有效的 JSON 文件路径
+// Parameters:
+//   - rulesFile: path to rules file, should be a valid JSON file path
 //
-// 返回:
-//   - []define.AllowListUser: 解析后的用户列表，如果文件不存在或解析失败则返回空列表
+// Returns:
+//   - []define.AllowListUser: parsed user list, returns empty list if file does not exist or parsing fails
 //
-// 副作用:
-//   - 会记录警告和错误日志
-//   - 如果文件存在但读取失败，会记录错误日志
-//   - 如果 JSON 解析失败，会记录警告日志
+// Side effects:
+//   - Records warning and error logs
+//   - If file exists but read fails, records error log
+//   - If JSON parsing fails, records warning log
 func FromFile(rulesFile string) (rules []define.AllowListUser) {
 	if _, err := os.Stat(rulesFile); errors.Is(err, os.ErrNotExist) {
 		log.Warn().
@@ -39,7 +39,7 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 		return rules
 	}
 
-	// #nosec G304 -- rulesFile 来自配置文件，已通过验证
+	// #nosec G304 -- rulesFile comes from configuration file, already validated
 	file, err := os.Open(rulesFile)
 	if err != nil {
 		log.Error().
@@ -53,11 +53,11 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 			log.Error().
 				Err(closeErr).
 				Str("file", rulesFile).
-				Msg("关闭文件失败")
+				Msg("Failed to close file")
 		}
 	}()
 
-	// 限制文件读取大小，防止内存耗尽攻击
+	// Limit file read size to prevent memory exhaustion attacks
 	raw, err := io.ReadAll(io.LimitReader(file, define.MAX_JSON_SIZE))
 	if err != nil {
 		log.Warn().
@@ -76,7 +76,7 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 		return rules
 	}
 
-	// 规范化所有用户数据（设置默认值，生成 user_id）
+	// Normalize all user data (set default values, generate user_id)
 	for i := range rules {
 		rules[i].Normalize()
 	}

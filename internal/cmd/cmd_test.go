@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetArgs_DefaultValues(t *testing.T) {
-	// 保存原始状态
+	// Save original state
 	oldArgs := os.Args
 	oldEnv := map[string]string{
 		"PORT":     os.Getenv("PORT"),
@@ -36,7 +36,7 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 		}
 	}()
 
-	// 清理环境变量
+	// Clear environment variables
 	if err := os.Unsetenv("PORT"); err != nil {
 		t.Logf("清理环境变量失败: PORT")
 	}
@@ -69,7 +69,7 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 }
 
 func TestGetArgs_WithCommandLineArgs(t *testing.T) {
-	// 保存原始状态
+	// Save original state
 	oldArgs := os.Args
 	oldEnv := map[string]string{
 		"PORT":     os.Getenv("PORT"),
@@ -95,14 +95,14 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 		}
 	}()
 
-	// 清理环境变量
+	// Clear environment variables
 	for k := range oldEnv {
 		if err := os.Unsetenv(k); err != nil {
 			t.Logf("清理环境变量失败: %s", k)
 		}
 	}
 
-	// 设置命令行参数
+	// Set command-line arguments
 	os.Args = []string{"test", "--port", "9090", "--redis", "127.0.0.1:6380", "--config", "http://example.com/config", "--key", "test-key", "--mode", "ONLY_LOCAL", "--interval", "10"}
 
 	cfg := GetArgs()
@@ -116,7 +116,7 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 }
 
 func TestGetArgs_WithEnvVars(t *testing.T) {
-	// 保存原始状态
+	// Save original state
 	oldArgs := os.Args
 	oldEnv := map[string]string{
 		"PORT":     os.Getenv("PORT"),
@@ -142,14 +142,14 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 		}
 	}()
 
-	// 清理环境变量
+	// Clear environment variables
 	for k := range oldEnv {
 		if err := os.Unsetenv(k); err != nil {
 			t.Logf("清理环境变量失败: %s", k)
 		}
 	}
 
-	// 设置环境变量
+	// Set environment variables
 	if err := os.Setenv("PORT", "8888"); err != nil {
 		t.Fatalf("设置环境变量失败: PORT")
 	}

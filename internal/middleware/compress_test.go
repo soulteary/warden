@@ -17,7 +17,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestCompressMiddleware_NoGzipSupport 测试客户端不支持 gzip
+// TestCompressMiddleware_NoGzipSupport tests client without gzip support
 func TestCompressMiddleware_NoGzipSupport(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -26,17 +26,17 @@ func TestCompressMiddleware_NoGzipSupport(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
-	// 不设置 Accept-Encoding
+	// Don't set Accept-Encoding
 	w := httptest.NewRecorder()
 
 	middleware.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Empty(t, w.Header().Get("Content-Encoding"), "不支持 gzip 时不应该设置 Content-Encoding")
-	assert.Equal(t, "test response", w.Body.String(), "响应体应该未压缩")
+	assert.Empty(t, w.Header().Get("Content-Encoding"), "Should not set Content-Encoding when gzip is not supported")
+	assert.Equal(t, "test response", w.Body.String(), "Response body should be uncompressed")
 }
 
-// TestCompressMiddleware_WithGzipSupport 测试客户端支持 gzip
+// TestCompressMiddleware_WithGzipSupport tests client with gzip support
 func TestCompressMiddleware_WithGzipSupport(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -51,27 +51,27 @@ func TestCompressMiddleware_WithGzipSupport(t *testing.T) {
 	middleware.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"), "应该设置 Content-Encoding: gzip")
-	assert.Equal(t, "Accept-Encoding", w.Header().Get("Vary"), "应该设置 Vary: Accept-Encoding")
+	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"), "Should set Content-Encoding: gzip")
+	assert.Equal(t, "Accept-Encoding", w.Header().Get("Vary"), "Should set Vary: Accept-Encoding")
 
-	// 验证响应是压缩的
+	// Verify response is compressed
 	body := w.Body.Bytes()
 	if len(body) > 0 {
-		// 检查是否是 gzip 格式（gzip 文件以 1f 8b 开头）
+		// Check if it's gzip format (gzip files start with 1f 8b)
 		if len(body) >= 2 && body[0] == 0x1f && body[1] == 0x8b {
-			// 尝试解压
+			// Try to decompress
 			reader, err := gzip.NewReader(strings.NewReader(string(body)))
 			if err == nil {
 				decompressed, err := io.ReadAll(reader)
-				assert.NoError(t, err, "应该能够解压响应")
-				assert.Equal(t, "test response", string(decompressed), "解压后的内容应该正确")
+				assert.NoError(t, err, "Should be able to decompress response")
+				assert.Equal(t, "test response", string(decompressed), "Decompressed content should be correct")
 				require.NoError(t, reader.Close())
 			}
 		}
 	}
 }
 
-// TestCompressMiddleware_MultipleEncodings 测试多个编码格式
+// TestCompressMiddleware_MultipleEncodings tests multiple encoding formats
 func TestCompressMiddleware_MultipleEncodings(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -86,10 +86,10 @@ func TestCompressMiddleware_MultipleEncodings(t *testing.T) {
 	middleware.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"), "应该使用 gzip 压缩")
+	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"), "Should use gzip compression")
 }
 
-// TestCompressMiddleware_EmptyResponse 测试空响应
+// TestCompressMiddleware_EmptyResponse tests empty response
 func TestCompressMiddleware_EmptyResponse(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -104,7 +104,7 @@ func TestCompressMiddleware_EmptyResponse(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-// TestCompressMiddleware_LargeResponse 测试大响应
+// TestCompressMiddleware_LargeResponse tests large response
 func TestCompressMiddleware_LargeResponse(t *testing.T) {
 	largeData := strings.Repeat("test data ", 1000)
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -120,15 +120,15 @@ func TestCompressMiddleware_LargeResponse(t *testing.T) {
 	middleware.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"), "应该使用 gzip 压缩")
+	assert.Equal(t, "gzip", w.Header().Get("Content-Encoding"), "Should use gzip compression")
 
-	// 验证压缩后的数据应该比原始数据小
+	// Verify compressed data should be smaller than original data
 	compressedSize := len(w.Body.Bytes())
 	originalSize := len(largeData)
-	assert.Less(t, compressedSize, originalSize, "压缩后的数据应该比原始数据小")
+	assert.Less(t, compressedSize, originalSize, "Compressed data should be smaller than original data")
 }
 
-// TestCompressMiddleware_ConcurrentRequests 测试并发请求
+// TestCompressMiddleware_ConcurrentRequests tests concurrent requests
 func TestCompressMiddleware_ConcurrentRequests(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -151,13 +151,13 @@ func TestCompressMiddleware_ConcurrentRequests(t *testing.T) {
 		}()
 	}
 
-	// 等待所有请求完成
+	// Wait for all requests to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 }
 
-// TestCompressMiddleware_GzipWriterPool 测试 gzip writer 池
+// TestCompressMiddleware_GzipWriterPool tests gzip writer pool
 func TestCompressMiddleware_GzipWriterPool(t *testing.T) {
 	middleware := CompressMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -165,7 +165,7 @@ func TestCompressMiddleware_GzipWriterPool(t *testing.T) {
 		require.NoError(t, err)
 	}))
 
-	// 多次请求应该复用 writer
+	// Multiple requests should reuse writer
 	for i := 0; i < 5; i++ {
 		req := httptest.NewRequest("GET", "/", http.NoBody)
 		req.Header.Set("Accept-Encoding", "gzip")

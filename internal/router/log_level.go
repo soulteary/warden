@@ -1,29 +1,29 @@
-// Package router 提供了 HTTP 路由处理功能。
-// 包括请求日志记录、JSON 响应、健康检查等路由处理器。
+// Package router provides HTTP routing functionality.
+// Includes request logging, JSON responses, health checks and other route handlers.
 package router
 
 import (
-	// 标准库
+	// Standard library
 	"encoding/json"
 	"net/http"
 	"strings"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/logger"
 )
 
-// LogLevelHandler 处理日志级别调整的 HTTP 端点
-// 支持 GET（查询当前级别）和 POST（设置新级别）
+// LogLevelHandler handles HTTP endpoint for log level adjustment
+// Supports GET (query current level) and POST (set new level)
 func LogLevelHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch r.Method {
 		case http.MethodGet:
-			// 获取当前日志级别
+			// Get current log level
 			currentLevel := zerolog.GlobalLevel()
 			response := map[string]interface{}{
 				"level": currentLevel.String(),
@@ -31,11 +31,11 @@ func LogLevelHandler() http.HandlerFunc {
 			w.WriteHeader(http.StatusOK)
 			if err := json.NewEncoder(w).Encode(response); err != nil {
 				log := logger.GetLogger()
-				log.Error().Err(err).Msg("编码日志级别响应失败")
+				log.Error().Err(err).Msg("Failed to encode log level response")
 			}
 
 		case http.MethodPost:
-			// 设置新的日志级别（需要认证）
+			// Set new log level (requires authentication)
 			var request struct {
 				Level string `json:"level"`
 			}
@@ -45,20 +45,20 @@ func LogLevelHandler() http.HandlerFunc {
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
-					"error": "无效的请求体",
+					"error": "Invalid request body",
 				}); err != nil {
-					log.Error().Err(err).Msg("编码错误响应失败")
+					log.Error().Err(err).Msg("Failed to encode error response")
 				}
 				return
 			}
 
-			// 验证 level 字段不为空
+			// Validate level field is not empty
 			if strings.TrimSpace(request.Level) == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
-					"error": "日志级别不能为空",
+					"error": "Log level cannot be empty",
 				}); err != nil {
-					log.Error().Err(err).Msg("编码错误响应失败")
+					log.Error().Err(err).Msg("Failed to encode error response")
 				}
 				return
 			}
@@ -67,41 +67,41 @@ func LogLevelHandler() http.HandlerFunc {
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
-					"error": "无效的日志级别，支持: trace, debug, info, warn, error, fatal, panic",
+					"error": "Invalid log level, supported: trace, debug, info, warn, error, fatal, panic",
 				}); err != nil {
-					log.Error().Err(err).Msg("编码错误响应失败")
+					log.Error().Err(err).Msg("Failed to encode error response")
 				}
 				return
 			}
 
-			// 记录日志级别修改操作（安全审计）
+			// Record log level modification operation (security audit)
 			oldLevel := zerolog.GlobalLevel()
 			logger.SetLevel(level)
 
-			// 记录安全事件：日志级别被修改
+			// Record security event: log level was modified
 			log.Info().
 				Str("old_level", oldLevel.String()).
 				Str("new_level", level.String()).
 				Str("remote_addr", r.RemoteAddr).
 				Str("user_agent", r.UserAgent()).
-				Msg("日志级别已修改（安全审计）")
+				Msg("Log level modified (security audit)")
 
 			response := map[string]interface{}{
-				"message": "日志级别已更新",
+				"message": "Log level updated",
 				"level":   level.String(),
 			}
 			w.WriteHeader(http.StatusOK)
 			if err := json.NewEncoder(w).Encode(response); err != nil {
-				log.Error().Err(err).Msg("编码日志级别响应失败")
+				log.Error().Err(err).Msg("Failed to encode log level response")
 			}
 
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			if err := json.NewEncoder(w).Encode(map[string]string{
-				"error": "不支持的方法，请使用 GET 或 POST",
+				"error": "Method not allowed, please use GET or POST",
 			}); err != nil {
 				log := logger.GetLogger()
-				log.Error().Err(err).Msg("编码错误响应失败")
+				log.Error().Err(err).Msg("Failed to encode error response")
 			}
 		}
 	}

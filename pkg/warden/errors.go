@@ -4,11 +4,11 @@ import "fmt"
 
 // Error represents an error that occurred in the SDK.
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Error struct {
-	Code    string // 错误代码
-	Message string // 错误消息
-	Err     error  // 原始错误（如果有）
+	Code    string // Error code
+	Message string // Error message
+	Err     error  // Original error (if any)
 }
 
 func (e *Error) Error() string {
@@ -22,7 +22,7 @@ func (e *Error) Unwrap() error {
 	return e.Err
 }
 
-// 预定义的错误代码
+// Predefined error codes
 const (
 	ErrCodeInvalidConfig   = "INVALID_CONFIG"
 	ErrCodeRequestFailed   = "REQUEST_FAILED"

@@ -11,7 +11,7 @@ import (
 )
 
 func TestProcessWithLogger(t *testing.T) {
-	// 创建测试处理器
+	// Create test handler
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -21,33 +21,33 @@ func TestProcessWithLogger(t *testing.T) {
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	// 创建测试请求
+	// Create test request
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
-	// 执行处理器
+	// Execute handler
 	wrappedHandler.ServeHTTP(w, req)
 
-	// 验证响应
+	// Verify response
 	assert.Equal(t, http.StatusOK, w.Code, "状态码应该是200")
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type应该是application/json")
 }
 
 func TestProcessWithLogger_LoggingMiddleware(t *testing.T) {
-	// 测试日志中间件是否正确包装
+	// Test if logging middleware is correctly wrapped
 	testData := []define.AllowListUser{}
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	// 验证返回的是http.Handler类型
+	// Verify returned type is http.Handler
 	assert.NotNil(t, wrappedHandler, "包装后的处理器不应该为nil")
 	assert.Implements(t, (*http.Handler)(nil), wrappedHandler, "应该实现http.Handler接口")
 }
 
 func TestProcessWithLogger_RequestID(t *testing.T) {
-	// 测试Request-ID头
+	// Test Request-ID header
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -67,7 +67,7 @@ func TestProcessWithLogger_RequestID(t *testing.T) {
 }
 
 func TestProcessWithLogger_UserAgent(t *testing.T) {
-	// 测试User-Agent头
+	// Test User-Agent header
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -87,7 +87,7 @@ func TestProcessWithLogger_UserAgent(t *testing.T) {
 }
 
 func TestProcessWithLogger_Referer(t *testing.T) {
-	// 测试Referer头
+	// Test Referer header
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -107,7 +107,7 @@ func TestProcessWithLogger_Referer(t *testing.T) {
 }
 
 func TestProcessWithLogger_RemoteAddr(t *testing.T) {
-	// 测试RemoteAddr
+	// Test RemoteAddr
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -127,7 +127,7 @@ func TestProcessWithLogger_RemoteAddr(t *testing.T) {
 }
 
 func TestProcessWithLogger_DifferentMethods(t *testing.T) {
-	// 测试不同的HTTP方法
+	// Test different HTTP methods
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -137,7 +137,7 @@ func TestProcessWithLogger_DifferentMethods(t *testing.T) {
 	handler := JSON(userCache)
 	wrappedHandler := ProcessWithLogger(handler)
 
-	// 测试允许的方法（GET）
+	// Test allowed method (GET)
 	t.Run("GET", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", http.NoBody)
 		w := httptest.NewRecorder()
@@ -147,7 +147,7 @@ func TestProcessWithLogger_DifferentMethods(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, "GET方法应该返回200")
 	})
 
-	// 测试不允许的方法（应该返回405）
+	// Test disallowed methods (should return 405)
 	disallowedMethods := []string{"POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	for _, method := range disallowedMethods {
 		t.Run(method, func(t *testing.T) {
@@ -156,14 +156,14 @@ func TestProcessWithLogger_DifferentMethods(t *testing.T) {
 
 			wrappedHandler.ServeHTTP(w, req)
 
-			// 不允许的方法应该返回405 Method Not Allowed
+			// Disallowed methods should return 405 Method Not Allowed
 			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "方法%s应该返回405", method)
 		})
 	}
 }
 
 func TestProcessWithLogger_Concurrent(t *testing.T) {
-	// 测试并发安全性
+	// Test concurrency safety
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -184,11 +184,11 @@ func TestProcessWithLogger_Concurrent(t *testing.T) {
 		}()
 	}
 
-	// 等待所有请求完成
+	// Wait for all requests to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
-	// 如果没有panic，测试通过
+	// Test passes if no panic occurs
 	assert.True(t, true, "并发请求应该安全")
 }

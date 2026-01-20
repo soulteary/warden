@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/i18n"
 )
 
@@ -19,9 +19,9 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestErrorHandlerMiddleware_ProductionMode 测试生产模式下的错误处理
+// TestErrorHandlerMiddleware_ProductionMode tests error handling in production mode
 func TestErrorHandlerMiddleware_ProductionMode(t *testing.T) {
-	// 保存原始环境变量
+	// Save original environment variable
 	originalMode := os.Getenv("MODE")
 	defer func() {
 		require.NoError(t, os.Setenv("MODE", originalMode))
@@ -47,18 +47,18 @@ func TestErrorHandlerMiddleware_ProductionMode(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	// 验证响应被替换为通用错误消息
+	// Verify response is replaced with generic error message
 	var resp ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
-	// 注意：由于没有设置语言上下文，会使用默认语言（英语）
-	// 但为了保持测试的兼容性，我们检查消息不为空即可
-	assert.NotEmpty(t, resp.Error, "生产环境应该返回通用错误消息")
-	assert.Empty(t, resp.Message, "生产环境不应该返回详细消息")
-	assert.Empty(t, resp.Code, "生产环境不应该返回错误代码")
+	// Note: Since no language context is set, default language (English) will be used
+	// But for test compatibility, we just check that message is not empty
+	assert.NotEmpty(t, resp.Error, "Production environment should return generic error message")
+	assert.Empty(t, resp.Message, "Production environment should not return detailed message")
+	assert.Empty(t, resp.Code, "Production environment should not return error code")
 }
 
-// TestErrorHandlerMiddleware_DevelopmentMode 测试开发模式下的错误处理
+// TestErrorHandlerMiddleware_DevelopmentMode tests error handling in development mode
 func TestErrorHandlerMiddleware_DevelopmentMode(t *testing.T) {
 	middleware := ErrorHandlerMiddleware("development")
 
@@ -78,15 +78,15 @@ func TestErrorHandlerMiddleware_DevelopmentMode(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 验证响应保持原样（开发环境）
+	// Verify response remains unchanged (development environment)
 	var resp ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
-	// 注意：在开发模式下，错误响应应该保持原样
-	// 但根据代码实现，ErrorHandlerMiddleware 在生产环境才会隐藏详细信息
+	// Note: In development mode, error response should remain unchanged
+	// But according to code implementation, ErrorHandlerMiddleware only hides detailed information in production environment
 }
 
-// TestErrorHandlerMiddleware_NonErrorStatus 测试非错误状态码
+// TestErrorHandlerMiddleware_NonErrorStatus tests non-error status codes
 func TestErrorHandlerMiddleware_NonErrorStatus(t *testing.T) {
 	middleware := ErrorHandlerMiddleware("production")
 
@@ -102,10 +102,10 @@ func TestErrorHandlerMiddleware_NonErrorStatus(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "success", w.Body.String(), "非错误状态码不应该被修改")
+	assert.Equal(t, "success", w.Body.String(), "Non-error status codes should not be modified")
 }
 
-// TestErrorHandlerMiddleware_NonJSONError 测试非 JSON 格式的错误响应
+// TestErrorHandlerMiddleware_NonJSONError tests non-JSON format error responses
 func TestErrorHandlerMiddleware_NonJSONError(t *testing.T) {
 	middleware := ErrorHandlerMiddleware("production")
 
@@ -122,18 +122,18 @@ func TestErrorHandlerMiddleware_NonJSONError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	// 验证响应被替换为通用错误消息
+	// Verify response is replaced with generic error message
 	var resp ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
-	// 注意：由于没有设置语言上下文，会使用默认语言（英语）
-	// 但为了保持测试的兼容性，我们检查消息不为空即可
-	assert.NotEmpty(t, resp.Error, "应该返回通用错误消息")
+	// Note: Since no language context is set, default language (English) will be used
+	// But for test compatibility, we just check that message is not empty
+	assert.NotEmpty(t, resp.Error, "Should return generic error message")
 }
 
-// TestGetGenericErrorMessage 测试通用错误消息生成
+// TestGetGenericErrorMessage tests generic error message generation
 func TestGetGenericErrorMessage(t *testing.T) {
-	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
+	//nolint:govet // fieldalignment: test struct field order does not affect functionality
 	tests := []struct {
 		statusCode int
 		expected   string
@@ -147,8 +147,8 @@ func TestGetGenericErrorMessage(t *testing.T) {
 		{http.StatusInternalServerError, "内部服务器错误，请稍后重试", i18n.LangZH},
 		{http.StatusBadGateway, "内部服务器错误，请稍后重试", i18n.LangZH},
 		{http.StatusServiceUnavailable, "内部服务器错误，请稍后重试", i18n.LangZH},
-		{http.StatusTeapot, "请求处理失败", i18n.LangZH}, // 默认情况
-		// 测试英语
+		{http.StatusTeapot, "请求处理失败", i18n.LangZH}, // Default case
+		// Test English
 		{http.StatusBadRequest, "Invalid request parameters", i18n.LangEN},
 		{http.StatusUnauthorized, "Unauthorized access", i18n.LangEN},
 		{http.StatusNotFound, "Requested resource does not exist", i18n.LangEN},
@@ -157,15 +157,15 @@ func TestGetGenericErrorMessage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(http.StatusText(tt.statusCode), func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/", http.NoBody)
-			// 设置语言到请求上下文
+			// Set language in request context
 			req = i18n.SetLanguageInContext(req, tt.lang)
 			msg := getGenericErrorMessage(req, tt.statusCode)
-			assert.Equal(t, tt.expected, msg, "错误消息应该匹配")
+			assert.Equal(t, tt.expected, msg, "Error message should match")
 		})
 	}
 }
 
-// TestSafeError_ProductionMode 测试 SafeError 函数（生产模式）
+// TestSafeError_ProductionMode tests SafeError function (production mode)
 func TestSafeError_ProductionMode(t *testing.T) {
 	originalMode := os.Getenv("MODE")
 	defer func() {
@@ -184,13 +184,13 @@ func TestSafeError_ProductionMode(t *testing.T) {
 	var resp ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
-	// 注意：由于没有设置语言上下文，会使用默认语言（英语）
-	// 但为了保持测试的兼容性，我们检查消息不为空即可
-	assert.NotEmpty(t, resp.Error, "生产环境应该返回通用错误消息")
-	assert.Empty(t, resp.Message, "生产环境不应该返回详细消息")
+	// Note: Since no language context is set, default language (English) will be used
+	// But for test compatibility, we just check that message is not empty
+	assert.NotEmpty(t, resp.Error, "Production environment should return generic error message")
+	assert.Empty(t, resp.Message, "Production environment should not return detailed message")
 }
 
-// TestSafeError_DevelopmentMode 测试 SafeError 函数（开发模式）
+// TestSafeError_DevelopmentMode tests SafeError function (development mode)
 func TestSafeError_DevelopmentMode(t *testing.T) {
 	originalMode := os.Getenv("MODE")
 	defer func() {
@@ -209,13 +209,13 @@ func TestSafeError_DevelopmentMode(t *testing.T) {
 	var resp ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
-	// 注意：由于没有设置语言上下文，会使用默认语言（英语）
-	// 但为了保持测试的兼容性，我们检查消息不为空即可
-	assert.NotEmpty(t, resp.Error, "应该返回通用错误消息")
-	assert.Equal(t, "detailed error message", resp.Message, "开发环境应该返回详细消息")
+	// Note: Since no language context is set, default language (English) will be used
+	// But for test compatibility, we just check that message is not empty
+	assert.NotEmpty(t, resp.Error, "Should return generic error message")
+	assert.Equal(t, "detailed error message", resp.Message, "Development environment should return detailed message")
 }
 
-// TestSafeError_WithError 测试 SafeError 函数（带 error）
+// TestSafeError_WithError tests SafeError function (with error)
 func TestSafeError_WithError(t *testing.T) {
 	originalMode := os.Getenv("MODE")
 	defer func() {
@@ -235,9 +235,9 @@ func TestSafeError_WithError(t *testing.T) {
 	var resp ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&resp)
 	assert.NoError(t, err)
-	// 注意：由于没有设置语言上下文，会使用默认语言（英语）
-	// 但为了保持测试的兼容性，我们检查消息不为空即可
-	assert.NotEmpty(t, resp.Error, "应该返回通用错误消息")
-	// 在开发模式下，如果有 error，Message 应该是 error.Error()
-	assert.NotEmpty(t, resp.Message, "开发环境应该返回错误消息")
+	// Note: Since no language context is set, default language (English) will be used
+	// But for test compatibility, we just check that message is not empty
+	assert.NotEmpty(t, resp.Error, "Should return generic error message")
+	// In development mode, if there is an error, Message should be error.Error()
+	assert.NotEmpty(t, resp.Message, "Development environment should return error message")
 }

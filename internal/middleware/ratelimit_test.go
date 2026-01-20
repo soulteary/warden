@@ -15,13 +15,13 @@ func TestRateLimiter_Allow(t *testing.T) {
 
 	ip := "127.0.0.1"
 
-	// 前3个请求应该被允许
+	// First 3 requests should be allowed
 	for i := 0; i < 3; i++ {
-		assert.True(t, rl.Allow(ip), "前3个请求应该被允许")
+		assert.True(t, rl.Allow(ip), "First 3 requests should be allowed")
 	}
 
-	// 第4个请求应该被拒绝
-	assert.False(t, rl.Allow(ip), "超过限制的请求应该被拒绝")
+	// 4th request should be rejected
+	assert.False(t, rl.Allow(ip), "Requests exceeding limit should be rejected")
 }
 
 func TestRateLimiter_ResetAfterWindow(t *testing.T) {
@@ -30,16 +30,16 @@ func TestRateLimiter_ResetAfterWindow(t *testing.T) {
 
 	ip := "127.0.0.1"
 
-	// 使用所有配额
+	// Use all quota
 	assert.True(t, rl.Allow(ip))
 	assert.True(t, rl.Allow(ip))
-	assert.False(t, rl.Allow(ip), "应该超过限制")
+	assert.False(t, rl.Allow(ip), "Should exceed limit")
 
-	// 等待时间窗口过去
+	// Wait for time window to pass
 	time.Sleep(150 * time.Millisecond)
 
-	// 应该可以再次请求
-	assert.True(t, rl.Allow(ip), "时间窗口后应该可以再次请求")
+	// Should be able to request again
+	assert.True(t, rl.Allow(ip), "Should be able to request again after time window")
 }
 
 func TestRateLimitMiddleware(t *testing.T) {
@@ -52,33 +52,33 @@ func TestRateLimitMiddleware(t *testing.T) {
 	middleware := RateLimitMiddlewareWithLimiter(rl)
 	wrappedHandler := middleware(handler)
 
-	// 前2个请求应该成功
+	// First 2 requests should succeed
 	for i := 0; i < 2; i++ {
 		req := httptest.NewRequest("GET", "/", http.NoBody)
 		req.RemoteAddr = "127.0.0.1:12345"
 		rr := httptest.NewRecorder()
 		wrappedHandler.ServeHTTP(rr, req)
-		assert.Equal(t, http.StatusOK, rr.Code, "前2个请求应该成功")
+		assert.Equal(t, http.StatusOK, rr.Code, "First 2 requests should succeed")
 	}
 
-	// 第3个请求应该被限制
+	// 3rd request should be rate limited
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.RemoteAddr = "127.0.0.1:12345"
 	rr := httptest.NewRecorder()
 	wrappedHandler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusTooManyRequests, rr.Code, "超过限制的请求应该返回 429")
+	assert.Equal(t, http.StatusTooManyRequests, rr.Code, "Requests exceeding limit should return 429")
 }
 
 func TestRateLimiter_DifferentIPs(t *testing.T) {
 	rl := NewRateLimiter(2, 1*time.Second)
 	defer rl.Stop()
 
-	// 不同IP应该有独立的限制
+	// Different IPs should have independent limits
 	assert.True(t, rl.Allow("127.0.0.1"))
 	assert.True(t, rl.Allow("127.0.0.1"))
 	assert.False(t, rl.Allow("127.0.0.1"))
 
-	// 不同IP应该可以继续请求
+	// Different IPs should be able to continue requesting
 	assert.True(t, rl.Allow("192.168.1.1"))
 	assert.True(t, rl.Allow("192.168.1.1"))
 	assert.False(t, rl.Allow("192.168.1.1"))

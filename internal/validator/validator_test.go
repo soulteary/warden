@@ -6,36 +6,36 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestValidatePhone 测试手机号验证
+// TestValidatePhone tests phone number validation
 func TestValidatePhone(t *testing.T) {
 	tests := []struct {
 		name  string
 		phone string
 		want  bool
 	}{
-		// 中国大陆手机号
+		// Chinese mainland phone numbers
 		{name: "有效的中国手机号", phone: "13800138000", want: true},
 		{name: "有效的中国手机号（13开头）", phone: "13900139000", want: true},
 		{name: "有效的中国手机号（15开头）", phone: "15000150000", want: true},
 		{name: "有效的中国手机号（18开头）", phone: "18800188000", want: true},
-		{name: "无效的中国手机号（12开头）", phone: "12000120000", want: true},  // 可能匹配国际格式
-		{name: "无效的中国手机号（位数不足）", phone: "1380013800", want: true},   // 可能匹配国际格式
-		{name: "无效的中国手机号（位数过多）", phone: "138001380000", want: true}, // 可能匹配国际格式
+		{name: "无效的中国手机号（12开头）", phone: "12000120000", want: true},  // May match international format
+		{name: "无效的中国手机号（位数不足）", phone: "1380013800", want: true},   // May match international format
+		{name: "无效的中国手机号（位数过多）", phone: "138001380000", want: true}, // May match international format
 
-		// 美国手机号
+		// US phone numbers
 		{name: "有效的美国手机号", phone: "+12025551234", want: true},
 		{name: "有效的美国手机号（无+号）", phone: "12025551234", want: true},
 
-		// 英国手机号
+		// UK phone numbers
 		{name: "有效的英国手机号", phone: "+447911123456", want: true},
 		{name: "有效的英国手机号（无+号）", phone: "447911123456", want: true},
 
-		// 国际格式
+		// International format
 		{name: "有效的国际手机号", phone: "+8613800138000", want: true},
 		{name: "有效的国际手机号（无+号）", phone: "8613800138000", want: true},
 
-		// 边界情况
-		{name: "空字符串", phone: "", want: true}, // 允许为空
+		// Edge cases
+		{name: "空字符串", phone: "", want: true}, // Allow empty
 		{name: "只有空格", phone: "   ", want: false},
 		{name: "包含字母", phone: "138abc12345", want: false},
 		{name: "包含特殊字符", phone: "138-001-38000", want: false},
@@ -49,14 +49,14 @@ func TestValidatePhone(t *testing.T) {
 	}
 }
 
-// TestValidateEmail 测试邮箱验证
+// TestValidateEmail tests email validation
 func TestValidateEmail(t *testing.T) {
 	tests := []struct {
 		name  string
 		email string
 		want  bool
 	}{
-		// 有效邮箱
+		// Valid emails
 		{name: "有效的邮箱", email: "test@example.com", want: true},
 		{name: "有效的邮箱（带数字）", email: "test123@example.com", want: true},
 		{name: "有效的邮箱（带下划线）", email: "test_user@example.com", want: true},
@@ -65,7 +65,7 @@ func TestValidateEmail(t *testing.T) {
 		{name: "有效的邮箱（大写）", email: "TEST@EXAMPLE.COM", want: true},
 		{name: "有效的邮箱（子域名）", email: "test@mail.example.com", want: true},
 
-		// 无效邮箱
+		// Invalid emails
 		{name: "缺少@符号", email: "testexample.com", want: false},
 		{name: "多个@符号", email: "test@@example.com", want: false},
 		{name: "缺少域名", email: "test@", want: false},
@@ -79,8 +79,8 @@ func TestValidateEmail(t *testing.T) {
 		{name: "TLD太短", email: "test@example.c", want: false},
 		{name: "包含空格", email: "test user@example.com", want: false},
 
-		// 边界情况
-		{name: "空字符串", email: "", want: true}, // 允许为空
+		// Edge cases
+		{name: "空字符串", email: "", want: true}, // Allow empty
 		{name: "只有空格", email: "   ", want: false},
 	}
 
@@ -92,7 +92,7 @@ func TestValidateEmail(t *testing.T) {
 	}
 }
 
-// TestValidateUser 测试用户数据验证
+// TestValidateUser tests user data validation
 func TestValidateUser(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -158,7 +158,7 @@ func TestValidateUser(t *testing.T) {
 	}
 }
 
-// TestValidationError 测试 ValidationError 类型
+// TestValidationError tests ValidationError type
 func TestValidationError(t *testing.T) {
 	err := &ValidationError{
 		Field:   "phone",
@@ -170,7 +170,7 @@ func TestValidationError(t *testing.T) {
 	assert.Equal(t, "无效的手机号格式", err.Message, "Message 应该正确设置")
 }
 
-// TestValidatePhone_TrimSpace 测试手机号去除空格
+// TestValidatePhone_TrimSpace tests phone number space trimming
 func TestValidatePhone_TrimSpace(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -190,7 +190,7 @@ func TestValidatePhone_TrimSpace(t *testing.T) {
 	}
 }
 
-// TestValidateEmail_TrimSpace 测试邮箱去除空格
+// TestValidateEmail_TrimSpace tests email space trimming
 func TestValidateEmail_TrimSpace(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -210,9 +210,9 @@ func TestValidateEmail_TrimSpace(t *testing.T) {
 	}
 }
 
-// TestValidateEmail_CaseSensitivity 测试邮箱大小写处理
+// TestValidateEmail_CaseSensitivity tests email case sensitivity handling
 func TestValidateEmail_CaseSensitivity(t *testing.T) {
-	// 邮箱验证应该对大小写不敏感（根据实现）
+	// Email validation should be case-insensitive (according to implementation)
 	emails := []string{
 		"Test@Example.com",
 		"TEST@EXAMPLE.COM",
@@ -228,14 +228,14 @@ func TestValidateEmail_CaseSensitivity(t *testing.T) {
 	}
 }
 
-// TestValidateEmail_MoreEdgeCases 测试更多边界情况以提升覆盖率
+// TestValidateEmail_MoreEdgeCases tests more edge cases to improve coverage
 func TestValidateEmail_MoreEdgeCases(t *testing.T) {
 	tests := []struct {
 		name  string
 		email string
 		want  bool
 	}{
-		// 测试更多边界情况
+		// Test more edge cases
 		{
 			name:  "本地部分以点结尾",
 			email: "test.@example.com",

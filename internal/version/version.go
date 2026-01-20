@@ -1,12 +1,12 @@
-// Package version 提供了应用版本信息。
-// 包括版本号、构建时间和 Git 提交哈希。
+// Package version provides application version information.
+// Includes version number, build time and Git commit hash.
 package version
 
-// Version 应用版本号
+// Version application version number
 var Version = "dev"
 
-// Commit Git 提交哈希
+// Commit Git commit hash
 var Commit = "unknown"
 
-// BuildDate 构建时间
+// BuildDate build time
 var BuildDate = "unknown"

@@ -12,7 +12,7 @@ import (
 )
 
 func TestFromFile_ValidFile(t *testing.T) {
-	// 创建临时测试文件
+	// Create temporary test file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test-data.json")
 
@@ -21,13 +21,13 @@ func TestFromFile_ValidFile(t *testing.T) {
 		{Phone: "13800138001", Mail: "test2@example.com"},
 	}
 
-	// 写入测试数据
+	// Write test data
 	data, err := json.Marshal(testData)
 	require.NoError(t, err)
 	err = os.WriteFile(testFile, data, 0o600)
 	require.NoError(t, err)
 
-	// 测试读取
+	// Test reading
 	result := FromFile(testFile)
 
 	assert.Len(t, result, 2, "应该读取到2条记录")
@@ -45,7 +45,7 @@ func TestFromFile_NonExistentFile(t *testing.T) {
 }
 
 func TestFromFile_InvalidJSON(t *testing.T) {
-	// 创建包含无效JSON的临时文件
+	// Create temporary file containing invalid JSON
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "invalid.json")
 
@@ -53,16 +53,16 @@ func TestFromFile_InvalidJSON(t *testing.T) {
 	err := os.WriteFile(testFile, []byte(invalidJSON), 0o600)
 	require.NoError(t, err)
 
-	// 测试读取无效JSON
+	// Test reading invalid JSON
 	result := FromFile(testFile)
 
-	// 由于JSON无效，应该返回空切片（nil切片在Go中等于空切片）
-	// 根据实现，json.Unmarshal失败时会返回空切片
+	// Since JSON is invalid, should return empty slice (nil slice equals empty slice in Go)
+	// According to implementation, json.Unmarshal returns empty slice on failure
 	assert.Empty(t, result, "无效JSON应该返回空切片")
 }
 
 func TestFromFile_EmptyFile(t *testing.T) {
-	// 创建空文件
+	// Create empty file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.json")
 
@@ -71,12 +71,12 @@ func TestFromFile_EmptyFile(t *testing.T) {
 
 	result := FromFile(testFile)
 
-	// 空文件应该返回空切片
+	// Empty file should return empty slice
 	assert.Empty(t, result, "空文件应该返回空切片")
 }
 
 func TestFromFile_EmptyArray(t *testing.T) {
-	// 创建包含空数组的文件
+	// Create file containing empty array
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty-array.json")
 
@@ -90,7 +90,7 @@ func TestFromFile_EmptyArray(t *testing.T) {
 }
 
 func TestFromFile_MalformedData(t *testing.T) {
-	// 创建格式错误的数据文件
+	// Create malformed data file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "malformed.json")
 
@@ -100,12 +100,12 @@ func TestFromFile_MalformedData(t *testing.T) {
 
 	result := FromFile(testFile)
 
-	// 格式错误的数据应该返回空切片（因为JSON解析失败）
+	// Malformed data should return empty slice (because JSON parsing failed)
 	assert.Empty(t, result, "格式错误的数据应该返回空切片")
 }
 
 func TestFromFile_ValidSingleRecord(t *testing.T) {
-	// 测试单个记录
+	// Test single record
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "single.json")
 
@@ -126,11 +126,11 @@ func TestFromFile_ValidSingleRecord(t *testing.T) {
 }
 
 func TestFromFile_MissingFields(t *testing.T) {
-	// 测试缺少字段的记录
+	// Test records with missing fields
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "missing-fields.json")
 
-	// 只有phone，没有mail
+	// Only phone, no mail
 	partialData := `[{"phone": "13800138000"}]`
 	err := os.WriteFile(testFile, []byte(partialData), 0o600)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestFromFile_MissingFields(t *testing.T) {
 }
 
 func TestFromFile_Unicode(t *testing.T) {
-	// 测试Unicode字符
+	// Test Unicode characters
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "unicode.json")
 

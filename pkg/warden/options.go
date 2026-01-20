@@ -7,13 +7,13 @@ import (
 
 // Options contains configuration options for the Warden SDK client.
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Options struct {
-	BaseURL  string        // Warden 服务地址（必需）
-	APIKey   string        // API Key（可选）
-	Timeout  time.Duration // HTTP 请求超时（默认 10s）
-	CacheTTL time.Duration // 缓存 TTL（默认 5 分钟）
-	Logger   Logger        // 日志接口（可选，默认使用 NoOpLogger）
+	BaseURL  string        // Warden service address (required)
+	APIKey   string        // API Key (optional)
+	Timeout  time.Duration // HTTP request timeout (default 10s)
+	CacheTTL time.Duration // Cache TTL (default 5 minutes)
+	Logger   Logger        // Logger interface (optional, defaults to NoOpLogger)
 }
 
 // DefaultOptions returns default options with sensible defaults.

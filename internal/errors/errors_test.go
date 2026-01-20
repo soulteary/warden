@@ -1,4 +1,4 @@
-//nolint:revive // 包名与标准库冲突，但这是测试文件，保持包名一致性
+//nolint:revive // package name conflicts with standard library, but this is a test file, keep package name consistency
 package errors
 
 import (
@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAppError_Error 测试 AppError 的 Error 方法
+// TestAppError_Error tests AppError's Error method
 func TestAppError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -46,7 +46,7 @@ func TestAppError_Error(t *testing.T) {
 	}
 }
 
-// TestAppError_Unwrap 测试 AppError 的 Unwrap 方法
+// TestAppError_Unwrap tests AppError's Unwrap method
 func TestAppError_Unwrap(t *testing.T) {
 	underlyingErr := errors.New("底层错误")
 	appErr := &AppError{
@@ -58,7 +58,7 @@ func TestAppError_Unwrap(t *testing.T) {
 	unwrapped := appErr.Unwrap()
 	assert.Equal(t, underlyingErr, unwrapped, "Unwrap 应该返回底层错误")
 
-	// 测试没有底层错误的情况
+	// Test case without underlying error
 	appErrNoUnderlying := &AppError{
 		Code:    "TEST_ERR",
 		Message: "测试错误",
@@ -67,7 +67,7 @@ func TestAppError_Unwrap(t *testing.T) {
 	assert.Nil(t, appErrNoUnderlying.Unwrap(), "没有底层错误时应该返回 nil")
 }
 
-// TestAppError_WithError 测试 WithError 方法
+// TestAppError_WithError tests WithError method
 func TestAppError_WithError(t *testing.T) {
 	baseErr := ErrConfigLoad
 	underlyingErr := errors.New("文件读取失败")
@@ -80,7 +80,7 @@ func TestAppError_WithError(t *testing.T) {
 	assert.NotSame(t, baseErr, newErr, "应该返回新的错误实例")
 }
 
-// TestAppError_WithMessage 测试 WithMessage 方法
+// TestAppError_WithMessage tests WithMessage method
 func TestAppError_WithMessage(t *testing.T) {
 	baseErr := ErrConfigLoad
 	customMessage := "自定义错误消息"
@@ -93,7 +93,7 @@ func TestAppError_WithMessage(t *testing.T) {
 	assert.NotSame(t, baseErr, newErr, "应该返回新的错误实例")
 }
 
-// TestWrap 测试 Wrap 函数
+// TestWrap tests Wrap function
 func TestWrap(t *testing.T) {
 	underlyingErr := errors.New("底层错误")
 	code := "WRAP_TEST"
@@ -106,7 +106,7 @@ func TestWrap(t *testing.T) {
 	assert.Equal(t, underlyingErr, wrappedErr.Err, "底层错误应该正确设置")
 }
 
-// TestWrapf 测试 Wrapf 函数
+// TestWrapf tests Wrapf function
 func TestWrapf(t *testing.T) {
 	underlyingErr := errors.New("底层错误")
 	code := "WRAPF_TEST"
@@ -119,7 +119,7 @@ func TestWrapf(t *testing.T) {
 	assert.Equal(t, underlyingErr, wrappedErr.Err, "底层错误应该正确设置")
 }
 
-// TestPredefinedErrors 测试预定义的错误
+// TestPredefinedErrors tests predefined errors
 func TestPredefinedErrors(t *testing.T) {
 	predefinedErrs := []*AppError{
 		ErrRedisConnection,
@@ -147,41 +147,41 @@ func TestPredefinedErrors(t *testing.T) {
 	}
 }
 
-// TestAppError_ErrorChain 测试错误链
+// TestAppError_ErrorChain tests error chain
 func TestAppError_ErrorChain(t *testing.T) {
 	level1 := errors.New("level 1 error")
 	level2 := Wrap(level1, "LEVEL2", "level 2 error")
 	level3 := Wrap(level2, "LEVEL3", "level 3 error")
 
-	// 测试错误链
+	// Test error chain
 	assert.Equal(t, level2, level3.Unwrap(), "应该能够解包到 level 2")
 	assert.Equal(t, level1, level2.Unwrap(), "应该能够解包到 level 1")
 
-	// 使用标准库的 errors.Unwrap 测试
+	// Test using standard library's errors.Unwrap
 	unwrapped := errors.Unwrap(level3)
 	assert.Equal(t, level2, unwrapped, "标准库 Unwrap 应该工作")
 }
 
-// TestAppError_Is 测试错误比较（使用 errors.Is）
+// TestAppError_Is tests error comparison (using errors.Is)
 func TestAppError_Is(t *testing.T) {
-	// 创建相同的底层错误
+	// Create same underlying error
 	underlyingErr := errors.New("底层错误")
 	baseErr := ErrConfigLoad
 	wrappedErr := baseErr.WithError(underlyingErr)
 
-	// errors.Is 会遍历错误链，比较底层错误
-	// 注意：errors.Is 需要错误值相同（指针相同或值相同）
-	// 由于我们创建了新的错误实例，需要使用相同实例进行比较
+	// errors.Is will traverse error chain, comparing underlying errors
+	// Note: errors.Is requires error values to be the same (same pointer or same value)
+	// Since we created new error instances, need to use same instance for comparison
 	assert.True(t, errors.Is(wrappedErr, underlyingErr), "应该能够使用 errors.Is 比较底层错误")
 
-	// 测试不同的错误实例（值相同但实例不同）
-	// errors.Is 比较的是错误值，不是实例
-	// 对于 fmt.Errorf 或 errors.New 创建的错误，如果消息相同，errors.Is 可能返回 true
-	// 但这里我们测试的是能否找到底层错误
+	// Test different error instances (same value but different instances)
+	// errors.Is compares error values, not instances
+	// For errors created by fmt.Errorf or errors.New, if messages are the same, errors.Is may return true
+	// But here we test if underlying error can be found
 	assert.True(t, errors.Is(wrappedErr, underlyingErr), "应该能够找到相同的底层错误")
 }
 
-// TestAppError_As 测试错误类型断言（使用 errors.As）
+// TestAppError_As tests error type assertion (using errors.As)
 func TestAppError_As(t *testing.T) {
 	appErr := ErrConfigLoad.WithError(errors.New("底层错误"))
 
@@ -190,11 +190,11 @@ func TestAppError_As(t *testing.T) {
 	assert.Equal(t, appErr.Code, target.Code, "提取的错误应该相同")
 }
 
-// TestAppError_Chaining 测试错误链式调用
+// TestAppError_Chaining tests error chaining
 func TestAppError_Chaining(t *testing.T) {
 	underlyingErr := errors.New("原始错误")
 
-	// 链式调用
+	// Chaining calls
 	err := ErrConfigLoad.
 		WithError(underlyingErr).
 		WithMessage("配置加载失败")

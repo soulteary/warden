@@ -53,14 +53,14 @@ func TestNewDependencies_WithRedis(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	// 测试Redis连接失败的情况（应该返回错误）
+	// Test Redis connection failure scenario (should return error)
 	deps, err := NewDependencies(cfg)
-	// 如果Redis不可用，应该返回错误
+	// If Redis is unavailable, should return error
 	if err != nil {
 		assert.Error(t, err)
 		assert.Nil(t, deps)
 	} else {
-		// Redis可用的情况
+		// Redis available case
 		assert.NotNil(t, deps)
 		if deps != nil {
 			assert.NotNil(t, deps.RedisClient)
@@ -83,14 +83,14 @@ func TestNewDependencies_WithRedisPassword(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	// 测试Redis连接失败的情况（应该返回错误）
+	// Test Redis connection failure scenario (should return error)
 	deps, err := NewDependencies(cfg)
-	// 如果Redis不可用，应该返回错误
+	// If Redis is unavailable, should return error
 	if err != nil {
 		assert.Error(t, err)
 		assert.Nil(t, deps)
 	} else {
-		// Redis可用的情况
+		// Redis available case
 		assert.NotNil(t, deps)
 		if deps != nil {
 			assert.NotNil(t, deps.RedisClient)
@@ -114,12 +114,12 @@ func TestDependencies_Cleanup(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deps)
 
-	// 测试Cleanup不会panic
+	// Test Cleanup doesn't panic
 	assert.NotPanics(t, func() {
 		deps.Cleanup()
 	})
 
-	// 可以多次调用Cleanup
+	// Can call Cleanup multiple times
 	assert.NotPanics(t, func() {
 		deps.Cleanup()
 	})
@@ -139,14 +139,14 @@ func TestDependencies_Cleanup_WithRedis(t *testing.T) {
 	}
 
 	deps, err := NewDependencies(cfg)
-	// 如果Redis不可用，跳过测试
+	// Skip test if Redis is unavailable
 	if err != nil {
 		t.Skipf("跳过测试：Redis不可用: %v", err)
 	}
 
 	require.NotNil(t, deps)
 
-	// 测试Cleanup不会panic
+	// Test Cleanup doesn't panic
 	assert.NotPanics(t, func() {
 		deps.Cleanup()
 	})
@@ -168,7 +168,7 @@ func TestDependencies_HTTPServer_Configuration(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deps)
 
-	// 验证HTTP服务器配置
+	// Verify HTTP server configuration
 	assert.Equal(t, ":9090", deps.HTTPServer.Addr)
 	assert.Equal(t, define.DEFAULT_TIMEOUT*time.Second, deps.HTTPServer.ReadHeaderTimeout)
 	assert.Equal(t, define.DEFAULT_TIMEOUT*time.Second, deps.HTTPServer.ReadTimeout)
@@ -193,12 +193,12 @@ func TestDependencies_Handlers_NotNil(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deps)
 
-	// 验证所有处理器都不为nil
+	// Verify all handlers are not nil
 	assert.NotNil(t, deps.MainHandler)
 	assert.NotNil(t, deps.HealthHandler)
 	assert.NotNil(t, deps.LogLevelHandler)
 
-	// 验证处理器可以处理请求（不会panic）
+	// Verify handlers can process requests (won't panic)
 	req, err := http.NewRequest("GET", "/", http.NoBody)
 	require.NoError(t, err)
 	rr := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestDependencies_InitRedis_ConnectionTimeout(t *testing.T) {
 		HTTPInsecureTLS:  false,
 	}
 
-	// 测试无效的Redis地址应该返回错误
+	// Test invalid Redis address should return error
 	deps, err := NewDependencies(cfg)
 	assert.Error(t, err)
 	assert.Nil(t, deps)
@@ -242,13 +242,13 @@ func TestDependencies_InitCache_WithoutRedis(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deps)
 
-	// 注意：NewDependencies在RedisEnabled=false时不会初始化RedisClient
-	// 但initCache会创建RedisUserCache（即使RedisClient为nil）
-	// 所以RedisUserCache可能不为nil，但它的client字段为nil
+	// Note: NewDependencies doesn't initialize RedisClient when RedisEnabled=false
+	// But initCache will create RedisUserCache (even if RedisClient is nil)
+	// So RedisUserCache may not be nil, but its client field is nil
 	assert.NotNil(t, deps.UserCache)
-	// RedisUserCache可能被创建，但它的client为nil
+	// RedisUserCache may be created, but its client is nil
 	if deps.RedisUserCache != nil {
-		// 如果创建了，验证它存在（这是正常的，因为NewRedisUserCache接受nil client）
+		// If created, verify it exists (this is normal, as NewRedisUserCache accepts nil client)
 		assert.NotNil(t, deps.RedisUserCache)
 	}
 }
@@ -269,25 +269,25 @@ func TestDependencies_InitRateLimiter(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deps)
 
-	// 验证速率限制器已初始化
+	// Verify rate limiter is initialized
 	assert.NotNil(t, deps.RateLimiter)
 }
 
 func TestDependencies_Cleanup_NilFields(t *testing.T) {
-	// 测试Cleanup处理nil字段的情况
+	// Test Cleanup handling nil fields
 	deps := &Dependencies{
 		RateLimiter: nil,
 		RedisClient: nil,
 	}
 
-	// 应该不会panic
+	// Should not panic
 	assert.NotPanics(t, func() {
 		deps.Cleanup()
 	})
 }
 
 func TestDependencies_Cleanup_RedisCloseError(t *testing.T) {
-	// 创建一个已经关闭的Redis客户端来测试错误处理
+	// Create an already closed Redis client to test error handling
 	cfg := &cmd.Config{
 		Port:             "8081",
 		Redis:            "localhost:6379",
@@ -301,21 +301,21 @@ func TestDependencies_Cleanup_RedisCloseError(t *testing.T) {
 	}
 
 	deps, err := NewDependencies(cfg)
-	// 如果Redis不可用，跳过测试
+	// Skip test if Redis is unavailable
 	if err != nil {
 		t.Skipf("跳过测试：Redis不可用: %v", err)
 	}
 
 	require.NotNil(t, deps)
 
-	// 先关闭Redis客户端
+	// Close Redis client first
 	if deps.RedisClient != nil {
 		if err := deps.RedisClient.Close(); err != nil {
 			t.Logf("关闭Redis客户端时出错: %v", err)
 		}
 	}
 
-	// 再次调用Cleanup应该不会panic
+	// Calling Cleanup again should not panic
 	assert.NotPanics(t, func() {
 		deps.Cleanup()
 	})
@@ -335,14 +335,14 @@ func TestDependencies_InitHandlers_WithRedis(t *testing.T) {
 	}
 
 	deps, err := NewDependencies(cfg)
-	// 如果Redis不可用，跳过测试
+	// Skip test if Redis is unavailable
 	if err != nil {
 		t.Skipf("跳过测试：Redis不可用: %v", err)
 	}
 
 	require.NotNil(t, deps)
 
-	// 验证处理器已初始化
+	// Verify handlers are initialized
 	assert.NotNil(t, deps.MainHandler)
 	assert.NotNil(t, deps.HealthHandler)
 	assert.NotNil(t, deps.LogLevelHandler)
@@ -364,11 +364,11 @@ func TestDependencies_InitHTTPServer_CustomPort(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, deps)
 
-	// 验证端口配置正确
+	// Verify port configuration is correct
 	assert.Equal(t, ":12345", deps.HTTPServer.Addr)
 }
 
-// 测试initRedis方法的错误处理
+// Test error handling of initRedis method
 func TestDependencies_InitRedis_InvalidAddress(t *testing.T) {
 	d := &Dependencies{
 		Config: &cmd.Config{
@@ -381,28 +381,28 @@ func TestDependencies_InitRedis_InvalidAddress(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// 测试initCache方法
+// Test initCache method
 func TestDependencies_InitCache(t *testing.T) {
 	d := &Dependencies{
 		Config:      &cmd.Config{},
-		RedisClient: nil, // 没有Redis客户端
+		RedisClient: nil, // No Redis client
 	}
 
 	d.initCache()
 	assert.NotNil(t, d.UserCache)
-	// 注意：initCache会尝试创建RedisUserCache，即使RedisClient为nil
-	// 但RedisUserCache的创建需要有效的RedisClient
-	// 根据实现，如果RedisClient为nil，RedisUserCache可能为nil或创建失败
+	// Note: initCache will try to create RedisUserCache, even if RedisClient is nil
+	// But RedisUserCache creation requires a valid RedisClient
+	// According to implementation, if RedisClient is nil, RedisUserCache may be nil or creation may fail
 }
 
-// 测试initCache方法（带Redis）
+// Test initCache method (with Redis)
 func TestDependencies_InitCache_WithRedis(t *testing.T) {
-	// 创建一个mock Redis客户端
+	// Create a mock Redis client
 	client := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
 
-	// 测试连接
+	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := client.Ping(ctx).Err(); err != nil {
@@ -419,7 +419,7 @@ func TestDependencies_InitCache_WithRedis(t *testing.T) {
 	assert.NotNil(t, d.RedisUserCache)
 }
 
-// 测试initRateLimiter方法（直接调用）
+// Test initRateLimiter method (direct call)
 func TestDependencies_InitRateLimiter_Direct(t *testing.T) {
 	d := &Dependencies{
 		Config: &cmd.Config{},
@@ -429,7 +429,7 @@ func TestDependencies_InitRateLimiter_Direct(t *testing.T) {
 	assert.NotNil(t, d.RateLimiter)
 }
 
-// 测试initHandlers方法
+// Test initHandlers method
 func TestDependencies_InitHandlers(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -445,14 +445,14 @@ func TestDependencies_InitHandlers(t *testing.T) {
 	deps, err := NewDependencies(cfg)
 	require.NoError(t, err)
 
-	// 重新初始化handlers来测试initHandlers方法
+	// Re-initialize handlers to test initHandlers method
 	deps.initHandlers()
 	assert.NotNil(t, deps.MainHandler)
 	assert.NotNil(t, deps.HealthHandler)
 	assert.NotNil(t, deps.LogLevelHandler)
 }
 
-// 测试initHTTPServer方法
+// Test initHTTPServer method
 func TestDependencies_InitHTTPServer(t *testing.T) {
 	d := &Dependencies{
 		Config: &cmd.Config{

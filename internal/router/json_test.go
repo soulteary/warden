@@ -15,31 +15,31 @@ import (
 )
 
 func TestJSON_Handler(t *testing.T) {
-	// 准备测试数据
+	// Prepare test data
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 		{Phone: "13800138001", Mail: "test2@example.com"},
 	}
 
-	// 创建线程安全缓存并设置数据
+	// Create thread-safe cache and set data
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
 
-	// 创建处理器
+	// Create handler
 	handler := JSON(userCache)
 
-	// 创建测试请求
+	// Create test request
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 
-	// 执行处理器
+	// Execute handler
 	handler(w, req)
 
-	// 验证响应
+	// Verify response
 	assert.Equal(t, http.StatusOK, w.Code, "状态码应该是200")
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type应该是application/json")
 
-	// 验证响应体
+	// Verify response body
 	var result []define.AllowListUser
 	err := json.Unmarshal(w.Body.Bytes(), &result)
 	require.NoError(t, err, "响应体应该是有效的JSON")
@@ -50,7 +50,7 @@ func TestJSON_Handler(t *testing.T) {
 }
 
 func TestJSON_EmptyData(t *testing.T) {
-	// 测试空数据
+	// Test empty data
 	emptyData := []define.AllowListUser{}
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(emptyData)
@@ -72,7 +72,7 @@ func TestJSON_EmptyData(t *testing.T) {
 }
 
 func TestJSON_SingleRecord(t *testing.T) {
-	// 测试单条记录
+	// Test single record
 	singleData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "single@example.com"},
 	}
@@ -97,7 +97,7 @@ func TestJSON_SingleRecord(t *testing.T) {
 }
 
 func TestJSON_Unicode(t *testing.T) {
-	// 测试Unicode字符（邮箱不支持中文，使用有效的邮箱格式）
+	// Test Unicode characters (email doesn't support Chinese, use valid email format)
 	unicodeData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -122,7 +122,7 @@ func TestJSON_Unicode(t *testing.T) {
 }
 
 func TestJSON_ContentType(t *testing.T) {
-	// 测试Content-Type头
+	// Test Content-Type header
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -141,7 +141,7 @@ func TestJSON_ContentType(t *testing.T) {
 }
 
 func TestJSON_StatusCode(t *testing.T) {
-	// 测试状态码
+	// Test status code
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -159,7 +159,7 @@ func TestJSON_StatusCode(t *testing.T) {
 }
 
 func TestJSON_MultipleRecords(t *testing.T) {
-	// 测试多条记录
+	// Test multiple records
 	multipleData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 		{Phone: "13800138001", Mail: "test2@example.com"},
@@ -183,7 +183,7 @@ func TestJSON_MultipleRecords(t *testing.T) {
 }
 
 func TestJSON_DataModification(t *testing.T) {
-	// 测试数据修改后处理器仍然使用缓存中的原始数据（SafeUserCache 会创建副本）
+	// Test that handler still uses original data from cache after data modification (SafeUserCache creates a copy)
 	originalData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "original@example.com"},
 	}
@@ -192,7 +192,7 @@ func TestJSON_DataModification(t *testing.T) {
 	userCache.Set(originalData)
 	handler := JSON(userCache)
 
-	// 修改原始数据（不应该影响缓存中的数据）
+	// Modify original data (should not affect data in cache)
 	originalData[0].Mail = "modified@example.com"
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
@@ -204,12 +204,12 @@ func TestJSON_DataModification(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &result)
 	require.NoError(t, err)
 
-	// 应该使用缓存中的原始数据（因为 SafeUserCache 创建了副本）
+	// Should use original data from cache (because SafeUserCache created a copy)
 	assert.Equal(t, "original@example.com", result[0].Mail)
 }
 
 func TestJSON_MethodNotAllowed(t *testing.T) {
-	// 测试非 GET 方法应该返回 405
+	// Test that non-GET methods should return 405
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -218,7 +218,7 @@ func TestJSON_MethodNotAllowed(t *testing.T) {
 	userCache.Set(testData)
 	handler := JSON(userCache)
 
-	// 测试不允许的方法
+	// Test disallowed methods
 	disallowedMethods := []string{"POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	for _, method := range disallowedMethods {
 		t.Run(method, func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestJSON_MethodNotAllowed(t *testing.T) {
 
 			handler(w, req)
 
-			// 应该返回 405 Method Not Allowed
+			// Should return 405 Method Not Allowed
 			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "方法%s应该返回405", method)
 			assert.Contains(t, w.Body.String(), "Method not allowed", "响应体应该包含错误消息")
 		})
@@ -235,7 +235,7 @@ func TestJSON_MethodNotAllowed(t *testing.T) {
 }
 
 func TestJSON_Pagination(t *testing.T) {
-	// 准备测试数据（10条记录）
+	// Prepare test data (10 records)
 	testData := make([]define.AllowListUser, 10)
 	for i := 0; i < 10; i++ {
 		testData[i] = define.AllowListUser{
@@ -260,18 +260,18 @@ func TestJSON_Pagination(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &result)
 		require.NoError(t, err)
 
-		// 验证分页结构
+		// Verify pagination structure
 		assert.Contains(t, result, "data")
 		assert.Contains(t, result, "pagination")
 
-		// 验证数据
+		// Verify data
 		data, ok := result["data"].([]interface{})
 		if !ok {
 			t.Fatal("data 类型断言失败")
 		}
 		assert.Len(t, data, 3, "第一页应该返回3条记录")
 
-		// 验证分页信息
+		// Verify pagination info
 		pagination, ok := result["pagination"].(map[string]interface{})
 		require.True(t, ok, "pagination 类型断言失败")
 		assert.Equal(t, float64(1), pagination["page"])
@@ -352,7 +352,7 @@ func TestJSON_Pagination(t *testing.T) {
 	})
 
 	t.Run("无效的分页参数-参数过长", func(t *testing.T) {
-		// 创建一个超过20字符的参数
+		// Create a parameter longer than 20 characters
 		longParam := strings.Repeat("1", 25)
 		req := httptest.NewRequest("GET", "/?page="+longParam+"&page_size=3", http.NoBody)
 		w := httptest.NewRecorder()
@@ -364,7 +364,7 @@ func TestJSON_Pagination(t *testing.T) {
 }
 
 func TestJSON_BackwardCompatibility(t *testing.T) {
-	// 测试向后兼容性：没有分页参数时应该直接返回数组
+	// Test backward compatibility: should return array directly when no pagination parameters
 	testData := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 		{Phone: "13800138001", Mail: "test2@example.com"},
@@ -381,7 +381,7 @@ func TestJSON_BackwardCompatibility(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// 应该直接返回数组，而不是分页对象
+	// Should return array directly, not pagination object
 	var result []define.AllowListUser
 	err := json.Unmarshal(w.Body.Bytes(), &result)
 	require.NoError(t, err, "没有分页参数时应该直接返回数组格式")

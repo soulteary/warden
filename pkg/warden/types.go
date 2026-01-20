@@ -3,14 +3,14 @@ package warden
 
 // AllowListUser represents a user in the allow list.
 //
-//nolint:govet // fieldalignment: 字段顺序受 JSON 序列化标签影响，优化可能破坏 API 兼容性
+//nolint:govet // fieldalignment: field order is affected by JSON serialization tags, optimization may break API compatibility
 type AllowListUser struct {
-	Phone  string   `json:"phone"`   // 用户手机号
-	Mail   string   `json:"mail"`    // 用户邮箱地址
-	UserID string   `json:"user_id"` // 用户唯一标识符（可选，如果未提供则自动生成）
-	Status string   `json:"status"`  // 用户状态（如 "active", "inactive", "suspended"）
-	Scope  []string `json:"scope"`   // 用户权限范围（可选）
-	Role   string   `json:"role"`    // 用户角色（可选）
+	Phone  string   `json:"phone"`   // User phone number
+	Mail   string   `json:"mail"`    // User email address
+	UserID string   `json:"user_id"` // User unique identifier (optional, auto-generated if not provided)
+	Status string   `json:"status"`  // User status (e.g., "active", "inactive", "suspended")
+	Scope  []string `json:"scope"`   // User permission scope (optional)
+	Role   string   `json:"role"`    // User role (optional)
 }
 
 // PaginatedResponse represents a paginated response from the Warden API.
@@ -21,8 +21,8 @@ type PaginatedResponse struct {
 
 // PaginationInfo contains pagination metadata.
 type PaginationInfo struct {
-	Page       int `json:"page"`        // 当前页码（从 1 开始）
-	PageSize   int `json:"page_size"`   // 每页大小
-	Total      int `json:"total"`       // 总记录数
-	TotalPages int `json:"total_pages"` // 总页数
+	Page       int `json:"page"`        // Current page number (starts from 1)
+	PageSize   int `json:"page_size"`   // Page size
+	Total      int `json:"total"`       // Total number of records
+	TotalPages int `json:"total_pages"` // Total number of pages
 }

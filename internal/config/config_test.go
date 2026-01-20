@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLoadFromFile_ValidYAML 测试加载有效的 YAML 配置文件
+// TestLoadFromFile_ValidYAML tests loading valid YAML configuration file
 func TestLoadFromFile_ValidYAML(t *testing.T) {
-	// 创建临时配置文件
+	// Create temporary configuration file
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")
 
@@ -38,7 +38,7 @@ app:
 	assert.Equal(t, "test-key", cfg.App.APIKey)
 }
 
-// TestLoadFromFile_EmptyFile 测试空配置文件（应该使用默认值）
+// TestLoadFromFile_EmptyFile tests empty configuration file (should use default values)
 func TestLoadFromFile_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "empty.yaml")
@@ -50,21 +50,21 @@ func TestLoadFromFile_EmptyFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	// 应该使用默认值
+	// Should use default values
 	assert.NotEmpty(t, cfg.Server.Port)
 }
 
-// TestLoadFromFile_NonExistentFile 测试不存在的配置文件（应该使用默认值）
+// TestLoadFromFile_NonExistentFile tests non-existent configuration file (should use default values)
 func TestLoadFromFile_NonExistentFile(t *testing.T) {
 	cfg, err := LoadFromFile("/nonexistent/config.yaml")
 	require.NoError(t, err, "不存在的文件应该使用默认值")
 	require.NotNil(t, cfg)
 
-	// 应该使用默认值
+	// Should use default values
 	assert.NotEmpty(t, cfg.Server.Port)
 }
 
-// TestLoadFromFile_InvalidYAML 测试无效的 YAML 文件
+// TestLoadFromFile_InvalidYAML tests invalid YAML file
 func TestLoadFromFile_InvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "invalid.yaml")
@@ -80,7 +80,7 @@ func TestLoadFromFile_InvalidYAML(t *testing.T) {
 	assert.Nil(t, cfg)
 }
 
-// TestLoadFromFile_TOMLNotSupported 测试 TOML 格式不支持
+// TestLoadFromFile_TOMLNotSupported tests that TOML format is not supported
 func TestLoadFromFile_TOMLNotSupported(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.toml")
@@ -96,27 +96,27 @@ port = "8081"`
 	assert.Nil(t, cfg)
 }
 
-// TestApplyDefaults 测试默认值应用
+// TestApplyDefaults tests default value application
 func TestApplyDefaults(t *testing.T) {
 	cfg := &Config{}
 	applyDefaults(cfg)
 
-	// 验证服务器默认值
+	// Verify server default values
 	assert.NotEmpty(t, cfg.Server.Port)
 	assert.NotZero(t, cfg.Server.ReadTimeout)
 	assert.NotZero(t, cfg.Server.WriteTimeout)
 
-	// 验证 Redis 默认值
+	// Verify Redis default values
 	assert.NotEmpty(t, cfg.Redis.Addr)
 
-	// 验证其他默认值
+	// Verify other default values
 	assert.NotZero(t, cfg.Task.Interval)
 	assert.NotZero(t, cfg.HTTP.Timeout)
 }
 
-// TestOverrideFromEnv 测试环境变量覆盖
+// TestOverrideFromEnv tests environment variable override
 func TestOverrideFromEnv(t *testing.T) {
-	// 保存原始环境变量
+	// Save original environment variables
 	originalPort := os.Getenv("PORT")
 	originalRedis := os.Getenv("REDIS")
 	defer func() {
@@ -132,7 +132,7 @@ func TestOverrideFromEnv(t *testing.T) {
 		}
 	}()
 
-	// 设置环境变量
+	// Set environment variables
 	require.NoError(t, os.Setenv("PORT", "9999"))
 	require.NoError(t, os.Setenv("REDIS", "custom-redis:6379"))
 
@@ -143,7 +143,7 @@ func TestOverrideFromEnv(t *testing.T) {
 	assert.Equal(t, "custom-redis:6379", cfg.Redis.Addr)
 }
 
-// TestValidate_ValidConfig 测试有效配置验证
+// TestValidate_ValidConfig tests valid configuration validation
 func TestValidate_ValidConfig(t *testing.T) {
 	cfg := &Config{
 		Server: ServerConfig{
@@ -164,7 +164,7 @@ func TestValidate_ValidConfig(t *testing.T) {
 	assert.NoError(t, err, "有效配置应该通过验证")
 }
 
-// TestValidate_InvalidConfig 测试无效配置验证
+// TestValidate_InvalidConfig tests invalid configuration validation
 func TestValidate_InvalidConfig(t *testing.T) {
 	tests := []struct {
 		name string
@@ -218,7 +218,7 @@ func TestValidate_InvalidConfig(t *testing.T) {
 	}
 }
 
-// TestValidateConfigPath 测试配置文件路径验证
+// TestValidateConfigPath tests configuration file path validation
 func TestValidateConfigPath(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -243,12 +243,12 @@ func TestValidateConfigPath(t *testing.T) {
 		{
 			name:    "包含路径遍历（相对路径）",
 			path:    "../../etc/passwd",
-			wantErr: false, // filepath.Abs 会解析路径遍历，所以转换后可能不再包含 ".."
+			wantErr: false, // filepath.Abs will resolve path traversal, so converted path may no longer contain ".."
 		},
 		{
 			name:    "包含路径遍历（绝对路径中）",
 			path:    "/tmp/../../etc/passwd",
-			wantErr: false, // filepath.Abs 会解析路径遍历
+			wantErr: false, // filepath.Abs will resolve path traversal
 		},
 	}
 
@@ -264,9 +264,9 @@ func TestValidateConfigPath(t *testing.T) {
 	}
 }
 
-// TestGetRedisPassword 测试获取 Redis 密码
+// TestGetRedisPassword tests getting Redis password
 func TestGetRedisPassword(t *testing.T) {
-	// 保存原始环境变量
+	// Save original environment variables
 	originalPassword := os.Getenv("REDIS_PASSWORD")
 	originalPasswordFile := os.Getenv("REDIS_PASSWORD_FILE")
 	defer func() {
@@ -321,7 +321,7 @@ func TestGetRedisPassword(t *testing.T) {
 	})
 }
 
-// TestToCmdConfig 测试转换为 CmdConfig
+// TestToCmdConfig tests conversion to CmdConfig
 func TestToCmdConfig(t *testing.T) {
 	cfg := &Config{
 		Server: ServerConfig{
@@ -364,12 +364,12 @@ func TestToCmdConfig(t *testing.T) {
 	assert.Equal(t, "api-key", cmdCfg.APIKey)
 }
 
-// TestApplyDefaults_AllSections 测试所有配置段的默认值
+// TestApplyDefaults_AllSections tests default values for all configuration sections
 func TestApplyDefaults_AllSections(t *testing.T) {
 	cfg := &Config{}
 	applyDefaults(cfg)
 
-	// 验证所有配置段都有默认值
+	// Verify all configuration sections have default values
 	assert.NotEmpty(t, cfg.Server.Port)
 	assert.NotEmpty(t, cfg.Redis.Addr)
 	assert.NotZero(t, cfg.Cache.UpdateInterval)

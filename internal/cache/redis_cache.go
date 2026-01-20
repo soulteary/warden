@@ -1,51 +1,51 @@
-// Package cache 提供了用户数据的缓存功能。
-// 支持内存缓存和 Redis 缓存两种实现，以及基于 Redis 的分布式锁。
+// Package cache provides user data caching functionality.
+// Supports both in-memory cache and Redis cache implementations, as well as Redis-based distributed locks.
 //
-//nolint:revive // 常量使用 ALL_CAPS 符合项目规范
+//nolint:revive // Constants use ALL_CAPS which conforms to project standards
 package cache
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 	"encoding/json"
 	"time"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 )
 
 const (
-	// REDIS_CACHE_KEY 用于存储用户数据的 Redis key
+	// REDIS_CACHE_KEY Redis key for storing user data
 	REDIS_CACHE_KEY = "warden:users:cache"
-	// REDIS_CACHE_VERSION_KEY 用于存储缓存版本的 Redis key
+	// REDIS_CACHE_VERSION_KEY Redis key for storing cache version
 	REDIS_CACHE_VERSION_KEY = "warden:users:cache:version"
-	// REDIS_CACHE_TTL Redis 缓存过期时间（1小时）
+	// REDIS_CACHE_TTL Redis cache expiration time (1 hour)
 	REDIS_CACHE_TTL = 1 * time.Hour
-	// REDIS_OPERATION_TIMEOUT Redis 操作超时时间
+	// REDIS_OPERATION_TIMEOUT Redis operation timeout
 	REDIS_OPERATION_TIMEOUT = 5 * time.Second
 )
 
-// RedisUserCache 提供基于 Redis 的用户缓存
+// RedisUserCache provides Redis-based user cache
 type RedisUserCache struct {
 	client *redis.Client
 }
 
-// NewRedisUserCache 创建新的 Redis 用户缓存
+// NewRedisUserCache creates a new Redis user cache
 func NewRedisUserCache(client *redis.Client) *RedisUserCache {
 	return &RedisUserCache{
 		client: client,
 	}
 }
 
-// getContext 创建带超时的 context
+// getContext creates context with timeout
 func (c *RedisUserCache) getContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), REDIS_OPERATION_TIMEOUT)
 }
 
-// Set 将用户列表存储到 Redis，并更新版本号
+// Set stores user list to Redis and updates version number
 func (c *RedisUserCache) Set(users []define.AllowListUser) error {
 	data, err := json.Marshal(users)
 	if err != nil {
@@ -55,10 +55,10 @@ func (c *RedisUserCache) Set(users []define.AllowListUser) error {
 	ctx, cancel := c.getContext()
 	defer cancel()
 
-	// 使用事务确保数据 and 版本号同时更新
+	// Use transaction to ensure data and version number are updated simultaneously
 	pipe := c.client.Pipeline()
 	pipe.Set(ctx, REDIS_CACHE_KEY, data, REDIS_CACHE_TTL)
-	// 版本号使用时间戳，确保每次更新都有新版本
+	// Version number uses timestamp to ensure each update has a new version
 	pipe.Incr(ctx, REDIS_CACHE_VERSION_KEY)
 	pipe.Expire(ctx, REDIS_CACHE_VERSION_KEY, REDIS_CACHE_TTL)
 
@@ -66,7 +66,7 @@ func (c *RedisUserCache) Set(users []define.AllowListUser) error {
 	return err
 }
 
-// Get 从 Redis 获取用户列表
+// Get gets user list from Redis
 func (c *RedisUserCache) Get() ([]define.AllowListUser, error) {
 	ctx, cancel := c.getContext()
 	defer cancel()
@@ -74,7 +74,7 @@ func (c *RedisUserCache) Get() ([]define.AllowListUser, error) {
 	data, err := c.client.Get(ctx, REDIS_CACHE_KEY).Bytes()
 	if err != nil {
 		if err == redis.Nil {
-			// 缓存未命中，返回空切片
+			// Cache miss, return empty slice
 			return []define.AllowListUser{}, nil
 		}
 		return nil, err
@@ -88,7 +88,7 @@ func (c *RedisUserCache) Get() ([]define.AllowListUser, error) {
 	return users, nil
 }
 
-// Exists 检查缓存是否存在
+// Exists checks if cache exists
 func (c *RedisUserCache) Exists() (bool, error) {
 	ctx, cancel := c.getContext()
 	defer cancel()
@@ -100,7 +100,7 @@ func (c *RedisUserCache) Exists() (bool, error) {
 	return count > 0, nil
 }
 
-// GetVersion 获取缓存版本号
+// GetVersion gets cache version number
 func (c *RedisUserCache) GetVersion() (int64, error) {
 	ctx, cancel := c.getContext()
 	defer cancel()
@@ -108,14 +108,14 @@ func (c *RedisUserCache) GetVersion() (int64, error) {
 	version, err := c.client.Get(ctx, REDIS_CACHE_VERSION_KEY).Int64()
 	if err != nil {
 		if err == redis.Nil {
-			return 0, nil // 版本不存在时返回 0
+			return 0, nil // Return 0 when version does not exist
 		}
 		return 0, err
 	}
 	return version, nil
 }
 
-// Clear 清除缓存
+// Clear clears cache
 func (c *RedisUserCache) Clear() error {
 	ctx, cancel := c.getContext()
 	defer cancel()

@@ -1,9 +1,9 @@
-// Package main 是应用程序的入口点。
-// 提供 HTTP 服务器、缓存管理、定时任务调度等功能。
+// Package main is the entry point of the application.
+// Provides HTTP server, cache management, scheduled task scheduling and other functionality.
 package main
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,11 +17,11 @@ import (
 	"syscall"
 	"time"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
@@ -37,7 +37,7 @@ import (
 
 const rulesFile = "./data.json"
 
-// App 应用结构体，封装所有应用状态
+// App application struct that encapsulates all application state
 type App struct {
 	userCache           *cache.SafeUserCache    // 8 bytes pointer
 	redisUserCache      *cache.RedisUserCache   // 8 bytes pointer
@@ -53,52 +53,52 @@ type App struct {
 	redisEnabled        bool                    // 1 byte (padding to 8 bytes)
 }
 
-// NewApp 创建新的应用实例
+// NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
 	app := &App{
 		port:                cfg.Port,
 		configURL:           cfg.RemoteConfig,
 		authorizationHeader: cfg.RemoteKey,
 		appMode:             cfg.Mode,
-		// #nosec G115 -- 转换是安全的，TaskInterval 是正数
+		// #nosec G115 -- conversion is safe, TaskInterval is positive
 		taskInterval: uint64(cfg.TaskInterval),
 		apiKey:       cfg.APIKey,
 		redisEnabled: cfg.RedisEnabled,
 		log:          logger.GetLogger(),
 	}
 
-	// 初始化 HTTP 客户端（使用配置）
+	// Initialize HTTP client (using configuration)
 	parser.InitHTTPClient(cfg.HTTPTimeout, cfg.HTTPMaxIdleConns, cfg.HTTPInsecureTLS)
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))
-		// 在生产环境，强制启用 TLS 验证
+		// In production environment, force TLS verification
 		if cfg.Mode == "production" || cfg.Mode == "prod" {
 			app.log.Fatal().Msg(i18n.TWithLang(i18n.LangZH, "log.prod_tls_required"))
 		}
 	}
 
-	// 初始化缓存（先创建内存缓存）
+	// Initialize cache (create memory cache first)
 	app.userCache = cache.NewSafeUserCache()
 
-	// 处理 Redis 初始化（可选）
+	// Handle Redis initialization (optional)
 	if cfg.RedisEnabled {
-		// 初始化 Redis 客户端（安全性改进）
+		// Initialize Redis client (security improvement)
 		redisOptions := &redis.Options{Addr: cfg.Redis}
 		if cfg.RedisPassword != "" {
 			redisOptions.Password = cfg.RedisPassword
-			// 安全检查：如果密码是通过命令行参数传递的，记录警告
-			// 注意：这里无法直接判断密码来源，但可以通过环境变量检查来推断
+			// Security check: if password is passed via command line argument, log warning
+			// Note: cannot directly determine password source here, but can infer from environment variable check
 			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
 				app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_password_warning"))
 			}
 		}
 		app.redisClient = redis.NewClient(redisOptions)
 
-		// 验证 Redis 连接（带超时）
+		// Verify Redis connection (with timeout)
 		ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
 		if err := app.redisClient.Ping(ctx).Err(); err != nil {
 			cancel()
-			// Redis 连接失败，记录警告并降级到内存模式（fallback）
+			// Redis connection failed, log warning and fallback to memory mode
 			app.log.Warn().
 				Err(err).
 				Str("redis", cfg.Redis).
@@ -108,11 +108,11 @@ func NewApp(cfg *cmd.Config) *App {
 		} else {
 			cancel()
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
-			// 初始化 Redis 缓存
+			// Initialize Redis cache
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
 		}
 	} else {
-		// Redis 被显式禁用
+		// Redis is explicitly disabled
 		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_disabled"))
 		app.redisClient = nil
 		app.redisUserCache = nil
@@ -120,30 +120,30 @@ func NewApp(cfg *cmd.Config) *App {
 
 	app.log.Debug().Str("mode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.current_mode"))
 
-	// 加载初始数据（多级降级）
+	// Load initial data (multi-level fallback)
 	if err := app.loadInitialData(rulesFile); err != nil {
 		app.log.Warn().Err(fmt.Errorf("加载初始数据失败: %w", err)).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
 	}
 
-	// 初始化缓存大小指标
+	// Initialize cache size metrics
 	metrics.CacheSize.Set(float64(app.userCache.Len()))
 
-	// 确保任务间隔不小于默认值
+	// Ensure task interval is not less than default value
 	if app.taskInterval < define.DEFAULT_TASK_INTERVAL {
 		app.taskInterval = uint64(define.DEFAULT_TASK_INTERVAL)
 	}
 
-	// 初始化速率限制器（封装到 App 中，避免使用全局变量）
+	// Initialize rate limiter (encapsulated in App to avoid global variables)
 	app.rateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
 
 	return app
 }
 
-// loadInitialData 多级降级加载数据
+// loadInitialData loads data with multi-level fallback
 func (app *App) loadInitialData(rulesFile string) error {
-	// ONLY_LOCAL 模式：仅使用本地文件，不进行任何远程请求
+	// ONLY_LOCAL mode: only use local file, no remote requests
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
-	// 使用 strings.ToUpper 进行大小写不敏感的比较
+	// Use strings.ToUpper for case-insensitive comparison
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
 		localUsers := parser.FromFile(rulesFile)
@@ -152,7 +152,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 				Int("count", len(localUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
 			app.userCache.Set(localUsers)
-			// 同时更新 Redis 缓存（如果 Redis 可用）
+			// Also update Redis cache (if Redis is available)
 			if app.redisUserCache != nil {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
 					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -160,7 +160,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 			}
 			return nil
 		}
-		// 检查文件是否存在
+		// Check if file exists
 		_, err := os.Stat(rulesFile)
 		if stderrors.Is(err, os.ErrNotExist) {
 			app.log.Warn().
@@ -176,20 +176,20 @@ func (app *App) loadInitialData(rulesFile string) error {
 		return nil
 	}
 
-	// 1. 尝试从 Redis 缓存加载（如果 Redis 可用）
+	// 1. Try to load from Redis cache (if Redis is available)
 	if app.redisUserCache != nil {
 		if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
-			metrics.CacheHits.Inc() // 记录缓存命中
+			metrics.CacheHits.Inc() // Record cache hit
 			app.log.Info().
 				Int("count", len(cachedUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
 			app.userCache.Set(cachedUsers)
 			return nil
 		}
-		metrics.CacheMisses.Inc() // 记录缓存未命中
+		metrics.CacheMisses.Inc() // Record cache miss
 	}
 
-	// 2. 尝试从远程 API 加载
+	// 2. Try to load from remote API
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
 	defer cancel()
 	users := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
@@ -198,7 +198,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 			Int("count", len(users)).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
 		app.userCache.Set(users)
-		// 同时更新 Redis 缓存（如果 Redis 可用）
+		// Also update Redis cache (if Redis is available)
 		if app.redisUserCache != nil {
 			if err := app.redisUserCache.Set(users); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -207,14 +207,14 @@ func (app *App) loadInitialData(rulesFile string) error {
 		return nil
 	}
 
-	// 3. 尝试从本地文件加载
+	// 3. Try to load from local file
 	localUsers := parser.FromFile(rulesFile)
 	if len(localUsers) > 0 {
 		app.log.Info().
 			Int("count", len(localUsers)).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
 		app.userCache.Set(localUsers)
-		// 同时更新 Redis 缓存（如果 Redis 可用）
+		// Also update Redis cache (if Redis is available)
 		if app.redisUserCache != nil {
 			if err := app.redisUserCache.Set(localUsers); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -223,13 +223,13 @@ func (app *App) loadInitialData(rulesFile string) error {
 		return nil
 	}
 
-	// 4. 都失败，检查是否需要提示用户
-	// 检查本地文件是否存在
+	// 4. All failed, check if user needs to be notified
+	// Check if local file exists
 	_, localFileErr := os.Stat(rulesFile)
 	hasRemoteConfig := app.configURL != "" && app.configURL != define.DEFAULT_REMOTE_CONFIG
 
 	if stderrors.Is(localFileErr, os.ErrNotExist) && !hasRemoteConfig {
-		// 本地文件不存在且没有配置远程地址，给出友好提示
+		// Local file does not exist and no remote address configured, provide friendly prompt
 		app.log.Warn().
 			Str("data_file", rulesFile).
 			Str("example_file", "data.example.json").
@@ -249,62 +249,62 @@ func (app *App) loadInitialData(rulesFile string) error {
 	return nil
 }
 
-// hasChanged 比较数据是否有变化（使用缓存的哈希值优化）
+// hasChanged compares if data has changed (optimized using cached hash value)
 //
-// 该函数通过比较缓存的哈希值来判断数据是否发生变化，用于优化缓存更新策略。
-// 优先使用缓存的哈希值，避免重复计算。
+// This function determines if data has changed by comparing cached hash values, used to optimize cache update strategy.
+// Prioritizes using cached hash values to avoid redundant calculations.
 //
-// 参数:
-//   - oldHash: 旧数据的缓存哈希值
-//   - newUsers: 新的用户列表
+// Parameters:
+//   - oldHash: cached hash value of old data
+//   - newUsers: new user list
 //
-// 返回:
-//   - bool: true 表示数据有变化，false 表示数据未变化
+// Returns:
+//   - bool: true means data has changed, false means data unchanged
 //
-// 注意:
-//   - 该函数优先使用缓存的哈希值，避免重复计算
-//   - 如果提供了缓存的哈希值，可以显著提高性能
+// Notes:
+//   - This function prioritizes using cached hash values to avoid redundant calculations
+//   - If cached hash value is provided, performance can be significantly improved
 func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
-	// 计算新数据的哈希值
+	// Calculate hash value of new data
 	newHash := calculateHash(newUsers)
 	return oldHash != newHash
 }
 
-// calculateHash 计算用户列表的 SHA256 哈希值
+// calculateHash calculates SHA256 hash value of user list
 //
-// 该函数用于检测用户数据是否发生变化，通过计算哈希值来比较数据内容。
-// 实现细节：
-// - 对数据进行排序（按 Phone 和 Mail）确保相同数据产生相同哈希
-// - 使用 SHA256 算法计算哈希值
-// - 对于空数据，返回固定哈希值以优化性能
-// - 包含所有字段（Phone, Mail, UserID, Status, Scope, Role）以确保数据变化检测准确
+// This function is used to detect if user data has changed by calculating hash values to compare data content.
+// Implementation details:
+// - Sorts data (by Phone and Mail) to ensure same data produces same hash
+// - Uses SHA256 algorithm to calculate hash value
+// - Returns fixed hash value for empty data to optimize performance
+// - Includes all fields (Phone, Mail, UserID, Status, Scope, Role) to ensure accurate data change detection
 //
-// 参数:
-//   - users: 要计算哈希的用户列表
+// Parameters:
+//   - users: user list to calculate hash for
 //
-// 返回:
-//   - string: 十六进制编码的 SHA256 哈希值
+// Returns:
+//   - string: hexadecimal encoded SHA256 hash value
 //
-// 副作用:
-//   - 会创建输入数据的副本进行排序，不修改原始数据
-//   - 对于大数据集，排序操作可能有性能开销
+// Side effects:
+//   - Creates a copy of input data for sorting, does not modify original data
+//   - For large datasets, sorting operation may have performance overhead
 //
-// 优化:
-//   - 空数据直接返回固定哈希，避免不必要的计算
-//   - 使用数据副本排序，保持原始数据不变
+// Optimizations:
+//   - Empty data directly returns fixed hash to avoid unnecessary calculations
+//   - Uses data copy for sorting to keep original data unchanged
 func calculateHash(users []define.AllowListUser) string {
-	// 优化：空数据直接返回固定哈希
+	// Optimization: empty data directly returns fixed hash
 	if len(users) == 0 {
 		h := sha256.New()
 		h.Write([]byte("empty"))
 		return hex.EncodeToString(h.Sum(nil))
 	}
 
-	// 先排序，确保相同数据产生相同哈希
-	// 优化：如果数据量很大，可以考虑使用原地排序，但为了保持数据不变，使用副本
+	// Sort first to ensure same data produces same hash
+	// Optimization: if data volume is large, can consider in-place sorting, but uses copy to keep data unchanged
 	sorted := make([]define.AllowListUser, len(users))
 	copy(sorted, users)
-	// 规范化用户数据以确保一致性（生成 user_id，设置默认值等）
+	// Normalize user data to ensure consistency (generate user_id, set default values, etc.)
 	for i := range sorted {
 		sorted[i].Normalize()
 	}
@@ -315,7 +315,7 @@ func calculateHash(users []define.AllowListUser) string {
 		return sorted[i].Mail < sorted[j].Mail
 	})
 
-	// 计算哈希（包含所有字段以确保数据变化检测准确，与 cache.calculateHashInternal 保持一致）
+	// Calculate hash (includes all fields to ensure accurate data change detection, consistent with cache.calculateHashInternal)
 	h := sha256.New()
 	for _, user := range sorted {
 		scopeStr := strings.Join(user.Scope, ",")
@@ -324,16 +324,16 @@ func calculateHash(users []define.AllowListUser) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// checkDataChanged 检查数据是否有变化
+// checkDataChanged checks if data has changed
 //
-// 该函数通过比较缓存的哈希值和长度来判断数据是否发生变化。
-// 优先使用缓存的哈希值，避免重复计算。
+// This function determines if data has changed by comparing cached hash values and length.
+// Prioritizes using cached hash values to avoid redundant calculations.
 //
-// 参数:
-//   - newUsers: 新的用户列表
+// Parameters:
+//   - newUsers: new user list
 //
-// 返回:
-//   - bool: true 表示数据有变化，false 表示数据未变化
+// Returns:
+//   - bool: true means data has changed, false means data unchanged
 func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 	oldHash := app.userCache.GetHash()
 	oldLen := app.userCache.Len()
@@ -349,20 +349,20 @@ func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 	return true
 }
 
-// updateRedisCacheWithRetry 更新 Redis 缓存，带重试机制
+// updateRedisCacheWithRetry updates Redis cache with retry mechanism
 //
-// 该函数实现了带重试的 Redis 缓存更新逻辑，最多重试 define.REDIS_RETRY_MAX_RETRIES 次。
-// 每次重试的延迟时间会递增。
+// This function implements Redis cache update logic with retry, up to define.REDIS_RETRY_MAX_RETRIES times.
+// Delay time increases with each retry.
 //
-// 参数:
-//   - users: 要更新的用户列表
+// Parameters:
+//   - users: user list to update
 //
-// 返回:
-//   - error: 更新失败时返回错误，成功时返回 nil
+// Returns:
+//   - error: returns error on update failure, nil on success
 func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
-	// 如果 Redis 缓存不可用，直接返回错误
+	// If Redis cache is unavailable, return error directly
 	if app.redisUserCache == nil {
-		return fmt.Errorf("redis 缓存不可用")
+		return fmt.Errorf("redis cache unavailable")
 	}
 
 	var lastErr error
@@ -389,37 +389,37 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 		}
 	}
 
-	return fmt.Errorf("更新 Redis 缓存失败（已重试 %d 次）: %w", define.REDIS_RETRY_MAX_RETRIES, lastErr)
+	return fmt.Errorf("failed to update Redis cache (retried %d times): %w", define.REDIS_RETRY_MAX_RETRIES, lastErr)
 }
 
-// backgroundTask 后台任务，定期更新缓存数据
+// backgroundTask is a background task that periodically updates cache data
 //
-// 该函数实现了智能的缓存更新策略，包括以下特性：
-// - 数据变化检测：通过哈希比较避免不必要的更新
-// - 乐观锁策略：使用乐观锁确保数据一致性
-// - 错误恢复：包含 panic 恢复机制，防止任务崩溃影响主程序
-// - 重试机制：Redis 更新失败时自动重试
-// - 指标收集：记录任务执行时间、错误次数等指标
+// This function implements intelligent cache update strategy with the following features:
+// - Data change detection: avoids unnecessary updates through hash comparison
+// - Optimistic locking strategy: uses optimistic locking to ensure data consistency
+// - Error recovery: includes panic recovery mechanism to prevent task crashes from affecting main program
+// - Retry mechanism: automatically retries on Redis update failure
+// - Metrics collection: records task execution time, error count and other metrics
 //
-// 参数:
-//   - rulesFile: 本地规则文件路径，作为数据源之一
+// Parameters:
+//   - rulesFile: local rules file path, as one of the data sources
 //
-// 副作用:
-//   - 更新内存缓存（app.userCache）
-//   - 更新 Redis 缓存（app.redisUserCache）
-//   - 更新 Prometheus 指标（metrics.BackgroundTaskTotal、metrics.BackgroundTaskDuration 等）
-//   - 记录日志（调试、信息、警告级别）
+// Side effects:
+//   - Updates memory cache (app.userCache)
+//   - Updates Redis cache (app.redisUserCache)
+//   - Updates Prometheus metrics (metrics.BackgroundTaskTotal, metrics.BackgroundTaskDuration, etc.)
+//   - Records logs (debug, info, warning levels)
 //
-// 错误处理:
-//   - 如果发生 panic，会捕获并记录错误，不影响主程序运行
-//   - Redis 更新失败会重试，最终失败时记录警告但继续使用内存缓存
+// Error handling:
+//   - If panic occurs, will catch and record error without affecting main program execution
+//   - Redis update failure will retry, on final failure will log warning but continue using memory cache
 //
-// 性能优化:
-//   - 在锁外进行数据比较，减少锁持有时间
-//   - 使用哈希值快速检测数据变化
-//   - 数据未变化时直接返回，跳过更新操作
+// Performance optimizations:
+//   - Performs data comparison outside lock to reduce lock holding time
+//   - Uses hash values to quickly detect data changes
+//   - Returns directly when data unchanged, skipping update operations
 func (app *App) backgroundTask(rulesFile string) {
-	// 添加错误恢复机制，防止 panic 导致整个程序崩溃
+	// Add error recovery mechanism to prevent panic from crashing entire program
 	defer func() {
 		if r := recover(); r != nil {
 			metrics.BackgroundTaskErrors.Inc()
@@ -432,8 +432,8 @@ func (app *App) backgroundTask(rulesFile string) {
 	start := time.Now()
 	var newUsers []define.AllowListUser
 
-	// ONLY_LOCAL 模式：仅使用本地文件，不进行任何远程请求
-	// 使用大小写不敏感的比较，并去除空格
+	// ONLY_LOCAL mode: only use local file, no remote requests
+	// Use case-insensitive comparison and trim spaces
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
 		newUsers = parser.FromFile(rulesFile)
 	} else {
@@ -442,20 +442,20 @@ func (app *App) backgroundTask(rulesFile string) {
 		newUsers = parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
 	}
 
-	// 检查数据是否有变化
+	// Check if data has changed
 	if !app.checkDataChanged(newUsers) {
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
 	}
 
-	// 更新内存缓存
+	// Update memory cache
 	app.userCache.Set(newUsers)
 
-	// 验证数据一致性（乐观锁策略）
+	// Verify data consistency (optimistic locking strategy)
 	currentHash := app.userCache.GetHash()
 	newHash := calculateHash(newUsers)
 	if currentHash != "" && currentHash == newHash {
-		// 数据一致，更新 Redis 缓存（如果 Redis 可用）
+		// Data consistent, update Redis cache (if Redis is available)
 		if app.redisUserCache != nil {
 			if err := app.updateRedisCacheWithRetry(newUsers); err != nil {
 				app.log.Warn().
@@ -472,7 +472,7 @@ func (app *App) backgroundTask(rulesFile string) {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.data_modified_during_update"))
 	}
 
-	// 更新指标
+	// Update metrics
 	duration := time.Since(start).Seconds()
 	metrics.BackgroundTaskTotal.Inc()
 	metrics.BackgroundTaskDuration.Observe(duration)
@@ -484,21 +484,21 @@ func (app *App) backgroundTask(rulesFile string) {
 		Msg(i18n.TWithLang(i18n.LangZH, "log.background_update"))
 }
 
-// registerRoutes 注册所有 HTTP 路由
+// registerRoutes registers all HTTP routes
 func registerRoutes(app *App) {
-	// 创建基础中间件
+	// Create base middleware
 	i18nMiddleware := middleware.I18nMiddleware()
 	securityHeadersMiddleware := middleware.SecurityHeadersMiddleware
 	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.appMode)
 	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(app.rateLimiter)
 	authMiddleware := middleware.AuthMiddleware(app.apiKey)
 
-	// 健康检查端点 IP 白名单（从环境变量读取）
+	// Health check endpoint IP whitelist (read from environment variable)
 	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
 	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
 
-	// 注册 Prometheus metrics 端点（可选认证）
-	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	// Register Prometheus metrics endpoint (optional authentication)
+	// i18n middleware placed at outermost layer to ensure all requests can detect language
 	metricsHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -512,8 +512,8 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/metrics", metricsHandler)
 
-	// 注册主数据接口（需要认证）
-	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	// Register main data interface (requires authentication)
+	// i18n middleware placed at outermost layer to ensure all requests can detect language
 	mainHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -535,8 +535,8 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/", mainHandler)
 
-	// 注册用户查询接口（需要认证）
-	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	// Register user query interface (requires authentication)
+	// i18n middleware placed at outermost layer to ensure all requests can detect language
 	userHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -558,8 +558,8 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/user", userHandler)
 
-	// 注册健康检查端点（IP 白名单保护，限制信息泄露）
-	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	// Register health check endpoint (IP whitelist protection, limits information leakage)
+	// i18n middleware placed at outermost layer to ensure all requests can detect language
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -576,8 +576,8 @@ func registerRoutes(app *App) {
 	http.Handle("/health", healthHandler)
 	http.Handle("/healthcheck", healthHandler)
 
-	// 注册日志级别控制端点（需要认证）
-	// i18n 中间件放在最外层，确保所有请求都能检测语言
+	// Register log level control endpoint (requires authentication)
+	// i18n middleware placed at outermost layer to ensure all requests can detect language
 	logLevelHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -594,7 +594,7 @@ func registerRoutes(app *App) {
 	http.Handle("/log/level", logLevelHandler)
 }
 
-// startServer 启动 HTTP 服务器
+// startServer starts HTTP server
 func startServer(port string) *http.Server {
 	return &http.Server{
 		Addr:              ":" + port,
@@ -606,14 +606,14 @@ func startServer(port string) *http.Server {
 	}
 }
 
-// shutdownServer 优雅关闭服务器
+// shutdownServer gracefully shuts down the server
 func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log *zerolog.Logger) {
-	// 停止速率限制器
+	// Stop rate limiter
 	if rateLimiter != nil {
 		rateLimiter.Stop()
 	}
 
-	// 优雅关闭 HTTP 服务器
+	// Gracefully shutdown HTTP server
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -624,30 +624,30 @@ func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log *
 func main() {
 	log := logger.GetLogger()
 
-	// 解析配置
+	// Parse configuration
 	cfg := cmd.GetArgs()
 
-	// 验证配置
+	// Validate configuration
 	if err := cmd.ValidateConfig(cfg); err != nil {
 		log.Fatal().
 			Err(err).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
 	}
 
-	// 初始化应用
+	// Initialize application
 	app := NewApp(cfg)
 
-	// 注册路由
+	// Register routes
 	registerRoutes(app)
 
-	// 设置信号处理
+	// Set up signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.app_version"), version.Version, version.BuildDate, version.Commit)
 
-	// 启动定时任务调度器
-	// 根据 Redis 可用性选择锁实现
+	// Start scheduled task scheduler
+	// Select lock implementation based on Redis availability
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
 	schedulerStopped := scheduler.Start()
@@ -657,18 +657,18 @@ func main() {
 		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_closed"))
 	}()
 	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
-		// 在退出前先清理资源（defer 会在函数返回时执行，但 log.Fatal 会立即退出）
-		// 所以需要手动清理
+		// Clean up resources before exiting (defer executes on function return, but log.Fatal exits immediately)
+		// So need to manually clean up
 		close(schedulerStopped)
 		scheduler.Clear()
 		stop()
-		//nolint:gocritic // exitAfterDefer: 需要在错误时立即退出，已手动清理资源
+		//nolint:gocritic // exitAfterDefer: need to exit immediately on error, resources manually cleaned up
 		log.Fatal().
 			Err(err).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_init_failed"))
 	}
 
-	// 启动服务器
+	// Start server
 	srv := startServer(app.port)
 	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.service_listening"), app.port)
 	go func() {
@@ -685,7 +685,7 @@ func main() {
 	stop()
 	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.shutting_down"))
 
-	// 优雅关闭
+	// Graceful shutdown
 	shutdownServer(srv, app.rateLimiter, &app.log)
 
 	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.goodbye"))

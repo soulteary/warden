@@ -14,7 +14,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestSecurityHeadersMiddleware 测试安全响应头设置
+// TestSecurityHeadersMiddleware tests security response headers setting
 func TestSecurityHeadersMiddleware(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -27,15 +27,15 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 
 	middleware.ServeHTTP(w, req)
 
-	// 验证所有安全响应头都被设置
-	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"), "应该设置 X-Content-Type-Options")
-	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"), "应该设置 X-Frame-Options")
-	assert.Equal(t, "1; mode=block", w.Header().Get("X-XSS-Protection"), "应该设置 X-XSS-Protection")
-	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"), "应该设置 Referrer-Policy")
-	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "default-src 'self'", "应该设置 Content-Security-Policy")
+	// Verify all security response headers are set
+	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"), "Should set X-Content-Type-Options")
+	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"), "Should set X-Frame-Options")
+	assert.Equal(t, "1; mode=block", w.Header().Get("X-XSS-Protection"), "Should set X-XSS-Protection")
+	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"), "Should set Referrer-Policy")
+	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "default-src 'self'", "Should set Content-Security-Policy")
 }
 
-// TestSecurityHeadersMiddleware_AllHeaders 测试所有安全头的内容
+// TestSecurityHeadersMiddleware_AllHeaders tests content of all security headers
 func TestSecurityHeadersMiddleware_AllHeaders(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -48,27 +48,27 @@ func TestSecurityHeadersMiddleware_AllHeaders(t *testing.T) {
 
 	headers := w.Header()
 
-	// 验证 X-Content-Type-Options
-	assert.Equal(t, "nosniff", headers.Get("X-Content-Type-Options"), "X-Content-Type-Options 应该为 nosniff")
+	// Verify X-Content-Type-Options
+	assert.Equal(t, "nosniff", headers.Get("X-Content-Type-Options"), "X-Content-Type-Options should be nosniff")
 
-	// 验证 X-Frame-Options
-	assert.Equal(t, "DENY", headers.Get("X-Frame-Options"), "X-Frame-Options 应该为 DENY")
+	// Verify X-Frame-Options
+	assert.Equal(t, "DENY", headers.Get("X-Frame-Options"), "X-Frame-Options should be DENY")
 
-	// 验证 X-XSS-Protection
-	assert.Equal(t, "1; mode=block", headers.Get("X-XSS-Protection"), "X-XSS-Protection 应该为 1; mode=block")
+	// Verify X-XSS-Protection
+	assert.Equal(t, "1; mode=block", headers.Get("X-XSS-Protection"), "X-XSS-Protection should be 1; mode=block")
 
-	// 验证 Referrer-Policy
-	assert.Equal(t, "strict-origin-when-cross-origin", headers.Get("Referrer-Policy"), "Referrer-Policy 应该为 strict-origin-when-cross-origin")
+	// Verify Referrer-Policy
+	assert.Equal(t, "strict-origin-when-cross-origin", headers.Get("Referrer-Policy"), "Referrer-Policy should be strict-origin-when-cross-origin")
 
-	// 验证 Content-Security-Policy
+	// Verify Content-Security-Policy
 	csp := headers.Get("Content-Security-Policy")
-	assert.NotEmpty(t, csp, "Content-Security-Policy 不应该为空")
-	assert.Contains(t, csp, "default-src 'self'", "CSP 应该包含 default-src 'self'")
-	assert.Contains(t, csp, "script-src 'self'", "CSP 应该包含 script-src 'self'")
-	assert.Contains(t, csp, "style-src 'self' 'unsafe-inline'", "CSP 应该包含 style-src 'self' 'unsafe-inline'")
+	assert.NotEmpty(t, csp, "Content-Security-Policy should not be empty")
+	assert.Contains(t, csp, "default-src 'self'", "CSP should contain default-src 'self'")
+	assert.Contains(t, csp, "script-src 'self'", "CSP should contain script-src 'self'")
+	assert.Contains(t, csp, "style-src 'self' 'unsafe-inline'", "CSP should contain style-src 'self' 'unsafe-inline'")
 }
 
-// TestSecurityHeadersMiddleware_DifferentStatusCodes 测试不同状态码下的安全头
+// TestSecurityHeadersMiddleware_DifferentStatusCodes tests security headers under different status codes
 func TestSecurityHeadersMiddleware_DifferentStatusCodes(t *testing.T) {
 	statusCodes := []int{
 		http.StatusOK,
@@ -89,14 +89,14 @@ func TestSecurityHeadersMiddleware_DifferentStatusCodes(t *testing.T) {
 
 			middleware.ServeHTTP(w, req)
 
-			// 验证所有状态码都应该设置安全头
-			assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"), "所有状态码都应该设置安全头")
-			assert.Equal(t, statusCode, w.Code, "状态码应该正确设置")
+			// Verify all status codes should set security headers
+			assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"), "All status codes should set security headers")
+			assert.Equal(t, statusCode, w.Code, "Status code should be set correctly")
 		})
 	}
 }
 
-// TestSecurityHeadersMiddleware_Concurrent 测试并发安全性
+// TestSecurityHeadersMiddleware_Concurrent tests concurrency safety
 func TestSecurityHeadersMiddleware_Concurrent(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -119,16 +119,16 @@ func TestSecurityHeadersMiddleware_Concurrent(t *testing.T) {
 		}()
 	}
 
-	// 等待所有请求完成
+	// Wait for all requests to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 }
 
-// TestSecurityHeadersMiddleware_DoesNotOverride 测试不会覆盖已有的响应头
+// TestSecurityHeadersMiddleware_DoesNotOverride tests that it doesn't override existing response headers
 func TestSecurityHeadersMiddleware_DoesNotOverride(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 先设置一些响应头
+		// Set some response headers first
 		w.Header().Set("X-Custom-Header", "custom-value")
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -138,13 +138,13 @@ func TestSecurityHeadersMiddleware_DoesNotOverride(t *testing.T) {
 
 	middleware.ServeHTTP(w, req)
 
-	// 验证自定义头仍然存在
-	assert.Equal(t, "custom-value", w.Header().Get("X-Custom-Header"), "自定义响应头应该保留")
-	// 验证安全头也被设置
-	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"), "安全头也应该被设置")
+	// Verify custom header still exists
+	assert.Equal(t, "custom-value", w.Header().Get("X-Custom-Header"), "Custom response header should be preserved")
+	// Verify security headers are also set
+	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"), "Security headers should also be set")
 }
 
-// TestSecurityHeadersMiddleware_CSPContent 测试 CSP 内容完整性
+// TestSecurityHeadersMiddleware_CSPContent tests CSP content completeness
 func TestSecurityHeadersMiddleware_CSPContent(t *testing.T) {
 	middleware := SecurityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -157,7 +157,7 @@ func TestSecurityHeadersMiddleware_CSPContent(t *testing.T) {
 
 	csp := w.Header().Get("Content-Security-Policy")
 
-	// 验证 CSP 包含所有必要的指令
+	// Verify CSP contains all necessary directives
 	expectedDirectives := []string{
 		"default-src 'self'",
 		"script-src 'self'",
@@ -167,6 +167,6 @@ func TestSecurityHeadersMiddleware_CSPContent(t *testing.T) {
 	}
 
 	for _, directive := range expectedDirectives {
-		assert.Contains(t, csp, directive, "CSP 应该包含指令: %s", directive)
+		assert.Contains(t, csp, directive, "CSP should contain directive: %s", directive)
 	}
 }
