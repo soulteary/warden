@@ -40,10 +40,24 @@ test_endpoint() {
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
     echo -n "测试 $name... "
     
-    if [ "$method" = "GET" ]; then
-        response=$(curl -s -w "\n%{http_code}" $headers "$url" 2>/dev/null || echo -e "\n000")
+    # 构建 curl 命令，正确处理 headers 参数
+    # 如果 headers 不为空，需要去掉外层引号并正确展开
+    local curl_cmd
+    if [ -n "$headers" ]; then
+        # 使用 eval 来正确处理可能包含引号的 headers 参数
+        # 这样可以支持 "-H \"X-API-Key: value\"" 这种格式
+        if [ "$method" = "GET" ]; then
+            curl_cmd="curl -s -w \"\\n%{http_code}\" $headers \"$url\""
+        else
+            curl_cmd="curl -s -w \"\\n%{http_code}\" -X \"$method\" $headers \"$url\""
+        fi
+        response=$(eval "$curl_cmd" 2>/dev/null || echo -e "\n000")
     else
-        response=$(curl -s -w "\n%{http_code}" -X "$method" $headers "$url" 2>/dev/null || echo -e "\n000")
+        if [ "$method" = "GET" ]; then
+            response=$(curl -s -w "\n%{http_code}" "$url" 2>/dev/null || echo -e "\n000")
+        else
+            response=$(curl -s -w "\n%{http_code}" -X "$method" "$url" 2>/dev/null || echo -e "\n000")
+        fi
     fi
     
     http_code=$(echo "$response" | tail -n1)
@@ -364,7 +378,8 @@ echo ""
 
 # 测试 8: Prometheus 指标
 echo -e "${YELLOW}8. 监控指标${NC}"
-test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" "" "200"
+test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" \
+    "-H \"X-API-Key: $API_KEY\"" "200"
 echo ""
 
 # 测试 9: 日志级别管理

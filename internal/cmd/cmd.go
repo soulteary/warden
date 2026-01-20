@@ -49,6 +49,7 @@ func GetArgs() *Config {
 	var httpInsecureTLSFlag bool
 	var redisPasswordFlag string
 	var redisEnabledFlag bool
+	var apiKeyFlag string
 
 	fs.StringVar(&configFileFlag, "config-file", "", "配置文件路径 (支持 YAML 格式)")
 	// 定义所有参数以避免未定义参数错误（但这里只用于解析，实际值在后续处理）
@@ -63,6 +64,7 @@ func GetArgs() *Config {
 	fs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
 	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
 	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
+	fs.StringVar(&apiKeyFlag, "api-key", "", "API key for authentication")
 
 	// 先解析一次以获取配置文件路径
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -192,6 +194,15 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMa
 	}
 }
 
+// processAPIKeyFromFlags 处理 API Key 配置
+func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet, apiKeyFlag string) {
+	if hasFlag(fs, "api-key") {
+		cfg.APIKey = apiKeyFlag
+	} else if apiKeyEnv := strings.TrimSpace(os.Getenv("API_KEY")); apiKeyEnv != "" {
+		cfg.APIKey = apiKeyEnv
+	}
+}
+
 // getArgsFromFlags 从命令行参数和环境变量加载配置（原有逻辑）
 func getArgsFromFlags() *Config {
 	cfg := &Config{
@@ -229,6 +240,8 @@ func getArgsFromFlags() *Config {
 	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DEFAULT_TIMEOUT, "HTTP request timeout in seconds")
 	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 100, "HTTP max idle connections")
 	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
+	var apiKeyFlag string
+	fs.StringVar(&apiKeyFlag, "api-key", "", "API key for authentication")
 
 	// 解析命令行参数
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -243,6 +256,7 @@ func getArgsFromFlags() *Config {
 	processTaskFromFlags(cfg, fs, intervalFlag)
 	processModeFromFlags(cfg, fs, modeFlag)
 	processHTTPFromFlags(cfg, fs, httpTimeoutFlag, httpMaxIdleConnsFlag, httpInsecureTLSFlag)
+	processAPIKeyFromFlags(cfg, fs, apiKeyFlag)
 
 	return cfg
 }
@@ -309,6 +323,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	var httpInsecureTLSFlag bool
 	var redisPasswordFlag string
 	var redisEnabledFlag bool
+	var apiKeyFlag string
 
 	overrideFs.IntVar(&portFlag, "port", 0, "web port")
 	overrideFs.StringVar(&redisFlag, "redis", "", "redis host and port")
@@ -321,6 +336,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	overrideFs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
 	overrideFs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
 	overrideFs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
+	overrideFs.StringVar(&apiKeyFlag, "api-key", "", "API key for authentication")
 
 	if err := overrideFs.Parse(os.Args[1:]); err != nil {
 		// 忽略解析错误，继续使用默认值
@@ -360,6 +376,9 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	}
 	if hasFlag(overrideFs, "http-insecure-tls") {
 		cfg.HTTPInsecureTLS = httpInsecureTLSFlag
+	}
+	if hasFlag(overrideFs, "api-key") && apiKeyFlag != "" {
+		cfg.APIKey = apiKeyFlag
 	}
 }
 
