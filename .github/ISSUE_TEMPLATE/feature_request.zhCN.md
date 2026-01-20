@@ -1,5 +1,5 @@
 ---
-name: ✨ 功能请求
+name: ✨ 功能请求 (中文)
 about: 为这个项目提出一个功能建议
 title: '[FEATURE] '
 labels: ['enhancement', 'needs-triage']
@@ -54,4 +54,3 @@ assignees: ''
 - [ ] 我已经搜索了现有的 Issues，确认此功能未被请求
 - [ ] 我已经详细描述了问题和解决方案
 - [ ] 我已经考虑了替代方案
-

@@ -1,5 +1,5 @@
 ---
-name: ❓ 问题咨询
+name: ❓ 问题咨询 (中文)
 about: 有问题需要帮助？在这里提问
 title: '[QUESTION] '
 labels: ['question', 'needs-triage']
@@ -38,4 +38,3 @@ assignees: ''
 - [ ] 我已经搜索了现有的 Issues 和 Discussions
 - [ ] 我已经提供了足够的上下文信息
 - [ ] 我已经隐藏了所有敏感信息
-

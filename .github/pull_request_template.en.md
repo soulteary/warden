@@ -2,8 +2,6 @@
 
 A clear and concise description of what this PR does.
 
-> 🌐 **Language / 语言**: [English](.github/pull_request_template.en.md) | [中文](.github/pull_request_template.zhCN.md) | [Français](.github/pull_request_template.frFR.md) | [Italiano](.github/pull_request_template.itIT.md) | [日本語](.github/pull_request_template.jaJP.md) | [Deutsch](.github/pull_request_template.deDE.md) | [한국어](.github/pull_request_template.koKR.md)
-
 ## 🔗 Related Issue
 
 Related Issue (if any):

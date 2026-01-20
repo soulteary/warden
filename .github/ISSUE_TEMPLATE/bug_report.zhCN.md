@@ -1,5 +1,5 @@
 ---
-name: 🐛 Bug 报告
+name: 🐛 Bug 报告 (中文)
 about: 报告一个 Bug 以帮助我们改进
 title: '[BUG] '
 labels: ['bug', 'needs-triage']
@@ -60,4 +60,3 @@ assignees: ''
 - [ ] 我已经提供了所有相关的环境信息
 - [ ] 我已经隐藏了所有敏感信息（API Key、密码等）
 - [ ] 我已经提供了复现步骤
-
