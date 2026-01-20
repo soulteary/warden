@@ -124,6 +124,22 @@ X-API-Key: your-secret-api-key
 }
 ```
 
+**字段说明**：
+- `phone`: 用户手机号
+- `mail`: 用户邮箱地址
+- `user_id`: 用户唯一标识符（如果未提供会自动生成）
+- `status`: 用户状态，可能的值：
+  - `"active"`: 活跃状态，用户可以正常登录和访问系统
+  - `"inactive"`: 非活跃状态，用户无法登录
+  - `"suspended"`: 暂停状态，用户无法登录
+  - 如果未设置，默认为 `"active"`
+- `scope`: 用户权限范围数组（可选），用于细粒度授权，例如 `["read", "write", "admin"]`
+- `role`: 用户角色（可选），例如 `"admin"`, `"user"`, `"guest"`
+
+**注意**：
+- 只有 `status` 为 `"active"` 的用户才能通过认证检查
+- `scope` 和 `role` 字段会被 Stargate 用于设置授权 Header（`X-Auth-Scopes` 和 `X-Auth-Role`），供下游服务使用
+
 **响应（用户不存在）**
 - **状态码**: `404 Not Found`
 - **响应体**: `User not found`

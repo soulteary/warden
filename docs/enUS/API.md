@@ -124,6 +124,22 @@ X-API-Key: your-secret-api-key
 }
 ```
 
+**Field Descriptions**:
+- `phone`: User phone number
+- `mail`: User email address
+- `user_id`: User unique identifier (auto-generated if not provided)
+- `status`: User status, possible values:
+  - `"active"`: Active status, user can login and access the system
+  - `"inactive"`: Inactive status, user cannot login
+  - `"suspended"`: Suspended status, user cannot login
+  - Defaults to `"active"` if not set
+- `scope`: User permission scope array (optional), used for fine-grained authorization, e.g., `["read", "write", "admin"]`
+- `role`: User role (optional), e.g., `"admin"`, `"user"`, `"guest"`
+
+**Notes**:
+- Only users with `status` of `"active"` can pass authentication checks
+- `scope` and `role` fields are used by Stargate to set authorization headers (`X-Auth-Scopes` and `X-Auth-Role`) for downstream services
+
 **Response (user not found)**
 - **Status Code**: `404 Not Found`
 - **Response Body**: `User not found`
