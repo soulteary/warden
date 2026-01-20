@@ -339,7 +339,7 @@ func (j *Job) scheduleNextRun() error {
 	}
 
 	// advance to next possible schedule
-	for j.nextRun.Before(now) || j.nextRun.Before(j.lastRun) {
+	for !j.nextRun.After(now) || !j.nextRun.After(j.lastRun) {
 		j.nextRun = j.nextRun.Add(periodDuration)
 	}
 
