@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
@@ -31,9 +31,9 @@ For detailed architecture documentation, please refer to: [Architecture Design D
 
 ## 📦 Installation and Running
 
-> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.en.md):
-> - [Simple Example](example/basic/README.en.md) - Basic usage, local data file only
-> - [Advanced Example](example/advanced/README.en.md) - Full features, including remote API and Mock service
+> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.md):
+> - [Simple Example](example/basic/README.md) - Basic usage, local data file only
+> - [Advanced Example](example/advanced/README.md) - Full features, including remote API and Mock service
 
 ### Prerequisites
 
@@ -151,7 +151,7 @@ docker run -d \
 
 ### Using Docker Compose
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.en.md) for complete Docker Compose configuration examples
+> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.md) for complete Docker Compose configuration examples
 
 For detailed deployment documentation, please refer to: [Deployment Documentation](docs/enUS/DEPLOYMENT.md)
 
@@ -216,7 +216,7 @@ For detailed security documentation, please refer to: [Security Documentation](d
 
 ## 🔧 Development Guide
 
-> 📚 **Reference Examples**: Check the [Examples Directory](example/README.en.md) for complete example code and configurations for different usage scenarios.
+> 📚 **Reference Examples**: Check the [Examples Directory](example/README.md) for complete example code and configurations for different usage scenarios.
 
 For detailed development documentation, please refer to: [Development Documentation](docs/enUS/DEVELOPMENT.md)
 

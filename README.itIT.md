@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 Un servizio dati utente ad alta prestazione per liste di autorizzazione (AllowList) che supporta la sincronizzazione e la fusione di dati da fonti di configurazione locali e remote.
 

@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 로컬 및 원격 구성 소스에서 데이터 동기화 및 병합을 지원하는 고성능 허용 목록(AllowList) 사용자 데이터 서비스입니다.
 

@@ -1,119 +1,119 @@
-# Warden 快速开始示例
+# Warden Quick Start Examples
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md)
 
-本目录包含两个不同复杂度的 Warden 使用示例，帮助你快速上手。
+This directory contains two Warden usage examples of different complexity levels to help you get started quickly.
 
-## 📚 示例列表
+## 📚 Example List
 
-### 1. [简单示例](./basic/) - 基础使用
+### 1. [Simple Example](./basic/) - Basic Usage
 
-**适合场景**：
-- 快速测试和开发
-- 仅使用本地数据文件
-- 学习基本功能
+**Suitable Scenarios**:
+- Quick testing and development
+- Using only local data files
+- Learning basic functionality
 
-**包含内容**：
-- ✅ 本地数据文件配置
-- ✅ 基本的 Docker Compose 部署
-- ✅ 简单的启动脚本
-- ✅ 完整的使用文档
+**Includes**:
+- ✅ Local data file configuration
+- ✅ Basic Docker Compose deployment
+- ✅ Simple startup script
+- ✅ Complete usage documentation
 
-**快速开始**：
+**Quick Start**:
 ```bash
 cd basic
 docker-compose up -d
 ```
 
-[查看详细文档 →](./basic/README.md)
+[View Detailed Documentation →](./basic/README.md)
 
-### 2. [复杂示例](./advanced/) - 完整功能
+### 2. [Advanced Example](./advanced/) - Full Features
 
-**适合场景**：
-- 生产环境部署参考
-- 需要远程 API 数据源
-- 完整的监控和测试
+**Suitable Scenarios**:
+- Production environment deployment reference
+- Need remote API data source
+- Complete monitoring and testing
 
-**包含内容**：
-- ✅ 本地 + 远程数据源
-- ✅ Redis 缓存和分布式锁
-- ✅ 定时任务自动同步
-- ✅ Mock 远程 API 服务
-- ✅ 完整的 Docker Compose 配置
-- ✅ 自动化测试脚本
-- ✅ 多种数据合并策略演示
+**Includes**:
+- ✅ Local + remote data sources
+- ✅ Redis cache and distributed locks
+- ✅ Scheduled tasks for automatic synchronization
+- ✅ Mock remote API service
+- ✅ Complete Docker Compose configuration
+- ✅ Automated test scripts
+- ✅ Multiple data merging strategy demonstrations
 
-**快速开始**：
+**Quick Start**:
 ```bash
 cd advanced
 cp .env.example .env
 docker-compose up -d
 ```
 
-[查看详细文档 →](./advanced/README.md)
+[View Detailed Documentation →](./advanced/README.md)
 
-## 🎯 选择指南
+## 🎯 Selection Guide
 
-### 选择简单示例，如果你：
-- 是第一次使用 Warden
-- 只需要本地数据文件
-- 想要快速验证功能
-- 在开发环境中测试
+### Choose Simple Example if you:
+- Are using Warden for the first time
+- Only need local data files
+- Want to quickly verify functionality
+- Are testing in a development environment
 
-### 选择复杂示例，如果你：
-- 需要从远程 API 获取数据
-- 需要了解完整的数据合并策略
-- 准备部署到生产环境
-- 需要完整的监控和测试方案
+### Choose Advanced Example if you:
+- Need to fetch data from remote APIs
+- Need to understand complete data merging strategies
+- Are preparing to deploy to production
+- Need a complete monitoring and testing solution
 
-## 🚀 快速对比
+## 🚀 Quick Comparison
 
-| 特性 | 简单示例 | 复杂示例 |
-|------|---------|---------|
-| 本地数据文件 | ✅ | ✅ |
-| 远程 API | ❌ | ✅ |
-| Redis 缓存 | ✅ | ✅ |
-| 定时任务 | ✅ | ✅ |
+| Feature | Simple Example | Advanced Example |
+|---------|---------------|------------------|
+| Local Data File | ✅ | ✅ |
+| Remote API | ❌ | ✅ |
+| Redis Cache | ✅ | ✅ |
+| Scheduled Tasks | ✅ | ✅ |
 | Mock API | ❌ | ✅ |
-| 测试脚本 | ❌ | ✅ |
-| 完整配置 | ❌ | ✅ |
-| 文档详细度 | 基础 | 完整 |
+| Test Scripts | ❌ | ✅ |
+| Complete Configuration | ❌ | ✅ |
+| Documentation Detail | Basic | Complete |
 
-## 📖 学习路径
+## 📖 Learning Path
 
-### 初学者路径
-1. 从 [简单示例](./basic/) 开始
-2. 理解基本概念和配置
-3. 测试基本功能
-4. 然后查看 [复杂示例](./advanced/) 了解高级功能
+### Beginner Path
+1. Start with [Simple Example](./basic/)
+2. Understand basic concepts and configuration
+3. Test basic functionality
+4. Then check [Advanced Example](./advanced/) to learn advanced features
 
-### 有经验用户路径
-1. 直接查看 [复杂示例](./advanced/)
-2. 根据需求调整配置
-3. 参考主项目 [README](../README.md) 了解所有功能
+### Experienced User Path
+1. Directly check [Advanced Example](./advanced/)
+2. Adjust configuration according to needs
+3. Refer to main project [README](../README.md) to learn all features
 
-## 🔗 相关资源
+## 🔗 Related Resources
 
-- [Warden 主文档](../README.md) - 完整的项目文档
-- [API 文档](../openapi.yaml) - OpenAPI 规范
-- [配置示例](../config.example.yaml) - 配置文件参考
-- [代码风格指南](../docs/CODE_STYLE.md) - 开发规范
+- [Warden Main Documentation](../README.md) - Complete project documentation
+- [API Documentation](../openapi.yaml) - OpenAPI specification
+- [Configuration Example](../config.example.yaml) - Configuration file reference
+- [Code Style Guide](../docs/CODE_STYLE.en.md) - Development standards
 
-## 💡 提示
+## 💡 Tips
 
-- 所有示例都可以独立运行
-- 建议先运行简单示例，确保环境配置正确
-- 复杂示例包含了完整的生产环境最佳实践
-- 可以根据实际需求修改配置和数据文件
+- All examples can run independently
+- Recommend running the simple example first to ensure environment configuration is correct
+- Advanced example includes complete production environment best practices
+- You can modify configuration and data files according to actual needs
 
-## ❓ 需要帮助？
+## ❓ Need Help?
 
-如果遇到问题：
-1. 查看对应示例的 README 文档
-2. 查看 [主项目 README](../README.md) 的故障排查部分
-3. 提交 Issue 到项目仓库
+If you encounter problems:
+1. Check the corresponding example's README documentation
+2. Check the troubleshooting section in [Main Project README](../README.md)
+3. Submit an Issue to the project repository
 
 ---
 
-**祝你使用愉快！** 🎉
+**Enjoy using Warden!** 🎉
 

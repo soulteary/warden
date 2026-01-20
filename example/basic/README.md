@@ -1,21 +1,21 @@
-# 简单示例 - 快速开始
+# Simple Example - Quick Start
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md)
 
-这是 Warden 的最简单使用示例，仅使用本地数据文件，适合快速测试和开发环境。
+This is the simplest Warden usage example, using only local data files, suitable for quick testing and development environments.
 
-## 📋 前置要求
+## 📋 Prerequisites
 
-- Go 1.25+ 或 Docker
-- Redis（用于缓存和分布式锁，即使只使用本地文件也需要）
+- Go 1.25+ or Docker
+- Redis (for caching and distributed locks, required even when using only local files)
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 方式一：使用 Go 运行
+### Method 1: Using Go
 
-1. **准备数据文件**
+1. **Prepare Data File**
 
-创建 `data.json` 文件：
+Create a `data.json` file:
 
 ```json
 [
@@ -30,47 +30,47 @@
 ]
 ```
 
-2. **启动 Redis**
+2. **Start Redis**
 
 ```bash
-# 使用 Docker 启动 Redis（最简单）
+# Start Redis using Docker (simplest)
 docker run -d --name redis -p 6379:6379 redis:6.2.4
 
-# 或使用本地 Redis
+# Or use local Redis
 redis-server
 ```
 
-3. **运行 Warden**
+3. **Run Warden**
 
 ```bash
-# 在项目根目录执行
+# Execute in project root directory
 go run main.go \
   --port 8081 \
   --redis localhost:6379 \
   --mode ONLY_LOCAL
 ```
 
-4. **测试服务**
+4. **Test Service**
 
 ```bash
-# 获取用户列表（需要设置 API Key）
+# Get user list (requires API Key)
 curl -H "X-API-Key: your-api-key" http://localhost:8081/
 
-# 健康检查（不需要 API Key）
+# Health check (no API Key required)
 curl http://localhost:8081/health
 ```
 
-### 方式二：使用 Docker Compose
+### Method 2: Using Docker Compose
 
-1. **准备数据文件**
+1. **Prepare Data File**
 
-将示例数据文件复制到当前目录：
+Copy the example data file to the current directory:
 
 ```bash
 cp ../../data.example.json ./data.json
 ```
 
-2. **创建环境变量文件 `.env`**
+2. **Create Environment Variable File `.env`**
 
 ```env
 PORT=8081
@@ -79,38 +79,38 @@ MODE=ONLY_LOCAL
 API_KEY=your-secret-api-key-here
 ```
 
-3. **启动服务**
+3. **Start Service**
 
 ```bash
 docker-compose up -d
 ```
 
-4. **测试服务**
+4. **Test Service**
 
 ```bash
-# 获取用户列表
+# Get user list
 curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
-# 健康检查
+# Health check
 curl http://localhost:8081/health
 ```
 
-## 📝 配置说明
+## 📝 Configuration
 
-### 运行模式
+### Running Mode
 
-本示例使用 `ONLY_LOCAL` 模式，表示：
-- ✅ 仅从本地 `data.json` 文件读取数据
-- ❌ 不使用远程 API
-- ✅ 数据会缓存在 Redis 中以提高性能
+This example uses `ONLY_LOCAL` mode, which means:
+- ✅ Only reads data from local `data.json` file
+- ❌ Does not use remote API
+- ✅ Data is cached in Redis for improved performance
 
-### 数据文件格式
+### Data File Format
 
-`data.json` 文件必须是 JSON 数组格式，每个元素包含：
-- `phone`: 手机号（字符串）
-- `mail`: 邮箱地址（字符串）
+The `data.json` file must be in JSON array format, each element containing:
+- `phone`: Phone number (string)
+- `mail`: Email address (string)
 
-示例：
+Example:
 ```json
 [
     {
@@ -120,15 +120,15 @@ curl http://localhost:8081/health
 ]
 ```
 
-## 🔍 验证服务
+## 🔍 Verify Service
 
-### 1. 检查服务状态
+### 1. Check Service Status
 
 ```bash
 curl http://localhost:8081/health
 ```
 
-预期响应：
+Expected response:
 ```json
 {
     "status": "ok",
@@ -141,13 +141,13 @@ curl http://localhost:8081/health
 }
 ```
 
-### 2. 获取用户列表
+### 2. Get User List
 
 ```bash
 curl -H "X-API-Key: your-api-key" http://localhost:8081/
 ```
 
-预期响应：
+Expected response:
 ```json
 [
     {
@@ -161,13 +161,13 @@ curl -H "X-API-Key: your-api-key" http://localhost:8081/
 ]
 ```
 
-### 3. 分页查询
+### 3. Paginated Query
 
 ```bash
 curl -H "X-API-Key: your-api-key" "http://localhost:8081/?page=1&page_size=1"
 ```
 
-预期响应：
+Expected response:
 ```json
 {
     "data": [
@@ -185,32 +185,32 @@ curl -H "X-API-Key: your-api-key" "http://localhost:8081/?page=1&page_size=1"
 }
 ```
 
-## 🛠️ 常见问题
+## 🛠️ Common Questions
 
-### Q: 为什么需要 Redis？
+### Q: Why is Redis needed?
 
-A: Warden 使用 Redis 进行：
-- 数据缓存（提高性能）
-- 分布式锁（防止定时任务重复执行）
-- 多实例数据同步
+A: Warden uses Redis for:
+- Data caching (improve performance)
+- Distributed locks (prevent scheduled tasks from executing repeatedly)
+- Multi-instance data synchronization
 
-即使只使用本地文件，Redis 也是必需的。
+Even when using only local files, Redis is required.
 
-### Q: 如何修改数据？
+### Q: How to modify data?
 
-A: 修改 `data.json` 文件后，服务会在下次定时任务执行时自动加载（默认每 5 秒）。你也可以重启服务立即生效。
+A: After modifying the `data.json` file, the service will automatically load it on the next scheduled task execution (default every 5 seconds). You can also restart the service to take effect immediately.
 
-### Q: 如何设置 API Key？
+### Q: How to set API Key?
 
-A: 通过环境变量设置：
+A: Set via environment variable:
 ```bash
 export API_KEY=your-secret-api-key-here
 go run main.go --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
 ```
 
-## 📚 下一步
+## 📚 Next Steps
 
-- 查看 [复杂示例](../advanced/README.md) 了解如何使用远程 API
-- 阅读 [完整文档](../../README.md) 了解更多功能
-- 查看 [API 文档](../../openapi.yaml) 了解所有 API 端点
+- Check [Advanced Example](../advanced/README.md) to learn how to use remote APIs
+- Read [Complete Documentation](../../README.md) to learn more features
+- Check [API Documentation](../../openapi.yaml) to learn all API endpoints
 

@@ -1,6 +1,6 @@
 # Warden Quick Start Examples
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md)
 
 This directory contains two Warden usage examples of different complexity levels to help you get started quickly.
 
