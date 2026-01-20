@@ -1,6 +1,6 @@
 # 安全文档
 
-> 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](SECURITY.md)
+> 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](../itIT/SECURITY.md) | [日本語](../jaJP/SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](../koKR/SECURITY.md)
 
 本文档说明 Warden 的安全特性、安全配置和最佳实践。
 

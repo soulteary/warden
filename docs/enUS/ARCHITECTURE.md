@@ -1,6 +1,6 @@
 # Architecture Design Documentation
 
-> 🌐 **Language / 语言**: [English](ARCHITECTURE.md) | [中文](../zhCN/ARCHITECTURE.md)
+> 🌐 **Language / 语言**: [English](ARCHITECTURE.md) | [中文](../zhCN/ARCHITECTURE.md) | [Français](../frFR/ARCHITECTURE.md) | [Italiano](../itIT/ARCHITECTURE.md) | [日本語](../jaJP/ARCHITECTURE.md) | [Deutsch](../deDE/ARCHITECTURE.md) | [한국어](../koKR/ARCHITECTURE.md)
 
 This document details the system architecture, core components, and data flow of Warden.
 

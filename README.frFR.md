@@ -230,7 +230,7 @@ Pour la documentation de développement détaillée, veuillez vous référer à:
 Le projet suit les standards de code officiels de Go et les meilleures pratiques. Pour les standards détaillés, veuillez vous référer à:
 
 - [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Guide de style de code
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Guide de contribution
+- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - Guide de contribution
 
 ## 📄 Licence
 

@@ -230,7 +230,7 @@ Warden は、API 認証、SSRF 保護、レート制限、TLS 検証などの複
 プロジェクトは、Go の公式コード標準とベストプラクティスに従います。詳細な標準については、以下を参照してください:
 
 - [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - コードスタイルガイド
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - 貢献ガイド
+- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - 貢献ガイド
 
 ## 📄 ライセンス
 

@@ -1,6 +1,6 @@
 # Contributing Guide
 
-> 🌐 **Language / 语言**: [English](CONTRIBUTING.en.md) | [中文](CONTRIBUTING.md)
+> 🌐 **Language / 语言**: [English](CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
 Thank you for your interest in the Warden project! We welcome all forms of contributions.
 
@@ -64,7 +64,7 @@ Please follow these code standards:
 5. **Add Comments**: Public functions and types must have documentation comments
 6. **Constant Naming**: All constants must use `ALL_CAPS` (UPPER_SNAKE_CASE) naming style
 
-For detailed code style guidelines, please refer to [CODE_STYLE.en.md](docs/CODE_STYLE.en.md).
+For detailed code style guidelines, please refer to [CODE_STYLE.md](CODE_STYLE.md).
 
 ## 📦 Commit Standards
 
@@ -196,4 +196,3 @@ If you have questions, please check existing Issues and Pull Requests, or ask in
 ---
 
 Thank you again for contributing to the Warden project! 🎉
-

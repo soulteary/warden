@@ -230,7 +230,7 @@ Warden은 API 인증, SSRF 보호, 속도 제한, TLS 검증 등 여러 보안 �
 프로젝트는 Go 공식 코드 표준 및 모범 사례를 따릅니다. 자세한 표준은 다음을 참조하세요:
 
 - [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - 코드 스타일 가이드
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - 기여 가이드
+- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - 기여 가이드
 
 ## 📄 라이선스
 

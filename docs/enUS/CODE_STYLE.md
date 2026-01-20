@@ -1,6 +1,6 @@
 # Code Style Guide
 
-> 🌐 **Language / 语言**: [English](CODE_STYLE.md) | [中文](../zhCN/CODE_STYLE.md)
+> 🌐 **Language / 语言**: [English](CODE_STYLE.md) | [中文](../zhCN/CODE_STYLE.md) | [Français](../frFR/CODE_STYLE.md) | [Italiano](../itIT/CODE_STYLE.md) | [日本語](../jaJP/CODE_STYLE.md) | [Deutsch](../deDE/CODE_STYLE.md) | [한국어](../koKR/CODE_STYLE.md)
 
 This document defines the code style and best practices for the Warden project. All contributors should follow these standards.
 

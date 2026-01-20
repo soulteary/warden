@@ -1,6 +1,6 @@
 # SDK 使用文档
 
-> 🌐 **Language / 语言**: [English](../enUS/SDK.md) | [中文](SDK.md)
+> 🌐 **Language / 语言**: [English](../enUS/SDK.md) | [中文](SDK.md) | [Français](../frFR/SDK.md) | [Italiano](../itIT/SDK.md) | [日本語](../jaJP/SDK.md) | [Deutsch](../deDE/SDK.md) | [한국어](../koKR/SDK.md)
 
 Warden 提供了 Go SDK，方便其他项目集成使用。SDK 提供了简洁的 API 接口，支持缓存、认证等功能。
 
