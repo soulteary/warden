@@ -1,6 +1,6 @@
 # 配置说明
 
-> 🌐 **Language / 语言**: [English](CONFIGURATION.en.md) | [中文](CONFIGURATION.md)
+> 🌐 **Language / 语言**: [English](../enUS/CONFIGURATION.md) | [中文](CONFIGURATION.md)
 
 本文档详细说明 Warden 的配置选项，包括运行模式、配置文件格式、环境变量等。
 

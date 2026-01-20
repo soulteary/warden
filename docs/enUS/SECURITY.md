@@ -1,6 +1,6 @@
 # Security Documentation
 
-> 🌐 **Language / 语言**: [English](SECURITY.en.md) | [中文](SECURITY.md)
+> 🌐 **Language / 语言**: [English](SECURITY.md) | [中文](../zhCN/SECURITY.md)
 
 This document explains Warden's security features, security configuration, and best practices.
 

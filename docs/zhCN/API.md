@@ -1,6 +1,6 @@
 # API 文档
 
-> 🌐 **Language / 语言**: [English](API.en.md) | [中文](API.md)
+> 🌐 **Language / 语言**: [English](../enUS/API.md) | [中文](API.md)
 
 本文档详细说明 Warden 提供的所有 API 端点。
 
