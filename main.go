@@ -277,6 +277,7 @@ func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
 // - 对数据进行排序（按 Phone 和 Mail）确保相同数据产生相同哈希
 // - 使用 SHA256 算法计算哈希值
 // - 对于空数据，返回固定哈希值以优化性能
+// - 包含所有字段（Phone, Mail, UserID, Status, Scope, Role）以确保数据变化检测准确
 //
 // 参数:
 //   - users: 要计算哈希的用户列表
@@ -303,6 +304,10 @@ func calculateHash(users []define.AllowListUser) string {
 	// 优化：如果数据量很大，可以考虑使用原地排序，但为了保持数据不变，使用副本
 	sorted := make([]define.AllowListUser, len(users))
 	copy(sorted, users)
+	// 规范化用户数据以确保一致性（生成 user_id，设置默认值等）
+	for i := range sorted {
+		sorted[i].Normalize()
+	}
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].Phone != sorted[j].Phone {
 			return sorted[i].Phone < sorted[j].Phone
@@ -310,11 +315,13 @@ func calculateHash(users []define.AllowListUser) string {
 		return sorted[i].Mail < sorted[j].Mail
 	})
 
-	// 计算哈希
+	// 计算哈希（包含所有字段以确保数据变化检测准确，与 cache.calculateHashInternal 保持一致）
 	h := sha256.New()
 	for _, user := range sorted {
 		// 使用分隔符确保不同字段不会混淆
-		h.Write([]byte(user.Phone + ":" + user.Mail + "\n"))
+		// 包含所有字段以确保数据变化检测准确
+		scopeStr := strings.Join(user.Scope, ",")
+		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
