@@ -108,7 +108,7 @@ func (d *Dependencies) initHandlers() {
 
 	// 健康检查处理器
 	d.HealthHandler = middleware.MetricsMiddleware(
-		router.ProcessWithLogger(router.HealthCheck(d.RedisClient, d.UserCache, d.Config.Mode)),
+		router.ProcessWithLogger(router.HealthCheck(d.RedisClient, d.UserCache, d.Config.Mode, d.Config.RedisEnabled)),
 	)
 
 	// 日志级别控制处理器

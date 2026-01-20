@@ -437,6 +437,7 @@ type CmdConfigData struct {
 	Port             string // 16 bytes
 	Redis            string // 16 bytes
 	RedisPassword    string // 16 bytes
+	RedisEnabled     bool   // 1 byte (padding to 8 bytes)
 	RemoteConfig     string // 16 bytes
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
@@ -463,10 +464,17 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 	if mode == "" {
 		mode = define.DEFAULT_MODE
 	}
+	// Redis 启用状态：从环境变量读取，默认启用
+	redisEnabled := true
+	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
+		redisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
+	}
+
 	return &CmdConfigData{
 		Port:             c.Server.Port,
 		Redis:            c.Redis.Addr,
 		RedisPassword:    redisPassword,
+		RedisEnabled:     redisEnabled,
 		RemoteConfig:     c.Remote.URL,
 		RemoteKey:        c.Remote.Key,
 		TaskInterval:     int(c.Task.Interval.Seconds()),

@@ -20,7 +20,8 @@ import (
 // HealthCheck 返回健康检查处理器
 // 检查 Redis 连接状态和数据是否已加载
 // appMode 控制响应详细程度：生产环境（"production"）隐藏详细信息，开发环境显示详细信息
-func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode string) http.HandlerFunc {
+// redisEnabled 表示 Redis 是否被显式启用（用于区分 disabled 和 unavailable 状态）
+func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode string, redisEnabled bool) http.HandlerFunc {
 	// 判断是否为生产环境
 	isProduction := appMode == "production" || appMode == "prod"
 
@@ -29,8 +30,12 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 		code := http.StatusOK
 		details := make(map[string]interface{})
 
-		// 检查 Redis 连接
-		if redisClient != nil {
+		// 检查 Redis 连接状态
+		if !redisEnabled {
+			// Redis 被显式禁用
+			details["redis"] = "disabled"
+		} else if redisClient != nil {
+			// Redis 已启用，检查连接状态
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := redisClient.Ping(ctx).Err(); err != nil {
@@ -46,7 +51,10 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 				details["redis"] = "ok"
 			}
 		} else {
-			details["redis"] = "not_configured"
+			// Redis 客户端为 nil（可能是连接失败后的 fallback 状态）
+			status = "redis_unavailable"
+			code = http.StatusServiceUnavailable
+			details["redis"] = "unavailable"
 		}
 
 		// 检查数据是否已加载
