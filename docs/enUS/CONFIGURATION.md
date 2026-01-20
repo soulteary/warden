@@ -1,6 +1,6 @@
 # Configuration
 
-> 🌐 **Language / 语言**: [English](CONFIGURATION.md) | [中文](../zhCN/CONFIGURATION.md)
+> 🌐 **Language / 语言**: [English](CONFIGURATION.md) | [中文](../zhCN/CONFIGURATION.md) | [Français](../frFR/CONFIGURATION.md) | [Italiano](../itIT/CONFIGURATION.md) | [日本語](../jaJP/CONFIGURATION.md) | [Deutsch](../deDE/CONFIGURATION.md) | [한국어](../koKR/CONFIGURATION.md)
 
 This document provides detailed information about Warden's configuration options, including running modes, configuration file formats, environment variables, etc.
 

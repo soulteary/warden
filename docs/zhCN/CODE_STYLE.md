@@ -1,6 +1,6 @@
 # 代码风格指南
 
-> 🌐 **Language / 语言**: [English](../enUS/CODE_STYLE.md) | [中文](CODE_STYLE.md)
+> 🌐 **Language / 语言**: [English](../enUS/CODE_STYLE.md) | [中文](CODE_STYLE.md) | [Français](../frFR/CODE_STYLE.md) | [Italiano](../itIT/CODE_STYLE.md) | [日本語](../jaJP/CODE_STYLE.md) | [Deutsch](../deDE/CODE_STYLE.md) | [한국어](../koKR/CODE_STYLE.md)
 
 本文档定义了 Warden 项目的代码风格和最佳实践。所有贡献者都应遵循这些规范。
 

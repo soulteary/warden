@@ -1,6 +1,6 @@
 # 架构设计文档
 
-> 🌐 **Language / 语言**: [English](../enUS/ARCHITECTURE.md) | [中文](ARCHITECTURE.md)
+> 🌐 **Language / 语言**: [English](../enUS/ARCHITECTURE.md) | [中文](ARCHITECTURE.md) | [Français](../frFR/ARCHITECTURE.md) | [Italiano](../itIT/ARCHITECTURE.md) | [日本語](../jaJP/ARCHITECTURE.md) | [Deutsch](../deDE/ARCHITECTURE.md) | [한국어](../koKR/ARCHITECTURE.md)
 
 本文档详细说明 Warden 的系统架构、核心组件和数据流程。
 

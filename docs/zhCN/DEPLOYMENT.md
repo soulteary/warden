@@ -1,6 +1,6 @@
 # 部署文档
 
-> 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](DEPLOYMENT.md)
+> 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](../jaJP/DEPLOYMENT.md) | [Deutsch](../deDE/DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
 本文档说明如何部署 Warden 服务，包括 Docker 部署、本地部署等。
 

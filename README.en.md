@@ -225,7 +225,7 @@ For detailed development documentation, please refer to: [Development Documentat
 The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
 - [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Code style guide
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Contribution guide
+- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - Contribution guide
 
 ## 📄 License
 

@@ -232,7 +232,7 @@ Warden 实现了多项安全功能，包括 API 认证、SSRF 防护、速率限
 项目遵循 Go 官方代码规范和最佳实践。详细规范请参考：
 
 - [CODE_STYLE.md](docs/zhCN/CODE_STYLE.md) - 代码风格指南
-- [CONTRIBUTING.md](CONTRIBUTING.md) - 贡献指南
+- [CONTRIBUTING.md](docs/zhCN/CONTRIBUTING.md) - 贡献指南
 
 ## 📄 许可证
 

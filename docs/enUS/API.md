@@ -1,6 +1,6 @@
 # API Documentation
 
-> 🌐 **Language / 语言**: [English](API.md) | [中文](../zhCN/API.md)
+> 🌐 **Language / 语言**: [English](API.md) | [中文](../zhCN/API.md) | [Français](../frFR/API.md) | [Italiano](../itIT/API.md) | [日本語](../jaJP/API.md) | [Deutsch](../deDE/API.md) | [한국어](../koKR/API.md)
 
 This document provides detailed information about all API endpoints provided by Warden.
 

@@ -1,6 +1,6 @@
 # Deployment Documentation
 
-> 🌐 **Language / 语言**: [English](DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md)
+> 🌐 **Language / 语言**: [English](DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](../jaJP/DEPLOYMENT.md) | [Deutsch](../deDE/DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
 This document explains how to deploy the Warden service, including Docker deployment, local deployment, etc.
 

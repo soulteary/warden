@@ -1,6 +1,6 @@
 # Development Guide
 
-> 🌐 **Language / 语言**: [English](DEVELOPMENT.md) | [中文](../zhCN/DEVELOPMENT.md)
+> 🌐 **Language / 语言**: [English](DEVELOPMENT.md) | [中文](../zhCN/DEVELOPMENT.md) | [Français](../frFR/DEVELOPMENT.md) | [Italiano](../itIT/DEVELOPMENT.md) | [日本語](../jaJP/DEVELOPMENT.md) | [Deutsch](../deDE/DEVELOPMENT.md) | [한국어](../koKR/DEVELOPMENT.md)
 
 This document provides a development guide for Warden project developers, including project structure, development workflow, testing methods, etc.
 
@@ -95,7 +95,7 @@ go tool cover -html=coverage.out
 The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
 - [CODE_STYLE.md](CODE_STYLE.md) / [CODE_STYLE.md](../zhCN/CODE_STYLE.md) - Code style guide
-- [CONTRIBUTING.en.md](../CONTRIBUTING.en.md) / [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guide
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
 
 ### Code Formatting
 

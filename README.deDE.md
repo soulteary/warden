@@ -230,7 +230,7 @@ Für detaillierte Entwicklungsdokumentation siehe: [Entwicklungsdokumentation](d
 Das Projekt folgt den offiziellen Go-Codestandards und Best Practices. Für detaillierte Standards siehe:
 
 - [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Codestil-Leitfaden
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Beitragsleitfaden
+- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - Beitragsleitfaden
 
 ## 📄 Lizenz
 
