@@ -913,5 +913,4 @@ go tool cover -html=coverage.out
 
 ---
 
-**版本**: 查看 `RELEASE_VERSION` 文件  
-**构建信息**: 程序启动时会显示版本、构建时间和代码版本
+**版本**: 程序启动时会显示版本、构建时间和代码版本（通过 `warden --version` 或查看启动日志）
