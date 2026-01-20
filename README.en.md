@@ -30,9 +30,9 @@ For detailed architecture documentation, please refer to: [Architecture Design D
 
 ## 📦 Installation and Running
 
-> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.en.md) / [快速开始示例](example/README.md):
-> - [Simple Example](example/basic/README.en.md) / [简单示例](example/basic/README.md) - Basic usage, local data file only
-> - [Advanced Example](example/advanced/README.en.md) / [复杂示例](example/advanced/README.md) - Full features, including remote API and Mock service
+> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.en.md):
+> - [Simple Example](example/basic/README.en.md) - Basic usage, local data file only
+> - [Advanced Example](example/advanced/README.en.md) - Full features, including remote API and Mock service
 
 ### Prerequisites
 
@@ -91,7 +91,7 @@ OpenAPI specification file: [openapi.yaml](openapi.yaml)
 
 Warden supports complete Docker and Docker Compose deployment, ready to use out of the box.
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.en.md) / [示例目录](example/README.md) for complete Docker Compose configuration examples
+> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.en.md) for complete Docker Compose configuration examples
 
 For detailed deployment documentation, please refer to: [Deployment Documentation](docs/DEPLOYMENT.md)
 
@@ -140,7 +140,7 @@ For detailed security documentation, please refer to: [Security Documentation](d
 
 ## 🔧 Development Guide
 
-> 📚 **Reference Examples**: Check the [Examples Directory](example/README.en.md) / [示例目录](example/README.md) for complete example code and configurations for different usage scenarios.
+> 📚 **Reference Examples**: Check the [Examples Directory](example/README.en.md) for complete example code and configurations for different usage scenarios.
 
 For detailed development documentation, please refer to: [Development Documentation](docs/DEVELOPMENT.md)
 
@@ -148,8 +148,8 @@ For detailed development documentation, please refer to: [Development Documentat
 
 The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
-- [CODE_STYLE.en.md](CODE_STYLE.en.md) / [CODE_STYLE.md](CODE_STYLE.md) - Code style guide
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guide
+- [CODE_STYLE.en.md](CODE_STYLE.en.md) - Code style guide
+- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Contribution guide
 
 ## 📄 License
 

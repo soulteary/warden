@@ -30,9 +30,9 @@ Warden 采用分层架构设计，包含 HTTP 层、业务层和基础设施层�
 
 ## 📦 安装与运行
 
-> 💡 **快速开始**: 想要快速体验 Warden？查看我们的 [快速开始示例](example/README.md) / [Quick Start Examples](example/README.en.md)：
-> - [简单示例](example/basic/README.md) / [Simple Example](example/basic/README.en.md) - 基础使用，仅本地数据文件
-> - [复杂示例](example/advanced/README.md) / [Advanced Example](example/advanced/README.en.md) - 完整功能，包含远程 API 和 Mock 服务
+> 💡 **快速开始**: 想要快速体验 Warden？查看我们的 [快速开始示例](example/README.md)：
+> - [简单示例](example/basic/README.md) - 基础使用，仅本地数据文件
+> - [复杂示例](example/advanced/README.md) - 完整功能，包含远程 API 和 Mock 服务
 
 ### 前置要求
 
@@ -97,7 +97,7 @@ Warden 提供了 Go SDK，方便其他项目集成使用。SDK 提供了简洁�
 
 Warden 支持完整的 Docker 和 Docker Compose 部署，开箱即用。
 
-> 🚀 **快速部署**: 查看 [示例目录](example/README.md) / [Examples Directory](example/README.en.md) 获取完整的 Docker Compose 配置示例
+> 🚀 **快速部署**: 查看 [示例目录](example/README.md) 获取完整的 Docker Compose 配置示例
 
 详细部署文档请参考：[部署文档](docs/DEPLOYMENT.md)
 
@@ -146,7 +146,7 @@ Warden 实现了多项安全功能，包括 API 认证、SSRF 防护、速率限
 
 ## 🔧 开发指南
 
-> 📚 **参考示例**: 查看 [示例目录](example/README.md) / [Examples Directory](example/README.en.md) 了解不同使用场景的完整示例代码和配置。
+> 📚 **参考示例**: 查看 [示例目录](example/README.md) 了解不同使用场景的完整示例代码和配置。
 
 详细开发文档请参考：[开发文档](docs/DEVELOPMENT.md)
 
@@ -154,8 +154,8 @@ Warden 实现了多项安全功能，包括 API 认证、SSRF 防护、速率限
 
 项目遵循 Go 官方代码规范和最佳实践。详细规范请参考：
 
-- [CODE_STYLE.md](CODE_STYLE.md) / [CODE_STYLE.en.md](CODE_STYLE.en.md) - 代码风格指南
-- [CONTRIBUTING.md](CONTRIBUTING.md) / [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - 贡献指南
+- [CODE_STYLE.md](CODE_STYLE.md) - 代码风格指南
+- [CONTRIBUTING.md](CONTRIBUTING.md) - 贡献指南
 
 ## 📄 许可证
 
