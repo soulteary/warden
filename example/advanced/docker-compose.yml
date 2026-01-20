@@ -3,9 +3,7 @@ version: '3.8'
 services:
   # Warden 主服务
   warden:
-    build:
-      context: ../..
-      dockerfile: docker/Dockerfile
+    image: ${WARDEN_IMAGE:-ghcr.io/soulteary/warden}:${WARDEN_IMAGE_TAG:-latest}
     container_name: warden-advanced
     restart: unless-stopped
     ports:

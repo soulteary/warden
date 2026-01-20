@@ -47,13 +47,19 @@ cp .env.example .env
 2. **启动所有服务**
 
 ```bash
+# 从 GHCR 拉取最新镜像（可选，docker-compose 会自动拉取）
+docker-compose pull
+
+# 启动所有服务
 docker-compose up -d
 ```
 
 这将启动：
-- Warden 主服务（端口 8081）
+- Warden 主服务（端口 8081）- 默认使用 `ghcr.io/soulteary/warden:latest`
 - Redis 缓存服务（端口 6379）
 - Mock 远程 API 服务（端口 8080）
+
+**注意**：示例使用 GitHub Container Registry (GHCR) 提供的预构建镜像。你可以通过在 `.env` 文件中设置 `WARDEN_IMAGE` 和 `WARDEN_IMAGE_TAG` 来自定义镜像。
 
 3. **查看服务状态**
 
@@ -126,6 +132,10 @@ go run main.go \
 ```env
 # 服务端口
 PORT=8081
+
+# Docker 镜像配置（可选）
+# WARDEN_IMAGE=ghcr.io/soulteary/warden
+# WARDEN_IMAGE_TAG=latest
 
 # Redis 配置
 REDIS=warden-redis:6379

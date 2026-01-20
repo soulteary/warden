@@ -4,6 +4,15 @@
 
 This directory contains two Warden usage examples of different complexity levels to help you get started quickly.
 
+## 🐳 Docker Image
+
+All examples use pre-built images from [GitHub Container Registry (GHCR)](https://github.com/soulteary/warden/pkgs/container/warden):
+
+- **Default Image**: `ghcr.io/soulteary/warden:latest`
+- **Customization**: You can override the image by setting `WARDEN_IMAGE` and `WARDEN_IMAGE_TAG` environment variables
+
+For production deployments, it's recommended to use a specific version tag instead of `latest`.
+
 ## 📚 Example List
 
 ### 1. [Simple Example](./basic/) - Basic Usage
@@ -22,6 +31,8 @@ This directory contains two Warden usage examples of different complexity levels
 **Quick Start**:
 ```bash
 cd basic
+# Pull the latest image (optional)
+docker-compose pull
 docker-compose up -d
 ```
 
@@ -46,7 +57,9 @@ docker-compose up -d
 **Quick Start**:
 ```bash
 cd advanced
-cp .env.example .env
+cp env.example .env
+# Pull the latest image (optional)
+docker-compose pull
 docker-compose up -d
 ```
 
