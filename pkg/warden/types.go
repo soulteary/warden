@@ -13,6 +13,28 @@ type AllowListUser struct {
 	Role   string   `json:"role"`    // User role (optional)
 }
 
+// IsActive checks if the user status is active.
+//
+// Returns true if the user status is "active", false otherwise.
+// This method is used to verify if a user is allowed to access the system.
+func (u *AllowListUser) IsActive() bool {
+	return u.Status == "active"
+}
+
+// IsValid checks if the user has a valid status for authentication.
+//
+// Returns true if the user status is one of the valid statuses (currently only "active").
+// This method can be extended in the future to support other valid statuses if needed.
+func (u *AllowListUser) IsValid() bool {
+	validStatuses := []string{"active"}
+	for _, status := range validStatuses {
+		if u.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
 // PaginatedResponse represents a paginated response from the Warden API.
 type PaginatedResponse struct {
 	Data       []AllowListUser `json:"data"`

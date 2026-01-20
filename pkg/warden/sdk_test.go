@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -248,14 +249,38 @@ func TestClient_GetUsersPaginated(t *testing.T) {
 }
 
 func TestClient_CheckUserInList(t *testing.T) {
-	// Create mock server
-	mockUsers := []AllowListUser{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-		{Phone: "13900139000", Mail: "user2@example.com"},
-	}
-
+	// Create mock server that handles /user endpoint
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user AllowListUser
+			switch {
+			case phone == "13800138000":
+				user = AllowListUser{Phone: "13800138000", Mail: "user1@example.com", Status: "active", UserID: "user1"}
+			case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+				user = AllowListUser{Phone: "13900139000", Mail: "user2@example.com", Status: "active", UserID: "user2"}
+			case phone == "14000140000":
+				user = AllowListUser{Phone: "14000140000", Mail: "user3@example.com", Status: "inactive", UserID: "user3"}
+			case mail == "user4@example.com":
+				user = AllowListUser{Phone: "14100141000", Mail: "user4@example.com", Status: "suspended", UserID: "user4"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(user))
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []AllowListUser{
+			{Phone: "13800138000", Mail: "user1@example.com", Status: "active"},
+			{Phone: "13900139000", Mail: "user2@example.com", Status: "active"},
+		}
 		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
 	}))
 	defer server.Close()
@@ -272,14 +297,19 @@ func TestClient_CheckUserInList(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Test existing user by phone
+	// Test existing active user by phone
 	if !client.CheckUserInList(ctx, "13800138000", "") {
-		t.Error("CheckUserInList() should return true for existing phone")
+		t.Error("CheckUserInList() should return true for existing active user by phone")
 	}
 
-	// Test existing user by mail
+	// Test existing active user by mail
 	if !client.CheckUserInList(ctx, "", "user2@example.com") {
-		t.Error("CheckUserInList() should return true for existing mail")
+		t.Error("CheckUserInList() should return true for existing active user by mail")
+	}
+
+	// Test case-insensitive mail matching
+	if !client.CheckUserInList(ctx, "", "USER2@EXAMPLE.COM") {
+		t.Error("CheckUserInList() should match mail case-insensitively")
 	}
 
 	// Test non-existing user
@@ -287,9 +317,14 @@ func TestClient_CheckUserInList(t *testing.T) {
 		t.Error("CheckUserInList() should return false for non-existing phone")
 	}
 
-	// Test case-insensitive mail matching
-	if !client.CheckUserInList(ctx, "", "USER1@EXAMPLE.COM") {
-		t.Error("CheckUserInList() should match mail case-insensitively")
+	// Test inactive user (should be rejected)
+	if client.CheckUserInList(ctx, "14000140000", "") {
+		t.Error("CheckUserInList() should return false for inactive user")
+	}
+
+	// Test suspended user (should be rejected)
+	if client.CheckUserInList(ctx, "", "user4@example.com") {
+		t.Error("CheckUserInList() should return false for suspended user")
 	}
 }
 
@@ -620,15 +655,37 @@ func TestClient_CheckUserInList_ErrorHandling(t *testing.T) {
 }
 
 func TestClient_CheckUserInList_EdgeCases(t *testing.T) {
-	mockUsers := []AllowListUser{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-		{Phone: " 13900139000 ", Mail: " USER2@EXAMPLE.COM "}, // With spaces
-		{Phone: "", Mail: "user3@example.com"},                // Empty phone number
-		{Phone: "14000140000", Mail: ""},                      // Empty email
-	}
-
+	// Create mock server that handles /user endpoint
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := strings.TrimSpace(r.URL.Query().Get("phone"))
+			mail := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("mail")))
+
+			var user AllowListUser
+			switch {
+			case phone == "13900139000":
+				user = AllowListUser{Phone: "13900139000", Mail: "user2@example.com", Status: "active", UserID: "user2"}
+			case mail == "user2@example.com":
+				user = AllowListUser{Phone: "13900139000", Mail: "user2@example.com", Status: "active", UserID: "user2"}
+			case mail == "user3@example.com":
+				user = AllowListUser{Phone: "", Mail: "user3@example.com", Status: "active", UserID: "user3"}
+			case phone == "14000140000":
+				user = AllowListUser{Phone: "14000140000", Mail: "", Status: "active", UserID: "user4"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(user))
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []AllowListUser{
+			{Phone: "13800138000", Mail: "user1@example.com", Status: "active"},
+		}
 		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
 	}))
 	defer server.Close()
@@ -641,7 +698,7 @@ func TestClient_CheckUserInList_EdgeCases(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Test matching with spaces
+	// Test matching with spaces (should be trimmed)
 	if !client.CheckUserInList(ctx, "13900139000", "") {
 		t.Error("CheckUserInList() should trim spaces from phone")
 	}

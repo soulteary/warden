@@ -159,44 +159,30 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	return &paginatedResp, nil
 }
 
-// CheckUserInList checks if a user (by phone or mail) is in the allow list.
-// Returns false if the user is not found, or if there's an error fetching the user list.
+// CheckUserInList checks if a user (by phone or mail) is in the allow list and has active status.
+// Returns false if the user is not found, has inactive/suspended status, or if there's an error.
+// This method uses GetUserByIdentifier for better performance and includes status validation.
 func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
-	users, err := c.GetUsers(ctx)
-	if err != nil {
-		c.logger.Warnf("Failed to get users from Warden API: %v", err)
-		// Return false on error - this allows fallback to password authentication
-		return false
-	}
-
 	// Normalize input
 	phone = strings.TrimSpace(phone)
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
-	c.logger.Debugf("Checking user in list: phone=%s, mail=%s, total users=%d", phone, mail, len(users))
-
-	// Check if user exists
-	for i, user := range users {
-		userPhone := strings.TrimSpace(user.Phone)
-		userMail := strings.TrimSpace(strings.ToLower(user.Mail))
-
-		c.logger.Debugf("Comparing with user[%d]: phone=%s, mail=%s", i, userPhone, userMail)
-
-		// Match by phone if provided
-		if phone != "" && userPhone == phone {
-			c.logger.Infof("User matched by phone: %s", phone)
-			return true
-		}
-
-		// Match by mail if provided
-		if mail != "" && userMail == mail {
-			c.logger.Infof("User matched by mail: %s", mail)
-			return true
-		}
+	// Use GetUserByIdentifier for direct query (better performance than fetching all users)
+	user, err := c.GetUserByIdentifier(ctx, phone, mail, "")
+	if err != nil {
+		// Log error but don't expose details to caller (security: don't reveal if user exists)
+		c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, phone, mail)
+		return false
 	}
 
-	c.logger.Debugf("User not found in list: phone=%s, mail=%s", phone, mail)
-	return false
+	// Check if user status is active
+	if !user.IsActive() {
+		c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+		return false
+	}
+
+	c.logger.Debugf("User found and active: phone=%s, mail=%s, user_id=%s", phone, mail, user.UserID)
+	return true
 }
 
 // GetUserByIdentifier fetches a single user by phone, mail, or user_id.
