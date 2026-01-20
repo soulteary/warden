@@ -2,6 +2,8 @@
 package warden
 
 // AllowListUser represents a user in the allow list.
+//
+//nolint:govet // fieldalignment: 字段顺序受 JSON 序列化标签影响，优化可能破坏 API 兼容性
 type AllowListUser struct {
 	Phone  string   `json:"phone"`   // 用户手机号
 	Mail   string   `json:"mail"`    // 用户邮箱地址

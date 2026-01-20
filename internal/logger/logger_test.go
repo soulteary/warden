@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetLogger(t *testing.T) {
@@ -135,4 +136,165 @@ func TestLogger_Stderr(t *testing.T) {
 
 	// 如果没有panic，说明可以正常写入stderr
 	assert.True(t, true)
+}
+
+func TestSetLevel(t *testing.T) {
+	// 保存原始级别
+	originalLevel := zerolog.GlobalLevel()
+	defer zerolog.SetGlobalLevel(originalLevel)
+
+	// 测试设置不同级别
+	levels := []zerolog.Level{
+		zerolog.DebugLevel,
+		zerolog.InfoLevel,
+		zerolog.WarnLevel,
+		zerolog.ErrorLevel,
+		zerolog.FatalLevel,
+		zerolog.PanicLevel,
+	}
+
+	for _, level := range levels {
+		SetLevel(level)
+		assert.Equal(t, level, zerolog.GlobalLevel(), "级别应该被正确设置")
+	}
+}
+
+func TestSanitizeString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "短字符串（<=4字符）",
+			input:    "test",
+			expected: "***",
+		},
+		{
+			name:     "短字符串（3字符）",
+			input:    "abc",
+			expected: "***",
+		},
+		{
+			name:     "正常字符串",
+			input:    "password123",
+			expected: "pa*******23",
+		},
+		{
+			name:     "长字符串",
+			input:    "very-long-secret-key-that-needs-masking",
+			expected: "ve***********************************ng", // 实际长度：43字符，前2后2，中间39个*
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeString(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSanitizeHeader(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		shouldMask bool
+	}{
+		{
+			name:       "Authorization头",
+			input:      "Authorization: Bearer token123",
+			shouldMask: true,
+		},
+		{
+			name:       "authorization头（小写）",
+			input:      "authorization: Bearer token123",
+			shouldMask: true,
+		},
+		{
+			name:       "Token头",
+			input:      "Token: secret123",
+			shouldMask: true,
+		},
+		{
+			name:       "API-Key头",
+			input:      "API-Key: key123",
+			shouldMask: true,
+		},
+		{
+			name:       "api-key头（小写）",
+			input:      "api-key: key123",
+			shouldMask: true,
+		},
+		{
+			name:       "普通头",
+			input:      "Content-Type: application/json",
+			shouldMask: false,
+		},
+		{
+			name:       "User-Agent头",
+			input:      "User-Agent: Mozilla/5.0",
+			shouldMask: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeHeader(tt.input)
+			if tt.shouldMask {
+				assert.Contains(t, result, "**", "敏感头应该被脱敏")
+				assert.NotEqual(t, tt.input, result, "敏感头应该被修改")
+			} else {
+				assert.Equal(t, tt.input, result, "非敏感头不应该被修改")
+			}
+		})
+	}
+}
+
+func TestGetLogger_WithEnvLevel(t *testing.T) {
+	// 保存原始环境变量
+	originalLevel := os.Getenv("LOG_LEVEL")
+	defer func() {
+		if originalLevel != "" {
+			require.NoError(t, os.Setenv("LOG_LEVEL", originalLevel))
+		} else {
+			require.NoError(t, os.Unsetenv("LOG_LEVEL"))
+		}
+	}()
+
+	// 测试不同的日志级别
+	levels := []string{"debug", "info", "warn", "error", "fatal", "panic"}
+
+	for _, level := range levels {
+		require.NoError(t, os.Setenv("LOG_LEVEL", level))
+		// 注意：由于init函数已经执行，环境变量的改变不会立即生效
+		// 这里主要验证GetLogger不会panic
+		logger := GetLogger()
+		assert.NotNil(t, logger)
+	}
+}
+
+func TestSanitizeString_EdgeCases(t *testing.T) {
+	// 测试边界情况
+	assert.Equal(t, "", SanitizeString(""))
+	assert.Equal(t, "***", SanitizeString("a"))
+	assert.Equal(t, "***", SanitizeString("ab"))
+	assert.Equal(t, "***", SanitizeString("abc"))
+	assert.Equal(t, "***", SanitizeString("abcd"))
+	assert.Equal(t, "ab**ef", SanitizeString("abcdef"))
+}
+
+func TestSanitizeHeader_EdgeCases(t *testing.T) {
+	// 测试边界情况
+	assert.Equal(t, "", SanitizeHeader(""))
+	assert.Equal(t, "test", SanitizeHeader("test"))
+
+	// 测试包含多个敏感关键词的情况
+	result := SanitizeHeader("Authorization: Bearer token123")
+	assert.Contains(t, result, "**", "应该被脱敏")
 }

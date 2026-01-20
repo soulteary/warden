@@ -90,48 +90,49 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 	duplicateCount := 0
 
 	for _, user := range users {
-		if user.Phone != "" {
-			// 规范化用户数据（设置默认值，生成 user_id）
-			user.Normalize()
+		if user.Phone == "" {
+			continue
+		}
+		// 规范化用户数据（设置默认值，生成 user_id）
+		user.Normalize()
 
-			// 验证用户数据
-			if err := validator.ValidateUser(user.Phone, user.Mail); err != nil {
-				invalidCount++
-				// 安全地获取验证错误字段
-				field := "unknown"
-				if ve, ok := err.(*validator.ValidationError); ok {
-					field = ve.Field
-				}
-				log.Warn().
-					Err(err).
-					Str("phone", user.Phone).
-					Str("mail", user.Mail).
-					Str("field", field).
-					Msg("跳过无效用户数据")
-				continue
+		// 验证用户数据
+		if err := validator.ValidateUser(user.Phone, user.Mail); err != nil {
+			invalidCount++
+			// 安全地获取验证错误字段
+			field := "unknown"
+			if ve, ok := err.(*validator.ValidationError); ok {
+				field = ve.Field
 			}
-			// 如果 phone 已存在，更新数据但保持第一次出现的位置
-			if _, exists := c.users[user.Phone]; !exists {
-				c.order = append(c.order, user.Phone)
-				validCount++
-			} else {
-				duplicateCount++
-				log.Debug().
-					Str("phone", user.Phone).
-					Msg("更新已存在的用户数据")
-			}
-			c.users[user.Phone] = user
+			log.Warn().
+				Err(err).
+				Str("phone", user.Phone).
+				Str("mail", user.Mail).
+				Str("field", field).
+				Msg("跳过无效用户数据")
+			continue
+		}
+		// 如果 phone 已存在，更新数据但保持第一次出现的位置
+		if _, exists := c.users[user.Phone]; !exists {
+			c.order = append(c.order, user.Phone)
+			validCount++
+		} else {
+			duplicateCount++
+			log.Debug().
+				Str("phone", user.Phone).
+				Msg("更新已存在的用户数据")
+		}
+		c.users[user.Phone] = user
 
-			// 建立 mail 索引（如果存在）
-			if user.Mail != "" {
-				mailKey := strings.ToLower(strings.TrimSpace(user.Mail))
-				c.byMail[mailKey] = user.Phone
-			}
+		// 建立 mail 索引（如果存在）
+		if user.Mail != "" {
+			mailKey := strings.ToLower(strings.TrimSpace(user.Mail))
+			c.byMail[mailKey] = user.Phone
+		}
 
-			// 建立 user_id 索引（如果存在）
-			if user.UserID != "" {
-				c.byUserID[user.UserID] = user.Phone
-			}
+		// 建立 user_id 索引（如果存在）
+		if user.UserID != "" {
+			c.byUserID[user.UserID] = user.Phone
 		}
 	}
 
@@ -177,8 +178,6 @@ func calculateHashInternal(users map[string]define.AllowListUser, order []string
 	// 计算哈希（包含所有字段以确保数据变化检测准确）
 	h := sha256.New()
 	for _, user := range sortedUsers {
-		// 使用分隔符确保不同字段不会混淆
-		// 包含所有字段以确保数据变化检测准确
 		scopeStr := strings.Join(user.Scope, ",")
 		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
 	}

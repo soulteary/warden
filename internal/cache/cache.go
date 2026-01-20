@@ -25,9 +25,13 @@ const (
 )
 
 // Locker 提供分布式锁功能，兼容 gocron.Locker 接口
+// 支持 Redis 分布式锁和本地锁两种模式
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Locker struct {
-	Cache     *redis.Client
-	lockStore sync.Map // 存储 key -> lockValue 的映射
+	Cache     *redis.Client // Redis 客户端，如果为 nil 则使用本地锁
+	lockStore sync.Map      // 存储 key -> lockValue 的映射（仅用于 Redis 模式）
+	localLock *LocalLocker  // 本地锁实例（当 Redis 不可用时使用）
 }
 
 // generateLockValue 生成唯一的锁值
@@ -42,6 +46,7 @@ func generateLockValue() (string, error) {
 // Lock 获取分布式锁，兼容 gocron.Locker 接口
 //
 // 该函数实现了基于 Redis 的分布式锁，使用 SETNX 命令确保原子性。
+// 如果 Redis 不可用，自动降级到本地锁。
 // 锁的默认过期时间为 DefaultLockTime 秒，防止死锁。
 //
 // 参数:
@@ -52,14 +57,23 @@ func generateLockValue() (string, error) {
 //   - err: 获取锁时发生的错误（如 Redis 连接错误）
 //
 // 副作用:
-//   - 在 Redis 中设置锁键值对
-//   - 在本地 lockStore 中存储锁值，用于后续解锁验证
-//   - 使用随机生成的锁值，确保只有锁的持有者才能释放锁
+//   - 在 Redis 中设置锁键值对（Redis 模式）
+//   - 在本地 lockStore 中存储锁值，用于后续解锁验证（Redis 模式）
+//   - 使用随机生成的锁值，确保只有锁的持有者才能释放锁（Redis 模式）
 //
 // 注意:
-//   - 锁有自动过期时间，即使进程崩溃也不会导致永久死锁
-//   - 锁值存储在本地内存中，进程重启后会丢失，但锁会在过期时间后自动释放
+//   - 锁有自动过期时间，即使进程崩溃也不会导致永久死锁（Redis 模式）
+//   - 锁值存储在本地内存中，进程重启后会丢失，但锁会在过期时间后自动释放（Redis 模式）
+//   - 本地锁仅适用于单机部署，多实例时无法防止重复执行
 func (s *Locker) Lock(key string) (success bool, err error) {
+	// 如果 Redis 不可用，使用本地锁
+	if s.Cache == nil {
+		if s.localLock == nil {
+			s.localLock = NewLocalLocker()
+		}
+		return s.localLock.Lock(key)
+	}
+
 	lockValue, err := generateLockValue()
 	if err != nil {
 		return false, fmt.Errorf("生成锁值失败: %w", err)
@@ -70,7 +84,11 @@ func (s *Locker) Lock(key string) (success bool, err error) {
 
 	res, err := s.Cache.SetNX(ctx, key, lockValue, time.Second*define.DEFAULT_LOCK_TIME).Result()
 	if err != nil {
-		return false, err
+		// Redis 操作失败，降级到本地锁
+		if s.localLock == nil {
+			s.localLock = NewLocalLocker()
+		}
+		return s.localLock.Lock(key)
 	}
 
 	if res {
@@ -83,6 +101,7 @@ func (s *Locker) Lock(key string) (success bool, err error) {
 // Unlock 释放分布式锁，验证锁的所有者
 //
 // 该函数实现了安全的锁释放机制，使用 Lua 脚本确保原子性。
+// 如果 Redis 不可用，自动降级到本地锁。
 // 只有锁值匹配时才会释放锁，防止误释放其他进程的锁。
 //
 // 参数:
@@ -95,18 +114,26 @@ func (s *Locker) Lock(key string) (success bool, err error) {
 //   - 锁值类型错误（内部错误）
 //
 // 副作用:
-//   - 从 Redis 中删除锁键（仅当锁值匹配时）
-//   - 从本地 lockStore 中删除锁值记录
+//   - 从 Redis 中删除锁键（仅当锁值匹配时，Redis 模式）
+//   - 从本地 lockStore 中删除锁值记录（Redis 模式）
 //
 // 安全机制:
-//   - 使用 Lua 脚本确保检查和删除的原子性
-//   - 验证锁值，防止误释放其他进程的锁
+//   - 使用 Lua 脚本确保检查和删除的原子性（Redis 模式）
+//   - 验证锁值，防止误释放其他进程的锁（Redis 模式）
 //   - 如果本地没有存储锁值，会直接删除（向后兼容，但不安全）
 //
 // 注意:
 //   - 必须使用与 Lock 时相同的 key
-//   - 如果锁已过期或被其他进程持有，会返回错误
+//   - 如果锁已过期或被其他进程持有，会返回错误（Redis 模式）
 func (s *Locker) Unlock(key string) error {
+	// 如果 Redis 不可用，使用本地锁
+	if s.Cache == nil {
+		if s.localLock == nil {
+			s.localLock = NewLocalLocker()
+		}
+		return s.localLock.Unlock(key)
+	}
+
 	// 获取存储的 lockValue
 	value, ok := s.lockStore.LoadAndDelete(key)
 	if !ok {
@@ -134,7 +161,11 @@ func (s *Locker) Unlock(key string) error {
 	`
 	result, err := s.Cache.Eval(ctx, script, []string{key}, lockValue).Result()
 	if err != nil {
-		return fmt.Errorf("解锁失败: %w", err)
+		// Redis 操作失败，降级到本地锁
+		if s.localLock == nil {
+			s.localLock = NewLocalLocker()
+		}
+		return s.localLock.Unlock(key)
 	}
 
 	// 使用安全的类型断言

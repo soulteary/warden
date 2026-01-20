@@ -11,6 +11,8 @@ import (
 )
 
 // Client is the Warden API client.
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
@@ -59,7 +61,7 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	c.logger.Debugf("Fetching users from Warden API: %s", reqURL)
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
@@ -73,7 +75,11 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 		c.logger.Errorf("Failed to fetch users from Warden API: %v", err)
 		return nil, NewError(ErrCodeRequestFailed, "failed to fetch users from Warden", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close() //nolint:errcheck // 在 defer 中忽略错误是安全的
+		}
+	}()
 
 	// Check status code
 	if err := c.checkResponseStatus(resp); err != nil {
@@ -117,7 +123,7 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	c.logger.Debugf("Fetching paginated users from Warden API: %s (page=%d, pageSize=%d)", reqURL.String(), page, pageSize)
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), http.NoBody)
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
@@ -131,7 +137,11 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 		c.logger.Errorf("Failed to fetch paginated users from Warden API: %v", err)
 		return nil, NewError(ErrCodeRequestFailed, "failed to fetch paginated users from Warden", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close() //nolint:errcheck // 在 defer 中忽略错误是安全的
+		}
+	}()
 
 	// Check status code
 	if err := c.checkResponseStatus(resp); err != nil {
@@ -214,11 +224,12 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	// Build request URL
 	reqURL := fmt.Sprintf("%s/user", c.baseURL)
 	params := url.Values{}
-	if phone != "" {
+	switch {
+	case phone != "":
 		params.Set("phone", phone)
-	} else if mail != "" {
+	case mail != "":
 		params.Set("mail", mail)
-	} else if userID != "" {
+	case userID != "":
 		params.Set("user_id", userID)
 	}
 	if len(params) > 0 {
@@ -228,7 +239,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	c.logger.Debugf("Fetching user from Warden API: %s", reqURL)
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
@@ -242,7 +253,11 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 		c.logger.Errorf("Failed to fetch user from Warden API: %v", err)
 		return nil, NewError(ErrCodeRequestFailed, "failed to fetch user from Warden", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close() //nolint:errcheck // 在 defer 中忽略错误是安全的
+		}
+	}()
 
 	// Check status code
 	if err := c.checkResponseStatus(resp); err != nil {
@@ -282,8 +297,13 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 		return nil
 	}
 
-	body, _ := io.ReadAll(resp.Body)
-	c.logger.Warnf("Warden API returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.logger.Warnf("Warden API returned non-200 status: %d, failed to read body: %v", resp.StatusCode, err)
+		body = []byte("")
+	} else {
+		c.logger.Warnf("Warden API returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
+	}
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:

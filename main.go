@@ -25,7 +25,6 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
-	"github.com/soulteary/warden/internal/errors"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/metrics"
 	"github.com/soulteary/warden/internal/middleware"
@@ -50,10 +49,11 @@ type App struct {
 	appMode             string                  // 16 bytes
 	apiKey              string                  // 16 bytes
 	taskInterval        uint64                  // 8 bytes
+	redisEnabled        bool                    // 1 byte (padding to 8 bytes)
 }
 
 // NewApp 创建新的应用实例
-func NewApp(cfg *cmd.Config) (*App, error) {
+func NewApp(cfg *cmd.Config) *App {
 	app := &App{
 		port:                cfg.Port,
 		configURL:           cfg.RemoteConfig,
@@ -62,29 +62,9 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 		// #nosec G115 -- 转换是安全的，TaskInterval 是正数
 		taskInterval: uint64(cfg.TaskInterval),
 		apiKey:       cfg.APIKey,
+		redisEnabled: cfg.RedisEnabled,
 		log:          logger.GetLogger(),
 	}
-
-	// 初始化 Redis 客户端（安全性改进）
-	redisOptions := &redis.Options{Addr: cfg.Redis}
-	if cfg.RedisPassword != "" {
-		redisOptions.Password = cfg.RedisPassword
-		// 安全检查：如果密码是通过命令行参数传递的，记录警告
-		// 注意：这里无法直接判断密码来源，但可以通过环境变量检查来推断
-		if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
-			app.log.Warn().Msg("⚠️  安全警告：Redis 密码通过命令行参数传递，建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE")
-		}
-	}
-	app.redisClient = redis.NewClient(redisOptions)
-
-	// 验证 Redis 连接（带超时）
-	ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
-	defer cancel()
-	if err := app.redisClient.Ping(ctx).Err(); err != nil {
-		return nil, errors.ErrRedisConnection.WithError(err)
-	}
-	app.log.Info().Str("redis", cfg.Redis).Msg("Redis 连接成功 ✓")
-	app.log.Debug().Str("mode", app.appMode).Msg("当前运行模式")
 
 	// 初始化 HTTP 客户端（使用配置）
 	parser.InitHTTPClient(cfg.HTTPTimeout, cfg.HTTPMaxIdleConns, cfg.HTTPInsecureTLS)
@@ -96,9 +76,48 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 		}
 	}
 
-	// 初始化缓存
-	app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
+	// 初始化缓存（先创建内存缓存）
 	app.userCache = cache.NewSafeUserCache()
+
+	// 处理 Redis 初始化（可选）
+	if cfg.RedisEnabled {
+		// 初始化 Redis 客户端（安全性改进）
+		redisOptions := &redis.Options{Addr: cfg.Redis}
+		if cfg.RedisPassword != "" {
+			redisOptions.Password = cfg.RedisPassword
+			// 安全检查：如果密码是通过命令行参数传递的，记录警告
+			// 注意：这里无法直接判断密码来源，但可以通过环境变量检查来推断
+			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
+				app.log.Warn().Msg("⚠️  安全警告：Redis 密码通过命令行参数传递，建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE")
+			}
+		}
+		app.redisClient = redis.NewClient(redisOptions)
+
+		// 验证 Redis 连接（带超时）
+		ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
+		if err := app.redisClient.Ping(ctx).Err(); err != nil {
+			cancel()
+			// Redis 连接失败，记录警告并降级到内存模式（fallback）
+			app.log.Warn().
+				Err(err).
+				Str("redis", cfg.Redis).
+				Msg("⚠️  Redis 连接失败，降级到内存模式（fallback）")
+			app.redisClient = nil
+			app.redisUserCache = nil
+		} else {
+			cancel()
+			app.log.Info().Str("redis", cfg.Redis).Msg("Redis 连接成功 ✓")
+			// 初始化 Redis 缓存
+			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
+		}
+	} else {
+		// Redis 被显式禁用
+		app.log.Info().Msg("Redis 已禁用，使用内存模式")
+		app.redisClient = nil
+		app.redisUserCache = nil
+	}
+
+	app.log.Debug().Str("mode", app.appMode).Msg("当前运行模式")
 
 	// 加载初始数据（多级降级）
 	if err := app.loadInitialData(rulesFile); err != nil {
@@ -116,7 +135,7 @@ func NewApp(cfg *cmd.Config) (*App, error) {
 	// 初始化速率限制器（封装到 App 中，避免使用全局变量）
 	app.rateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
 
-	return app, nil
+	return app
 }
 
 // loadInitialData 多级降级加载数据
@@ -132,9 +151,11 @@ func (app *App) loadInitialData(rulesFile string) error {
 				Int("count", len(localUsers)).
 				Msg("从本地文件加载数据 ✓")
 			app.userCache.Set(localUsers)
-			// 同时更新 Redis 缓存
-			if err := app.redisUserCache.Set(localUsers); err != nil {
-				app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+			// 同时更新 Redis 缓存（如果 Redis 可用）
+			if app.redisUserCache != nil {
+				if err := app.redisUserCache.Set(localUsers); err != nil {
+					app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+				}
 			}
 			return nil
 		}
@@ -154,16 +175,18 @@ func (app *App) loadInitialData(rulesFile string) error {
 		return nil
 	}
 
-	// 1. 尝试从 Redis 缓存加载
-	if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
-		metrics.CacheHits.Inc() // 记录缓存命中
-		app.log.Info().
-			Int("count", len(cachedUsers)).
-			Msg("从 Redis 缓存加载数据 ✓")
-		app.userCache.Set(cachedUsers)
-		return nil
+	// 1. 尝试从 Redis 缓存加载（如果 Redis 可用）
+	if app.redisUserCache != nil {
+		if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
+			metrics.CacheHits.Inc() // 记录缓存命中
+			app.log.Info().
+				Int("count", len(cachedUsers)).
+				Msg("从 Redis 缓存加载数据 ✓")
+			app.userCache.Set(cachedUsers)
+			return nil
+		}
+		metrics.CacheMisses.Inc() // 记录缓存未命中
 	}
-	metrics.CacheMisses.Inc() // 记录缓存未命中
 
 	// 2. 尝试从远程 API 加载
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
@@ -174,9 +197,11 @@ func (app *App) loadInitialData(rulesFile string) error {
 			Int("count", len(users)).
 			Msg("从远程 API 加载数据 ✓")
 		app.userCache.Set(users)
-		// 同时更新 Redis 缓存
-		if err := app.redisUserCache.Set(users); err != nil {
-			app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+		// 同时更新 Redis 缓存（如果 Redis 可用）
+		if app.redisUserCache != nil {
+			if err := app.redisUserCache.Set(users); err != nil {
+				app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+			}
 		}
 		return nil
 	}
@@ -188,9 +213,11 @@ func (app *App) loadInitialData(rulesFile string) error {
 			Int("count", len(localUsers)).
 			Msg("从本地文件加载数据 ✓")
 		app.userCache.Set(localUsers)
-		// 同时更新 Redis 缓存
-		if err := app.redisUserCache.Set(localUsers); err != nil {
-			app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+		// 同时更新 Redis 缓存（如果 Redis 可用）
+		if app.redisUserCache != nil {
+			if err := app.redisUserCache.Set(localUsers); err != nil {
+				app.log.Warn().Err(err).Msg("更新 Redis 缓存失败")
+			}
 		}
 		return nil
 	}
@@ -249,6 +276,7 @@ func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
 // - 对数据进行排序（按 Phone 和 Mail）确保相同数据产生相同哈希
 // - 使用 SHA256 算法计算哈希值
 // - 对于空数据，返回固定哈希值以优化性能
+// - 包含所有字段（Phone, Mail, UserID, Status, Scope, Role）以确保数据变化检测准确
 //
 // 参数:
 //   - users: 要计算哈希的用户列表
@@ -275,6 +303,10 @@ func calculateHash(users []define.AllowListUser) string {
 	// 优化：如果数据量很大，可以考虑使用原地排序，但为了保持数据不变，使用副本
 	sorted := make([]define.AllowListUser, len(users))
 	copy(sorted, users)
+	// 规范化用户数据以确保一致性（生成 user_id，设置默认值等）
+	for i := range sorted {
+		sorted[i].Normalize()
+	}
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].Phone != sorted[j].Phone {
 			return sorted[i].Phone < sorted[j].Phone
@@ -282,11 +314,11 @@ func calculateHash(users []define.AllowListUser) string {
 		return sorted[i].Mail < sorted[j].Mail
 	})
 
-	// 计算哈希
+	// 计算哈希（包含所有字段以确保数据变化检测准确，与 cache.calculateHashInternal 保持一致）
 	h := sha256.New()
 	for _, user := range sorted {
-		// 使用分隔符确保不同字段不会混淆
-		h.Write([]byte(user.Phone + ":" + user.Mail + "\n"))
+		scopeStr := strings.Join(user.Scope, ",")
+		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -327,6 +359,11 @@ func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 // 返回:
 //   - error: 更新失败时返回错误，成功时返回 nil
 func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
+	// 如果 Redis 缓存不可用，直接返回错误
+	if app.redisUserCache == nil {
+		return fmt.Errorf("redis 缓存不可用")
+	}
+
 	var lastErr error
 	for attempt := 0; attempt < define.REDIS_RETRY_MAX_RETRIES; attempt++ {
 		if attempt > 0 {
@@ -417,12 +454,14 @@ func (app *App) backgroundTask(rulesFile string) {
 	currentHash := app.userCache.GetHash()
 	newHash := calculateHash(newUsers)
 	if currentHash != "" && currentHash == newHash {
-		// 数据一致，更新 Redis 缓存
-		if err := app.updateRedisCacheWithRetry(newUsers); err != nil {
-			app.log.Warn().
-				Err(err).
-				Msg("更新 Redis 缓存失败，继续使用内存缓存")
-			metrics.BackgroundTaskErrors.Inc()
+		// 数据一致，更新 Redis 缓存（如果 Redis 可用）
+		if app.redisUserCache != nil {
+			if err := app.updateRedisCacheWithRetry(newUsers); err != nil {
+				app.log.Warn().
+					Err(err).
+					Msg("更新 Redis 缓存失败，继续使用内存缓存")
+				metrics.BackgroundTaskErrors.Inc()
+			}
 		}
 	} else {
 		currentLen := app.userCache.Len()
@@ -518,7 +557,7 @@ func registerRoutes(app *App) {
 			errorHandlerMiddleware(
 				healthIPWhitelist(
 					middleware.MetricsMiddleware(
-						router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode)),
+						router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode, app.redisEnabled)),
 					),
 				),
 			),
@@ -584,12 +623,7 @@ func main() {
 	}
 
 	// 初始化应用
-	app, err := NewApp(cfg)
-	if err != nil {
-		log.Fatal().
-			Err(errors.ErrAppInit.WithError(err)).
-			Msg("应用初始化失败，程序退出")
-	}
+	app := NewApp(cfg)
 
 	// 注册路由
 	registerRoutes(app)
@@ -601,6 +635,7 @@ func main() {
 	app.log.Info().Msgf("程序版本：%s, 构建时间：%s, 代码版本：%s", version.Version, version.BuildDate, version.Commit)
 
 	// 启动定时任务调度器
+	// 根据 Redis 可用性选择锁实现
 	gocron.SetLocker(&cache.Locker{Cache: app.redisClient})
 	scheduler := gocron.NewScheduler()
 	schedulerStopped := scheduler.Start()

@@ -52,6 +52,17 @@ func LogLevelHandler() http.HandlerFunc {
 				return
 			}
 
+			// 验证 level 字段不为空
+			if strings.TrimSpace(request.Level) == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				if err := json.NewEncoder(w).Encode(map[string]string{
+					"error": "日志级别不能为空",
+				}); err != nil {
+					log.Error().Err(err).Msg("编码错误响应失败")
+				}
+				return
+			}
+
 			level, err := zerolog.ParseLevel(strings.ToLower(request.Level))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)

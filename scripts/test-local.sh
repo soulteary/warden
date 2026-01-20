@@ -80,19 +80,25 @@ test_endpoint() {
 # 检查依赖
 echo -e "${BLUE}检查依赖...${NC}"
 
-# 检查 Redis
-if ! redis-cli -h ${REDIS_URL%%:*} -p ${REDIS_URL##*:} ping > /dev/null 2>&1; then
-    echo -e "${YELLOW}⚠️  Redis 未运行，某些测试可能会失败${NC}"
-    echo "   提示: docker run -d --name redis -p 6379:6379 redis:6.2.4"
-else
+# 检查 Redis（可选）
+REDIS_AVAILABLE=false
+if redis-cli -h ${REDIS_URL%%:*} -p ${REDIS_URL##*:} ping > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Redis 运行中${NC}"
+    REDIS_AVAILABLE=true
+else
+    echo -e "${YELLOW}⚠️  Redis 未运行，将测试无 Redis 模式${NC}"
+    echo "   提示: docker run --rm -it -p 6379:6379 redis:8.4-alpine"
 fi
 
 # 检查 warden 服务
 if ! curl -s "$BASE_URL/health" > /dev/null 2>&1; then
     echo -e "${RED}错误: Warden 服务未运行${NC}"
     echo "请先启动服务:"
-    echo "  go run main.go --port 8081 --redis $REDIS_URL --mode ONLY_LOCAL"
+    if [ "$REDIS_AVAILABLE" = true ]; then
+        echo "  go run main.go --port 8081 --redis $REDIS_URL --mode ONLY_LOCAL"
+    else
+        echo "  go run main.go --port 8081 --redis-enabled=false --mode ONLY_LOCAL"
+    fi
     echo "或使用 Docker Compose:"
     echo "  docker-compose up -d"
     exit 1
@@ -139,6 +145,23 @@ echo ""
 # 测试 1: 健康检查
 echo -e "${YELLOW}1. 健康检查端点${NC}"
 test_endpoint "健康检查" "GET" "$BASE_URL/health" "" "200"
+# 检查 Redis 状态
+if [ "$REDIS_AVAILABLE" = true ]; then
+    test_endpoint "健康检查（Redis 状态应为 ok）" "GET" "$BASE_URL/health" "" "200" "\"redis\":\"ok\""
+else
+    # 检查 Redis 状态是否为 disabled 或 unavailable
+    response=$(curl -s "$BASE_URL/health" 2>/dev/null)
+    if echo "$response" | grep -q "\"redis\":\"disabled\"" || echo "$response" | grep -q "\"redis\":\"unavailable\""; then
+        echo -e "${GREEN}✓ Redis 状态正确（disabled 或 unavailable）${NC}"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    else
+        echo -e "${RED}✗ Redis 状态不正确${NC}"
+        echo "响应: $response"
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        TOTAL_TESTS=$((TOTAL_TESTS + 1))
+    fi
+fi
 echo ""
 
 # 测试 2: 获取用户列表（需要认证）

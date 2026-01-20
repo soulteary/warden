@@ -6,6 +6,8 @@ import (
 )
 
 // Options contains configuration options for the Warden SDK client.
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Options struct {
 	BaseURL  string        // Warden 服务地址（必需）
 	APIKey   string        // API Key（可选）

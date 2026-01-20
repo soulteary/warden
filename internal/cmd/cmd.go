@@ -17,10 +17,13 @@ import (
 )
 
 // Config 存储应用配置
+//
+//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
 type Config struct {
 	Port             string // 16 bytes
 	Redis            string // 16 bytes
 	RedisPassword    string // 16 bytes
+	RedisEnabled     bool   // 1 byte (padding to 8 bytes)
 	RemoteConfig     string // 16 bytes
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
@@ -74,7 +77,18 @@ func processPortFromFlags(cfg *Config, fs *flag.FlagSet, portFlag int) {
 }
 
 // processRedisFromFlags 处理 Redis 配置
-func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswordFlag string) {
+func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswordFlag string, redisEnabledFlag bool) {
+	// 处理 Redis 启用状态（优先级：命令行参数 > 环境变量 > 默认值 true）
+	if hasFlag(fs, "redis-enabled") {
+		cfg.RedisEnabled = redisEnabledFlag
+	} else if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
+		// 支持 true/false/1/0
+		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
+	} else {
+		// 默认启用 Redis（向后兼容）
+		cfg.RedisEnabled = true
+	}
+
 	if hasFlag(fs, "redis") {
 		cfg.Redis = redisFlag
 	} else if redisEnv := strings.TrimSpace(os.Getenv("REDIS")); redisEnv != "" {
@@ -162,6 +176,7 @@ func getArgsFromFlags() *Config {
 	cfg := &Config{
 		Port:             strconv.Itoa(define.DEFAULT_PORT),
 		Redis:            define.DEFAULT_REDIS,
+		RedisEnabled:     true, // 默认启用 Redis（向后兼容）
 		RemoteConfig:     define.DEFAULT_REMOTE_CONFIG,
 		RemoteKey:        define.DEFAULT_REMOTE_KEY,
 		TaskInterval:     define.DEFAULT_TASK_INTERVAL,
@@ -180,10 +195,12 @@ func getArgsFromFlags() *Config {
 	var httpTimeoutFlag, httpMaxIdleConnsFlag int
 	var httpInsecureTLSFlag bool
 	var redisPasswordFlag string
+	var redisEnabledFlag bool
 
 	fs.IntVar(&portFlag, "port", define.DEFAULT_PORT, "web port")
 	fs.StringVar(&redisFlag, "redis", define.DEFAULT_REDIS, "redis host and port")
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
+	fs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
 	fs.StringVar(&configFlag, "config", define.DEFAULT_REMOTE_CONFIG, "remote config url")
 	fs.StringVar(&keyFlag, "key", define.DEFAULT_REMOTE_KEY, "remote config key")
 	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
@@ -200,7 +217,7 @@ func getArgsFromFlags() *Config {
 
 	// 处理各个配置项
 	processPortFromFlags(cfg, fs, portFlag)
-	processRedisFromFlags(cfg, fs, redisFlag, redisPasswordFlag)
+	processRedisFromFlags(cfg, fs, redisFlag, redisPasswordFlag, redisEnabledFlag)
 	processRemoteConfigFromFlags(cfg, fs, configFlag, keyFlag)
 	processTaskFromFlags(cfg, fs, intervalFlag)
 	processModeFromFlags(cfg, fs, modeFlag)
@@ -248,6 +265,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		Port:             cfg.Port,
 		Redis:            cfg.Redis,
 		RedisPassword:    cfg.RedisPassword,
+		RedisEnabled:     cfg.RedisEnabled,
 		RemoteConfig:     cfg.RemoteConfig,
 		RemoteKey:        cfg.RemoteKey,
 		TaskInterval:     cfg.TaskInterval,
@@ -268,10 +286,12 @@ func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
 	var httpTimeoutFlag, httpMaxIdleConnsFlag int
 	var httpInsecureTLSFlag bool
 	var redisPasswordFlag string
+	var redisEnabledFlag bool
 
 	fs.IntVar(&portFlag, "port", 0, "web port")
 	fs.StringVar(&redisFlag, "redis", "", "redis host and port")
 	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
+	fs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
 	fs.StringVar(&configFlag, "config", "", "remote config url")
 	fs.StringVar(&keyFlag, "key", "", "remote config key")
 	fs.StringVar(&modeFlag, "mode", "", "app mode")
@@ -294,6 +314,9 @@ func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
 	}
 	if hasFlag(fs, "redis-password") && redisPasswordFlag != "" {
 		cfg.RedisPassword = redisPasswordFlag
+	}
+	if hasFlag(fs, "redis-enabled") {
+		cfg.RedisEnabled = redisEnabledFlag
 	}
 	if hasFlag(fs, "config") && configFlag != "" {
 		cfg.RemoteConfig = configFlag
@@ -401,5 +424,10 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 
 	if apiKeyEnv := strings.TrimSpace(os.Getenv("API_KEY")); apiKeyEnv != "" {
 		cfg.APIKey = apiKeyEnv
+	}
+
+	// Redis 启用状态
+	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
+		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	}
 }

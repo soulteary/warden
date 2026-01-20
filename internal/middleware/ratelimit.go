@@ -34,6 +34,7 @@ type RateLimiter struct {
 	whitelist    map[string]bool     // 8 bytes pointer
 	cleanup      *time.Ticker        // 8 bytes pointer
 	stopCh       chan struct{}       // 8 bytes pointer
+	stopOnce     sync.Once           // 确保 Stop 只执行一次
 }
 
 type visitor struct {
@@ -193,10 +194,13 @@ func (rl *RateLimiter) IsWhitelisted(ip string) bool {
 }
 
 // Stop 停止速率限制器
+// 使用 sync.Once 确保只执行一次，避免重复关闭 channel 导致 panic
 func (rl *RateLimiter) Stop() {
-	rl.cleanup.Stop()
-	close(rl.stopCh)
-	rl.wg.Wait() // 等待 goroutine 退出
+	rl.stopOnce.Do(func() {
+		rl.cleanup.Stop()
+		close(rl.stopCh)
+		rl.wg.Wait() // 等待 goroutine 退出
+	})
 }
 
 // RateLimitMiddlewareWithLimiter 创建速率限制中间件（使用指定的 RateLimiter 实例）
