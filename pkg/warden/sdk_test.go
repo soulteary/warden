@@ -328,6 +328,76 @@ func TestClient_CheckUserInList(t *testing.T) {
 	}
 }
 
+func TestClient_CheckUserInList_WithBothIdentifiers(t *testing.T) {
+	// Create mock server that handles /user endpoint
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user AllowListUser
+			switch {
+			case phone == "13800138000":
+				// User found by phone
+				user = AllowListUser{Phone: "13800138000", Mail: "user1@example.com", Status: "active", UserID: "user1"}
+			case phone == "99999999999":
+				// Phone not found, return 404
+				w.WriteHeader(http.StatusNotFound)
+				return
+			case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+				// User found by mail (fallback case)
+				user = AllowListUser{Phone: "13900139000", Mail: "user2@example.com", Status: "active", UserID: "user2"}
+			case phone == "14000140000":
+				// User found by phone but inactive
+				user = AllowListUser{Phone: "14000140000", Mail: "user3@example.com", Status: "inactive", UserID: "user3"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(user))
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []AllowListUser{
+			{Phone: "13800138000", Mail: "user1@example.com", Status: "active"},
+			{Phone: "13900139000", Mail: "user2@example.com", Status: "active"},
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
+	}))
+	defer server.Close()
+
+	// Create client
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithCacheTTL(1 * time.Second)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test with both phone and mail, phone exists (should use phone)
+	if !client.CheckUserInList(ctx, "13800138000", "user1@example.com") {
+		t.Error("CheckUserInList() should return true when both provided and phone exists")
+	}
+
+	// Test with both phone and mail, phone not found but mail exists (should fallback to mail)
+	if !client.CheckUserInList(ctx, "99999999999", "user2@example.com") {
+		t.Error("CheckUserInList() should fallback to mail when phone not found")
+	}
+
+	// Test with both phone and mail, phone found but user inactive (should not fallback to mail)
+	if client.CheckUserInList(ctx, "14000140000", "user2@example.com") {
+		t.Error("CheckUserInList() should return false when phone found but user inactive (should not fallback)")
+	}
+}
+
 func TestClient_ClearCache(t *testing.T) {
 	mockUsers := []AllowListUser{
 		{Phone: "13800138000", Mail: "user1@example.com"},
