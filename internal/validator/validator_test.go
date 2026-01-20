@@ -227,3 +227,96 @@ func TestValidateEmail_CaseSensitivity(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateEmail_MoreEdgeCases 测试更多边界情况以提升覆盖率
+func TestValidateEmail_MoreEdgeCases(t *testing.T) {
+	tests := []struct {
+		name  string
+		email string
+		want  bool
+	}{
+		// 测试更多边界情况
+		{
+			name:  "本地部分以点结尾",
+			email: "test.@example.com",
+			want:  false,
+		},
+		{
+			name:  "本地部分以点开头",
+			email: ".test@example.com",
+			want:  false,
+		},
+		{
+			name:  "域名部分以点开头",
+			email: "test@.example.com",
+			want:  false,
+		},
+		{
+			name:  "域名部分以点结尾",
+			email: "test@example.com.",
+			want:  false,
+		},
+		{
+			name:  "域名部分没有点（缺少TLD）",
+			email: "test@example",
+			want:  false,
+		},
+		{
+			name:  "多个@符号",
+			email: "test@@example.com",
+			want:  false,
+		},
+		{
+			name:  "只有@符号",
+			email: "@",
+			want:  false,
+		},
+		{
+			name:  "只有本地部分",
+			email: "test@",
+			want:  false,
+		},
+		{
+			name:  "只有域名部分",
+			email: "@example.com",
+			want:  false,
+		},
+		{
+			name:  "连续的点在本地部分",
+			email: "test..user@example.com",
+			want:  false,
+		},
+		{
+			name:  "连续的点在域名部分",
+			email: "test@example..com",
+			want:  false,
+		},
+		{
+			name:  "有效的邮箱（带多个子域名）",
+			email: "test@mail.sub.example.com",
+			want:  true,
+		},
+		{
+			name:  "有效的邮箱（本地部分带多个点）",
+			email: "first.middle.last@example.com",
+			want:  true,
+		},
+		{
+			name:  "有效的邮箱（带数字）",
+			email: "user123@example123.com",
+			want:  true,
+		},
+		{
+			name:  "有效的邮箱（带下划线和横线）",
+			email: "user_name-test@example-site.com",
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ValidateEmail(tt.email)
+			assert.Equal(t, tt.want, got, "ValidateEmail(%q) = %v, want %v", tt.email, got, tt.want)
+		})
+	}
+}

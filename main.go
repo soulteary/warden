@@ -362,6 +362,11 @@ func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
 // 返回:
 //   - error: 更新失败时返回错误，成功时返回 nil
 func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
+	// 如果 Redis 缓存不可用，直接返回错误
+	if app.redisUserCache == nil {
+		return fmt.Errorf("Redis 缓存不可用")
+	}
+
 	var lastErr error
 	for attempt := 0; attempt < define.REDIS_RETRY_MAX_RETRIES; attempt++ {
 		if attempt > 0 {

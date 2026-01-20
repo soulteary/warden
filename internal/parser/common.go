@@ -110,16 +110,19 @@ func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFil
 	var order = make([]string, 0) // 维护顺序列表
 
 	// 优先使用远程规则进行初始化
-	remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
-	if err != nil {
-		log.Warn().
-			Err(err).
-			Msg(define.WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL)
-		if !allowSkipRemoteFailed {
-			return result
+	// 如果 configURL 为空，跳过远程请求，直接使用本地规则
+	if configURL != "" {
+		remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Msg(define.WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL)
+			if !allowSkipRemoteFailed {
+				return result
+			}
+		} else if len(remoteRules) > 0 {
+			addRulesToDict(dict, &order, remoteRules, true)
 		}
-	} else if len(remoteRules) > 0 {
-		addRulesToDict(dict, &order, remoteRules, true)
 	}
 
 	// 补充远程规则中不存在的本地规则
@@ -158,16 +161,19 @@ func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFil
 	addRulesToDict(dict, &order, localRules, false)
 
 	// 补充本地规则中不存在的远程规则
-	remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
-	if err != nil {
-		log.Warn().
-			Err(err).
-			Msg(define.WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL)
-		if !allowSkipRemoteFailed {
-			return result
+	// 如果 configURL 为空，跳过远程请求
+	if configURL != "" {
+		remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Msg(define.WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL)
+			if !allowSkipRemoteFailed {
+				return result
+			}
+		} else if len(remoteRules) > 0 {
+			addRulesToDict(dict, &order, remoteRules, true)
 		}
-	} else if len(remoteRules) > 0 {
-		addRulesToDict(dict, &order, remoteRules, true)
 	}
 
 	result = mergeUsers(dict, order)
@@ -192,13 +198,16 @@ func onlyRemoteRules(ctx context.Context, configURL, authorizationHeader string)
 	var order = make([]string, 0) // 维护顺序列表
 
 	// 使用远程规则进行初始化
-	remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
-	if err != nil {
-		log.Warn().
-			Err(err).
-			Msg(define.WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL)
-	} else if len(remoteRules) > 0 {
-		addRulesToDict(dict, &order, remoteRules, true)
+	// 如果 configURL 为空，直接返回空结果
+	if configURL != "" {
+		remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Msg(define.WARN_GET_REMOTE_FAILED_FALLBACK_LOCAL)
+		} else if len(remoteRules) > 0 {
+			addRulesToDict(dict, &order, remoteRules, true)
+		}
 	}
 
 	result = mergeUsers(dict, order)
