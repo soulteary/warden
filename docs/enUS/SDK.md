@@ -1,16 +1,16 @@
-# SDK 使用文档
+# SDK Usage Documentation
 
-> 🌐 **Language / 语言**: [English](SDK.en.md) | [中文](SDK.md)
+> 🌐 **Language / 语言**: [English](SDK.md) | [中文](../zhCN/SDK.md)
 
-Warden 提供了 Go SDK，方便其他项目集成使用。SDK 提供了简洁的 API 接口，支持缓存、认证等功能。
+Warden provides a Go SDK for easy integration into other projects. The SDK provides a clean API interface with support for caching, authentication, and more.
 
-## 安装 SDK
+## Install SDK
 
 ```bash
 go get github.com/soulteary/warden/pkg/warden
 ```
 
-## 快速开始
+## Quick Start
 
 ```go
 package main
@@ -23,27 +23,27 @@ import (
 )
 
 func main() {
-    // 创建客户端选项
+    // Create client options
     opts := warden.DefaultOptions().
         WithBaseURL("http://localhost:8081").
         WithAPIKey("your-api-key").
         WithTimeout(10 * time.Second).
         WithCacheTTL(5 * time.Minute)
 
-    // 创建客户端
+    // Create client
     client, err := warden.NewClient(opts)
     if err != nil {
         panic(err)
     }
 
-    // 获取用户列表
+    // Get user list
     ctx := context.Background()
     users, err := client.GetUsers(ctx)
     if err != nil {
         panic(err)
     }
 
-    // 检查用户是否在列表中
+    // Check if user is in the list
     exists := client.CheckUserInList(ctx, "13800138000", "user@example.com")
     if exists {
         println("User is in the allow list")
@@ -51,32 +51,32 @@ func main() {
 }
 ```
 
-## 主要功能
+## Main Features
 
-### 获取用户列表
+### Get User List
 
 ```go
-// 获取所有用户（支持缓存）
+// Get all users (with caching support)
 users, err := client.GetUsers(ctx)
 if err != nil {
-    // 处理错误
+    // Handle error
 }
 
-// 遍历用户
+// Iterate users
 for _, user := range users {
     fmt.Printf("Phone: %s, Mail: %s\n", user.Phone, user.Mail)
 }
 ```
 
-### 分页查询
+### Paginated Query
 
 ```go
-// 获取分页用户列表
+// Get paginated user list
 page := 1
 pageSize := 100
 result, err := client.GetUsersPaginated(ctx, page, pageSize)
 if err != nil {
-    // 处理错误
+    // Handle error
 }
 
 fmt.Printf("Total: %d, Page: %d/%d\n", 
@@ -89,10 +89,10 @@ for _, user := range result.Data {
 }
 ```
 
-### 用户检查
+### User Check
 
 ```go
-// 检查用户是否在允许列表中
+// Check if user is in the allow list
 exists := client.CheckUserInList(ctx, "13800138000", "user@example.com")
 if exists {
     println("User is in the allow list")
@@ -101,16 +101,16 @@ if exists {
 }
 ```
 
-### 缓存管理
+### Cache Management
 
 ```go
-// 清除客户端缓存
+// Clear client cache
 client.ClearCache()
 ```
 
-## 客户端选项
+## Client Options
 
-### 基本配置
+### Basic Configuration
 
 ```go
 opts := warden.DefaultOptions().
@@ -119,15 +119,15 @@ opts := warden.DefaultOptions().
     WithTimeout(10 * time.Second)
 ```
 
-### 缓存配置
+### Cache Configuration
 
 ```go
 opts := warden.DefaultOptions().
     WithBaseURL("http://localhost:8081").
-    WithCacheTTL(5 * time.Minute)  // 设置缓存 TTL
+    WithCacheTTL(5 * time.Minute)  // Set cache TTL
 ```
 
-### 自定义 HTTP 客户端
+### Custom HTTP Client
 
 ```go
 httpClient := &http.Client{
@@ -142,9 +142,9 @@ opts := warden.DefaultOptions().
     WithHTTPClient(httpClient)
 ```
 
-## 使用自定义日志
+## Using Custom Logger
 
-SDK 支持自定义日志实现。例如，使用 logrus:
+The SDK supports custom logger implementations. For example, using logrus:
 
 ```go
 import (
@@ -158,19 +158,19 @@ opts := warden.DefaultOptions().
     WithLogger(warden.NewLogrusAdapter(logger))
 ```
 
-## 错误处理
+## Error Handling
 
-SDK 返回的错误实现了 `error` 接口，可以检查错误类型：
+Errors returned by the SDK implement the `error` interface, and you can check error types:
 
 ```go
 users, err := client.GetUsers(ctx)
 if err != nil {
-    // 检查是否是网络错误
+    // Check if it's a network error
     if netErr, ok := err.(net.Error); ok {
         fmt.Printf("Network error: %v\n", netErr)
     }
     
-    // 检查是否是 HTTP 错误
+    // Check if it's an HTTP error
     if httpErr, ok := err.(*warden.HTTPError); ok {
         fmt.Printf("HTTP error: %d %s\n", httpErr.StatusCode, httpErr.Message)
     }
@@ -179,7 +179,7 @@ if err != nil {
 }
 ```
 
-## 完整示例
+## Complete Example
 
 ```go
 package main
@@ -194,7 +194,7 @@ import (
 )
 
 func main() {
-    // 创建客户端
+    // Create client
     opts := warden.DefaultOptions().
         WithBaseURL("http://localhost:8081").
         WithAPIKey("your-api-key").
@@ -208,35 +208,35 @@ func main() {
 
     ctx := context.Background()
 
-    // 获取所有用户
+    // Get all users
     users, err := client.GetUsers(ctx)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Total users: %d\n", len(users))
 
-    // 分页查询
+    // Paginated query
     result, err := client.GetUsersPaginated(ctx, 1, 10)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Page 1: %d users\n", len(result.Data))
 
-    // 检查用户
+    // Check user
     exists := client.CheckUserInList(ctx, "13800138000", "admin@example.com")
     fmt.Printf("User exists: %v\n", exists)
 
-    // 清除缓存
+    // Clear cache
     client.ClearCache()
     fmt.Println("Cache cleared")
 }
 ```
 
-## 详细文档
+## Detailed Documentation
 
-更多使用说明和 API 参考，请查看 [SDK 文档](../pkg/warden/README.md)（如果存在）。
+For more usage instructions and API references, please check the [SDK Documentation](../pkg/warden/README.md) (if exists).
 
-## 相关文档
+## Related Documentation
 
-- [API 文档](API.md) - 了解 API 端点详情
-- [配置文档](CONFIGURATION.md) - 了解服务器配置选项
+- [API Documentation](API.md) - Learn about API endpoint details
+- [Configuration Documentation](CONFIGURATION.md) - Learn about server configuration options

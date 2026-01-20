@@ -1,6 +1,6 @@
 # 部署文档
 
-> 🌐 **Language / 语言**: [English](DEPLOYMENT.en.md) | [中文](DEPLOYMENT.md)
+> 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](DEPLOYMENT.md)
 
 本文档说明如何部署 Warden 服务，包括 Docker 部署、本地部署等。
 
@@ -15,6 +15,28 @@
 > 🚀 **快速部署**: 查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.en.md) 获取完整的 Docker Compose 配置示例：
 > - [简单示例](../example/basic/docker-compose.yml) / [Simple Example](../example/basic/docker-compose.yml) - 基础 Docker Compose 配置
 > - [复杂示例](../example/advanced/docker-compose.yml) / [Advanced Example](../example/advanced/docker-compose.yml) - 包含 Mock API 的完整配置
+
+### 使用预构建镜像（推荐）
+
+Warden 提供了预构建的 Docker 镜像，可以直接从 GitHub Container Registry (GHCR) 拉取使用，无需手动构建：
+
+```bash
+# 拉取最新版本的镜像
+docker pull ghcr.io/soulteary/warden:latest
+
+# 运行容器
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e PORT=8081 \
+  -e REDIS=localhost:6379 \
+  -e CONFIG=http://example.com/api/data.json \
+  -e KEY="Bearer your-token-here" \
+  -e API_KEY=your-api-key-here \
+  ghcr.io/soulteary/warden:latest
+```
+
+> 💡 **提示**: 使用预构建镜像可以快速开始，无需本地构建环境。镜像会自动更新，确保使用最新版本。
 
 ### 使用 Docker Compose
 

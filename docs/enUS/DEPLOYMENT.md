@@ -1,6 +1,6 @@
 # Deployment Documentation
 
-> 🌐 **Language / 语言**: [English](DEPLOYMENT.en.md) | [中文](DEPLOYMENT.md)
+> 🌐 **Language / 语言**: [English](DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md)
 
 This document explains how to deploy the Warden service, including Docker deployment, local deployment, etc.
 
@@ -15,6 +15,28 @@ This document explains how to deploy the Warden service, including Docker deploy
 > 🚀 **Quick Deployment**: Check the [Examples Directory](../example/README.en.md) / [示例目录](../example/README.md) for complete Docker Compose configuration examples:
 > - [Simple Example](../example/basic/docker-compose.yml) / [简单示例](../example/basic/docker-compose.yml) - Basic Docker Compose configuration
 > - [Advanced Example](../example/advanced/docker-compose.yml) / [复杂示例](../example/advanced/docker-compose.yml) - Complete configuration including Mock API
+
+### Using Pre-built Image (Recommended)
+
+Warden provides pre-built Docker images that can be pulled directly from GitHub Container Registry (GHCR), no manual build required:
+
+```bash
+# Pull the latest version image
+docker pull ghcr.io/soulteary/warden:latest
+
+# Run container
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e PORT=8081 \
+  -e REDIS=localhost:6379 \
+  -e CONFIG=http://example.com/api/data.json \
+  -e KEY="Bearer your-token-here" \
+  -e API_KEY=your-api-key-here \
+  ghcr.io/soulteary/warden:latest
+```
+
+> 💡 **Tip**: Using pre-built images allows you to get started quickly without a local build environment. Images are automatically updated to ensure you're using the latest version.
 
 ### Using Docker Compose
 

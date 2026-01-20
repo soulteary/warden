@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
@@ -26,7 +26,7 @@ Warden is a lightweight HTTP API service developed in Go, primarily used for pro
 
 Warden uses a layered architecture design, including HTTP layer, business layer, and infrastructure layer. The system supports multiple data sources, multi-level caching, and distributed locking mechanisms.
 
-For detailed architecture documentation, please refer to: [Architecture Design Documentation](docs/ARCHITECTURE.md)
+For detailed architecture documentation, please refer to: [Architecture Design Documentation](docs/enUS/ARCHITECTURE.md)
 
 ## 📦 Installation and Running
 
@@ -70,20 +70,20 @@ go run main.go
 ```
 
 For detailed configuration and deployment instructions, please refer to:
-- [Configuration Documentation](docs/CONFIGURATION.md) - Learn about all configuration options
-- [Deployment Documentation](docs/DEPLOYMENT.md) - Learn about deployment methods
+- [Configuration Documentation](docs/enUS/CONFIGURATION.md) - Learn about all configuration options
+- [Deployment Documentation](docs/enUS/DEPLOYMENT.md) - Learn about deployment methods
 
 ## ⚙️ Configuration
 
 Warden supports multiple configuration methods: command line arguments, environment variables, and configuration files. The system provides 6 data merging modes with flexible configuration strategies.
 
-For detailed configuration documentation, please refer to: [Configuration Documentation](docs/CONFIGURATION.md)
+For detailed configuration documentation, please refer to: [Configuration Documentation](docs/enUS/CONFIGURATION.md)
 
 ## 📡 API Documentation
 
 Warden provides a complete RESTful API with support for user list queries, pagination, health checks, and more. The project also provides OpenAPI 3.0 specification documentation.
 
-For detailed API documentation, please refer to: [API Documentation](docs/API.md)
+For detailed API documentation, please refer to: [API Documentation](docs/enUS/API.md)
 
 OpenAPI specification file: [openapi.yaml](openapi.yaml)
 
@@ -91,9 +91,31 @@ OpenAPI specification file: [openapi.yaml](openapi.yaml)
 
 Warden supports complete Docker and Docker Compose deployment, ready to use out of the box.
 
+### Quick Start with Pre-built Image (Recommended)
+
+Use the pre-built image from GitHub Container Registry (GHCR) to get started quickly without local build:
+
+```bash
+# Pull the latest version image
+docker pull ghcr.io/soulteary/warden:latest
+
+# Run container (basic example)
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e PORT=8081 \
+  -e REDIS=localhost:6379 \
+  -e API_KEY=your-api-key-here \
+  ghcr.io/soulteary/warden:latest
+```
+
+> 💡 **Tip**: Using pre-built images allows you to get started quickly without a local build environment. Images are automatically updated to ensure you're using the latest version.
+
+### Using Docker Compose
+
 > 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.en.md) for complete Docker Compose configuration examples
 
-For detailed deployment documentation, please refer to: [Deployment Documentation](docs/DEPLOYMENT.md)
+For detailed deployment documentation, please refer to: [Deployment Documentation](docs/enUS/DEPLOYMENT.md)
 
 ## 📊 Performance Metrics
 
@@ -112,43 +134,59 @@ Max Latency:     226.09ms
 warden/
 ├── main.go                 # Program entry point
 ├── data.example.json      # Local data file example
+├── config.example.yaml    # Configuration file example
+├── openapi.yaml           # OpenAPI specification file
 ├── go.mod                 # Go module definition
 ├── docker-compose.yml     # Docker Compose configuration
+├── LICENSE                # License file
+├── README.*.md            # Multi-language project documents (Chinese/English/French/Italian/Japanese/German/Korean)
+├── CONTRIBUTING.*.md      # Multi-language contribution guides
 ├── docker/
 │   └── Dockerfile         # Docker image build file
+├── docs/                  # Documentation directory (multi-language)
+│   ├── enUS/              # English documentation
+│   └── zhCN/              # Chinese documentation
 ├── example/               # Quick start examples
-│   ├── README.md          # Example documentation
 │   ├── basic/             # Simple example (local file only)
-│   └── advanced/          # Advanced example (full features)
+│   └── advanced/          # Advanced example (full features, includes Mock API)
 ├── internal/
 │   ├── cache/             # Redis cache and lock implementation
 │   ├── cmd/               # Command line argument parsing
+│   ├── config/            # Configuration management
 │   ├── define/            # Constant definitions and data structures
+│   ├── di/                # Dependency injection
+│   ├── errors/            # Error handling
 │   ├── logger/            # Logging initialization
+│   ├── metrics/           # Metrics collection
+│   ├── middleware/        # HTTP middleware
 │   ├── parser/            # Data parser (local/remote)
 │   ├── router/            # HTTP route handling
+│   ├── validator/         # Validator
 │   └── version/           # Version information
-└── pkg/
-    └── gocron/            # Scheduled task scheduler
+├── pkg/
+│   ├── gocron/            # Scheduled task scheduler
+│   └── warden/            # Warden SDK
+├── scripts/               # Scripts directory
+└── .github/               # GitHub configuration (CI/CD, Issue/PR templates, etc.)
 ```
 
 ## 🔒 Security Features
 
 Warden implements multiple security features, including API authentication, SSRF protection, rate limiting, TLS verification, and more.
 
-For detailed security documentation, please refer to: [Security Documentation](docs/SECURITY.md)
+For detailed security documentation, please refer to: [Security Documentation](docs/enUS/SECURITY.md)
 
 ## 🔧 Development Guide
 
 > 📚 **Reference Examples**: Check the [Examples Directory](example/README.en.md) for complete example code and configurations for different usage scenarios.
 
-For detailed development documentation, please refer to: [Development Documentation](docs/DEVELOPMENT.md)
+For detailed development documentation, please refer to: [Development Documentation](docs/enUS/DEVELOPMENT.md)
 
 ### Code Standards
 
 The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
-- [CODE_STYLE.en.md](docs/CODE_STYLE.en.md) - Code style guide
+- [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Code style guide
 - [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Contribution guide
 
 ## 📄 License
