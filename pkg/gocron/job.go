@@ -301,8 +301,9 @@ func (j *Job) scheduleNextRun() error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	now := time.Now()
-	if j.lastRun.Equal(time.Unix(0, 0)) {
+	now := time.Now().In(j.loc)
+	isFirstRun := j.lastRun.Equal(time.Unix(0, 0))
+	if isFirstRun {
 		j.lastRun = now
 	}
 
@@ -315,10 +316,20 @@ func (j *Job) scheduleNextRun() error {
 	case seconds, minutes, hours:
 		j.nextRun = j.lastRun.Add(periodDuration)
 	case days:
-		j.nextRun = j.roundToMidnight(j.lastRun)
+		// For first run, calculate from now; for subsequent runs, use lastRun
+		baseTime := now
+		if !isFirstRun {
+			baseTime = j.lastRun
+		}
+		j.nextRun = j.roundToMidnight(baseTime)
 		j.nextRun = j.nextRun.Add(j.atTime)
 	case weeks:
-		j.nextRun = j.roundToMidnight(j.lastRun)
+		// For first run, calculate from now; for subsequent runs, use lastRun
+		baseTime := now
+		if !isFirstRun {
+			baseTime = j.lastRun
+		}
+		j.nextRun = j.roundToMidnight(baseTime)
 		dayDiff := int(j.startDay)
 		dayDiff -= int(j.nextRun.Weekday())
 		if dayDiff != 0 {
