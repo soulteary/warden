@@ -81,11 +81,19 @@ PORT=8081
 REDIS=warden-redis:6379
 MODE=ONLY_LOCAL
 API_KEY=your-secret-api-key-here
+
+# 可选：Docker 镜像配置
+# WARDEN_IMAGE=ghcr.io/soulteary/warden
+# WARDEN_IMAGE_TAG=latest
 ```
 
 3. **启动服务**
 
 ```bash
+# 拉取最新镜像（可选，docker-compose 会自动拉取）
+docker-compose pull
+
+# 启动服务
 docker-compose up -d
 ```
 

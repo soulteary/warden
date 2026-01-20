@@ -47,13 +47,19 @@ cp .env.example .env
 2. **Start All Services**
 
 ```bash
+# Pull the latest image from GHCR (optional, docker-compose will pull automatically)
+docker-compose pull
+
+# Start all services
 docker-compose up -d
 ```
 
 This will start:
-- Warden main service (port 8081)
+- Warden main service (port 8081) - using `ghcr.io/soulteary/warden:latest` by default
 - Redis cache service (port 6379)
 - Mock remote API service (port 8080)
+
+**Note**: The example uses the pre-built image from GitHub Container Registry (GHCR). You can customize the image by setting `WARDEN_IMAGE` and `WARDEN_IMAGE_TAG` in your `.env` file.
 
 3. **Check Service Status**
 
@@ -126,6 +132,10 @@ Edit `.env` file:
 ```env
 # Service Port
 PORT=8081
+
+# Docker Image Configuration (Optional)
+# WARDEN_IMAGE=ghcr.io/soulteary/warden
+# WARDEN_IMAGE_TAG=latest
 
 # Redis Configuration
 REDIS=warden-redis:6379

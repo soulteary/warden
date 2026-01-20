@@ -81,11 +81,19 @@ PORT=8081
 REDIS=warden-redis:6379
 MODE=ONLY_LOCAL
 API_KEY=your-secret-api-key-here
+
+# Optional: Docker image configuration
+# WARDEN_IMAGE=ghcr.io/soulteary/warden
+# WARDEN_IMAGE_TAG=latest
 ```
 
 3. **Start Service**
 
 ```bash
+# Pull the latest image (optional, docker-compose will pull automatically)
+docker-compose pull
+
+# Start services
 docker-compose up -d
 ```
 

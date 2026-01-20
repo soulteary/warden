@@ -4,6 +4,15 @@
 
 本目录包含两个不同复杂度的 Warden 使用示例，帮助你快速上手。
 
+## 🐳 Docker 镜像
+
+所有示例使用 [GitHub Container Registry (GHCR)](https://github.com/soulteary/warden/pkgs/container/warden) 提供的预构建镜像：
+
+- **默认镜像**: `ghcr.io/soulteary/warden:latest`
+- **自定义**: 可通过设置 `WARDEN_IMAGE` 和 `WARDEN_IMAGE_TAG` 环境变量来覆盖镜像
+
+生产环境部署建议使用具体的版本标签而非 `latest`。
+
 ## 📚 示例列表
 
 ### 1. [简单示例](./basic/) - 基础使用
@@ -22,6 +31,8 @@
 **快速开始**：
 ```bash
 cd basic
+# 拉取最新镜像（可选）
+docker-compose pull
 docker-compose up -d
 ```
 
@@ -46,7 +57,9 @@ docker-compose up -d
 **快速开始**：
 ```bash
 cd advanced
-cp .env.example .env
+cp env.example .env
+# 拉取最新镜像（可选）
+docker-compose pull
 docker-compose up -d
 ```
 
