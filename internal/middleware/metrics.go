@@ -1,28 +1,28 @@
-// Package middleware 提供了 HTTP 中间件功能。
-// 包括速率限制、压缩、请求体限制、指标收集等中间件。
+// Package middleware provides HTTP middleware functionality.
+// Includes rate limiting, compression, request body limiting, metrics collection and other middleware.
 package middleware
 
 import (
-	// 标准库
+	// Standard library
 	"net/http"
 	"strconv"
 	"time"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/metrics"
 )
 
-// MetricsMiddleware 创建 Prometheus 指标收集中间件
+// MetricsMiddleware creates Prometheus metrics collection middleware
 func MetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// 包装 ResponseWriter 以捕获状态码
+		// Wrap ResponseWriter to capture status code
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
 		next.ServeHTTP(rw, r)
 
-		// 记录指标
+		// Record metrics
 		duration := time.Since(start).Seconds()
 		endpoint := r.URL.Path
 		if endpoint == "" {
@@ -36,7 +36,7 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// responseWriter 包装 http.ResponseWriter 以捕获状态码
+// responseWriter wraps http.ResponseWriter to capture status code
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int

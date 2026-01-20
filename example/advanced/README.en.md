@@ -1,6 +1,6 @@
 # Advanced Example - Full Feature Demonstration
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md)
 
 This is Warden's complete feature example, demonstrating all core features, including:
 - Local data files

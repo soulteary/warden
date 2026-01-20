@@ -14,7 +14,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestIPWhitelistMiddleware_EmptyWhitelist 测试空白名单（应该允许所有 IP）
+// TestIPWhitelistMiddleware_EmptyWhitelist tests empty whitelist (should allow all IPs)
 func TestIPWhitelistMiddleware_EmptyWhitelist(t *testing.T) {
 	middleware := IPWhitelistMiddleware("")
 
@@ -30,10 +30,10 @@ func TestIPWhitelistMiddleware_EmptyWhitelist(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "空白名单应该允许所有 IP")
+	assert.Equal(t, http.StatusOK, w.Code, "Empty whitelist should allow all IPs")
 }
 
-// TestIPWhitelistMiddleware_SingleIP 测试单个 IP 白名单
+// TestIPWhitelistMiddleware_SingleIP tests single IP whitelist
 func TestIPWhitelistMiddleware_SingleIP(t *testing.T) {
 	middleware := IPWhitelistMiddleware("192.168.1.1")
 
@@ -49,12 +49,12 @@ func TestIPWhitelistMiddleware_SingleIP(t *testing.T) {
 		want       int
 	}{
 		{
-			name:       "允许的 IP",
+			name:       "Allowed IP",
 			remoteAddr: "192.168.1.1:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "不允许的 IP",
+			name:       "Disallowed IP",
 			remoteAddr: "192.168.1.2:12345",
 			want:       http.StatusForbidden,
 		},
@@ -68,12 +68,12 @@ func TestIPWhitelistMiddleware_SingleIP(t *testing.T) {
 
 			handler.ServeHTTP(w, req)
 
-			assert.Equal(t, tt.want, w.Code, "状态码应该匹配")
+			assert.Equal(t, tt.want, w.Code, "Status code should match")
 		})
 	}
 }
 
-// TestIPWhitelistMiddleware_MultipleIPs 测试多个 IP 白名单
+// TestIPWhitelistMiddleware_MultipleIPs tests multiple IP whitelist
 func TestIPWhitelistMiddleware_MultipleIPs(t *testing.T) {
 	middleware := IPWhitelistMiddleware("192.168.1.1,192.168.1.2,10.0.0.1")
 
@@ -89,22 +89,22 @@ func TestIPWhitelistMiddleware_MultipleIPs(t *testing.T) {
 		want       int
 	}{
 		{
-			name:       "第一个 IP",
+			name:       "First IP",
 			remoteAddr: "192.168.1.1:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "第二个 IP",
+			name:       "Second IP",
 			remoteAddr: "192.168.1.2:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "第三个 IP",
+			name:       "Third IP",
 			remoteAddr: "10.0.0.1:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "不在白名单的 IP",
+			name:       "IP not in whitelist",
 			remoteAddr: "192.168.1.3:12345",
 			want:       http.StatusForbidden,
 		},
@@ -123,7 +123,7 @@ func TestIPWhitelistMiddleware_MultipleIPs(t *testing.T) {
 	}
 }
 
-// TestIPWhitelistMiddleware_WithSpaces 测试带空格的 IP 列表
+// TestIPWhitelistMiddleware_WithSpaces tests IP list with spaces
 func TestIPWhitelistMiddleware_WithSpaces(t *testing.T) {
 	middleware := IPWhitelistMiddleware(" 192.168.1.1 , 192.168.1.2 ")
 
@@ -139,10 +139,10 @@ func TestIPWhitelistMiddleware_WithSpaces(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该能够处理带空格的 IP 列表")
+	assert.Equal(t, http.StatusOK, w.Code, "Should be able to handle IP list with spaces")
 }
 
-// TestIPWhitelistMiddleware_XForwardedFor 测试 X-Forwarded-For 头
+// TestIPWhitelistMiddleware_XForwardedFor tests X-Forwarded-For header
 func TestIPWhitelistMiddleware_XForwardedFor(t *testing.T) {
 	middleware := IPWhitelistMiddleware("192.168.1.1")
 
@@ -157,14 +157,14 @@ func TestIPWhitelistMiddleware_XForwardedFor(t *testing.T) {
 	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 	w := httptest.NewRecorder()
 
-	// 注意：根据实现，可能使用 X-Forwarded-For 或 RemoteAddr
-	// 这里只是测试不会 panic
+	// Note: According to implementation, may use X-Forwarded-For or RemoteAddr
+	// Here just test that it doesn't panic
 	assert.NotPanics(t, func() {
 		handler.ServeHTTP(w, req)
 	})
 }
 
-// TestIPWhitelistMiddleware_XRealIP 测试 X-Real-IP 头
+// TestIPWhitelistMiddleware_XRealIP tests X-Real-IP header
 func TestIPWhitelistMiddleware_XRealIP(t *testing.T) {
 	middleware := IPWhitelistMiddleware("192.168.1.1")
 
@@ -179,14 +179,14 @@ func TestIPWhitelistMiddleware_XRealIP(t *testing.T) {
 	req.Header.Set("X-Real-IP", "192.168.1.1")
 	w := httptest.NewRecorder()
 
-	// 注意：根据实现，可能使用 X-Real-IP 或 RemoteAddr
-	// 这里只是测试不会 panic
+	// Note: According to implementation, may use X-Real-IP or RemoteAddr
+	// Here just test that it doesn't panic
 	assert.NotPanics(t, func() {
 		handler.ServeHTTP(w, req)
 	})
 }
 
-// TestIPWhitelistMiddleware_CIDR 测试 CIDR 网段
+// TestIPWhitelistMiddleware_CIDR tests CIDR network
 func TestIPWhitelistMiddleware_CIDR(t *testing.T) {
 	middleware := IPWhitelistMiddleware("192.168.1.0/24")
 
@@ -202,12 +202,12 @@ func TestIPWhitelistMiddleware_CIDR(t *testing.T) {
 		want       int
 	}{
 		{
-			name:       "网段内的 IP",
+			name:       "IP in network",
 			remoteAddr: "192.168.1.100:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "网段外的 IP",
+			name:       "IP outside network",
 			remoteAddr: "192.168.2.1:12345",
 			want:       http.StatusForbidden,
 		},
@@ -226,7 +226,7 @@ func TestIPWhitelistMiddleware_CIDR(t *testing.T) {
 	}
 }
 
-// TestIPWhitelistMiddleware_MixedIPsAndCIDR 测试混合 IP 和 CIDR
+// TestIPWhitelistMiddleware_MixedIPsAndCIDR tests mixed IPs and CIDR
 func TestIPWhitelistMiddleware_MixedIPsAndCIDR(t *testing.T) {
 	middleware := IPWhitelistMiddleware("192.168.1.1,10.0.0.0/8,172.16.0.1")
 
@@ -242,22 +242,22 @@ func TestIPWhitelistMiddleware_MixedIPsAndCIDR(t *testing.T) {
 		want       int
 	}{
 		{
-			name:       "单个 IP",
+			name:       "Single IP",
 			remoteAddr: "192.168.1.1:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "CIDR 网段内的 IP",
+			name:       "IP in CIDR network",
 			remoteAddr: "10.0.0.1:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "另一个单个 IP",
+			name:       "Another single IP",
 			remoteAddr: "172.16.0.1:12345",
 			want:       http.StatusOK,
 		},
 		{
-			name:       "不在白名单的 IP",
+			name:       "IP not in whitelist",
 			remoteAddr: "192.168.2.1:12345",
 			want:       http.StatusForbidden,
 		},

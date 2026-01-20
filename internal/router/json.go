@@ -1,33 +1,34 @@
-// Package router 提供了 HTTP 路由处理功能。
-// 包括请求日志记录、JSON 响应、健康检查等路由处理器。
+// Package router provides HTTP routing functionality.
+// Includes request logging, JSON responses, health checks and other route handlers.
 package router
 
 import (
-	// 标准库
+	// Standard library
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
 	"sync"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/metrics"
 )
 
-// bufferPool 复用 bytes.Buffer 对象
+// bufferPool reuses bytes.Buffer objects
 var bufferPool = sync.Pool{
 	New: func() interface{} {
 		return &bytes.Buffer{}
 	},
 }
 
-// getBuffer 从池中获取 buffer
+// getBuffer gets a buffer from the pool
 func getBuffer() *bytes.Buffer {
 	buf, ok := bufferPool.Get().(*bytes.Buffer)
 	if !ok {
@@ -36,16 +37,16 @@ func getBuffer() *bytes.Buffer {
 	return buf
 }
 
-// putBuffer 将 buffer 放回池中
+// putBuffer returns a buffer to the pool
 func putBuffer(buf *bytes.Buffer) {
 	buf.Reset()
 	bufferPool.Put(buf)
 }
 
-// parsePaginationParams 解析分页参数
-// 返回 page, pageSize, hasPagination, error
-// hasPagination 表示是否显式指定了分页参数
-// 加强输入验证：限制参数长度、验证数值范围、防止注入攻击
+// parsePaginationParams parses pagination parameters
+// Returns page, pageSize, hasPagination, error
+// hasPagination indicates whether pagination parameters are explicitly specified
+// Enhanced input validation: limit parameter length, validate numeric range, prevent injection attacks
 func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination bool, err error) {
 	page = 1
 	pageSize = define.DEFAULT_PAGE_SIZE
@@ -53,56 +54,57 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 	pageStr := r.URL.Query().Get("page")
 	sizeStr := r.URL.Query().Get("page_size")
 
-	// 检查是否显式指定了分页参数
+	// Check if pagination parameters are explicitly specified
 	hasPagination = pageStr != "" || sizeStr != ""
 
-	// 安全验证：限制参数长度，防止过长的输入
+	// Security validation: limit parameter length to prevent overly long input
 	const maxParamLength = 20
 	if len(pageStr) > maxParamLength || len(sizeStr) > maxParamLength {
-		return 0, 0, false, fmt.Errorf("参数长度超过限制")
+		// Note: no request context here, use default language
+		return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 	}
 
-	// 安全验证：检查参数是否包含非法字符（只允许数字）
+	// Security validation: check if parameters contain illegal characters (only digits allowed)
 	if pageStr != "" {
-		// 验证是否为纯数字
+		// Validate if it's pure digits
 		for _, c := range pageStr {
 			if c < '0' || c > '9' {
-				return 0, 0, false, fmt.Errorf("无效的分页参数: page 必须为数字")
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 		}
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			// 限制最大页码，防止过大的值导致性能问题
+			// Limit maximum page number to prevent performance issues from overly large values
 			const maxPage = 1000000
 			if p > maxPage {
-				return 0, 0, false, fmt.Errorf("页码超出最大限制: %d", maxPage)
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 			page = p
 		} else {
-			return 0, 0, false, fmt.Errorf("无效的分页参数: page 必须为正整数")
+			return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 		}
 	}
 
 	if sizeStr != "" {
-		// 验证是否为纯数字
+		// Validate if it's pure digits
 		for _, c := range sizeStr {
 			if c < '0' || c > '9' {
-				return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为数字")
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 		}
 		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MAX_PAGE_SIZE {
 			pageSize = s
 		} else {
 			if s > define.MAX_PAGE_SIZE {
-				return 0, 0, false, fmt.Errorf("每页大小超出最大限制: %d", define.MAX_PAGE_SIZE)
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
-			return 0, 0, false, fmt.Errorf("无效的分页参数: page_size 必须为正整数")
+			return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 		}
 	}
 
 	return page, pageSize, hasPagination, nil
 }
 
-// paginate 对数据进行分页
+// paginate paginates data
 func paginate(data []define.AllowListUser, page, pageSize int) (result []define.AllowListUser, total, totalPages int) {
 	total = len(data)
 	if total == 0 {
@@ -111,7 +113,7 @@ func paginate(data []define.AllowListUser, page, pageSize int) (result []define.
 
 	totalPages = (total + pageSize - 1) / pageSize
 
-	// 如果请求的页面超出范围，返回空数组
+	// If the requested page is out of range, return empty array
 	if page > totalPages || page < 1 {
 		return []define.AllowListUser{}, total, totalPages
 	}
@@ -129,7 +131,7 @@ func paginate(data []define.AllowListUser, page, pageSize int) (result []define.
 	return data[start:end], total, totalPages
 }
 
-// buildPaginatedResponse 构建分页响应结构
+// buildPaginatedResponse builds paginated response structure
 func buildPaginatedResponse(data []define.AllowListUser, page, pageSize, total, totalPages int) map[string]interface{} {
 	return map[string]interface{}{
 		"data": data,
@@ -142,7 +144,7 @@ func buildPaginatedResponse(data []define.AllowListUser, page, pageSize, total, 
 	}
 }
 
-// encodeJSONResponse 编码并写入 JSON 响应
+// encodeJSONResponse encodes and writes JSON response
 func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}) error {
 	buf := getBuffer()
 	defer putBuffer(buf)
@@ -150,112 +152,112 @@ func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}
 	if err := json.NewEncoder(buf).Encode(data); err != nil {
 		hlog.FromRequest(r).Error().
 			Err(err).
-			Msg("JSON 编码失败")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+			Msg(i18n.T(r, "error.json_encode_failed"))
+		http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 		return err
 	}
 
 	if _, err := w.Write(buf.Bytes()); err != nil {
 		hlog.FromRequest(r).Error().
 			Err(err).
-			Msg("写入响应失败")
+			Msg(i18n.T(r, "error.write_response_failed"))
 		return err
 	}
 
 	return nil
 }
 
-// JSON 返回用户数据的 JSON 响应处理器
+// JSON returns a JSON response handler for user data
 //
-// 该函数创建一个 HTTP 处理器，用于返回用户缓存中的 JSON 数据。
-// 支持以下特性：
-// - 分页支持：通过 page 和 page_size 查询参数实现分页
-// - 向后兼容：未指定分页参数时返回完整数组格式
-// - 性能优化：根据数据大小选择不同的编码策略（直接编码、缓冲池、流式编码）
-// - 输入验证：严格验证分页参数，防止注入攻击
+// This function creates an HTTP handler that returns JSON data from the user cache.
+// Supports the following features:
+// - Pagination: implemented via page and page_size query parameters
+// - Backward compatibility: returns full array format when pagination parameters are not specified
+// - Performance optimization: selects different encoding strategies based on data size (direct encoding, buffer pool, streaming encoding)
+// - Input validation: strictly validates pagination parameters to prevent injection attacks
 //
-// 参数:
-//   - userCache: 用户缓存实例，用于获取用户数据
+// Parameters:
+//   - userCache: user cache instance for retrieving user data
 //
-// 返回:
-//   - func(http.ResponseWriter, *http.Request): HTTP 请求处理函数
+// Returns:
+//   - func(http.ResponseWriter, *http.Request): HTTP request handler function
 //
-// 副作用:
-//   - 记录缓存命中指标
-//   - 记录请求日志
+// Side effects:
+//   - Records cache hit metrics
+//   - Records request logs
 func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 验证请求方法，只允许 GET
+		// Validate request method, only allow GET
 		if r.Method != http.MethodGet {
 			hlog.FromRequest(r).Warn().
 				Str("method", r.Method).
-				Msg("不支持的请求方法")
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+				Msg(i18n.T(r, "log.unsupported_method"))
+			http.Error(w, i18n.T(r, "http.method_not_allowed"), http.StatusMethodNotAllowed)
 			return
 		}
 
-		// 解析分页参数（加强输入验证）
+		// Parse pagination parameters (enhanced input validation)
 		page, pageSize, hasPagination, err := parsePaginationParams(r)
 		if err != nil {
 			hlog.FromRequest(r).Warn().
 				Err(err).
-				Msg("分页参数验证失败")
-			http.Error(w, "Invalid pagination parameters", http.StatusBadRequest)
+				Msg(i18n.T(r, "log.pagination_validation_failed"))
+			http.Error(w, i18n.T(r, "http.invalid_pagination_parameters"), http.StatusBadRequest)
 			return
 		}
 
-		// 获取所有数据（从内存缓存，记录为缓存命中）
+		// Get all data (from memory cache, record as cache hit)
 		userData := userCache.Get()
-		metrics.CacheHits.Inc() // 内存缓存命中
+		metrics.CacheHits.Inc() // Memory cache hit
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		// 如果没有显式指定分页参数，保持向后兼容，直接返回数组
+		// If pagination parameters are not explicitly specified, maintain backward compatibility and return array directly
 		if !hasPagination {
-			// 对于小数据，直接编码；对于中等数据，使用 bufferPool；对于大数据，使用流式编码
+			// For small data, encode directly; for medium data, use bufferPool; for large data, use streaming encoding
 			switch {
 			case len(userData) < define.SMALL_DATA_THRESHOLD:
 				if err := json.NewEncoder(w).Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("JSON 编码失败")
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+						Msg(i18n.T(r, "error.json_encode_failed"))
+					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 			case len(userData) < define.LARGE_DATA_THRESHOLD:
-				// 中等数据：使用 bufferPool 优化
+				// Medium data: use bufferPool for optimization
 				buf := getBuffer()
 				defer putBuffer(buf)
 				if err := json.NewEncoder(buf).Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("JSON 编码失败")
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+						Msg(i18n.T(r, "error.json_encode_failed"))
+					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 				if _, err := w.Write(buf.Bytes()); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("写入响应失败")
+						Msg(i18n.T(r, "error.write_response_failed"))
 					return
 				}
 			default:
-				// 大数据：使用流式 JSON 编码，减少内存占用
+				// Large data: use streaming JSON encoding to reduce memory usage
 				encoder := json.NewEncoder(w)
 				if err := encoder.Encode(userData); err != nil {
 					hlog.FromRequest(r).Error().
 						Err(err).
-						Msg("流式 JSON 编码失败")
-					http.Error(w, "Internal server error", http.StatusInternalServerError)
+						Msg(i18n.T(r, "error.stream_encode_failed"))
+					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 			}
-			hlog.FromRequest(r).Info().Msg(define.INFO_REQ_REMOTE_API)
+			hlog.FromRequest(r).Info().Msg(i18n.T(r, "log.request_data_api"))
 			return
 		}
 
-		// 如果指定了分页参数，返回分页格式
+		// If pagination parameters are specified, return paginated format
 		paginatedData, total, totalPages := paginate(userData, page, pageSize)
 		response := buildPaginatedResponse(paginatedData, page, pageSize, total, totalPages)
 
@@ -267,6 +269,6 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			Int("page", page).
 			Int("page_size", pageSize).
 			Int("total", total).
-			Msg(define.INFO_REQ_REMOTE_API)
+			Msg(i18n.T(r, "log.request_data_api"))
 	}
 }

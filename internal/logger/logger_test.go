@@ -17,11 +17,11 @@ func TestGetLogger(t *testing.T) {
 }
 
 func TestLogger_Output(t *testing.T) {
-	// 创建一个buffer来捕获日志输出
+	// Create a buffer to capture log output
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf).With().Timestamp().Logger()
 
-	// 测试日志输出
+	// Test log output
 	logger.Info().Msg("test message")
 	output := buf.String()
 
@@ -33,7 +33,7 @@ func TestLogger_Levels(t *testing.T) {
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf).With().Timestamp().Logger()
 
-	// 测试不同级别的日志
+	// Test different log levels
 	logger.Debug().Msg("debug message")
 	logger.Info().Msg("info message")
 	logger.Warn().Msg("warn message")
@@ -41,7 +41,7 @@ func TestLogger_Levels(t *testing.T) {
 
 	output := buf.String()
 
-	// 由于默认级别是InfoLevel，Debug消息不应该出现
+	// Since default level is InfoLevel, Debug messages should not appear
 	assert.NotContains(t, output, "debug message", "Debug消息不应该出现在输出中")
 	assert.Contains(t, output, "info message", "Info消息应该出现在输出中")
 	assert.Contains(t, output, "warn message", "Warn消息应该出现在输出中")
@@ -66,19 +66,19 @@ func TestLogger_WithFields(t *testing.T) {
 }
 
 func TestLogger_DefaultOutput(t *testing.T) {
-	// 测试默认logger输出到stderr
+	// Test default logger outputs to stderr
 	logger := GetLogger()
 
-	// 验证logger不是nil
+	// Verify logger is not nil
 	assert.NotNil(t, logger)
 
-	// 验证默认输出是stderr（通过检查logger的内部状态）
-	// 注意：zerolog.Logger不直接暴露输出目标，所以我们只能验证logger本身
+	// Verify default output is stderr (by checking logger's internal state)
+	// Note: zerolog.Logger doesn't directly expose output target, so we can only verify the logger itself
 	assert.IsType(t, zerolog.Logger{}, logger)
 }
 
 func TestLogger_Concurrent(t *testing.T) {
-	// 测试并发安全性
+	// Test concurrency safety
 	logger := GetLogger()
 
 	done := make(chan bool, 10)
@@ -90,60 +90,60 @@ func TestLogger_Concurrent(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有goroutine完成
+	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
-	// 如果没有panic，测试通过
+	// Test passes if no panic occurs
 	assert.True(t, true, "并发日志写入应该安全")
 }
 
 func TestLogger_Init(t *testing.T) {
-	// 测试init函数设置的全局配置
-	// 由于init函数已经执行，我们验证zerolog的全局配置
-	// 注意：这些是全局设置，可能影响其他测试，所以只做基本验证
+	// Test global configuration set by init function
+	// Since init function has already executed, we verify zerolog's global configuration
+	// Note: These are global settings that may affect other tests, so only do basic verification
 
-	// 验证可以创建logger
+	// Verify logger can be created
 	logger := GetLogger()
 	assert.NotNil(t, logger)
 
-	// 验证默认级别（通过实际日志行为）
+	// Verify default level (through actual log behavior)
 	var buf bytes.Buffer
 	testLogger := zerolog.New(&buf).With().Timestamp().Logger()
 	testLogger.Debug().Msg("should not appear")
 
-	// Debug消息不应该出现（如果级别设置正确）
+	// Debug messages should not appear (if level is set correctly)
 	output := buf.String()
-	// 由于我们创建了新的logger，它使用默认级别，所以这里只是验证logger可以工作
+	// Since we created a new logger, it uses default level, so here we just verify logger works
 	assert.NotNil(t, testLogger)
-	_ = output // 避免未使用变量警告
+	_ = output // Avoid unused variable warning
 }
 
 func TestLogger_Stderr(t *testing.T) {
-	// 验证默认logger输出到stderr
+	// Verify default logger outputs to stderr
 	logger := GetLogger()
 
-	// 获取stderr文件描述符
+	// Get stderr file descriptor
 	stderr := os.Stderr
 	assert.NotNil(t, stderr, "stderr应该存在")
 
-	// logger应该可以正常使用
+	// Logger should work normally
 	assert.NotNil(t, logger)
 
-	// 尝试写入日志（不会真正写入，因为zerolog可能缓冲）
+	// Try to write log (won't actually write, as zerolog may buffer)
 	logger.Info().Msg("test stderr output")
 
-	// 如果没有panic，说明可以正常写入stderr
+	// If no panic, means can write to stderr normally
 	assert.True(t, true)
 }
 
 func TestSetLevel(t *testing.T) {
-	// 保存原始级别
+	// Save original level
 	originalLevel := zerolog.GlobalLevel()
 	defer zerolog.SetGlobalLevel(originalLevel)
 
-	// 测试设置不同级别
+	// Test setting different levels
 	levels := []zerolog.Level{
 		zerolog.DebugLevel,
 		zerolog.InfoLevel,
@@ -257,7 +257,7 @@ func TestSanitizeHeader(t *testing.T) {
 }
 
 func TestGetLogger_WithEnvLevel(t *testing.T) {
-	// 保存原始环境变量
+	// Save original environment variable
 	originalLevel := os.Getenv("LOG_LEVEL")
 	defer func() {
 		if originalLevel != "" {
@@ -267,20 +267,20 @@ func TestGetLogger_WithEnvLevel(t *testing.T) {
 		}
 	}()
 
-	// 测试不同的日志级别
+	// Test different log levels
 	levels := []string{"debug", "info", "warn", "error", "fatal", "panic"}
 
 	for _, level := range levels {
 		require.NoError(t, os.Setenv("LOG_LEVEL", level))
-		// 注意：由于init函数已经执行，环境变量的改变不会立即生效
-		// 这里主要验证GetLogger不会panic
+		// Note: Since init function has already executed, environment variable changes won't take effect immediately
+		// Here we mainly verify GetLogger doesn't panic
 		logger := GetLogger()
 		assert.NotNil(t, logger)
 	}
 }
 
 func TestSanitizeString_EdgeCases(t *testing.T) {
-	// 测试边界情况
+	// Test edge cases
 	assert.Equal(t, "", SanitizeString(""))
 	assert.Equal(t, "***", SanitizeString("a"))
 	assert.Equal(t, "***", SanitizeString("ab"))
@@ -290,11 +290,11 @@ func TestSanitizeString_EdgeCases(t *testing.T) {
 }
 
 func TestSanitizeHeader_EdgeCases(t *testing.T) {
-	// 测试边界情况
+	// Test edge cases
 	assert.Equal(t, "", SanitizeHeader(""))
 	assert.Equal(t, "test", SanitizeHeader("test"))
 
-	// 测试包含多个敏感关键词的情况
+	// Test case with multiple sensitive keywords
 	result := SanitizeHeader("Authorization: Bearer token123")
 	assert.Contains(t, result, "**", "应该被脱敏")
 }

@@ -6,30 +6,30 @@ import (
 	"strings"
 )
 
-// AllowListUser 表示允许列表中的用户信息。
+// AllowListUser represents user information in the allow list.
 //
-// 该结构体用于存储用户的基本信息，包括手机号、邮箱地址、用户ID、状态等。
-// 这些信息用于验证和授权用户访问。
+// This struct is used to store user's basic information, including phone number, email address, user ID, status, etc.
+// This information is used to verify and authorize user access.
 //
-//nolint:govet // fieldalignment: 字段顺序受 JSON 序列化标签影响，优化可能破坏 API 兼容性
+//nolint:govet // fieldalignment: field order is affected by JSON serialization tags, optimization may break API compatibility
 type AllowListUser struct {
-	Phone  string   `json:"phone"`   // 用户手机号
-	Mail   string   `json:"mail"`    // 用户邮箱地址
-	UserID string   `json:"user_id"` // 用户唯一标识符（可选，如果未提供则自动生成）
-	Status string   `json:"status"`  // 用户状态（如 "active", "inactive", "suspended"）
-	Scope  []string `json:"scope"`   // 用户权限范围（可选）
-	Role   string   `json:"role"`    // 用户角色（可选）
+	Phone  string   `json:"phone"`   // User phone number
+	Mail   string   `json:"mail"`    // User email address
+	UserID string   `json:"user_id"` // User unique identifier (optional, auto-generated if not provided)
+	Status string   `json:"status"`  // User status (e.g., "active", "inactive", "suspended")
+	Scope  []string `json:"scope"`   // User permission scope (optional)
+	Role   string   `json:"role"`    // User role (optional)
 }
 
-// Normalize 规范化用户数据，设置默认值并生成 user_id（如果未提供）
+// Normalize normalizes user data, sets default values and generates user_id (if not provided)
 //
-// 该函数会：
-// - 如果 user_id 为空，基于 phone 或 mail 生成
-// - 如果 status 为空，设置为 "active"
-// - 如果 scope 为 nil，设置为空数组
-// - 如果 role 为空，设置为空字符串
+// This function will:
+// - If user_id is empty, generate based on phone or mail
+// - If status is empty, set to "active"
+// - If scope is nil, set to empty array
+// - If role is empty, set to empty string
 func (u *AllowListUser) Normalize() {
-	// 生成 user_id（如果未提供）
+	// Generate user_id (if not provided)
 	if u.UserID == "" {
 		identifier := strings.TrimSpace(u.Phone)
 		if identifier == "" {
@@ -37,19 +37,19 @@ func (u *AllowListUser) Normalize() {
 		}
 		if identifier != "" {
 			h := sha256.Sum256([]byte(identifier))
-			u.UserID = hex.EncodeToString(h[:])[:16] // 取前 16 个字符
+			u.UserID = hex.EncodeToString(h[:])[:16] // Take first 16 characters
 		}
 	}
 
-	// 设置默认 status
+	// Set default status
 	if u.Status == "" {
 		u.Status = "active"
 	}
 
-	// 设置默认 scope（如果为 nil）
+	// Set default scope (if nil)
 	if u.Scope == nil {
 		u.Scope = []string{}
 	}
 
-	// role 可以为空字符串，不需要设置默认值
+	// role can be empty string, no need to set default value
 }

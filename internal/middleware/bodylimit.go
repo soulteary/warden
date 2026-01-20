@@ -1,41 +1,41 @@
-// Package middleware 提供了 HTTP 中间件功能。
-// 包括速率限制、压缩、请求体限制、指标收集等中间件。
+// Package middleware provides HTTP middleware functionality.
+// Includes rate limiting, compression, request body limiting, metrics collection and other middleware.
 package middleware
 
 import (
-	// 标准库
+	// Standard library
 	"net/http"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 )
 
-// BodyLimitMiddleware 创建请求体大小限制中间件
-// 限制请求体大小，防止恶意请求
-// 注意：http.MaxBytesReader 会在读取时自动检查大小，超过限制会返回错误
+// BodyLimitMiddleware creates request body size limiting middleware
+// Limits request body size to prevent malicious requests
+// Note: http.MaxBytesReader will automatically check size when reading, returns error if limit is exceeded
 func BodyLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 对于 GET/HEAD 请求，通常没有请求体，直接通过
+		// For GET/HEAD requests, usually no request body, pass through directly
 		if r.Method == "GET" || r.Method == "HEAD" {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// 检查 Content-Length 头
+		// Check Content-Length header
 		if r.ContentLength > define.MAX_REQUEST_BODY_SIZE {
 			hlog.FromRequest(r).Warn().
 				Int64("content_length", r.ContentLength).
 				Int("max_size", define.MAX_REQUEST_BODY_SIZE).
-				Msg("请求体大小超过限制")
+				Msg("Request body size exceeds limit")
 			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
 			return
 		}
 
-		// 限制请求体大小（MaxBytesReader 会在读取时检查）
-		// 如果超过限制，会在后续读取时返回错误
+		// Limit request body size (MaxBytesReader will check when reading)
+		// If limit is exceeded, will return error on subsequent reads
 		r.Body = http.MaxBytesReader(w, r.Body, define.MAX_REQUEST_BODY_SIZE)
 
 		next.ServeHTTP(w, r)

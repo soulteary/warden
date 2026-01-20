@@ -1,16 +1,16 @@
-// Package middleware 提供了 HTTP 中间件功能。
-// 包括速率限制、压缩、请求体限制、指标收集等中间件。
+// Package middleware provides HTTP middleware functionality.
+// Includes rate limiting, compression, request body limiting, metrics collection and other middleware.
 package middleware
 
 import (
-	// 标准库
+	// Standard library
 	"compress/gzip"
 	"net/http"
 	"strings"
 	"sync"
 )
 
-// gzipWriter 包装 http.ResponseWriter 以支持 gzip 压缩
+// gzipWriter wraps http.ResponseWriter to support gzip compression
 type gzipWriter struct {
 	http.ResponseWriter
 	writer *gzip.Writer
@@ -24,8 +24,8 @@ func (gw *gzipWriter) Write(b []byte) (int, error) {
 }
 
 func (gw *gzipWriter) WriteHeader(statusCode int) {
-	// 只有在写入数据之前设置 Content-Encoding
-	// 如果已经写入过，就不需要再设置
+	// Only set Content-Encoding before writing data
+	// If already written, no need to set again
 	if gw.writer != nil {
 		gw.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 	}
@@ -39,47 +39,47 @@ func (gw *gzipWriter) Close() error {
 	return nil
 }
 
-// gzipWriterPool 复用 gzip.Writer 对象
+// gzipWriterPool reuses gzip.Writer objects
 var gzipWriterPool = sync.Pool{
 	New: func() interface{} {
 		return gzip.NewWriter(nil)
 	},
 }
 
-// CompressMiddleware 创建 gzip 压缩中间件
-// 自动检测客户端是否支持 gzip，如果支持则压缩响应
+// CompressMiddleware creates gzip compression middleware
+// Automatically detects if client supports gzip, compresses response if supported
 func CompressMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查客户端是否支持 gzip
+		// Check if client supports gzip
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// 从池中获取 gzip writer
+		// Get gzip writer from pool
 		gzWriter, ok := gzipWriterPool.Get().(*gzip.Writer)
 		if !ok {
-			// 如果类型断言失败，创建新的 writer
+			// If type assertion fails, create new writer
 			gzWriter = gzip.NewWriter(nil)
 		}
 
-		// 设置 Vary 响应头
+		// Set Vary response header
 		w.Header().Set("Vary", "Accept-Encoding")
 
-		// 重置 writer 以指向当前 ResponseWriter
+		// Reset writer to point to current ResponseWriter
 		gzWriter.Reset(w)
 
-		// 包装 ResponseWriter
+		// Wrap ResponseWriter
 		gw := &gzipWriter{
 			ResponseWriter: w,
 			writer:         gzWriter,
 		}
 
-		// 确保资源正确释放：先关闭，再重置，最后放回池中
+		// Ensure resources are properly released: close first, then reset, finally return to pool
 		defer func() {
 			if err := gw.Close(); err != nil {
-				// 记录错误但不影响请求处理
-				_ = err // 明确忽略错误
+				// Log error but don't affect request processing
+				_ = err // Explicitly ignore error
 			}
 			gzWriter.Reset(nil)
 			gzipWriterPool.Put(gzWriter)

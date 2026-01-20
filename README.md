@@ -1,60 +1,61 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
-一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
+A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
 ![Warden](.github/assets/banner.jpg)
 
-> **Warden**（看守者）—— 守护星门的看守者，决定谁可以通过，谁将被拒绝。正如 Stargate 的看守者守护着星际之门，Warden 守护着你的允许列表，确保只有授权用户能够通过。
+> **Warden** (The Gatekeeper) — The guardian of the Stargate who decides who may pass and who will be denied. Just as the Warden of Stargate guards the Stargate, Warden guards your allowlist, ensuring only authorized users can pass through.
 
-## 📋 项目简介
+## 📋 Project Overview
 
-Warden 是一个基于 Go 语言开发的轻量级 HTTP API 服务，主要用于提供和管理允许列表用户数据（手机号和邮箱）。该服务支持从本地配置文件和远程 API 获取数据，并提供了多种数据合并策略，确保数据的实时性和可靠性。
+Warden is a lightweight HTTP API service developed in Go, primarily used for providing and managing allowlist user data (phone numbers and email addresses). The service supports fetching data from local configuration files and remote APIs, and provides multiple data merging strategies to ensure data real-time performance and reliability.
 
-## ✨ 核心特性
+## ✨ Core Features
 
-- 🚀 **高性能**: 支持每秒 5000+ 请求，平均延迟 21ms
-- 🔄 **多数据源**: 支持本地配置文件和远程 API 两种数据源
-- 🎯 **灵活策略**: 提供 6 种数据合并模式（远程优先、本地优先、仅远程、仅本地等）
-- ⏰ **定时更新**: 基于 Redis 分布式锁的定时任务，自动同步数据
-- 📦 **容器化部署**: 完整的 Docker 支持，开箱即用
-- 📊 **结构化日志**: 使用 zerolog 提供详细的访问日志和错误日志
-- 🔒 **分布式锁**: 使用 Redis 确保定时任务在分布式环境下不会重复执行
+- 🚀 **High Performance**: Supports 5000+ requests per second with an average latency of 21ms
+- 🔄 **Multiple Data Sources**: Supports both local configuration files and remote APIs
+- 🎯 **Flexible Strategies**: Provides 6 data merging modes (remote-first, local-first, remote-only, local-only, etc.)
+- ⏰ **Scheduled Updates**: Scheduled tasks based on Redis distributed locks for automatic data synchronization
+- 📦 **Containerized Deployment**: Complete Docker support, ready to use out of the box
+- 📊 **Structured Logging**: Uses zerolog to provide detailed access logs and error logs
+- 🔒 **Distributed Locks**: Uses Redis to ensure scheduled tasks don't execute repeatedly in distributed environments
+- 🌐 **Multi-language Support**: Supports 7 languages (English, Chinese, French, Italian, Japanese, German, Korean) with automatic language detection
 
-## 🏗️ 架构设计
+## 🏗️ Architecture Design
 
-Warden 采用分层架构设计，包含 HTTP 层、业务层和基础设施层。系统支持多数据源、多级缓存和分布式锁机制。
+Warden uses a layered architecture design, including HTTP layer, business layer, and infrastructure layer. The system supports multiple data sources, multi-level caching, and distributed locking mechanisms.
 
-详细架构说明请参考：[架构设计文档](docs/zhCN/ARCHITECTURE.md)
+For detailed architecture documentation, please refer to: [Architecture Design Documentation](docs/enUS/ARCHITECTURE.md)
 
-## 📦 安装与运行
+## 📦 Installation and Running
 
-> 💡 **快速开始**: 想要快速体验 Warden？查看我们的 [快速开始示例](example/README.md)：
-> - [简单示例](example/basic/README.md) - 基础使用，仅本地数据文件
-> - [复杂示例](example/advanced/README.md) - 完整功能，包含远程 API 和 Mock 服务
+> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.md):
+> - [Simple Example](example/basic/README.md) - Basic usage, local data file only
+> - [Advanced Example](example/advanced/README.md) - Full features, including remote API and Mock service
 
-### 前置要求
+### Prerequisites
 
-- Go 1.25+ (参考 [go.mod](go.mod))
-- Redis (用于分布式锁和缓存)
-- Docker (可选，用于容器化部署)
+- Go 1.25+ (refer to [go.mod](go.mod))
+- Redis (for distributed locks and caching)
+- Docker (optional, for containerized deployment)
 
-### 快速开始
+### Quick Start
 
-1. **克隆项目**
+1. **Clone the project**
 ```bash
 git clone <repository-url>
 cd warden
 ```
 
-2. **安装依赖**
+2. **Install dependencies**
 ```bash
 go mod download
 ```
 
-3. **配置本地数据文件**
-创建 `data.json` 文件（可参考 `data.example.json`）：
+3. **Configure local data file**
+Create a `data.json` file (refer to `data.example.json`):
 ```json
 [
     {
@@ -64,48 +65,79 @@ go mod download
 ]
 ```
 
-4. **运行服务**
+4. **Run the service**
 ```bash
 go run main.go
 ```
 
-详细配置和部署说明请参考：
-- [配置文档](docs/zhCN/CONFIGURATION.md) - 了解所有配置选项
-- [部署文档](docs/zhCN/DEPLOYMENT.md) - 了解部署方法
+For detailed configuration and deployment instructions, please refer to:
+- [Configuration Documentation](docs/enUS/CONFIGURATION.md) - Learn about all configuration options
+- [Deployment Documentation](docs/enUS/DEPLOYMENT.md) - Learn about deployment methods
 
-## ⚙️ 配置说明
+## ⚙️ Configuration
 
-Warden 支持多种配置方式：命令行参数、环境变量和配置文件。系统提供 6 种数据合并模式，支持灵活的配置策略。
+Warden supports multiple configuration methods: command line arguments, environment variables, and configuration files. The system provides 6 data merging modes with flexible configuration strategies.
 
-详细配置说明请参考：[配置文档](docs/zhCN/CONFIGURATION.md)
+For detailed configuration documentation, please refer to: [Configuration Documentation](docs/enUS/CONFIGURATION.md)
 
-## 📡 API 文档
+## 📡 API Documentation
 
-Warden 提供了完整的 RESTful API，支持用户列表查询、分页、健康检查等功能。项目还提供了 OpenAPI 3.0 规范文档。
+Warden provides a complete RESTful API with support for user list queries, pagination, health checks, and more. The project also provides OpenAPI 3.0 specification documentation.
 
-详细 API 文档请参考：[API 文档](docs/zhCN/API.md)
+For detailed API documentation, please refer to: [API Documentation](docs/enUS/API.md)
 
-OpenAPI 规范文件：[openapi.yaml](openapi.yaml)
+OpenAPI specification file: [openapi.yaml](openapi.yaml)
 
-## 🔌 SDK 使用
+## 🌐 Multi-language Support
 
-Warden 提供了 Go SDK，方便其他项目集成使用。SDK 提供了简洁的 API 接口，支持缓存、认证等功能。
+Warden supports complete internationalization (i18N) functionality. All API responses, error messages, and logs support internationalization.
 
-详细 SDK 文档请参考：[SDK 文档](docs/zhCN/SDK.md)
+### Supported Languages
 
-## 🐳 Docker 部署
+- 🇺🇸 English (en) - Default
+- 🇨🇳 Chinese (zh)
+- 🇫🇷 French (fr)
+- 🇮🇹 Italian (it)
+- 🇯🇵 Japanese (ja)
+- 🇩🇪 German (de)
+- 🇰🇷 Korean (ko)
 
-Warden 支持完整的 Docker 和 Docker Compose 部署，开箱即用。
+### Language Detection
 
-### 使用预构建镜像快速开始（推荐）
+Warden supports two language detection methods with the following priority:
 
-使用 GitHub Container Registry (GHCR) 提供的预构建镜像，无需本地构建即可快速启动：
+1. **Query Parameter**: Specify language via `?lang=zh`
+2. **Accept-Language Header**: Automatically detect browser language preference
+3. **Default Language**: English if not specified
+
+### Usage Examples
 
 ```bash
-# 拉取最新版本的镜像
+# Specify Chinese via query parameter
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+
+# Auto-detect via Accept-Language header
+curl -H "X-API-Key: your-key" -H "Accept-Language: zh-CN,zh;q=0.9" "http://localhost:8081/"
+
+# Use Japanese
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+```
+
+For detailed multi-language documentation, please refer to: [Multi-language Documentation](docs/enUS/README.md#multi-language-support)
+
+## 🐳 Docker Deployment
+
+Warden supports complete Docker and Docker Compose deployment, ready to use out of the box.
+
+### Quick Start with Pre-built Image (Recommended)
+
+Use the pre-built image from GitHub Container Registry (GHCR) to get started quickly without local build:
+
+```bash
+# Pull the latest version image
 docker pull ghcr.io/soulteary/warden:latest
 
-# 运行容器（基础示例）
+# Run container (basic example)
 docker run -d \
   -p 8081:8081 \
   -v $(pwd)/data.json:/app/data.json:ro \
@@ -115,98 +147,99 @@ docker run -d \
   ghcr.io/soulteary/warden:latest
 ```
 
-> 💡 **提示**: 使用预构建镜像可以快速开始，无需本地构建环境。镜像会自动更新，确保使用最新版本。
+> 💡 **Tip**: Using pre-built images allows you to get started quickly without a local build environment. Images are automatically updated to ensure you're using the latest version.
 
-### 使用 Docker Compose
+### Using Docker Compose
 
-> 🚀 **快速部署**: 查看 [示例目录](example/README.md) 获取完整的 Docker Compose 配置示例
+> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.md) for complete Docker Compose configuration examples
 
-详细部署文档请参考：[部署文档](docs/zhCN/DEPLOYMENT.md)
+For detailed deployment documentation, please refer to: [Deployment Documentation](docs/enUS/DEPLOYMENT.md)
 
-## 📊 性能指标
+## 📊 Performance Metrics
 
-基于 wrk 压力测试结果（30秒测试，16线程，100连接）：
+Based on wrk stress test results (30-second test, 16 threads, 100 connections):
 
 ```
 Requests/sec:   5038.81
 Transfer/sec:   38.96MB
-平均延迟:       21.30ms
-最大延迟:       226.09ms
+Average Latency: 21.30ms
+Max Latency:     226.09ms
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 warden/
-├── main.go                 # 程序入口
-├── data.example.json      # 本地数据文件示例
-├── config.example.yaml    # 配置文件示例
-├── openapi.yaml           # OpenAPI 规范文件
-├── go.mod                 # Go 模块定义
-├── docker-compose.yml     # Docker Compose 配置
-├── LICENSE                # 许可证文件
-├── README.*.md            # 多语言项目文档（中文/英文/法语/意大利语/日语/德语/韩语）
-├── CONTRIBUTING.*.md      # 多语言贡献指南
+├── main.go                 # Program entry point
+├── data.example.json      # Local data file example
+├── config.example.yaml    # Configuration file example
+├── openapi.yaml           # OpenAPI specification file
+├── go.mod                 # Go module definition
+├── docker-compose.yml     # Docker Compose configuration
+├── LICENSE                # License file
+├── README.*.md            # Multi-language project documents (Chinese/English/French/Italian/Japanese/German/Korean)
+├── CONTRIBUTING.*.md      # Multi-language contribution guides
 ├── docker/
-│   └── Dockerfile         # Docker 镜像构建文件
-├── docs/                  # 文档目录（多语言）
-│   ├── enUS/              # 英文文档
-│   └── zhCN/              # 中文文档
-├── example/               # 快速开始示例
-│   ├── basic/             # 简单示例（仅本地文件）
-│   └── advanced/          # 复杂示例（完整功能，包含 Mock API）
+│   └── Dockerfile         # Docker image build file
+├── docs/                  # Documentation directory (multi-language)
+│   ├── enUS/              # English documentation
+│   └── zhCN/              # Chinese documentation
+├── example/               # Quick start examples
+│   ├── basic/             # Simple example (local file only)
+│   └── advanced/          # Advanced example (full features, includes Mock API)
 ├── internal/
-│   ├── cache/             # Redis 缓存和锁实现
-│   ├── cmd/               # 命令行参数解析
-│   ├── config/            # 配置管理
-│   ├── define/            # 常量定义和数据结构
-│   ├── di/                # 依赖注入
-│   ├── errors/            # 错误处理
-│   ├── logger/            # 日志初始化
-│   ├── metrics/           # 指标收集
-│   ├── middleware/        # HTTP 中间件
-│   ├── parser/            # 数据解析器（本地/远程）
-│   ├── router/            # HTTP 路由处理
-│   ├── validator/         # 验证器
-│   └── version/           # 版本信息
+│   ├── cache/             # Redis cache and lock implementation
+│   ├── cmd/               # Command line argument parsing
+│   ├── config/            # Configuration management
+│   ├── define/            # Constant definitions and data structures
+│   ├── di/                # Dependency injection
+│   ├── errors/            # Error handling
+│   ├── logger/            # Logging initialization
+│   ├── metrics/           # Metrics collection
+│   ├── middleware/        # HTTP middleware
+│   ├── parser/            # Data parser (local/remote)
+│   ├── router/            # HTTP route handling
+│   ├── validator/         # Validator
+│   └── version/           # Version information
 ├── pkg/
-│   ├── gocron/            # 定时任务调度器
+│   ├── gocron/            # Scheduled task scheduler
 │   └── warden/            # Warden SDK
-├── scripts/               # 脚本目录
-└── .github/               # GitHub 配置（CI/CD、Issue/PR 模板等）
+├── scripts/               # Scripts directory
+└── .github/               # GitHub configuration (CI/CD, Issue/PR templates, etc.)
 ```
 
-## 🔒 安全特性
+## 🔒 Security Features
 
-Warden 实现了多项安全功能，包括 API 认证、SSRF 防护、速率限制、TLS 验证等。
+Warden implements multiple security features, including API authentication, SSRF protection, rate limiting, TLS verification, and more.
 
-详细安全文档请参考：[安全文档](docs/zhCN/SECURITY.md)
+For detailed security documentation, please refer to: [Security Documentation](docs/enUS/SECURITY.md)
 
-## 🔧 开发指南
+## 🔧 Development Guide
 
-> 📚 **参考示例**: 查看 [示例目录](example/README.md) 了解不同使用场景的完整示例代码和配置。
+> 📚 **Reference Examples**: Check the [Examples Directory](example/README.md) for complete example code and configurations for different usage scenarios.
 
-详细开发文档请参考：[开发文档](docs/zhCN/DEVELOPMENT.md)
+For detailed development documentation, please refer to: [Development Documentation](docs/enUS/DEVELOPMENT.md)
 
-### 代码规范
+### Code Standards
 
-项目遵循 Go 官方代码规范和最佳实践。详细规范请参考：
+The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
-- [CODE_STYLE.md](docs/zhCN/CODE_STYLE.md) - 代码风格指南
-- [CONTRIBUTING.md](CONTRIBUTING.md) - 贡献指南
+- [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Code style guide
+- [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Contribution guide
 
-## 📄 许可证
+## 📄 License
 
-查看 [LICENSE](LICENSE) 文件了解详情。
+See the [LICENSE](LICENSE) file for details.
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Welcome to submit Issues and Pull Requests!
 
-## 📞 联系方式
+## 📞 Contact
 
-如有问题或建议，请通过 Issue 联系。
+For questions or suggestions, please contact via Issues.
 
 ---
 
-**版本**: 程序启动时会显示版本、构建时间和代码版本（通过 `warden --version` 或查看启动日志）
+**Version**: The program displays version, build time, and code version on startup (via `warden --version` or startup logs)
+

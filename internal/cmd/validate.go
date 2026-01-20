@@ -1,50 +1,51 @@
 package cmd
 
 import (
-	// 标准库
+	// Standard library
 	"fmt"
 	"strconv"
 	"strings"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/validator"
 )
 
-// ValidateConfig 验证配置的有效性
+// ValidateConfig validates configuration validity
 func ValidateConfig(cfg *Config) error {
 	var errors []string
 
-	// 验证端口
+	// Validate port
 	if port, err := strconv.Atoi(cfg.Port); err != nil || port < 1 || port > 65535 {
-		errors = append(errors, fmt.Sprintf("无效的端口号: %s (必须是 1-65535 之间的整数)", cfg.Port))
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
 	}
 
-	// 验证 Redis 地址格式
+	// Validate Redis address format
 	if cfg.Redis != "" {
 		parts := strings.Split(cfg.Redis, ":")
 		if len(parts) != 2 {
-			errors = append(errors, fmt.Sprintf("无效的 Redis 地址格式: %s (应为 host:port)", cfg.Redis))
+			errors = append(errors, fmt.Sprintf("Invalid Redis address format: %s (should be host:port)", cfg.Redis))
 		} else {
 			if port, err := strconv.Atoi(parts[1]); err != nil || port < 1 || port > 65535 {
-				errors = append(errors, fmt.Sprintf("无效的 Redis 端口: %s", parts[1]))
+				errors = append(errors, fmt.Sprintf("Invalid Redis port: %s", parts[1]))
 			}
 		}
 	}
 
-	// 验证远程配置 URL（加强 SSRF 防护）
+	// Validate remote configuration URL (enhanced SSRF protection)
 	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
 		if err := validator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
-			errors = append(errors, fmt.Sprintf("无效的远程配置 URL: %s (%v)", cfg.RemoteConfig, err))
+			errors = append(errors, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
 		}
 	}
 
-	// 验证任务间隔
+	// Validate task interval
 	if cfg.TaskInterval < 1 {
-		errors = append(errors, fmt.Sprintf("任务间隔必须大于 0，当前值: %d", cfg.TaskInterval))
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
 	}
 
-	// 验证模式
+	// Validate mode
 	validModes := map[string]bool{
 		"DEFAULT":                          true,
 		"REMOTE_FIRST":                     true,
@@ -55,11 +56,11 @@ func ValidateConfig(cfg *Config) error {
 		"LOCAL_FIRST_ALLOW_REMOTE_FAILED":  true,
 	}
 	if !validModes[cfg.Mode] {
-		errors = append(errors, fmt.Sprintf("无效的模式: %s (有效值: DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)", cfg.Mode))
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("配置验证失败:\n  - %s", strings.Join(errors, "\n  - "))
+		return fmt.Errorf("%s:\n  - %s", i18n.TWithLang(i18n.LangZH, "error.config_validation_failed"), strings.Join(errors, "\n  - "))
 	}
 
 	return nil

@@ -11,25 +11,25 @@ import (
 )
 
 var (
-	// ErrTimeFormat 时间格式错误
+	// ErrTimeFormat time format error
 	ErrTimeFormat = errors.New("time format error")
-	// ErrParamsNotAdapted 参数数量不匹配
+	// ErrParamsNotAdapted parameter count mismatch
 	ErrParamsNotAdapted = errors.New("the number of params is not adapted")
-	// ErrNotAFunction 不是函数错误，只有函数才能被调度到任务队列
+	// ErrNotAFunction not a function error, only functions can be scheduled into job queue
 	ErrNotAFunction = errors.New("only functions can be schedule into the job queue")
-	// ErrPeriodNotSpecified 未指定任务周期错误
+	// ErrPeriodNotSpecified job period not specified error
 	ErrPeriodNotSpecified = errors.New("unspecified job period")
-	// ErrParameterCannotBeNil 参数不能为 nil 错误
+	// ErrParameterCannotBeNil parameter cannot be nil error
 	ErrParameterCannotBeNil = errors.New("nil parameters cannot be used with reflection")
-	// ErrJobTimeout 任务执行超时错误
+	// ErrJobTimeout job execution timeout error
 	ErrJobTimeout = errors.New("job execution timeout")
-	// ErrJobCancelled 任务执行被取消错误
+	// ErrJobCancelled job execution cancelled error
 	ErrJobCancelled = errors.New("job execution cancelled")
 )
 
 // Job struct keeping information about job
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Job struct {
 	mu       sync.RWMutex             // 24 bytes - mutex to protect concurrent access to lastRun and nextRun
 	lastRun  time.Time                // 24 bytes - datetime of last run
@@ -105,7 +105,7 @@ func (j *Job) run() error {
 		}
 		defer func() {
 			if err := locker.Unlock(key); err != nil {
-				log.Printf("解锁失败: %v", err)
+				log.Printf("Failed to unlock: %v", err)
 			}
 		}()
 	}
@@ -208,7 +208,7 @@ func (j *Job) DoSafely(jobFun interface{}, params ...interface{}) error {
 
 		_, err := callJobFuncWithParams(jobFun, params)
 		if err != nil {
-			log.Printf("执行任务失败: %v", err)
+			log.Printf("Failed to execute job: %v", err)
 		}
 	}
 
@@ -270,7 +270,7 @@ func (j *Job) Tags() []string {
 }
 
 func (j *Job) periodDuration() (time.Duration, error) {
-	// #nosec G115 -- 转换是安全的，interval 是 uint64
+	// #nosec G115 -- conversion is safe, interval is uint64
 	interval := time.Duration(j.interval)
 	var periodDuration time.Duration
 
@@ -343,9 +343,9 @@ func (j *Job) NextScheduledTime() time.Time {
 }
 
 // set the job's unit with seconds,minutes,hours...
-// #nosec G107 -- expected 参数总是为 1，这是设计上的要求
+// #nosec G107 -- expected parameter is always 1, this is a design requirement
 //
-//nolint:unparam // expected 参数总是为 1，这是设计上的要求
+//nolint:unparam // expected parameter is always 1, this is a design requirement
 func (j *Job) mustInterval(expected uint64) error {
 	if j.interval != expected {
 		return fmt.Errorf("interval must be %d", expected)

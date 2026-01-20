@@ -1,9 +1,9 @@
-// Package parser 提供了数据解析功能。
-// 支持从本地文件和远程 API 解析用户数据，并提供多种数据合并策略。
+// Package parser provides data parsing functionality.
+// Supports parsing user data from local files and remote APIs, and provides multiple data merging strategies.
 package parser
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -12,22 +12,23 @@ import (
 	"net/http"
 	"time"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 )
 
-// httpClient 全局 HTTP 客户端，使用连接池复用连接
+// httpClient global HTTP client, uses connection pool to reuse connections
 var httpClient = &http.Client{
 	Timeout: define.DEFAULT_TIMEOUT * time.Second,
 	Transport: &http.Transport{
 		MaxIdleConns:        define.DEFAULT_MAX_IDLE_CONNS,
 		MaxIdleConnsPerHost: define.DEFAULT_MAX_IDLE_CONNS_PER_HOST,
 		IdleConnTimeout:     define.DEFAULT_IDLE_CONN_TIMEOUT,
-		DisableKeepAlives:   false, // 明确设置，启用连接复用
+		DisableKeepAlives:   false, // Explicitly set, enable connection reuse
 	},
 }
 
-// InitHTTPClient 初始化 HTTP 客户端（使用配置）
+// InitHTTPClient initializes HTTP client (using configuration)
 func InitHTTPClient(timeout, maxIdleConns int, insecureTLS bool) {
 	transport := &http.Transport{
 		MaxIdleConns:        maxIdleConns,
@@ -36,11 +37,11 @@ func InitHTTPClient(timeout, maxIdleConns int, insecureTLS bool) {
 		DisableKeepAlives:   false,
 	}
 
-	// 配置 TLS
+	// Configure TLS
 	if insecureTLS {
-		// #nosec G402 -- 仅用于开发环境，允许跳过 TLS 验证
+		// #nosec G402 -- Only for development environment, allows skipping TLS verification
 		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true, // 仅用于开发环境
+			InsecureSkipVerify: true, // Only for development environment
 		}
 	}
 
@@ -50,80 +51,80 @@ func InitHTTPClient(timeout, maxIdleConns int, insecureTLS bool) {
 	}
 }
 
-// doRequestWithRetry 执行 HTTP 请求，带重试机制
+// doRequestWithRetry executes HTTP request with retry mechanism
 //
-// 该函数实现了指数退避的重试策略，支持以下特性：
-// - 上下文取消：在每次重试前检查上下文是否已取消
-// - 自动重试：网络错误和 5xx 服务器错误会自动重试
-// - 递增延迟：每次重试的延迟时间会递增（retryDelay * attempt）
+// This function implements exponential backoff retry strategy with the following features:
+// - Context cancellation: checks if context is cancelled before each retry
+// - Automatic retry: network errors and 5xx server errors are automatically retried
+// - Incremental delay: delay time increases with each retry (retryDelay * attempt)
 //
-// 参数:
-//   - ctx: 上下文，用于取消请求和超时控制
-//   - req: HTTP 请求对象
-//   - maxRetries: 最大重试次数（不包括首次请求）
-//   - retryDelay: 基础重试延迟时间，实际延迟会按重试次数递增
+// Parameters:
+//   - ctx: context for request cancellation and timeout control
+//   - req: HTTP request object
+//   - maxRetries: maximum retry count (excluding initial request)
+//   - retryDelay: base retry delay time, actual delay increases with retry count
 //
-// 返回:
-//   - *http.Response: 成功时返回响应对象，调用者需要负责关闭响应体
-//   - error: 失败时返回错误，包含重试次数和最后一次错误信息
+// Returns:
+//   - *http.Response: returns response object on success, caller is responsible for closing response body
+//   - error: returns error on failure, includes retry count and last error information
 //
-// 副作用:
-//   - 会记录调试和警告日志
-//   - 对于 5xx 错误，会关闭响应体后重试
+// Side effects:
+//   - Records debug and warning logs
+//   - For 5xx errors, closes response body before retry
 func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, retryDelay time.Duration) (*http.Response, error) {
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// 检查上下文是否已取消
+		// Check if context is cancelled
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("请求被取消: %w", ctx.Err())
+			return nil, fmt.Errorf("%s: %w", i18n.TWithLang(i18n.LangZH, "error.request_cancelled"), ctx.Err())
 		default:
 		}
 
 		if attempt > 0 {
-			// 等待后重试，但检查上下文
+			// Wait before retry, but check context
 			select {
 			case <-ctx.Done():
-				return nil, fmt.Errorf("请求被取消: %w", ctx.Err())
+				return nil, fmt.Errorf("%s: %w", i18n.TWithLang(i18n.LangZH, "error.request_cancelled"), ctx.Err())
 			case <-time.After(retryDelay * time.Duration(attempt)):
 			}
 			log.Debug().
 				Int("attempt", attempt).
 				Str("url", req.URL.String()).
-				Msg("重试 HTTP 请求")
+				Msg("Retrying HTTP request")
 		}
 
-		// 将上下文添加到请求中
+		// Add context to request
 		reqWithCtx := req.WithContext(ctx)
 		res, err := httpClient.Do(reqWithCtx)
 		if err == nil {
-			// 检查状态码，5xx 错误也重试
+			// Check status code, 5xx errors also retry
 			if res.StatusCode >= 500 && res.StatusCode < 600 && attempt < maxRetries {
 				if closeErr := res.Body.Close(); closeErr != nil {
-					log.Warn().Err(closeErr).Msg("关闭响应体失败")
+					log.Warn().Err(closeErr).Msg("Failed to close response body")
 				}
-				lastErr = fmt.Errorf("服务器错误: HTTP %d", res.StatusCode)
+				lastErr = fmt.Errorf("server error: HTTP %d", res.StatusCode)
 				continue
 			}
 			return res, nil
 		}
 
 		lastErr = err
-		// 网络错误才重试，其他错误（如超时）也重试
+		// Retry on network errors, other errors (like timeout) also retry
 		if attempt < maxRetries {
 			log.Warn().
 				Err(err).
 				Int("attempt", attempt+1).
 				Int("max_retries", maxRetries).
 				Str("url", req.URL.String()).
-				Msg("HTTP 请求失败，将重试")
+				Msg("HTTP request failed, will retry")
 		}
 	}
 
-	return nil, fmt.Errorf("请求失败，已重试 %d 次: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("request failed after %d retries: %w", maxRetries, lastErr)
 }
 
-// buildRemoteRequest 构建远程请求
+// buildRemoteRequest builds remote request
 func buildRemoteRequest(ctx context.Context, url, authorizationHeader string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
@@ -145,15 +146,15 @@ func buildRemoteRequest(ctx context.Context, url, authorizationHeader string) (*
 	return req, nil
 }
 
-// parseRemoteResponse 解析远程响应
+// parseRemoteResponse parses remote response
 func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser, error) {
 	defer func() {
 		if err := res.Body.Close(); err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("关闭响应体失败")
+			log.Warn().Err(err).Str("url", url).Msg("Failed to close response body")
 		}
 	}()
 
-	// 检查 HTTP 状态码
+	// Check HTTP status code
 	if res.StatusCode != http.StatusOK {
 		log.Warn().
 			Int("status_code", res.StatusCode).
@@ -162,7 +163,7 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 		return nil, fmt.Errorf("%s: HTTP status %d", define.ERR_GET_CONFIG_FAILED, res.StatusCode)
 	}
 
-	// 限制响应体大小，防止内存耗尽攻击
+	// Limit response body size to prevent memory exhaustion attacks
 	body, err := io.ReadAll(io.LimitReader(res.Body, define.MAX_JSON_SIZE))
 	if err != nil {
 		log.Error().
@@ -181,7 +182,7 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 		return nil, fmt.Errorf("%s: %w", define.ERR_PARSE_CONFIG_FAILED, err)
 	}
 
-	// 规范化所有用户数据（设置默认值，生成 user_id）
+	// Normalize all user data (set default values, generate user_id)
 	for i := range data {
 		data[i].Normalize()
 	}
@@ -189,25 +190,25 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 	return data, nil
 }
 
-// FromRemoteConfig 从远程配置获取用户列表（支持 context）
+// FromRemoteConfig gets user list from remote configuration (supports context)
 //
-// 该函数从远程 URL 获取 JSON 格式的用户配置数据，支持以下特性：
-// - 上下文控制：支持超时和取消操作
-// - 自动重试：使用 doRequestWithRetry 实现自动重试机制
-// - 认证支持：可选的 Authorization 请求头
+// This function retrieves JSON-format user configuration data from remote URL with the following features:
+// - Context control: supports timeout and cancellation operations
+// - Automatic retry: uses doRequestWithRetry to implement automatic retry mechanism
+// - Authentication support: optional Authorization request header
 //
-// 参数:
-//   - ctx: 上下文，用于取消请求和超时控制
-//   - url: 远程配置的 URL 地址
-//   - authorizationHeader: 可选的 Authorization 请求头值，为空时不添加
+// Parameters:
+//   - ctx: context for request cancellation and timeout control
+//   - url: remote configuration URL address
+//   - authorizationHeader: optional Authorization request header value, not added if empty
 //
-// 返回:
-//   - []define.AllowListUser: 成功时返回解析后的用户列表
-//   - error: 失败时返回错误，可能的原因包括：请求初始化失败、网络错误、HTTP 状态码错误、JSON 解析失败
+// Returns:
+//   - []define.AllowListUser: returns parsed user list on success
+//   - error: returns error on failure, possible reasons include: request initialization failure, network error, HTTP status code error, JSON parsing failure
 //
-// 副作用:
-//   - 会记录错误和警告日志
-//   - 会设置请求头（Content-Type、Cache-Control、Authorization）
+// Side effects:
+//   - Records error and warning logs
+//   - Sets request headers (Content-Type, Cache-Control, Authorization)
 func FromRemoteConfig(ctx context.Context, url, authorizationHeader string) ([]define.AllowListUser, error) {
 	req, err := buildRemoteRequest(ctx, url, authorizationHeader)
 	if err != nil {

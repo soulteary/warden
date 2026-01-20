@@ -1,26 +1,27 @@
-// Package config 提供了配置文件加载和管理功能。
-// 支持 YAML 格式的配置文件，并提供配置验证和默认值处理。
+// Package config provides configuration file loading and management functionality.
+// Supports YAML format configuration files, and provides configuration validation and default value handling.
 package config
 
 import (
-	// 标准库
+	// Standard library
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	// 第三方库
+	// Third-party libraries
 	"gopkg.in/yaml.v3"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/errors"
+	"github.com/soulteary/warden/internal/i18n"
 )
 
-// Config 应用配置结构体
+// Config application configuration struct
 //
-//nolint:govet // fieldalignment: 字段顺序受 YAML 序列化标签影响，优化可能破坏配置文件的兼容性
+//nolint:govet // fieldalignment: field order is affected by YAML serialization tags, optimization may break configuration file compatibility
 type Config struct {
 	Server    ServerConfig    `yaml:"server"`
 	Redis     RedisConfig     `yaml:"redis"`
@@ -32,7 +33,7 @@ type Config struct {
 	Task      TaskConfig      `yaml:"task"`
 }
 
-// ServerConfig 服务器配置
+// ServerConfig server configuration
 type ServerConfig struct {
 	Port            string        `yaml:"port"`             // 16 bytes
 	ReadTimeout     time.Duration `yaml:"read_timeout"`     // 8 bytes
@@ -42,7 +43,7 @@ type ServerConfig struct {
 	MaxHeaderBytes  int           `yaml:"max_header_bytes"` // 8 bytes
 }
 
-// RedisConfig Redis 配置
+// RedisConfig Redis configuration
 type RedisConfig struct {
 	Addr         string `yaml:"addr"`          // 16 bytes
 	Password     string `yaml:"password"`      // 16 bytes
@@ -50,19 +51,19 @@ type RedisConfig struct {
 	DB           int    `yaml:"db"`            // 8 bytes
 }
 
-// CacheConfig 缓存配置
+// CacheConfig cache configuration
 type CacheConfig struct {
 	TTL            time.Duration `yaml:"ttl"`
 	UpdateInterval time.Duration `yaml:"update_interval"`
 }
 
-// RateLimitConfig 速率限制配置
+// RateLimitConfig rate limit configuration
 type RateLimitConfig struct {
 	Rate   int           `yaml:"rate"`
 	Window time.Duration `yaml:"window"`
 }
 
-// HTTPConfig HTTP 客户端配置
+// HTTPConfig HTTP client configuration
 type HTTPConfig struct {
 	Timeout      time.Duration `yaml:"timeout"`
 	MaxIdleConns int           `yaml:"max_idle_conns"`
@@ -71,48 +72,48 @@ type HTTPConfig struct {
 	RetryDelay   time.Duration `yaml:"retry_delay"`
 }
 
-// RemoteConfig 远程配置
+// RemoteConfig remote configuration
 type RemoteConfig struct {
 	URL  string `yaml:"url"`
 	Key  string `yaml:"key"`
 	Mode string `yaml:"mode"`
 }
 
-// TaskConfig 任务配置
+// TaskConfig task configuration
 type TaskConfig struct {
 	Interval time.Duration `yaml:"interval"`
 }
 
-// AppConfig 应用配置
+// AppConfig application configuration
 type AppConfig struct {
 	Mode   string `yaml:"mode"`
-	APIKey string `yaml:"api_key"` // API Key 用于认证（敏感信息，建议使用环境变量）
+	APIKey string `yaml:"api_key"` // API Key for authentication (sensitive information, recommend using environment variables)
 }
 
-// LoadFromFile 从配置文件加载配置
-// 支持 YAML 和 TOML 格式（通过文件扩展名判断）
-// 优先级：配置文件 > 环境变量 > 默认值
+// LoadFromFile loads configuration from configuration file
+// Supports YAML and TOML formats (determined by file extension)
+// Priority: configuration file > environment variables > default values
 func LoadFromFile(configPath string) (*Config, error) {
 	cfg := &Config{}
 
-	// 如果配置文件存在，尝试加载
+	// If configuration file exists, attempt to load
 	if configPath != "" {
-		// 验证配置文件路径，防止路径遍历攻击
-		// 注意：这里不限制目录，允许从任何位置读取配置文件
-		// 如果需要限制，可以传入 allowedDirs 参数
+		// Validate configuration file path to prevent path traversal attacks
+		// Note: does not restrict directory here, allows reading configuration file from any location
+		// If restriction is needed, can pass allowedDirs parameter
 		validatedPath, err := validateConfigPath(configPath)
 		if err != nil {
 			return nil, errors.ErrConfigLoad.WithError(err)
 		}
 
 		if _, err := os.Stat(validatedPath); err == nil {
-			// #nosec G304 -- 配置文件路径已经通过验证，是安全的
+			// #nosec G304 -- configuration file path has been validated, is safe
 			data, err := os.ReadFile(validatedPath)
 			if err != nil {
 				return nil, errors.ErrConfigLoad.WithError(err)
 			}
 
-			// 根据文件扩展名判断格式
+			// Determine format by file extension
 			ext := strings.ToLower(filepath.Ext(validatedPath))
 			switch ext {
 			case ".yaml", ".yml":
@@ -120,10 +121,10 @@ func LoadFromFile(configPath string) (*Config, error) {
 					return nil, errors.ErrConfigParse.WithError(err)
 				}
 			case ".toml":
-				// TOML 支持需要额外的库，这里先返回错误提示
-				return nil, errors.ErrConfigParse.WithMessage("TOML 格式暂不支持，请使用 YAML 格式")
+				// TOML support requires additional library, return error message here
+				return nil, errors.ErrConfigParse.WithMessage(i18n.TWithLang(i18n.LangZH, "error.toml_not_supported"))
 			default:
-				// 默认尝试 YAML
+				// Default to try YAML
 				if err := yaml.Unmarshal(data, cfg); err != nil {
 					return nil, errors.ErrConfigParse.WithError(err)
 				}
@@ -131,13 +132,13 @@ func LoadFromFile(configPath string) (*Config, error) {
 		}
 	}
 
-	// 应用默认值
+	// Apply default values
 	applyDefaults(cfg)
 
-	// 从环境变量覆盖配置（优先级高于配置文件）
+	// Override configuration from environment variables (priority higher than configuration file)
 	overrideFromEnv(cfg)
 
-	// 验证配置
+	// Validate configuration
 	if err := validate(cfg); err != nil {
 		return nil, err
 	}
@@ -145,7 +146,7 @@ func LoadFromFile(configPath string) (*Config, error) {
 	return cfg, nil
 }
 
-// applyServerDefaults 应用服务器默认值
+// applyServerDefaults applies server default values
 func applyServerDefaults(cfg *Config) {
 	if cfg.Server.Port == "" {
 		cfg.Server.Port = fmt.Sprintf("%d", define.DEFAULT_PORT)
@@ -167,21 +168,21 @@ func applyServerDefaults(cfg *Config) {
 	}
 }
 
-// applyRedisDefaults 应用 Redis 默认值
+// applyRedisDefaults applies Redis default values
 func applyRedisDefaults(cfg *Config) {
 	if cfg.Redis.Addr == "" {
 		cfg.Redis.Addr = define.DEFAULT_REDIS
 	}
 }
 
-// applyCacheDefaults 应用缓存默认值
+// applyCacheDefaults applies cache default values
 func applyCacheDefaults(cfg *Config) {
 	if cfg.Cache.UpdateInterval == 0 {
 		cfg.Cache.UpdateInterval = define.DEFAULT_TASK_INTERVAL * time.Second
 	}
 }
 
-// applyRateLimitDefaults 应用速率限制默认值
+// applyRateLimitDefaults applies rate limit default values
 func applyRateLimitDefaults(cfg *Config) {
 	if cfg.RateLimit.Rate == 0 {
 		cfg.RateLimit.Rate = define.DEFAULT_RATE_LIMIT
@@ -191,7 +192,7 @@ func applyRateLimitDefaults(cfg *Config) {
 	}
 }
 
-// applyHTTPDefaults 应用 HTTP 默认值
+// applyHTTPDefaults applies HTTP default values
 func applyHTTPDefaults(cfg *Config) {
 	if cfg.HTTP.Timeout == 0 {
 		cfg.HTTP.Timeout = define.DEFAULT_TIMEOUT * time.Second
@@ -207,7 +208,7 @@ func applyHTTPDefaults(cfg *Config) {
 	}
 }
 
-// applyRemoteDefaults 应用远程配置默认值
+// applyRemoteDefaults applies remote configuration default values
 func applyRemoteDefaults(cfg *Config) {
 	if cfg.Remote.URL == "" {
 		cfg.Remote.URL = define.DEFAULT_REMOTE_CONFIG
@@ -220,22 +221,22 @@ func applyRemoteDefaults(cfg *Config) {
 	}
 }
 
-// applyTaskDefaults 应用任务默认值
+// applyTaskDefaults applies task default values
 func applyTaskDefaults(cfg *Config) {
 	if cfg.Task.Interval == 0 {
 		cfg.Task.Interval = define.DEFAULT_TASK_INTERVAL * time.Second
 	}
 }
 
-// applyAppDefaults 应用应用默认值
+// applyAppDefaults applies application default values
 func applyAppDefaults(cfg *Config) {
 	if cfg.App.Mode == "" {
 		cfg.App.Mode = define.DEFAULT_MODE
 	}
-	// API Key 默认为空，需要通过环境变量或配置文件设置
+	// API Key defaults to empty, needs to be set via environment variable or configuration file
 }
 
-// applyDefaults 应用默认值
+// applyDefaults applies default values
 func applyDefaults(cfg *Config) {
 	applyServerDefaults(cfg)
 	applyRedisDefaults(cfg)
@@ -247,7 +248,7 @@ func applyDefaults(cfg *Config) {
 	applyAppDefaults(cfg)
 }
 
-// overrideFromEnv 从环境变量覆盖配置
+// overrideFromEnv overrides configuration from environment variables
 func overrideFromEnv(cfg *Config) {
 	// Server
 	if port := os.Getenv("PORT"); port != "" {
@@ -258,12 +259,12 @@ func overrideFromEnv(cfg *Config) {
 	if redis := os.Getenv("REDIS"); redis != "" {
 		cfg.Redis.Addr = redis
 	}
-	// Redis 密码优先级：环境变量 > 密码文件 > 配置文件
+	// Redis password priority: environment variable > password file > configuration file
 	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
 	redisPasswordFile := strings.TrimSpace(os.Getenv("REDIS_PASSWORD_FILE"))
 	if redisPasswordEnv != "" {
 		cfg.Redis.Password = redisPasswordEnv
-		cfg.Redis.PasswordFile = "" // 清除文件路径
+		cfg.Redis.PasswordFile = "" // Clear file path
 	} else if redisPasswordFile != "" {
 		cfg.Redis.PasswordFile = redisPasswordFile
 	}
@@ -301,26 +302,26 @@ func overrideFromEnv(cfg *Config) {
 	}
 }
 
-// validate 验证配置
+// validate validates configuration
 func validate(cfg *Config) error {
 	var errs []string
 
 	if cfg.Server.Port == "" {
-		errs = append(errs, "server.port 不能为空")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.server_port_empty"))
 	}
 
 	if cfg.Redis.Addr == "" {
-		errs = append(errs, "redis.addr 不能为空")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.redis_addr_empty"))
 	}
 
 	if cfg.Task.Interval < time.Second {
-		errs = append(errs, "task.interval 必须至少为 1 秒")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.task_interval_too_short"))
 	}
 
-	// 在生产环境强制 TLS 验证
+	// Force TLS verification in production environment
 	isProduction := cfg.App.Mode == "production" || cfg.App.Mode == "prod"
 	if isProduction && cfg.HTTP.InsecureTLS {
-		errs = append(errs, "生产环境不允许禁用 TLS 证书验证")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_tls_not_allowed"))
 	}
 
 	if len(errs) > 0 {
@@ -330,36 +331,36 @@ func validate(cfg *Config) error {
 	return nil
 }
 
-// parseInt 解析整数
+// parseInt parses integer
 func parseInt(s string) (int, error) {
 	var n int
 	_, err := fmt.Sscanf(s, "%d", &n)
 	return n, err
 }
 
-// validateConfigPath 验证配置文件路径，防止路径遍历攻击
+// validateConfigPath validates configuration file path to prevent path traversal attacks
 func validateConfigPath(path string) (string, error) {
 	if path == "" {
-		return "", errors.ErrConfigLoad.WithMessage("配置文件路径不能为空")
+		return "", errors.ErrConfigLoad.WithMessage("configuration file path cannot be empty")
 	}
 
-	// 转换为绝对路径
+	// Convert to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", errors.ErrConfigLoad.WithError(err)
 	}
 
-	// 检查是否包含路径遍历
+	// Check if contains path traversal
 	if strings.Contains(absPath, "..") {
-		return "", errors.ErrConfigLoad.WithMessage("配置文件路径不能包含路径遍历字符 (..)")
+		return "", errors.ErrConfigLoad.WithMessage("configuration file path cannot contain path traversal characters (..)")
 	}
 
 	return absPath, nil
 }
 
-// GetRedisPassword 获取 Redis 密码（处理文件读取）
+// GetRedisPassword gets Redis password (handles file reading)
 func (c *Config) GetRedisPassword() (string, error) {
-	// 优先级：环境变量 > 密码文件 > 配置文件中的密码
+	// Priority: environment variable > password file > password in configuration file
 	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
 	if redisPasswordEnv != "" {
 		return redisPasswordEnv, nil
@@ -371,12 +372,12 @@ func (c *Config) GetRedisPassword() (string, error) {
 	}
 
 	if redisPasswordFile != "" {
-		// 验证文件路径，防止路径遍历攻击
+		// Validate file path to prevent path traversal attacks
 		absPath, err := validateConfigPath(redisPasswordFile)
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)
 		}
-		// #nosec G304 -- 文件路径已经通过验证，是安全的
+		// #nosec G304 -- file path has been validated, is safe
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)
@@ -387,8 +388,8 @@ func (c *Config) GetRedisPassword() (string, error) {
 	return c.Redis.Password, nil
 }
 
-// LegacyConfig 旧的配置格式（用于向后兼容）
-// 注意：这个类型与 cmd.Config 结构相同，但定义在不同的包中
+// LegacyConfig old configuration format (for backward compatibility)
+// Note: this type has the same structure as cmd.Config, but defined in a different package
 type LegacyConfig struct {
 	Port             string // 16 bytes
 	Redis            string // 16 bytes
@@ -402,19 +403,19 @@ type LegacyConfig struct {
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
 }
 
-// ToLegacyConfig 转换为旧的 Config 格式（保持向后兼容）
+// ToLegacyConfig converts to old Config format (maintains backward compatibility)
 func (c *Config) ToLegacyConfig() *LegacyConfig {
 	redisPassword, err := c.GetRedisPassword()
 	if err != nil {
-		// 如果获取密码失败，使用空字符串
+		// If password retrieval fails, use empty string
 		redisPassword = ""
 	}
-	// 优先使用 Remote.Mode，如果为空则使用 App.Mode
+	// Prefer Remote.Mode, if empty then use App.Mode
 	mode := strings.TrimSpace(c.Remote.Mode)
 	if mode == "" {
 		mode = strings.TrimSpace(c.App.Mode)
 	}
-	// 如果仍然为空，使用默认值
+	// If still empty, use default value
 	if mode == "" {
 		mode = define.DEFAULT_MODE
 	}
@@ -432,9 +433,9 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 	}
 }
 
-// CmdConfigData 配置数据结构（用于转换为 cmd.Config，避免循环依赖）
+// CmdConfigData configuration data structure (used to convert to cmd.Config, avoid circular dependency)
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type CmdConfigData struct {
 	Port             string // 16 bytes
 	Redis            string // 16 bytes
@@ -450,23 +451,23 @@ type CmdConfigData struct {
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
 }
 
-// ToCmdConfig 转换为 cmd.Config 格式
+// ToCmdConfig converts to cmd.Config format
 func (c *Config) ToCmdConfig() *CmdConfigData {
 	redisPassword, err := c.GetRedisPassword()
 	if err != nil {
-		// 如果获取密码失败，使用空字符串
+		// If password retrieval fails, use empty string
 		redisPassword = ""
 	}
-	// 优先使用 Remote.Mode，如果为空则使用 App.Mode
+	// Prefer Remote.Mode, if empty then use App.Mode
 	mode := strings.TrimSpace(c.Remote.Mode)
 	if mode == "" {
 		mode = strings.TrimSpace(c.App.Mode)
 	}
-	// 如果仍然为空，使用默认值
+	// If still empty, use default value
 	if mode == "" {
 		mode = define.DEFAULT_MODE
 	}
-	// Redis 启用状态：从环境变量读取，默认启用
+	// Redis enabled state: read from environment variable, default to enabled
 	redisEnabled := true
 	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
 		redisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"

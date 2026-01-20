@@ -1,21 +1,21 @@
-// Package parser 提供了数据解析功能。
-// 支持从本地文件和远程 API 解析用户数据，并提供多种数据合并策略。
+// Package parser provides data parsing functionality.
+// Supports parsing user data from local files and remote APIs, and provides multiple data merging strategies.
 package parser
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
 )
 
 var log = logger.GetLogger()
 
-// mergeUsers 将 map 转换为切片，按照指定的顺序
-// dict: 用户数据 map，key 为 phone
-// order: 顺序列表，存储 phone
+// mergeUsers converts map to slice, according to specified order
+// dict: user data map, key is phone
+// order: order list, stores phone
 func mergeUsers(dict map[string]define.AllowListUser, order []string) []define.AllowListUser {
 	result := make([]define.AllowListUser, 0, len(order))
 	for _, phone := range order {
@@ -26,49 +26,49 @@ func mergeUsers(dict map[string]define.AllowListUser, order []string) []define.A
 	return result
 }
 
-// addRulesToDict 将规则添加到字典中，维护顺序列表
-// dict: 用户数据 map，key 为 phone
-// order: 顺序列表，存储 phone
-// rules: 要添加的规则列表
-// logMessage: 是否记录日志消息（用于区分远程和本地规则）
-// 返回添加的新规则数量
+// addRulesToDict adds rules to dictionary, maintains order list
+// dict: user data map, key is phone
+// order: order list, stores phone
+// rules: rules list to add
+// logMessage: whether to log message (used to distinguish remote and local rules)
+// Returns number of new rules added
 func addRulesToDict(dict map[string]define.AllowListUser, order *[]string, rules []define.AllowListUser, logMessage bool) {
 	for _, rule := range rules {
 		if _, exists := dict[rule.Phone]; !exists {
 			*order = append(*order, rule.Phone)
 			if logMessage {
-				log.Debug().Msgf("载入远程规则 %s => %s", rule.Mail, rule.Phone)
+				log.Debug().Msgf("Loading remote rule %s => %s", rule.Mail, rule.Phone)
 			}
 		}
 		dict[rule.Phone] = rule
 	}
 }
 
-// GetRules 根据模式获取规则（支持 context）
+// GetRules gets rules according to mode (supports context)
 //
-// 该函数是规则获取的统一入口，根据不同的模式（appMode）选择不同的数据获取和合并策略。
-// 支持的模式包括：
-//   - DEFAULT/REMOTE_FIRST: 远程优先，本地补充
-//   - ONLY_REMOTE: 仅使用远程规则
-//   - ONLY_LOCAL: 仅使用本地规则
-//   - LOCAL_FIRST: 本地优先，远程补充
-//   - REMOTE_FIRST_ALLOW_REMOTE_FAILED: 远程优先，允许远程失败时继续
-//   - LOCAL_FIRST_ALLOW_REMOTE_FAILED: 本地优先，允许远程失败时继续
+// This function is the unified entry point for rule retrieval, selects different data retrieval and merging strategies based on different modes (appMode).
+// Supported modes include:
+//   - DEFAULT/REMOTE_FIRST: remote first, local supplement
+//   - ONLY_REMOTE: only use remote rules
+//   - ONLY_LOCAL: only use local rules
+//   - LOCAL_FIRST: local first, remote supplement
+//   - REMOTE_FIRST_ALLOW_REMOTE_FAILED: remote first, allow continuation when remote fails
+//   - LOCAL_FIRST_ALLOW_REMOTE_FAILED: local first, allow continuation when remote fails
 //
-// 参数:
-//   - ctx: 上下文，用于取消请求和超时控制
-//   - rulesFile: 本地规则文件路径
-//   - configUrl: 远程配置 URL
-//   - authorizationHeader: 远程请求的 Authorization 头
-//   - appMode: 应用模式，决定数据获取策略
+// Parameters:
+//   - ctx: context for request cancellation and timeout control
+//   - rulesFile: local rules file path
+//   - configURL: remote configuration URL
+//   - authorizationHeader: Authorization header for remote request
+//   - appMode: application mode, determines data retrieval strategy
 //
-// 返回:
-//   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
+// Returns:
+//   - []define.AllowListUser: merged user list, arranged in addition order
 //
-// 副作用:
-//   - 会记录调试和警告日志
-//   - 可能进行网络请求（根据模式）
-//   - 可能读取本地文件（根据模式）
+// Side effects:
+//   - Records debug and warning logs
+//   - May perform network requests (depending on mode)
+//   - May read local files (depending on mode)
 func GetRules(ctx context.Context, rulesFile, configURL, authorizationHeader, appMode string) (result []define.AllowListUser) {
 	switch appMode {
 	case "DEFAULT", "REMOTE_FIRST":
@@ -88,29 +88,29 @@ func GetRules(ctx context.Context, rulesFile, configURL, authorizationHeader, ap
 	}
 }
 
-// remoteRulesFirstAppendNotExistsFromLocalRules 远程规则优先，补充本地规则中不存在的项
+// remoteRulesFirstAppendNotExistsFromLocalRules remote rules first, supplement items not in remote rules from local rules
 //
-// 该函数实现了远程优先的数据合并策略：
-// - 首先尝试从远程 API 获取规则
-// - 如果远程获取失败且 allowSkipRemoteFailed 为 false，返回空结果
-// - 如果远程获取失败且 allowSkipRemoteFailed 为 true，继续使用本地规则
-// - 将本地规则中不存在于远程规则中的项补充到结果中
+// This function implements remote-first data merging strategy:
+// - First tries to get rules from remote API
+// - If remote retrieval fails and allowSkipRemoteFailed is false, returns empty result
+// - If remote retrieval fails and allowSkipRemoteFailed is true, continues using local rules
+// - Supplements items from local rules that don't exist in remote rules to result
 //
-// 参数:
-//   - ctx: 上下文，用于取消请求和超时控制
-//   - rulesFile: 本地规则文件路径
-//   - configUrl: 远程配置 URL
-//   - authorizationHeader: 远程请求的 Authorization 头
-//   - allowSkipRemoteFailed: 是否允许远程失败时继续处理
+// Parameters:
+//   - ctx: context for request cancellation and timeout control
+//   - rulesFile: local rules file path
+//   - configURL: remote configuration URL
+//   - authorizationHeader: Authorization header for remote request
+//   - allowSkipRemoteFailed: whether to allow continuation when remote fails
 //
-// 返回:
-//   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
+// Returns:
+//   - []define.AllowListUser: merged user list, arranged in addition order
 func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFile, configURL, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
-	var order = make([]string, 0) // 维护顺序列表
+	var order = make([]string, 0) // Maintain order list
 
-	// 优先使用远程规则进行初始化
-	// 如果 configURL 为空，跳过远程请求，直接使用本地规则
+	// Prefer remote rules for initialization
+	// If configURL is empty, skip remote request, directly use local rules
 	if configURL != "" {
 		remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
 		if err != nil {
@@ -125,43 +125,43 @@ func remoteRulesFirstAppendNotExistsFromLocalRules(ctx context.Context, rulesFil
 		}
 	}
 
-	// 补充远程规则中不存在的本地规则
+	// Supplement local rules that don't exist in remote rules
 	localRules := FromFile(rulesFile)
 	addRulesToDict(dict, &order, localRules, false)
 
 	result = mergeUsers(dict, order)
-	log.Debug().Msgf("更新规则完毕 📦")
+	log.Debug().Msgf("Rules update completed 📦")
 	return result
 }
 
-// localRulesFirstAppendNotExistsFromRemoteRules 本地规则优先，补充远程规则中不存在的项
+// localRulesFirstAppendNotExistsFromRemoteRules local rules first, supplement items not in local rules from remote rules
 //
-// 该函数实现了本地优先的数据合并策略：
-// - 首先从本地文件加载规则
-// - 然后尝试从远程 API 获取规则
-// - 如果远程获取失败且 allowSkipRemoteFailed 为 false，返回仅包含本地规则的结果
-// - 如果远程获取失败且 allowSkipRemoteFailed 为 true，继续使用本地规则
-// - 将远程规则中不存在于本地规则中的项补充到结果中
+// This function implements local-first data merging strategy:
+// - First loads rules from local file
+// - Then tries to get rules from remote API
+// - If remote retrieval fails and allowSkipRemoteFailed is false, returns result containing only local rules
+// - If remote retrieval fails and allowSkipRemoteFailed is true, continues using local rules
+// - Supplements items from remote rules that don't exist in local rules to result
 //
-// 参数:
-//   - ctx: 上下文，用于取消请求和超时控制
-//   - rulesFile: 本地规则文件路径
-//   - configUrl: 远程配置 URL
-//   - authorizationHeader: 远程请求的 Authorization 头
-//   - allowSkipRemoteFailed: 是否允许远程失败时继续处理
+// Parameters:
+//   - ctx: context for request cancellation and timeout control
+//   - rulesFile: local rules file path
+//   - configURL: remote configuration URL
+//   - authorizationHeader: Authorization header for remote request
+//   - allowSkipRemoteFailed: whether to allow continuation when remote fails
 //
-// 返回:
-//   - []define.AllowListUser: 合并后的用户列表，按添加顺序排列
+// Returns:
+//   - []define.AllowListUser: merged user list, arranged in addition order
 func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFile, configURL, authorizationHeader string, allowSkipRemoteFailed bool) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
-	var order = make([]string, 0) // 维护顺序列表
+	var order = make([]string, 0) // Maintain order list
 
-	// 优先加载本地数据
+	// Prefer loading local data
 	localRules := FromFile(rulesFile)
 	addRulesToDict(dict, &order, localRules, false)
 
-	// 补充本地规则中不存在的远程规则
-	// 如果 configURL 为空，跳过远程请求
+	// Supplement remote rules that don't exist in local rules
+	// If configURL is empty, skip remote request
 	if configURL != "" {
 		remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
 		if err != nil {
@@ -177,28 +177,28 @@ func localRulesFirstAppendNotExistsFromRemoteRules(ctx context.Context, rulesFil
 	}
 
 	result = mergeUsers(dict, order)
-	log.Debug().Msgf("更新规则完毕 📦")
+	log.Debug().Msgf("Rules update completed 📦")
 	return result
 }
 
-// onlyRemoteRules 仅使用远程规则
+// onlyRemoteRules only uses remote rules
 //
-// 该函数仅从远程 API 获取规则，不使用本地文件。
-// 如果远程获取失败，返回空结果。
+// This function only retrieves rules from remote API, does not use local files.
+// If remote retrieval fails, returns empty result.
 //
-// 参数:
-//   - ctx: 上下文，用于取消请求和超时控制
-//   - configUrl: 远程配置 URL
-//   - authorizationHeader: 远程请求的 Authorization 头
+// Parameters:
+//   - ctx: context for request cancellation and timeout control
+//   - configURL: remote configuration URL
+//   - authorizationHeader: Authorization header for remote request
 //
-// 返回:
-//   - []define.AllowListUser: 远程获取的用户列表，如果获取失败则返回空列表
+// Returns:
+//   - []define.AllowListUser: user list retrieved from remote, returns empty list if retrieval fails
 func onlyRemoteRules(ctx context.Context, configURL, authorizationHeader string) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
-	var order = make([]string, 0) // 维护顺序列表
+	var order = make([]string, 0) // Maintain order list
 
-	// 使用远程规则进行初始化
-	// 如果 configURL 为空，直接返回空结果
+	// Use remote rules for initialization
+	// If configURL is empty, directly return empty result
 	if configURL != "" {
 		remoteRules, err := FromRemoteConfig(ctx, configURL, authorizationHeader)
 		if err != nil {
@@ -211,27 +211,27 @@ func onlyRemoteRules(ctx context.Context, configURL, authorizationHeader string)
 	}
 
 	result = mergeUsers(dict, order)
-	log.Debug().Msgf("更新规则完毕 📦")
+	log.Debug().Msgf("Rules update completed 📦")
 	return result
 }
 
-// onlyLocalRules 仅使用本地规则
+// onlyLocalRules only uses local rules
 //
-// 该函数仅从本地文件加载规则，不访问远程 API。
+// This function only loads rules from local file, does not access remote API.
 //
-// 参数:
-//   - rulesFile: 本地规则文件路径
+// Parameters:
+//   - rulesFile: local rules file path
 //
-// 返回:
-//   - []define.AllowListUser: 从本地文件加载的用户列表
+// Returns:
+//   - []define.AllowListUser: user list loaded from local file
 func onlyLocalRules(rulesFile string) (result []define.AllowListUser) {
 	var dict = make(map[string]define.AllowListUser)
-	var order = make([]string, 0) // 维护顺序列表
+	var order = make([]string, 0) // Maintain order list
 
 	localRules := FromFile(rulesFile)
 	addRulesToDict(dict, &order, localRules, false)
 
 	result = mergeUsers(dict, order)
-	log.Debug().Msgf("更新规则完毕 📦")
+	log.Debug().Msgf("Rules update completed 📦")
 	return result
 }

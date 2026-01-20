@@ -1,6 +1,6 @@
 # Simple Example - Quick Start
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md)
 
 This is the simplest Warden usage example, using only local data files, suitable for quick testing and development environments.
 

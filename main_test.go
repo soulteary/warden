@@ -17,12 +17,12 @@ import (
 	"github.com/soulteary/warden/internal/middleware"
 )
 
-// TestCalculateHash 测试哈希计算函数
+// TestCalculateHash tests hash calculation function
 func TestCalculateHash(t *testing.T) {
 	tests := []struct {
 		name     string
 		users    []define.AllowListUser
-		wantSame bool // 相同输入是否产生相同哈希
+		wantSame bool // Whether same input produces same hash
 	}{
 		{
 			name:     "空列表",
@@ -50,7 +50,7 @@ func TestCalculateHash(t *testing.T) {
 				{Phone: "13900139000", Mail: "test2@example.com"},
 				{Phone: "13800138000", Mail: "test1@example.com"},
 			},
-			wantSame: true, // 应该产生相同哈希（因为会排序）
+			wantSame: true, // Should produce same hash (because it will be sorted)
 		},
 	}
 
@@ -63,14 +63,14 @@ func TestCalculateHash(t *testing.T) {
 				assert.Equal(t, hash1, hash2, "相同输入应该产生相同哈希")
 			}
 
-			// 哈希值应该是有效的十六进制字符串
+			// Hash value should be a valid hexadecimal string
 			assert.NotEmpty(t, hash1, "哈希值不应该为空")
 			assert.Len(t, hash1, 64, "SHA256 哈希应该是 64 个字符")
 		})
 	}
 }
 
-// TestCalculateHash_DifferentData 测试不同数据产生不同哈希
+// TestCalculateHash_DifferentData tests that different data produces different hashes
 func TestCalculateHash_DifferentData(t *testing.T) {
 	users1 := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
@@ -85,7 +85,7 @@ func TestCalculateHash_DifferentData(t *testing.T) {
 	assert.NotEqual(t, hash1, hash2, "不同数据应该产生不同哈希")
 }
 
-// TestHasChanged 测试数据变化检测
+// TestHasChanged tests data change detection
 func TestHasChanged(t *testing.T) {
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
@@ -93,29 +93,29 @@ func TestHasChanged(t *testing.T) {
 
 	oldHash := calculateHash(users)
 
-	// 相同数据应该返回 false
+	// Same data should return false
 	assert.False(t, hasChanged(oldHash, users), "相同数据应该返回 false")
 
-	// 不同数据应该返回 true
+	// Different data should return true
 	newUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 		{Phone: "13900139000", Mail: "test2@example.com"},
 	}
 	assert.True(t, hasChanged(oldHash, newUsers), "不同数据应该返回 true")
 
-	// 空哈希应该返回 true
+	// Empty hash should return true
 	assert.True(t, hasChanged("", users), "空哈希应该返回 true")
 }
 
-// TestNewApp 测试应用初始化
+// TestNewApp tests application initialization
 func TestNewApp(t *testing.T) {
-	// 保存原始环境变量
+	// Save original environment variables
 	originalMode := os.Getenv("MODE")
 	defer func() {
 		require.NoError(t, os.Setenv("MODE", originalMode))
 	}()
 
-	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
+	//nolint:govet // fieldalignment: test struct field order does not affect functionality
 	tests := []struct {
 		name    string
 		cfg     *cmd.Config
@@ -128,7 +128,7 @@ func TestNewApp(t *testing.T) {
 				RedisEnabled:     false,
 				Mode:             "development",
 				APIKey:           "test-key",
-				RemoteConfig:     "", // 避免远程请求，防止测试卡住
+				RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 				TaskInterval:     60,
 				HTTPTimeout:      30,
 				HTTPMaxIdleConns: 100,
@@ -144,13 +144,13 @@ func TestNewApp(t *testing.T) {
 				RedisEnabled:     true,
 				Mode:             "development",
 				APIKey:           "test-key",
-				RemoteConfig:     "", // 避免远程请求，防止测试卡住
+				RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 				TaskInterval:     60,
 				HTTPTimeout:      30,
 				HTTPMaxIdleConns: 100,
 				HTTPInsecureTLS:  false,
 			},
-			wantErr: false, // Redis 连接失败不会返回错误，会降级到内存模式
+			wantErr: false, // Redis connection failure won't return error, will fallback to memory mode
 		},
 		{
 			name: "ONLY_LOCAL 模式",
@@ -187,14 +187,14 @@ func TestNewApp(t *testing.T) {
 	}
 }
 
-// TestApp_checkDataChanged 测试数据变化检测
+// TestApp_checkDataChanged tests data change detection
 func TestApp_checkDataChanged(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -204,23 +204,23 @@ func TestApp_checkDataChanged(t *testing.T) {
 	app := NewApp(cfg)
 	require.NotNil(t, app)
 
-	// 初始数据
+	// Initial data
 	users1 := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 	}
 	app.userCache.Set(users1)
 
-	// 相同数据应该返回 false
+	// Same data should return false
 	assert.False(t, app.checkDataChanged(users1), "相同数据应该返回 false")
 
-	// 不同数据应该返回 true
+	// Different data should return true
 	users2 := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 		{Phone: "13900139000", Mail: "test2@example.com"},
 	}
 	assert.True(t, app.checkDataChanged(users2), "不同数据应该返回 true")
 
-	// 长度不同应该返回 true
+	// Different length should return true
 	users3 := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 		{Phone: "13900139000", Mail: "test2@example.com"},
@@ -229,7 +229,7 @@ func TestApp_checkDataChanged(t *testing.T) {
 	assert.True(t, app.checkDataChanged(users3), "长度不同应该返回 true")
 }
 
-// TestStartServer 测试服务器启动配置
+// TestStartServer tests server startup configuration
 func TestStartServer(t *testing.T) {
 	srv := startServer("8081")
 	require.NotNil(t, srv)
@@ -239,46 +239,46 @@ func TestStartServer(t *testing.T) {
 	assert.NotZero(t, srv.ReadHeaderTimeout)
 }
 
-// TestShutdownServer 测试服务器关闭
+// TestShutdownServer tests server shutdown
 func TestShutdownServer(t *testing.T) {
 	t.Helper()
-	// 创建一个简单的速率限制器
+	// Create a simple rate limiter
 	rateLimiter := middleware.NewRateLimiter(100, time.Second)
 
-	// 创建一个测试服务器
+	// Create a test server
 	srv := &http.Server{
-		Addr:              ":0", // 使用随机端口
+		Addr:              ":0", // Use random port
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// 启动服务器（在 goroutine 中）
+	// Start server (in goroutine)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			t.Logf("服务器启动错误: %v", err)
 		}
 	}()
 
-	// 等待服务器启动
+	// Wait for server to start
 	time.Sleep(100 * time.Millisecond)
 
-	// 测试关闭（shutdownServer 会调用 rateLimiter.Stop()，所以不需要 defer）
+	// Test shutdown (shutdownServer will call rateLimiter.Stop(), so no need for defer)
 	log := logger.GetLogger()
 	shutdownServer(srv, rateLimiter, &log)
 
-	// 验证速率限制器已停止
-	// 注意：这里只是验证函数不会 panic，实际的状态检查需要更复杂的测试
+	// Verify rate limiter has stopped
+	// Note: This only verifies the function doesn't panic, actual state checking requires more complex tests
 }
 
-// TestApp_loadInitialData_ONLY_LOCAL 测试 ONLY_LOCAL 模式的数据加载
+// TestApp_loadInitialData_ONLY_LOCAL tests data loading in ONLY_LOCAL mode
 func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
-	// 创建临时文件
+	// Create temporary file
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.Remove(tmpFile.Name()))
 	}()
 
-	// 写入测试数据
+	// Write test data
 	testData := `[
 		{"phone": "13800138000", "mail": "test@example.com"}
 	]`
@@ -299,15 +299,15 @@ func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 测试加载数据
+	// Test loading data
 	err = app.loadInitialData(tmpFile.Name())
 	assert.NoError(t, err)
 	assert.Greater(t, app.userCache.Len(), 0, "应该加载了数据")
 }
 
-// TestApp_loadInitialData_EmptyFile 测试空文件加载
+// TestApp_loadInitialData_EmptyFile tests loading empty file
 func TestApp_loadInitialData_EmptyFile(t *testing.T) {
-	// 创建空文件
+	// Create empty file
 	tmpFile, err := os.CreateTemp("", "test-empty-*.json")
 	require.NoError(t, err)
 	defer func() {
@@ -320,7 +320,7 @@ func TestApp_loadInitialData_EmptyFile(t *testing.T) {
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -329,20 +329,20 @@ func TestApp_loadInitialData_EmptyFile(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 测试加载空文件
+	// Test loading empty file
 	err = app.loadInitialData(tmpFile.Name())
-	// 空文件不应该导致错误，只是没有数据
+	// Empty file should not cause error, just no data
 	assert.NoError(t, err)
 }
 
-// TestApp_loadInitialData_NonExistentFile 测试不存在的文件
+// TestApp_loadInitialData_NonExistentFile tests loading non-existent file
 func TestApp_loadInitialData_NonExistentFile(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -351,15 +351,15 @@ func TestApp_loadInitialData_NonExistentFile(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 测试加载不存在的文件
+	// Test loading non-existent file
 	err := app.loadInitialData("/nonexistent/file.json")
-	// 文件不存在不应该导致错误，只是没有数据
+	// Non-existent file should not cause error, just no data
 	assert.NoError(t, err)
 }
 
-// TestApp_backgroundTask_NoChange 测试后台任务（数据未变化）
+// TestApp_backgroundTask_NoChange tests background task (no data change)
 func TestApp_backgroundTask_NoChange(t *testing.T) {
-	// 创建临时文件
+	// Create temporary file
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
@@ -386,22 +386,22 @@ func TestApp_backgroundTask_NoChange(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 先加载数据
+	// Load data first
 	err = app.loadInitialData(tmpFile.Name())
 	require.NoError(t, err)
 
 	initialLen := app.userCache.Len()
 
-	// 运行后台任务（数据未变化）
+	// Run background task (no data change)
 	app.backgroundTask(tmpFile.Name())
 
-	// 验证数据未变化
+	// Verify data hasn't changed
 	assert.Equal(t, initialLen, app.userCache.Len(), "数据未变化时长度应该相同")
 }
 
-// TestApp_backgroundTask_WithChange 测试后台任务（数据有变化）
+// TestApp_backgroundTask_WithChange tests background task (with data change)
 func TestApp_backgroundTask_WithChange(t *testing.T) {
-	// 创建临时文件
+	// Create temporary file
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
@@ -428,13 +428,13 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 先加载初始数据
+	// Load initial data first
 	err = app.loadInitialData(tmpFile.Name())
 	require.NoError(t, err)
 
 	initialLen := app.userCache.Len()
 
-	// 更新文件内容
+	// Update file content
 	newData := `[
 		{"phone": "13800138000", "mail": "test@example.com"},
 		{"phone": "13900139000", "mail": "test2@example.com"}
@@ -442,21 +442,21 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 	err = os.WriteFile(tmpFile.Name(), []byte(newData), 0o600)
 	require.NoError(t, err)
 
-	// 运行后台任务（数据有变化）
+	// Run background task (with data change)
 	app.backgroundTask(tmpFile.Name())
 
-	// 验证数据已更新
+	// Verify data has been updated
 	assert.Greater(t, app.userCache.Len(), initialLen, "数据有变化时应该更新")
 }
 
-// TestApp_backgroundTask_PanicRecovery 测试后台任务的 panic 恢复
+// TestApp_backgroundTask_PanicRecovery tests panic recovery in background task
 func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -465,14 +465,14 @@ func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 测试 panic 恢复（通过传递无效文件路径触发可能的 panic）
-	// 注意：这里只是验证函数不会因为 panic 而崩溃
+	// Test panic recovery (by passing invalid file path that might trigger panic)
+	// Note: This only verifies the function doesn't crash due to panic
 	assert.NotPanics(t, func() {
 		app.backgroundTask("/invalid/path/that/might/cause/panic")
 	}, "后台任务应该能够恢复 panic")
 }
 
-// TestApp_updateRedisCacheWithRetry 测试Redis缓存更新重试机制
+// TestApp_updateRedisCacheWithRetry tests Redis cache update retry mechanism
 func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -480,7 +480,7 @@ func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 		RedisEnabled:     true,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -489,7 +489,7 @@ func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 如果Redis不可用，跳过测试
+	// Skip test if Redis is unavailable
 	if app.redisUserCache == nil {
 		t.Skip("跳过测试：Redis不可用")
 	}
@@ -498,9 +498,9 @@ func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	// 测试成功更新
+	// Test successful update
 	err := app.updateRedisCacheWithRetry(users)
-	// 如果Redis可用，应该成功；如果不可用，会返回错误
+	// If Redis is available, should succeed; if unavailable, will return error
 	if err != nil {
 		t.Logf("Redis更新失败（可能是Redis不可用）: %v", err)
 	} else {
@@ -508,14 +508,14 @@ func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 	}
 }
 
-// TestApp_updateRedisCacheWithRetry_NoRedis 测试没有Redis时的行为
+// TestApp_updateRedisCacheWithRetry_NoRedis tests behavior when Redis is not available
 func TestApp_updateRedisCacheWithRetry_NoRedis(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -528,26 +528,26 @@ func TestApp_updateRedisCacheWithRetry_NoRedis(t *testing.T) {
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	// 没有Redis时，redisUserCache为nil
+	// When Redis is not available, redisUserCache is nil
 	assert.Nil(t, app.redisUserCache, "没有Redis时redisUserCache应该为nil")
 
-	// 直接调用应该返回错误而不是panic，因为redisUserCache是nil
-	// 在实际使用中，这个函数只在redisUserCache != nil时才会被调用
-	// 这个测试验证函数在nil情况下不会panic，而是返回错误
+	// Direct call should return error instead of panic, because redisUserCache is nil
+	// In actual usage, this function is only called when redisUserCache != nil
+	// This test verifies the function doesn't panic when nil, but returns error
 	assert.NotPanics(t, func() {
 		err := app.updateRedisCacheWithRetry(users)
 		assert.Error(t, err, "redisUserCache为nil时应该返回错误")
 	}, "即使redisUserCache为nil也不应该panic")
 }
 
-// TestRegisterRoutes 测试路由注册
+// TestRegisterRoutes tests route registration
 func TestRegisterRoutes(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -556,14 +556,14 @@ func TestRegisterRoutes(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 保存原始路由
+	// Save original routes
 	originalDefaultMux := http.DefaultServeMux
 	http.DefaultServeMux = http.NewServeMux()
 
-	// 注册路由
+	// Register routes
 	registerRoutes(app)
 
-	// 验证路由已注册
+	// Verify routes are registered
 	_, pattern := http.DefaultServeMux.Handler(&http.Request{
 		Method: "GET",
 		URL:    &url.URL{Path: "/"},
@@ -582,18 +582,18 @@ func TestRegisterRoutes(t *testing.T) {
 	})
 	assert.NotEmpty(t, pattern, "指标路由应该已注册")
 
-	// 恢复原始路由
+	// Restore original routes
 	http.DefaultServeMux = originalDefaultMux
 }
 
-// TestNewApp_WithHTTPInsecureTLS 测试启用HTTP不安全TLS的情况
+// TestNewApp_WithHTTPInsecureTLS tests enabling insecure TLS for HTTP
 func TestNewApp_WithHTTPInsecureTLS(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -604,31 +604,31 @@ func TestNewApp_WithHTTPInsecureTLS(t *testing.T) {
 	assert.NotNil(t, app)
 }
 
-// TestNewApp_ProductionModeWithInsecureTLS 测试生产模式启用不安全TLS（应该失败）
+// TestNewApp_ProductionModeWithInsecureTLS tests enabling insecure TLS in production mode (should fail)
 func TestNewApp_ProductionModeWithInsecureTLS(t *testing.T) {
 	t.Helper()
-	// 这个测试需要能够捕获Fatal，但Fatal会退出程序
-	// 所以我们只测试配置验证，而不是实际运行
-	//nolint:govet // unusedwrite: 这些字段用于测试配置完整性，虽然测试中未直接使用
+	// This test needs to capture Fatal, but Fatal will exit the program
+	// So we only test configuration validation, not actual execution
+	//nolint:govet // unusedwrite: these fields are used to test configuration completeness, though not directly used in tests
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "production",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
 		HTTPInsecureTLS:  true,
 	}
 
-	// 注意：在生产模式下启用不安全TLS会导致Fatal退出
-	// 这个测试主要验证配置检查逻辑存在
-	// 实际测试需要mock logger.Fatal
+	// Note: Enabling insecure TLS in production mode will cause Fatal exit
+	// This test mainly verifies that configuration check logic exists
+	// Actual testing requires mocking logger.Fatal
 	_ = cfg
 }
 
-// TestNewApp_WithRedisPassword 测试带Redis密码的配置
+// TestNewApp_WithRedisPassword tests configuration with Redis password
 func TestNewApp_WithRedisPassword(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -637,7 +637,7 @@ func TestNewApp_WithRedisPassword(t *testing.T) {
 		RedisEnabled:     true,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -648,15 +648,15 @@ func TestNewApp_WithRedisPassword(t *testing.T) {
 	assert.NotNil(t, app)
 }
 
-// TestNewApp_TaskIntervalTooSmall 测试任务间隔小于默认值的情况
+// TestNewApp_TaskIntervalTooSmall tests task interval smaller than default value
 func TestNewApp_TaskIntervalTooSmall(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
-		TaskInterval:     1,  // 小于默认值
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
+		TaskInterval:     1,  // Smaller than default value
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
 		HTTPInsecureTLS:  false,
@@ -664,11 +664,11 @@ func TestNewApp_TaskIntervalTooSmall(t *testing.T) {
 
 	app := NewApp(cfg)
 	assert.NotNil(t, app)
-	// 验证任务间隔被调整为默认值
+	// Verify task interval is adjusted to default value
 	assert.GreaterOrEqual(t, app.taskInterval, uint64(define.DEFAULT_TASK_INTERVAL))
 }
 
-// TestApp_loadInitialData_FromRedis 测试从Redis加载数据
+// TestApp_loadInitialData_FromRedis tests loading data from Redis
 func TestApp_loadInitialData_FromRedis(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -676,7 +676,7 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 		RedisEnabled:     true,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -685,12 +685,12 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 如果Redis不可用，跳过测试
+	// Skip test if Redis is unavailable
 	if app.redisUserCache == nil {
 		t.Skip("跳过测试：Redis不可用")
 	}
 
-	// 先设置一些数据到Redis
+	// Set some data to Redis first
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
@@ -699,19 +699,19 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 		t.Skipf("跳过测试：无法设置Redis数据: %v", err)
 	}
 
-	// 清空内存缓存
+	// Clear memory cache
 	app.userCache.Set([]define.AllowListUser{})
 
-	// 测试从Redis加载
+	// Test loading from Redis
 	err = app.loadInitialData("/nonexistent/file.json")
 	assert.NoError(t, err)
-	// 如果Redis中有数据，应该加载成功
+	// If Redis has data, should load successfully
 	if app.userCache.Len() > 0 {
 		assert.Greater(t, app.userCache.Len(), 0, "应该从Redis加载了数据")
 	}
 }
 
-// TestApp_loadInitialData_RemoteConfig 测试从远程配置加载数据
+// TestApp_loadInitialData_RemoteConfig tests loading data from remote config
 func TestApp_loadInitialData_RemoteConfig(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -727,15 +727,15 @@ func TestApp_loadInitialData_RemoteConfig(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 测试从远程配置加载（会失败，然后降级到本地文件）
+	// Test loading from remote config (will fail, then fallback to local file)
 	err := app.loadInitialData("/nonexistent/file.json")
-	// 应该不会返回错误，只是没有数据
+	// Should not return error, just no data
 	assert.NoError(t, err)
 }
 
-// TestApp_loadInitialData_FileExistsButEmpty 测试文件存在但为空的情况
+// TestApp_loadInitialData_FileExistsButEmpty tests file exists but is empty
 func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
-	// 创建空文件
+	// Create empty file
 	tmpFile, err := os.CreateTemp("", "test-empty-*.json")
 	require.NoError(t, err)
 	defer func() {
@@ -748,7 +748,7 @@ func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -757,12 +757,12 @@ func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 测试加载空文件
+	// Test loading empty file
 	err = app.loadInitialData(tmpFile.Name())
 	assert.NoError(t, err)
 }
 
-// TestApp_backgroundTask_WithRedis 测试带Redis的后台任务
+// TestApp_backgroundTask_WithRedis tests background task with Redis
 func TestApp_backgroundTask_WithRedis(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
@@ -770,7 +770,7 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 		RedisEnabled:     true,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -779,12 +779,12 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 如果Redis不可用，跳过测试
+	// Skip test if Redis is unavailable
 	if app.redisUserCache == nil {
 		t.Skip("跳过测试：Redis不可用")
 	}
 
-	// 创建临时文件
+	// Create temporary file
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
@@ -798,21 +798,21 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	// 运行后台任务
+	// Run background task
 	app.backgroundTask(tmpFile.Name())
 
-	// 验证任务执行了（不会panic）
+	// Verify task executed (no panic)
 	assert.True(t, true)
 }
 
-// TestApp_backgroundTask_DataInconsistency 测试数据不一致的情况
+// TestApp_backgroundTask_DataInconsistency tests data inconsistency scenario
 func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -821,7 +821,7 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// 创建临时文件
+	// Create temporary file
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
@@ -835,11 +835,11 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	// 先加载数据
+	// Load data first
 	err = app.loadInitialData(tmpFile.Name())
 	require.NoError(t, err)
 
-	// 在另一个goroutine中修改缓存，模拟数据不一致
+	// Modify cache in another goroutine to simulate data inconsistency
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		app.userCache.Set([]define.AllowListUser{
@@ -847,14 +847,14 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 		})
 	}()
 
-	// 运行后台任务
+	// Run background task
 	app.backgroundTask(tmpFile.Name())
 
-	// 验证任务执行了（不会panic）
+	// Verify task executed (no panic)
 	assert.True(t, true)
 }
 
-// TestShutdownServer_WithNilRateLimiter 测试关闭服务器时rateLimiter为nil的情况
+// TestShutdownServer_WithNilRateLimiter tests server shutdown when rateLimiter is nil
 func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 	srv := &http.Server{
 		Addr:              ":0",
@@ -863,23 +863,23 @@ func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 
 	log := logger.GetLogger()
 
-	// 测试nil rateLimiter
+	// Test nil rateLimiter
 	assert.NotPanics(t, func() {
 		shutdownServer(srv, nil, &log)
 	})
 }
 
-// TestShutdownServer_ShutdownError 测试关闭服务器时的错误处理
+// TestShutdownServer_ShutdownError tests error handling during server shutdown
 func TestShutdownServer_ShutdownError(t *testing.T) {
 	rateLimiter := middleware.NewRateLimiter(100, time.Second)
 
-	// 创建一个已经关闭的服务器
+	// Create an already closed server
 	srv := &http.Server{
 		Addr:              ":0",
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// 先关闭服务器
+	// Close server first
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
@@ -888,13 +888,13 @@ func TestShutdownServer_ShutdownError(t *testing.T) {
 
 	log := logger.GetLogger()
 
-	// 再次关闭应该不会panic
+	// Closing again should not panic
 	assert.NotPanics(t, func() {
 		shutdownServer(srv, rateLimiter, &log)
 	})
 }
 
-// TestCalculateHash_WithAllFields 测试包含所有字段的哈希计算
+// TestCalculateHash_WithAllFields tests hash calculation with all fields
 func TestCalculateHash_WithAllFields(t *testing.T) {
 	users := []define.AllowListUser{
 		{
@@ -914,7 +914,7 @@ func TestCalculateHash_WithAllFields(t *testing.T) {
 	assert.Len(t, hash1, 64, "SHA256 哈希应该是 64 个字符")
 }
 
-// TestCalculateHash_WithScope 测试包含Scope字段的哈希计算
+// TestCalculateHash_WithScope tests hash calculation with Scope field
 func TestCalculateHash_WithScope(t *testing.T) {
 	users1 := []define.AllowListUser{
 		{
@@ -938,14 +938,14 @@ func TestCalculateHash_WithScope(t *testing.T) {
 	assert.NotEqual(t, hash1, hash2, "不同Scope应该产生不同哈希")
 }
 
-// TestApp_checkDataChanged_EmptyHash 测试空哈希的情况
+// TestApp_checkDataChanged_EmptyHash tests empty hash scenario
 func TestApp_checkDataChanged_EmptyHash(t *testing.T) {
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "", // 避免远程请求，防止测试卡住
+		RemoteConfig:     "", // Avoid remote requests to prevent test hanging
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -958,9 +958,9 @@ func TestApp_checkDataChanged_EmptyHash(t *testing.T) {
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	// 清空缓存哈希
+	// Clear cache hash
 	app.userCache.Set([]define.AllowListUser{})
 
-	// 测试空哈希的情况
+	// Test empty hash scenario
 	assert.True(t, app.checkDataChanged(users), "空哈希时应该返回true")
 }

@@ -7,7 +7,7 @@ import (
 
 // Cache provides thread-safe caching for user list.
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Cache struct {
 	mu        sync.RWMutex
 	users     []AllowListUser

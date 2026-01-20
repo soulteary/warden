@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 Un servizio dati utente ad alta prestazione per liste di autorizzazione (AllowList) che supporta la sincronizzazione e la fusione di dati da fonti di configurazione locali e remote.
 
@@ -21,6 +21,7 @@ Warden è un servizio API HTTP leggero sviluppato in Go, utilizzato principalmen
 - 📦 **Distribuzione Containerizzata**: Supporto Docker completo, pronto all'uso
 - 📊 **Registrazione Strutturata**: Utilizza zerolog per fornire log di accesso e di errore dettagliati
 - 🔒 **Blocchi Distribuiti**: Utilizza Redis per garantire che le attività programmate non vengano eseguite ripetutamente in ambienti distribuiti
+- 🌐 **Supporto Multi-lingua**: Supporta 7 lingue (Inglese, Cinese, Francese, Italiano, Giapponese, Tedesco, Coreano) con rilevamento automatico della preferenza linguistica
 
 ## 🏗️ Progettazione dell'Architettura
 
@@ -86,6 +87,41 @@ Warden fornisce un'API RESTful completa con supporto per query di liste utente, 
 Per la documentazione API dettagliata, si prega di fare riferimento a: [Documentazione API](docs/enUS/API.md)
 
 File di specifica OpenAPI: [openapi.yaml](openapi.yaml)
+
+## 🌐 Supporto Multi-lingua
+
+Warden supporta una funzionalità completa di internazionalizzazione (i18N). Tutte le risposte API, messaggi di errore e log supportano l'internazionalizzazione.
+
+### Lingue Supportate
+
+- 🇺🇸 Inglese (en) - Predefinito
+- 🇨🇳 Cinese (zh)
+- 🇫🇷 Francese (fr)
+- 🇮🇹 Italiano (it)
+- 🇯🇵 Giapponese (ja)
+- 🇩🇪 Tedesco (de)
+- 🇰🇷 Coreano (ko)
+
+### Rilevamento della Lingua
+
+Warden supporta due metodi di rilevamento della lingua con la seguente priorità:
+
+1. **Parametro di query**: Specificare la lingua tramite `?lang=it`
+2. **Intestazione Accept-Language**: Rilevamento automatico della preferenza linguistica del browser
+3. **Lingua predefinita**: Inglese se non specificato
+
+### Esempi di Utilizzo
+
+```bash
+# Specificare l'italiano tramite il parametro di query
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=it"
+
+# Rilevamento automatico tramite l'intestazione Accept-Language
+curl -H "X-API-Key: your-key" -H "Accept-Language: it-IT,it;q=0.9" "http://localhost:8081/"
+
+# Utilizzare il francese
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+```
 
 ## 🔌 Utilizzo SDK
 
@@ -162,6 +198,7 @@ warden/
 │   ├── define/            # Definizioni costanti e strutture dati
 │   ├── di/                # Iniezione dipendenze
 │   ├── errors/            # Gestione errori
+│   ├── i18n/              # Supporto internazionalizzazione
 │   ├── logger/            # Inizializzazione registrazione
 │   ├── metrics/           # Raccolta metriche
 │   ├── middleware/        # Middleware HTTP

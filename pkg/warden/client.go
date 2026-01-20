@@ -12,7 +12,7 @@ import (
 
 // Client is the Warden API client.
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
@@ -77,7 +77,7 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
-			_ = resp.Body.Close() //nolint:errcheck // 在 defer 中忽略错误是安全的
+			_ = resp.Body.Close() //nolint:errcheck // Ignoring error in defer is safe
 		}
 	}()
 
@@ -139,7 +139,7 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
-			_ = resp.Body.Close() //nolint:errcheck // 在 defer 中忽略错误是安全的
+			_ = resp.Body.Close() //nolint:errcheck // Ignoring error in defer is safe
 		}
 	}()
 
@@ -255,7 +255,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
-			_ = resp.Body.Close() //nolint:errcheck // 在 defer 中忽略错误是安全的
+			_ = resp.Body.Close() //nolint:errcheck // Ignoring error in defer is safe
 		}
 	}()
 

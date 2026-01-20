@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
@@ -21,6 +21,7 @@ Warden is a lightweight HTTP API service developed in Go, primarily used for pro
 - 📦 **Containerized Deployment**: Complete Docker support, ready to use out of the box
 - 📊 **Structured Logging**: Uses zerolog to provide detailed access logs and error logs
 - 🔒 **Distributed Locks**: Uses Redis to ensure scheduled tasks don't execute repeatedly in distributed environments
+- 🌐 **Multi-language Support**: Supports 7 languages (English, Chinese, French, Italian, Japanese, German, Korean) with automatic language detection
 
 ## 🏗️ Architecture Design
 
@@ -30,9 +31,9 @@ For detailed architecture documentation, please refer to: [Architecture Design D
 
 ## 📦 Installation and Running
 
-> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.en.md):
-> - [Simple Example](example/basic/README.en.md) - Basic usage, local data file only
-> - [Advanced Example](example/advanced/README.en.md) - Full features, including remote API and Mock service
+> 💡 **Quick Start**: Want to quickly experience Warden? Check out our [Quick Start Examples](example/README.md):
+> - [Simple Example](example/basic/README.md) - Basic usage, local data file only
+> - [Advanced Example](example/advanced/README.md) - Full features, including remote API and Mock service
 
 ### Prerequisites
 
@@ -87,6 +88,43 @@ For detailed API documentation, please refer to: [API Documentation](docs/enUS/A
 
 OpenAPI specification file: [openapi.yaml](openapi.yaml)
 
+## 🌐 Multi-language Support
+
+Warden supports complete internationalization (i18N) functionality. All API responses, error messages, and logs support internationalization.
+
+### Supported Languages
+
+- 🇺🇸 English (en) - Default
+- 🇨🇳 Chinese (zh)
+- 🇫🇷 French (fr)
+- 🇮🇹 Italian (it)
+- 🇯🇵 Japanese (ja)
+- 🇩🇪 German (de)
+- 🇰🇷 Korean (ko)
+
+### Language Detection
+
+Warden supports two language detection methods with the following priority:
+
+1. **Query Parameter**: Specify language via `?lang=zh`
+2. **Accept-Language Header**: Automatically detect browser language preference
+3. **Default Language**: English if not specified
+
+### Usage Examples
+
+```bash
+# Specify Chinese via query parameter
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+
+# Auto-detect via Accept-Language header
+curl -H "X-API-Key: your-key" -H "Accept-Language: zh-CN,zh;q=0.9" "http://localhost:8081/"
+
+# Use Japanese
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+```
+
+For detailed multi-language documentation, please refer to: [Multi-language Documentation](docs/enUS/README.md#multi-language-support)
+
 ## 🐳 Docker Deployment
 
 Warden supports complete Docker and Docker Compose deployment, ready to use out of the box.
@@ -113,7 +151,7 @@ docker run -d \
 
 ### Using Docker Compose
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.en.md) for complete Docker Compose configuration examples
+> 🚀 **Quick Deployment**: Check the [Examples Directory](example/README.md) for complete Docker Compose configuration examples
 
 For detailed deployment documentation, please refer to: [Deployment Documentation](docs/enUS/DEPLOYMENT.md)
 
@@ -178,7 +216,7 @@ For detailed security documentation, please refer to: [Security Documentation](d
 
 ## 🔧 Development Guide
 
-> 📚 **Reference Examples**: Check the [Examples Directory](example/README.en.md) for complete example code and configurations for different usage scenarios.
+> 📚 **Reference Examples**: Check the [Examples Directory](example/README.md) for complete example code and configurations for different usage scenarios.
 
 For detailed development documentation, please refer to: [Development Documentation](docs/enUS/DEVELOPMENT.md)
 

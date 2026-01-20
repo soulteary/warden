@@ -1,105 +1,105 @@
-# 复杂示例 - 完整功能演示
+# Advanced Example - Full Feature Demonstration
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md)
 
-这是 Warden 的完整功能示例，展示了所有核心特性，包括：
-- 本地数据文件
-- 远程 API 数据源
-- Redis 缓存和分布式锁
-- 定时任务自动同步
-- 多种数据合并策略
-- Docker Compose 完整部署
+This is Warden's complete feature example, demonstrating all core features, including:
+- Local data files
+- Remote API data sources
+- Redis cache and distributed locks
+- Scheduled tasks for automatic synchronization
+- Multiple data merging strategies
+- Complete Docker Compose deployment
 
-## 📋 前置要求
+## 📋 Prerequisites
 
-- Docker 和 Docker Compose
-- 或 Go 1.25+ 和 Redis
+- Docker and Docker Compose
+- Or Go 1.25+ and Redis
 
-## 🏗️ 架构说明
+## 🏗️ Architecture Overview
 
-本示例包含以下组件：
+This example includes the following components:
 
 ```
 ┌─────────────────┐
-│   Warden API    │  ← 主服务（端口 8081）
+│   Warden API    │  ← Main service (port 8081)
 └────────┬────────┘
          │
     ┌────┴────┐
     │         │
 ┌───▼───┐  ┌──▼──────┐
-│ Redis │  │ Mock    │  ← 模拟远程 API（端口 8080）
+│ Redis │  │ Mock    │  ← Mock remote API (port 8080)
 │ Cache │  │ API     │
 └───────┘  └─────────┘
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 方式一：使用 Docker Compose（推荐）
+### Method 1: Using Docker Compose (Recommended)
 
-1. **准备环境**
+1. **Prepare Environment**
 
 ```bash
 cd example/advanced
 cp .env.example .env
-# 编辑 .env 文件，设置你的配置
+# Edit .env file, set your configuration
 ```
 
-2. **启动所有服务**
+2. **Start All Services**
 
 ```bash
 docker-compose up -d
 ```
 
-这将启动：
-- Warden 主服务（端口 8081）
-- Redis 缓存服务（端口 6379）
-- Mock 远程 API 服务（端口 8080）
+This will start:
+- Warden main service (port 8081)
+- Redis cache service (port 6379)
+- Mock remote API service (port 8080)
 
-3. **查看服务状态**
+3. **Check Service Status**
 
 ```bash
-# 查看所有服务日志
+# View all service logs
 docker-compose logs -f
 
-# 查看特定服务日志
+# View specific service logs
 docker-compose logs -f warden
 docker-compose logs -f mock-api
 ```
 
-4. **测试服务**
+4. **Test Service**
 
 ```bash
-# 健康检查
+# Health check
 curl http://localhost:8081/health
 
-# 获取用户列表（需要 API Key）
+# Get user list (requires API Key)
 curl -H "X-API-Key: your-secret-api-key" http://localhost:8081/
 
-# 查看 Prometheus 指标
+# View Prometheus metrics
 curl http://localhost:8081/metrics
 ```
 
-### 方式二：本地运行
+### Method 2: Local Running
 
-1. **启动 Redis**
+1. **Start Redis**
 
 ```bash
 docker run -d --name redis -p 6379:6379 redis:6.2.4
 ```
 
-2. **启动 Mock API 服务**
+2. **Start Mock API Service**
 
 ```bash
 cd example/advanced
 go run mock-api/main.go
 ```
 
-Mock API 将在 `http://localhost:8080/api/users` 提供服务。
+Mock API will serve at `http://localhost:8080/api/users`.
 
-3. **运行 Warden**
+3. **Run Warden**
 
 ```bash
-# 在项目根目录
+# In project root directory
 go run main.go \
   --port 8081 \
   --redis localhost:6379 \
@@ -109,49 +109,49 @@ go run main.go \
   --interval 10
 ```
 
-## 📝 配置说明
+## 📝 Configuration
 
-### 数据合并策略
+### Data Merging Strategy
 
-本示例演示了 `DEFAULT`（远程优先）模式：
+This example demonstrates `DEFAULT` (remote-first) mode:
 
-- ✅ 优先从远程 API 获取数据
-- ✅ 远程数据不存在时，使用本地数据补充
-- ✅ 定时任务每 10 秒自动同步一次
+- ✅ Prioritize fetching data from remote API
+- ✅ Use local data to supplement when remote data doesn't exist
+- ✅ Scheduled tasks automatically synchronize every 10 seconds
 
-### 环境变量配置
+### Environment Variable Configuration
 
-编辑 `.env` 文件：
+Edit `.env` file:
 
 ```env
-# 服务端口
+# Service Port
 PORT=8081
 
-# Redis 配置
+# Redis Configuration
 REDIS=warden-redis:6379
 REDIS_PASSWORD=
 
-# 远程 API 配置
+# Remote API Configuration
 CONFIG=http://mock-api:8080/api/users
 KEY=Bearer mock-token
 
-# 任务配置
+# Task Configuration
 INTERVAL=10
 
-# 运行模式
+# Running Mode
 MODE=DEFAULT
 
-# API 认证
+# API Authentication
 API_KEY=your-secret-api-key-here
 
-# HTTP 客户端配置
+# HTTP Client Configuration
 HTTP_TIMEOUT=5
 HTTP_MAX_IDLE_CONNS=100
 ```
 
-### 数据文件
+### Data Files
 
-**本地数据文件** (`data.json`):
+**Local Data File** (`data.json`):
 ```json
 [
     {
@@ -161,7 +161,7 @@ HTTP_MAX_IDLE_CONNS=100
 ]
 ```
 
-**远程 API 数据** (由 Mock API 提供):
+**Remote API Data** (provided by Mock API):
 ```json
 [
     {
@@ -175,7 +175,7 @@ HTTP_MAX_IDLE_CONNS=100
 ]
 ```
 
-**合并结果** (远程优先):
+**Merged Result** (remote-first):
 ```json
 [
     {
@@ -193,177 +193,177 @@ HTTP_MAX_IDLE_CONNS=100
 ]
 ```
 
-## 🔍 功能演示
+## 🔍 Feature Demonstration
 
-### 1. 数据同步流程
+### 1. Data Synchronization Flow
 
-观察定时任务如何自动同步数据：
+Observe how scheduled tasks automatically synchronize data:
 
 ```bash
-# 查看 Warden 日志
+# View Warden logs
 docker-compose logs -f warden
 
-# 你会看到类似输出：
-# INFO 从远程 API 加载数据 ✓ count=2
-# INFO 后台更新数据 📦 count=3 duration=0.123
+# You will see output like:
+# INFO Loaded data from remote API ✓ count=2
+# INFO Background data update 📦 count=3 duration=0.123
 ```
 
-### 2. 修改远程数据
+### 2. Modify Remote Data
 
-修改 Mock API 的数据文件，观察自动同步：
+Modify Mock API's data file and observe automatic synchronization:
 
 ```bash
-# 编辑 Mock API 数据
+# Edit Mock API data
 vim mock-api/data.json
 
-# 等待 10 秒（定时任务间隔），数据会自动更新
+# Wait 10 seconds (scheduled task interval), data will automatically update
 ```
 
-### 3. 测试不同合并模式
+### 3. Test Different Merging Modes
 
-修改 `.env` 中的 `MODE` 参数，测试不同模式：
+Modify `MODE` parameter in `.env` to test different modes:
 
-- `DEFAULT` / `REMOTE_FIRST`: 远程优先
-- `LOCAL_FIRST`: 本地优先
-- `ONLY_REMOTE`: 仅远程
-- `ONLY_LOCAL`: 仅本地
+- `DEFAULT` / `REMOTE_FIRST`: Remote-first
+- `LOCAL_FIRST`: Local-first
+- `ONLY_REMOTE`: Remote-only
+- `ONLY_LOCAL`: Local-only
 
 ```bash
-# 修改配置后重启服务
+# Restart service after modifying configuration
 docker-compose restart warden
 ```
 
-### 4. 查看监控指标
+### 4. View Monitoring Metrics
 
 ```bash
-# Prometheus 指标
+# Prometheus metrics
 curl http://localhost:8081/metrics | grep warden
 
-# 健康检查（包含详细信息）
+# Health check (includes detailed information)
 curl http://localhost:8081/health | jq
 ```
 
-### 5. 测试 API 功能
+### 5. Test API Functionality
 
 ```bash
-# 获取所有用户
+# Get all users
 curl -H "X-API-Key: your-secret-api-key" http://localhost:8081/
 
-# 分页查询
+# Paginated query
 curl -H "X-API-Key: your-secret-api-key" \
   "http://localhost:8081/?page=1&page_size=10"
 
-# 动态调整日志级别
+# Dynamically adjust log level
 curl -X POST -H "X-API-Key: your-secret-api-key" \
   -H "Content-Type: application/json" \
   -d '{"level":"debug"}' \
   http://localhost:8081/log/level
 ```
 
-## 🧪 测试场景
+## 🧪 Test Scenarios
 
-### 场景 1: 远程 API 故障
+### Scenario 1: Remote API Failure
 
-1. 停止 Mock API 服务：
+1. Stop Mock API service:
 ```bash
 docker-compose stop mock-api
 ```
 
-2. 观察 Warden 自动回退到本地数据：
+2. Observe Warden automatically fallback to local data:
 ```bash
 docker-compose logs -f warden
-# 应该看到：从本地文件加载数据
+# Should see: Loaded data from local file
 ```
 
-3. 恢复 Mock API：
+3. Restore Mock API:
 ```bash
 docker-compose start mock-api
 ```
 
-4. 观察自动恢复：
+4. Observe automatic recovery:
 ```bash
-# 等待定时任务执行，数据会从远程恢复
+# Wait for scheduled task execution, data will recover from remote
 ```
 
-### 场景 2: Redis 故障
+### Scenario 2: Redis Failure
 
-1. 停止 Redis：
+1. Stop Redis:
 ```bash
 docker-compose stop warden-redis
 ```
 
-2. 观察服务行为：
+2. Observe service behavior:
 ```bash
-# Warden 会继续运行，但无法使用 Redis 缓存
-# 定时任务的分布式锁会失效（多实例场景）
+# Warden will continue running, but cannot use Redis cache
+# Distributed locks for scheduled tasks will fail (multi-instance scenario)
 ```
 
-### 场景 3: 数据冲突测试
+### Scenario 3: Data Conflict Test
 
-1. 修改本地和远程数据，使其有重叠：
-   - 本地：`phone: 13800138000`
-   - 远程：`phone: 13800138000` (不同邮箱)
+1. Modify local and remote data to have overlaps:
+   - Local: `phone: 13800138000`
+   - Remote: `phone: 13800138000` (different email)
 
-2. 观察合并结果（取决于选择的模式）
+2. Observe merge result (depends on selected mode)
 
-## 📊 性能测试
+## 📊 Performance Testing
 
-使用 `wrk` 进行压力测试：
+Use `wrk` for stress testing:
 
 ```bash
-# 安装 wrk
+# Install wrk
 # macOS: brew install wrk
 # Linux: apt-get install wrk
 
-# 运行测试
+# Run test
 wrk -t4 -c100 -d30s \
   -H "X-API-Key: your-secret-api-key" \
   http://localhost:8081/
 ```
 
-预期结果：
-- 请求速率：5000+ req/s
-- 平均延迟：< 25ms
+Expected results:
+- Request rate: 5000+ req/s
+- Average latency: < 25ms
 
-## 🛠️ 故障排查
+## 🛠️ Troubleshooting
 
-### 问题 1: 无法连接到远程 API
+### Issue 1: Cannot Connect to Remote API
 
-**症状**: 日志显示 "远程 API 加载失败"
+**Symptoms**: Logs show "Remote API load failed"
 
-**解决方案**:
-1. 检查 Mock API 是否运行：`docker-compose ps`
-2. 检查网络连接：`curl http://localhost:8080/api/users`
-3. 检查认证头：确保 `KEY` 配置正确
+**Solution**:
+1. Check if Mock API is running: `docker-compose ps`
+2. Check network connection: `curl http://localhost:8080/api/users`
+3. Check authentication header: Ensure `KEY` configuration is correct
 
-### 问题 2: Redis 连接失败
+### Issue 2: Redis Connection Failed
 
-**症状**: 启动时显示 "Redis 连接失败"
+**Symptoms**: Shows "Redis connection failed" on startup
 
-**解决方案**:
-1. 检查 Redis 是否运行：`docker-compose ps warden-redis`
-2. 检查 Redis 密码配置
-3. 检查网络连接：`redis-cli -h localhost -p 6379 ping`
+**Solution**:
+1. Check if Redis is running: `docker-compose ps warden-redis`
+2. Check Redis password configuration
+3. Check network connection: `redis-cli -h localhost -p 6379 ping`
 
-### 问题 3: 数据未更新
+### Issue 3: Data Not Updated
 
-**症状**: 修改数据后，API 返回旧数据
+**Symptoms**: API returns old data after modifying data
 
-**解决方案**:
-1. 检查定时任务间隔配置（`INTERVAL`）
-2. 查看日志确认定时任务是否执行
-3. 手动触发：重启服务或等待下一个定时任务周期
+**Solution**:
+1. Check scheduled task interval configuration (`INTERVAL`)
+2. Check logs to confirm if scheduled tasks are executing
+3. Manually trigger: Restart service or wait for next scheduled task cycle
 
-## 📚 下一步
+## 📚 Next Steps
 
-- 阅读 [完整文档](../../README.md) 了解所有功能
-- 查看 [API 文档](../../openapi.yaml) 了解 API 详情
-- 参考 [简单示例](../basic/README.md) 了解基础用法
-- 查看 [配置示例](../../config.example.yaml) 了解所有配置选项
+- Read [Complete Documentation](../../README.md) to learn all features
+- Check [API Documentation](../../openapi.yaml) to learn API details
+- Refer to [Simple Example](../basic/README.md) to learn basic usage
+- Check [Configuration Example](../../config.example.yaml) to learn all configuration options
 
-## 🔗 相关资源
+## 🔗 Related Resources
 
-- [Warden 主文档](../../README.md)
-- [Docker Compose 文档](https://docs.docker.com/compose/)
-- [Redis 文档](https://redis.io/docs/)
+- [Warden Main Documentation](../../README.md)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Redis Documentation](https://redis.io/docs/)
 

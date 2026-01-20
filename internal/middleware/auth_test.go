@@ -11,11 +11,11 @@ import (
 )
 
 func init() {
-	// 初始化 zerolog 以避免 panic
+	// Initialize zerolog to avoid panic
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestAuthMiddleware_ValidAPIKey 测试有效的 API Key
+// TestAuthMiddleware_ValidAPIKey tests valid API Key
 func TestAuthMiddleware_ValidAPIKey(t *testing.T) {
 	apiKey := "test-api-key-123"
 	middleware := AuthMiddleware(apiKey)
@@ -54,12 +54,12 @@ func TestAuthMiddleware_ValidAPIKey(t *testing.T) {
 
 			handler.ServeHTTP(w, req)
 
-			assert.Equal(t, tt.want, w.Code, "应该返回 200")
+			assert.Equal(t, tt.want, w.Code, "Should return 200")
 		})
 	}
 }
 
-// TestAuthMiddleware_InvalidAPIKey 测试无效的 API Key
+// TestAuthMiddleware_InvalidAPIKey tests invalid API Key
 func TestAuthMiddleware_InvalidAPIKey(t *testing.T) {
 	apiKey := "test-api-key-123"
 	middleware := AuthMiddleware(apiKey)
@@ -74,22 +74,22 @@ func TestAuthMiddleware_InvalidAPIKey(t *testing.T) {
 		value  string
 	}{
 		{
-			name:   "错误的 X-API-Key",
+			name:   "Wrong X-API-Key",
 			header: "X-API-Key",
 			value:  "wrong-key",
 		},
 		{
-			name:   "错误的 Authorization Bearer",
+			name:   "Wrong Authorization Bearer",
 			header: "Authorization",
 			value:  "Bearer wrong-key",
 		},
 		{
-			name:   "空的 X-API-Key",
+			name:   "Empty X-API-Key",
 			header: "X-API-Key",
 			value:  "",
 		},
 		{
-			name:   "缺少 header",
+			name:   "Missing header",
 			header: "",
 			value:  "",
 		},
@@ -105,12 +105,12 @@ func TestAuthMiddleware_InvalidAPIKey(t *testing.T) {
 
 			handler.ServeHTTP(w, req)
 
-			assert.Equal(t, http.StatusUnauthorized, w.Code, "应该返回 401")
+			assert.Equal(t, http.StatusUnauthorized, w.Code, "Should return 401")
 		})
 	}
 }
 
-// TestAuthMiddleware_EmptyAPIKey 测试空的 API Key（应该拒绝所有请求）
+// TestAuthMiddleware_EmptyAPIKey tests empty API Key (should reject all requests)
 func TestAuthMiddleware_EmptyAPIKey(t *testing.T) {
 	middleware := AuthMiddleware("")
 
@@ -123,10 +123,10 @@ func TestAuthMiddleware_EmptyAPIKey(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code, "空 API Key 应该拒绝所有请求")
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "Empty API Key should reject all requests")
 }
 
-// TestOptionalAuthMiddleware_ValidAPIKey 测试可选认证中间件（有效 API Key）
+// TestOptionalAuthMiddleware_ValidAPIKey tests optional authentication middleware (valid API Key)
 func TestOptionalAuthMiddleware_ValidAPIKey(t *testing.T) {
 	apiKey := "test-api-key-123"
 	middleware := OptionalAuthMiddleware(apiKey)
@@ -143,10 +143,10 @@ func TestOptionalAuthMiddleware_ValidAPIKey(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "有效 API Key 应该通过")
+	assert.Equal(t, http.StatusOK, w.Code, "Valid API Key should pass")
 }
 
-// TestOptionalAuthMiddleware_InvalidAPIKey 测试可选认证中间件（无效 API Key）
+// TestOptionalAuthMiddleware_InvalidAPIKey tests optional authentication middleware (invalid API Key)
 func TestOptionalAuthMiddleware_InvalidAPIKey(t *testing.T) {
 	apiKey := "test-api-key-123"
 	middleware := OptionalAuthMiddleware(apiKey)
@@ -161,10 +161,10 @@ func TestOptionalAuthMiddleware_InvalidAPIKey(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusUnauthorized, w.Code, "无效 API Key 应该返回 401")
+	assert.Equal(t, http.StatusUnauthorized, w.Code, "Invalid API Key should return 401")
 }
 
-// TestOptionalAuthMiddleware_EmptyAPIKey 测试可选认证中间件（空 API Key，应该允许通过）
+// TestOptionalAuthMiddleware_EmptyAPIKey tests optional authentication middleware (empty API Key, should allow pass)
 func TestOptionalAuthMiddleware_EmptyAPIKey(t *testing.T) {
 	middleware := OptionalAuthMiddleware("")
 
@@ -179,10 +179,10 @@ func TestOptionalAuthMiddleware_EmptyAPIKey(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "空 API Key 时应该允许通过（可选认证）")
+	assert.Equal(t, http.StatusOK, w.Code, "Should allow pass when API Key is empty (optional authentication)")
 }
 
-// TestAuthMiddleware_AuthorizationHeaderPrecedence 测试 Authorization 头的优先级
+// TestAuthMiddleware_AuthorizationHeaderPrecedence tests Authorization header precedence
 func TestAuthMiddleware_AuthorizationHeaderPrecedence(t *testing.T) {
 	apiKey := "test-api-key-123"
 	middleware := AuthMiddleware(apiKey)
@@ -193,7 +193,7 @@ func TestAuthMiddleware_AuthorizationHeaderPrecedence(t *testing.T) {
 		require.NoError(t, err)
 	}))
 
-	// 同时提供 X-API-Key 和 Authorization，X-API-Key 应该优先
+	// Provide both X-API-Key and Authorization, X-API-Key should take precedence
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	req.Header.Set("X-API-Key", apiKey)
 	req.Header.Set("Authorization", "Bearer wrong-key")
@@ -201,10 +201,10 @@ func TestAuthMiddleware_AuthorizationHeaderPrecedence(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "X-API-Key 应该优先于 Authorization")
+	assert.Equal(t, http.StatusOK, w.Code, "X-API-Key should take precedence over Authorization")
 }
 
-// TestAuthMiddleware_BearerTokenFormat 测试 Bearer token 格式
+// TestAuthMiddleware_BearerTokenFormat tests Bearer token format
 func TestAuthMiddleware_BearerTokenFormat(t *testing.T) {
 	apiKey := "test-api-key-123"
 	middleware := AuthMiddleware(apiKey)
@@ -219,22 +219,22 @@ func TestAuthMiddleware_BearerTokenFormat(t *testing.T) {
 		want  int
 	}{
 		{
-			name:  "正确的 Bearer 格式",
+			name:  "Correct Bearer format",
 			value: "Bearer test-api-key-123",
 			want:  http.StatusOK,
 		},
 		{
-			name:  "Bearer 后有多余空格",
+			name:  "Extra space after Bearer",
 			value: "Bearer  test-api-key-123",
-			want:  http.StatusUnauthorized, // 应该失败，因为有多余空格
+			want:  http.StatusUnauthorized, // Should fail because of extra space
 		},
 		{
-			name:  "小写 bearer",
+			name:  "Lowercase bearer",
 			value: "bearer test-api-key-123",
-			want:  http.StatusUnauthorized, // 应该失败，因为不是 "Bearer "
+			want:  http.StatusUnauthorized, // Should fail because it's not "Bearer "
 		},
 		{
-			name:  "没有 Bearer 前缀",
+			name:  "No Bearer prefix",
 			value: "test-api-key-123",
 			want:  http.StatusUnauthorized,
 		},
@@ -248,7 +248,7 @@ func TestAuthMiddleware_BearerTokenFormat(t *testing.T) {
 
 			handler.ServeHTTP(w, req)
 
-			assert.Equal(t, tt.want, w.Code, "状态码应该匹配")
+			assert.Equal(t, tt.want, w.Code, "Status code should match")
 		})
 	}
 }

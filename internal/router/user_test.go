@@ -18,7 +18,7 @@ func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
-// TestGetUserByIdentifier_ByPhone 测试通过手机号查询用户
+// TestGetUserByIdentifier_ByPhone tests querying user by phone number
 func TestGetUserByIdentifier_ByPhone(t *testing.T) {
 	testUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1"},
@@ -35,17 +35,17 @@ func TestGetUserByIdentifier_ByPhone(t *testing.T) {
 
 	handler(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该返回 200")
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type 应该是 application/json")
+	assert.Equal(t, http.StatusOK, w.Code, "Should return 200")
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type should be application/json")
 
 	var user define.AllowListUser
 	err := json.NewDecoder(w.Body).Decode(&user)
-	require.NoError(t, err, "应该能够解析 JSON")
-	assert.Equal(t, "13800138000", user.Phone, "手机号应该匹配")
-	assert.Equal(t, "test1@example.com", user.Mail, "邮箱应该匹配")
+	require.NoError(t, err, "Should be able to parse JSON")
+	assert.Equal(t, "13800138000", user.Phone, "Phone number should match")
+	assert.Equal(t, "test1@example.com", user.Mail, "Email should match")
 }
 
-// TestGetUserByIdentifier_ByMail 测试通过邮箱查询用户
+// TestGetUserByIdentifier_ByMail tests querying user by email
 func TestGetUserByIdentifier_ByMail(t *testing.T) {
 	testUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1"},
@@ -72,7 +72,7 @@ func TestGetUserByIdentifier_ByMail(t *testing.T) {
 	assert.Equal(t, "test2@example.com", user.Mail)
 }
 
-// TestGetUserByIdentifier_ByUserID 测试通过用户 ID 查询用户
+// TestGetUserByIdentifier_ByUserID tests querying user by user ID
 func TestGetUserByIdentifier_ByUserID(t *testing.T) {
 	testUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1"},
@@ -99,7 +99,7 @@ func TestGetUserByIdentifier_ByUserID(t *testing.T) {
 	assert.Equal(t, "13800138000", user.Phone)
 }
 
-// TestGetUserByIdentifier_MissingIdentifier 测试缺少标识符
+// TestGetUserByIdentifier_MissingIdentifier tests missing identifier
 func TestGetUserByIdentifier_MissingIdentifier(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := GetUserByIdentifier(userCache)
@@ -109,10 +109,10 @@ func TestGetUserByIdentifier_MissingIdentifier(t *testing.T) {
 
 	handler(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code, "应该返回 400")
+	assert.Equal(t, http.StatusBadRequest, w.Code, "Should return 400")
 }
 
-// TestGetUserByIdentifier_MultipleIdentifiers 测试提供多个标识符
+// TestGetUserByIdentifier_MultipleIdentifiers tests providing multiple identifiers
 func TestGetUserByIdentifier_MultipleIdentifiers(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := GetUserByIdentifier(userCache)
@@ -122,10 +122,10 @@ func TestGetUserByIdentifier_MultipleIdentifiers(t *testing.T) {
 
 	handler(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code, "应该返回 400（只能提供一个标识符）")
+	assert.Equal(t, http.StatusBadRequest, w.Code, "Should return 400 (only one identifier should be provided)")
 }
 
-// TestGetUserByIdentifier_UserNotFound 测试用户不存在
+// TestGetUserByIdentifier_UserNotFound tests user not found
 func TestGetUserByIdentifier_UserNotFound(t *testing.T) {
 	testUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1"},
@@ -141,10 +141,10 @@ func TestGetUserByIdentifier_UserNotFound(t *testing.T) {
 
 	handler(w, req)
 
-	assert.Equal(t, http.StatusNotFound, w.Code, "应该返回 404")
+	assert.Equal(t, http.StatusNotFound, w.Code, "Should return 404")
 }
 
-// TestGetUserByIdentifier_InvalidMethod 测试无效的 HTTP 方法
+// TestGetUserByIdentifier_InvalidMethod tests invalid HTTP method
 func TestGetUserByIdentifier_InvalidMethod(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	handler := GetUserByIdentifier(userCache)
@@ -158,12 +158,12 @@ func TestGetUserByIdentifier_InvalidMethod(t *testing.T) {
 
 			handler(w, req)
 
-			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "应该返回 405")
+			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "Should return 405")
 		})
 	}
 }
 
-// TestGetUserByIdentifier_WithSpaces 测试带空格的参数
+// TestGetUserByIdentifier_WithSpaces tests parameters with spaces
 func TestGetUserByIdentifier_WithSpaces(t *testing.T) {
 	testUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1"},
@@ -174,19 +174,19 @@ func TestGetUserByIdentifier_WithSpaces(t *testing.T) {
 
 	handler := GetUserByIdentifier(userCache)
 
-	// 测试带空格的手机号（URL 编码空格为 %20）
+	// Test phone number with spaces (URL encoded space is %20)
 	req := httptest.NewRequest("GET", "/user?phone=%2013800138000%20", http.NoBody)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, "应该能够处理带空格的参数")
+	assert.Equal(t, http.StatusOK, w.Code, "Should be able to handle parameters with spaces")
 }
 
-// TestGetUserByIdentifier_JSONEncodingError 测试 JSON 编码错误处理
+// TestGetUserByIdentifier_JSONEncodingError tests JSON encoding error handling
 func TestGetUserByIdentifier_JSONEncodingError(t *testing.T) {
-	// 这个测试比较难模拟，因为 json.NewEncoder 通常不会失败
-	// 但我们可以测试基本的错误处理逻辑
+	// This test is difficult to simulate because json.NewEncoder usually doesn't fail
+	// But we can test basic error handling logic
 	testUsers := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1"},
 	}
@@ -201,6 +201,6 @@ func TestGetUserByIdentifier_JSONEncodingError(t *testing.T) {
 
 	handler(w, req)
 
-	// 正常情况下应该成功
+	// Should succeed under normal circumstances
 	assert.Equal(t, http.StatusOK, w.Code)
 }

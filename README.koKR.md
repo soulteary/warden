@@ -1,6 +1,6 @@
 # Warden
 
-> 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+> 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
 로컬 및 원격 구성 소스에서 데이터 동기화 및 병합을 지원하는 고성능 허용 목록(AllowList) 사용자 데이터 서비스입니다.
 
@@ -21,6 +21,7 @@ Warden은 Go로 개발된 경량 HTTP API 서비스로, 주로 허용 목록 사
 - 📦 **컨테이너화 배포**: 완전한 Docker 지원, 즉시 사용 가능
 - 📊 **구조화된 로깅**: zerolog를 사용하여 상세한 액세스 로그 및 오류 로그 제공
 - 🔒 **분산 잠금**: Redis를 사용하여 분산 환경에서 예약 작업이 반복 실행되지 않도록 보장
+- 🌐 **다국어 지원**: 7개 언어(영어, 중국어, 프랑스어, 이탈리아어, 일본어, 독일어, 한국어) 지원 및 사용자 언어 설정 자동 감지
 
 ## 🏗️ 아키텍처 설계
 
@@ -86,6 +87,41 @@ Warden은 사용자 목록 쿼리, 페이지네이션, 상태 확인 등을 지�
 자세한 API 문서는 다음을 참조하세요: [API 문서](docs/enUS/API.md)
 
 OpenAPI 사양 파일: [openapi.yaml](openapi.yaml)
+
+## 🌐 다국어 지원
+
+Warden은 완전한 국제화(i18N) 기능을 지원합니다. 모든 API 응답, 오류 메시지 및 로그가 국제화를 지원합니다.
+
+### 지원 언어
+
+- 🇺🇸 영어 (en) - 기본값
+- 🇨🇳 중국어 (zh)
+- 🇫🇷 프랑스어 (fr)
+- 🇮🇹 이탈리아어 (it)
+- 🇯🇵 일본어 (ja)
+- 🇩🇪 독일어 (de)
+- 🇰🇷 한국어 (ko)
+
+### 언어 감지
+
+Warden은 다음 우선순위로 두 가지 언어 감지 방법을 지원합니다:
+
+1. **쿼리 매개변수**: `?lang=ko`로 언어 지정
+2. **Accept-Language 헤더**: 브라우저 언어 설정 자동 감지
+3. **기본 언어**: 지정되지 않은 경우 영어 사용
+
+### 사용 예제
+
+```bash
+# 쿼리 매개변수로 한국어 지정
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ko"
+
+# Accept-Language 헤더로 자동 감지
+curl -H "X-API-Key: your-key" -H "Accept-Language: ko-KR,ko;q=0.9" "http://localhost:8081/"
+
+# 일본어 사용
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+```
 
 ## 🔌 SDK 사용
 
@@ -162,6 +198,7 @@ warden/
 │   ├── define/            # 상수 정의 및 데이터 구조
 │   ├── di/                # 종속성 주입
 │   ├── errors/            # 오류 처리
+│   ├── i18n/              # 국제화 지원
 │   ├── logger/            # 로깅 초기화
 │   ├── metrics/           # 메트릭 수집
 │   ├── middleware/        # HTTP 미들웨어

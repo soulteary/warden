@@ -1,9 +1,9 @@
-// Package middleware 提供了 HTTP 中间件功能。
-// 包括速率限制、压缩、请求体限制、指标收集等中间件。
+// Package middleware provides HTTP middleware functionality.
+// Includes rate limiting, compression, request body limiting, metrics collection and other middleware.
 package middleware
 
 import (
-	// 标准库
+	// Standard library
 	"net"
 	"net/http"
 	"os"
@@ -12,17 +12,18 @@ import (
 	"sync"
 	"time"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/metrics"
 )
 
-// RateLimiter 实现简单的内存速率限制
+// RateLimiter implements simple in-memory rate limiting
 //
-//nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
+//nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type RateLimiter struct {
 	mu           sync.RWMutex        // 24 bytes
 	wg           sync.WaitGroup      // 12 bytes (padding to 16)
@@ -34,7 +35,7 @@ type RateLimiter struct {
 	whitelist    map[string]bool     // 8 bytes pointer
 	cleanup      *time.Ticker        // 8 bytes pointer
 	stopCh       chan struct{}       // 8 bytes pointer
-	stopOnce     sync.Once           // 确保 Stop 只执行一次
+	stopOnce     sync.Once           // Ensures Stop is executed only once
 }
 
 type visitor struct {
@@ -42,29 +43,29 @@ type visitor struct {
 	count    int       // 8 bytes
 }
 
-// NewRateLimiter 创建新的速率限制器
-// rate: 允许的请求数
-// window: 时间窗口（例如 1 * time.Minute）
+// NewRateLimiter creates a new rate limiter
+// rate: number of allowed requests
+// window: time window (e.g., 1 * time.Minute)
 func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
 	rl := &RateLimiter{
 		visitors:     make(map[string]*visitor),
 		rate:         rate,
 		window:       window,
-		cleanup:      time.NewTicker(define.RATE_LIMIT_CLEANUP_INTERVAL), // 定期清理过期记录
+		cleanup:      time.NewTicker(define.RATE_LIMIT_CLEANUP_INTERVAL), // Periodically clean up expired records
 		stopCh:       make(chan struct{}),
 		whitelist:    make(map[string]bool),
 		maxVisitors:  define.MAX_VISITORS_MAP_SIZE,
 		maxWhitelist: define.MAX_WHITELIST_SIZE,
 	}
 
-	// 启动清理协程
+	// Start cleanup goroutine
 	rl.wg.Add(1)
 	go rl.cleanupVisitors()
 
 	return rl
 }
 
-// cleanupVisitors 定期清理过期的访问记录
+// cleanupVisitors periodically cleans up expired access records
 func (rl *RateLimiter) cleanupVisitors() {
 	defer rl.wg.Done()
 	for {
@@ -77,7 +78,7 @@ func (rl *RateLimiter) cleanupVisitors() {
 					delete(rl.visitors, ip)
 				}
 			}
-			// 如果仍然超过限制，清理最旧的记录
+			// If still exceeds limit, clean up oldest records
 			if len(rl.visitors) > rl.maxVisitors {
 				rl.cleanupOldestVisitors()
 			}
@@ -88,9 +89,9 @@ func (rl *RateLimiter) cleanupVisitors() {
 	}
 }
 
-// cleanupOldestVisitors 清理最旧的访问记录（当超过最大限制时）
+// cleanupOldestVisitors cleans up oldest access records (when exceeding maximum limit)
 func (rl *RateLimiter) cleanupOldestVisitors() {
-	// 找到最旧的记录
+	// Find oldest records
 	type visitorWithTime struct {
 		lastSeen time.Time // 24 bytes
 		ip       string    // 16 bytes
@@ -100,22 +101,22 @@ func (rl *RateLimiter) cleanupOldestVisitors() {
 		visitors = append(visitors, visitorWithTime{ip: ip, lastSeen: v.lastSeen})
 	}
 
-	// 按时间排序，删除最旧的
+	// Sort by time, delete oldest
 	sort.Slice(visitors, func(i, j int) bool {
 		return visitors[i].lastSeen.Before(visitors[j].lastSeen)
 	})
 
-	// 删除最旧的记录，直到低于限制
+	// Delete oldest records until below limit
 	toRemove := len(rl.visitors) - rl.maxVisitors
 	for i := 0; i < toRemove && i < len(visitors); i++ {
 		delete(rl.visitors, visitors[i].ip)
 	}
 }
 
-// Allow 检查是否允许请求
+// Allow checks if request is allowed
 func (rl *RateLimiter) Allow(ip string) bool {
 	rl.mu.RLock()
-	// 检查白名单
+	// Check whitelist
 	if rl.whitelist[ip] {
 		rl.mu.RUnlock()
 		return true
@@ -129,9 +130,9 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	now := time.Now()
 
 	if !exists {
-		// 检查是否超过最大限制
+		// Check if exceeds maximum limit
 		if len(rl.visitors) >= rl.maxVisitors {
-			// 清理最旧的记录
+			// Clean up oldest records
 			rl.cleanupOldestVisitors()
 		}
 		rl.visitors[ip] = &visitor{
@@ -141,16 +142,16 @@ func (rl *RateLimiter) Allow(ip string) bool {
 		return true
 	}
 
-	// 如果超过时间窗口，重置计数
+	// If exceeds time window, reset count
 	if now.Sub(v.lastSeen) > rl.window {
 		v.count = 1
 		v.lastSeen = now
 		return true
 	}
 
-	// 检查是否超过限制
+	// Check if exceeds limit
 	if v.count >= rl.rate {
-		// 记录限流指标
+		// Record rate limit metrics
 		metrics.RateLimitHits.WithLabelValues(ip).Inc()
 		return false
 	}
@@ -160,55 +161,55 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	return true
 }
 
-// AddToWhitelist 将 IP 添加到白名单
+// AddToWhitelist adds IP to whitelist
 func (rl *RateLimiter) AddToWhitelist(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	// 检查是否已存在
+	// Check if already exists
 	if rl.whitelist[ip] {
 		return true
 	}
 
-	// 检查是否超过最大限制
+	// Check if exceeds maximum limit
 	if len(rl.whitelist) >= rl.maxWhitelist {
-		return false // 白名单已满
+		return false // Whitelist is full
 	}
 
 	rl.whitelist[ip] = true
 	return true
 }
 
-// RemoveFromWhitelist 从白名单中移除 IP
+// RemoveFromWhitelist removes IP from whitelist
 func (rl *RateLimiter) RemoveFromWhitelist(ip string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	delete(rl.whitelist, ip)
 }
 
-// IsWhitelisted 检查 IP 是否在白名单中
+// IsWhitelisted checks if IP is in whitelist
 func (rl *RateLimiter) IsWhitelisted(ip string) bool {
 	rl.mu.RLock()
 	defer rl.mu.RUnlock()
 	return rl.whitelist[ip]
 }
 
-// Stop 停止速率限制器
-// 使用 sync.Once 确保只执行一次，避免重复关闭 channel 导致 panic
+// Stop stops the rate limiter
+// Uses sync.Once to ensure it's executed only once, avoiding panic from repeatedly closing channel
 func (rl *RateLimiter) Stop() {
 	rl.stopOnce.Do(func() {
 		rl.cleanup.Stop()
 		close(rl.stopCh)
-		rl.wg.Wait() // 等待 goroutine 退出
+		rl.wg.Wait() // Wait for goroutine to exit
 	})
 }
 
-// RateLimitMiddlewareWithLimiter 创建速率限制中间件（使用指定的 RateLimiter 实例）
-// 推荐使用此方法，避免全局变量
+// RateLimitMiddlewareWithLimiter creates rate limiting middleware (using specified RateLimiter instance)
+// Recommended to use this method to avoid global variables
 func RateLimitMiddlewareWithLimiter(limiter *RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 获取客户端 IP（安全方式）
+			// Get client IP (secure method)
 			ip := getClientIP(r)
 
 			if !limiter.Allow(ip) {
@@ -218,8 +219,8 @@ func RateLimitMiddlewareWithLimiter(limiter *RateLimiter) func(http.Handler) htt
 					Str("method", r.Method).
 					Str("user_agent", r.UserAgent()).
 					Str("referer", r.Referer()).
-					Msg("Rate limit exceeded")
-				http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+					Msg(i18n.T(r, "error.rate_limit_exceeded"))
+				http.Error(w, i18n.T(r, "http.rate_limit_exceeded"), http.StatusTooManyRequests)
 				return
 			}
 
@@ -228,31 +229,31 @@ func RateLimitMiddlewareWithLimiter(limiter *RateLimiter) func(http.Handler) htt
 	}
 }
 
-// getClientIP 安全地获取客户端 IP 地址
-// 改进的 IP 获取逻辑，增加了更严格的验证
+// getClientIP safely gets client IP address
+// Improved IP retrieval logic with stricter validation
 func getClientIP(r *http.Request) string {
-	// 优先使用 X-Real-IP（通常由反向代理设置，更可靠）
+	// Prefer X-Real-IP (usually set by reverse proxy, more reliable)
 	realIP := r.Header.Get("X-Real-IP")
 	if realIP != "" {
 		ip := strings.TrimSpace(realIP)
 		if parsedIP := net.ParseIP(ip); parsedIP != nil {
-			// 验证是否为私有 IP（如果是，可能表示配置问题）
+			// Verify if it's a private IP (if so, may indicate configuration issue)
 			if !isPrivateIP(parsedIP) || isTrustedProxy(r) {
 				return ip
 			}
 		}
 	}
 
-	// 其次使用 X-Forwarded-For，但需要验证
+	// Next use X-Forwarded-For, but needs validation
 	forwarded := r.Header.Get("X-Forwarded-For")
 	if forwarded != "" {
-		// 取第一个 IP（可能是代理链）
+		// Take first IP (may be proxy chain)
 		ips := strings.Split(forwarded, ",")
 		if len(ips) > 0 {
 			ip := strings.TrimSpace(ips[0])
-			// 验证 IP 格式
+			// Validate IP format
 			if parsedIP := net.ParseIP(ip); parsedIP != nil {
-				// 只有在信任代理的情况下才使用 X-Forwarded-For
+				// Only use X-Forwarded-For if proxy is trusted
 				if isTrustedProxy(r) {
 					return ip
 				}
@@ -260,13 +261,13 @@ func getClientIP(r *http.Request) string {
 		}
 	}
 
-	// 回退到 RemoteAddr
+	// Fallback to RemoteAddr
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 
-	// 验证 RemoteAddr 中的 IP
+	// Validate IP in RemoteAddr
 	if parsedIP := net.ParseIP(host); parsedIP != nil {
 		return host
 	}
@@ -274,7 +275,7 @@ func getClientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-// isPrivateIP 检查 IP 是否为私有 IP
+// isPrivateIP checks if IP is a private IP
 func isPrivateIP(ip net.IP) bool {
 	if ip4 := ip.To4(); ip4 != nil {
 		return ip4[0] == 10 ||
@@ -285,14 +286,14 @@ func isPrivateIP(ip net.IP) bool {
 	return false
 }
 
-// trustedProxyIPs 信任的代理 IP 列表（从环境变量读取）
+// trustedProxyIPs trusted proxy IP list (read from environment variable)
 var trustedProxyIPs = loadTrustedProxyIPs()
 
-// loadTrustedProxyIPs 从环境变量加载信任的代理 IP 列表
+// loadTrustedProxyIPs loads trusted proxy IP list from environment variable
 func loadTrustedProxyIPs() map[string]bool {
 	trustedIPs := make(map[string]bool)
 
-	// 从环境变量 TRUSTED_PROXY_IPS 读取，支持逗号分隔的多个 IP
+	// Read from environment variable TRUSTED_PROXY_IPS, supports comma-separated multiple IPs
 	trustedIPsEnv := os.Getenv("TRUSTED_PROXY_IPS")
 	if trustedIPsEnv != "" {
 		ips := strings.Split(trustedIPsEnv, ",")
@@ -307,8 +308,8 @@ func loadTrustedProxyIPs() map[string]bool {
 	return trustedIPs
 }
 
-// isTrustedProxy 检查请求是否来自信任的代理
-// 在生产环境中，应该根据实际部署情况配置信任的代理 IP
+// isTrustedProxy checks if request is from a trusted proxy
+// In production environment, should configure trusted proxy IPs according to actual deployment
 func isTrustedProxy(r *http.Request) bool {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -319,14 +320,14 @@ func isTrustedProxy(r *http.Request) bool {
 		return false
 	}
 
-	// 检查是否在信任的代理 IP 列表中
+	// Check if in trusted proxy IP list
 	if len(trustedProxyIPs) > 0 {
 		if trustedProxyIPs[ip.String()] {
 			return true
 		}
 	}
 
-	// 如果没有配置信任的代理 IP 列表，默认允许私有 IP（向后兼容）
-	// 在生产环境，建议通过环境变量明确配置信任的代理 IP
+	// If no trusted proxy IP list is configured, default to allow private IPs (backward compatibility)
+	// In production environment, recommend explicitly configuring trusted proxy IPs via environment variable
 	return isPrivateIP(ip)
 }

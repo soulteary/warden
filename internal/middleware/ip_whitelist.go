@@ -1,30 +1,30 @@
-// Package middleware 提供了 HTTP 中间件功能。
-// 包括速率限制、压缩、请求体限制、指标收集等中间件。
+// Package middleware provides HTTP middleware functionality.
+// Includes rate limiting, compression, request body limiting, metrics collection and other middleware.
 package middleware
 
 import (
-	// 标准库
+	// Standard library
 	"net"
 	"net/http"
 	"os"
 	"strings"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
 )
 
-// IPWhitelistMiddleware 创建 IP 白名单中间件
+// IPWhitelistMiddleware creates IP whitelist middleware
 //
-// 该中间件只允许白名单中的 IP 地址访问受保护的端点。
-// 白名单通过环境变量 IP_WHITELIST 配置，支持逗号分隔的多个 IP 或 CIDR 网段。
+// This middleware only allows IP addresses in the whitelist to access protected endpoints.
+// Whitelist is configured via environment variable IP_WHITELIST, supports comma-separated multiple IPs or CIDR networks.
 //
-// 参数:
-//   - whitelist: IP 白名单（逗号分隔的 IP 地址或 CIDR 网段）
+// Parameters:
+//   - whitelist: IP whitelist (comma-separated IP addresses or CIDR networks)
 //
-// 返回:
-//   - func(http.Handler) http.Handler: HTTP 中间件函数
+// Returns:
+//   - func(http.Handler) http.Handler: HTTP middleware function
 func IPWhitelistMiddleware(whitelist string) func(http.Handler) http.Handler {
-	// 如果未配置白名单，允许所有 IP（向后兼容）
+	// If whitelist is not configured, allow all IPs (backward compatibility)
 	if whitelist == "" {
 		whitelist = os.Getenv("IP_WHITELIST")
 	}
@@ -34,19 +34,19 @@ func IPWhitelistMiddleware(whitelist string) func(http.Handler) http.Handler {
 		}
 	}
 
-	// 解析白名单
+	// Parse whitelist
 	allowedIPs, allowedNetworks := parseIPWhitelist(whitelist)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := getClientIP(r)
 
-			// 检查 IP 是否在白名单中
+			// Check if IP is in whitelist
 			if !isIPAllowed(clientIP, allowedIPs, allowedNetworks) {
 				hlog.FromRequest(r).Warn().
 					Str("ip", clientIP).
 					Str("path", r.URL.Path).
-					Msg("IP 不在白名单中，访问被拒绝")
+					Msg("IP not in whitelist, access denied")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
@@ -56,7 +56,7 @@ func IPWhitelistMiddleware(whitelist string) func(http.Handler) http.Handler {
 	}
 }
 
-// parseIPWhitelist 解析 IP 白名单
+// parseIPWhitelist parses IP whitelist
 func parseIPWhitelist(whitelist string) (map[string]bool, []*net.IPNet) {
 	allowedIPs := make(map[string]bool)
 	var allowedNetworks []*net.IPNet
@@ -68,13 +68,13 @@ func parseIPWhitelist(whitelist string) (map[string]bool, []*net.IPNet) {
 			continue
 		}
 
-		// 尝试解析为 CIDR 网段
+		// Try to parse as CIDR network
 		if _, network, err := net.ParseCIDR(ipStr); err == nil {
 			allowedNetworks = append(allowedNetworks, network)
 			continue
 		}
 
-		// 尝试解析为单个 IP
+		// Try to parse as single IP
 		if ip := net.ParseIP(ipStr); ip != nil {
 			allowedIPs[ip.String()] = true
 		}
@@ -83,19 +83,19 @@ func parseIPWhitelist(whitelist string) (map[string]bool, []*net.IPNet) {
 	return allowedIPs, allowedNetworks
 }
 
-// isIPAllowed 检查 IP 是否在白名单中
+// isIPAllowed checks if IP is in whitelist
 func isIPAllowed(ipStr string, allowedIPs map[string]bool, allowedNetworks []*net.IPNet) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		return false
 	}
 
-	// 检查是否在单个 IP 白名单中
+	// Check if in single IP whitelist
 	if allowedIPs[ip.String()] {
 		return true
 	}
 
-	// 检查是否在任何 CIDR 网段中
+	// Check if in any CIDR network
 	for _, network := range allowedNetworks {
 		if network.Contains(ip) {
 			return true

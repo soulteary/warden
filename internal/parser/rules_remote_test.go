@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFromRemoteConfig_RetryOn5xx 测试 5xx 错误重试
+// TestFromRemoteConfig_RetryOn5xx tests retry on 5xx errors
 func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
 	if testing.Short() {
 		t.Skip("跳过需要网络的测试")
@@ -23,12 +23,12 @@ func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		attemptCount++
 		if attemptCount < 3 {
-			// 前两次返回 500 错误
+			// First two attempts return 500 error
 			w.WriteHeader(http.StatusInternalServerError)
 			_, err := w.Write([]byte("Internal Server Error"))
 			require.NoError(t, err)
 		} else {
-			// 第三次成功
+			// Third attempt succeeds
 			testData := []define.AllowListUser{
 				{Phone: "13800138000", Mail: "test@example.com"},
 			}
@@ -48,13 +48,13 @@ func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
 	assert.Equal(t, 3, attemptCount, "应该重试了3次")
 }
 
-// TestFromRemoteConfig_ContextCancellation 测试上下文取消
+// TestFromRemoteConfig_ContextCancellation tests context cancellation
 func TestFromRemoteConfig_ContextCancellation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("跳过需要网络的测试")
 	}
 
-	// 创建一个慢服务器
+	// Create a slow server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -65,7 +65,7 @@ func TestFromRemoteConfig_ContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// 立即取消上下文
+	// Cancel context immediately
 	cancel()
 
 	result, err := FromRemoteConfig(ctx, server.URL, "")
@@ -75,13 +75,13 @@ func TestFromRemoteConfig_ContextCancellation(t *testing.T) {
 	assert.Empty(t, result, "上下文取消应该返回空结果")
 }
 
-// TestFromRemoteConfig_ContextTimeout 测试上下文超时
+// TestFromRemoteConfig_ContextTimeout tests context timeout
 func TestFromRemoteConfig_ContextTimeout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("跳过需要网络的测试")
 	}
 
-	// 创建一个慢服务器
+	// Create a slow server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -99,7 +99,7 @@ func TestFromRemoteConfig_ContextTimeout(t *testing.T) {
 	assert.Empty(t, result, "超时应该返回空结果")
 }
 
-// TestFromRemoteConfig_Non200Status 测试非 200 状态码
+// TestFromRemoteConfig_Non200Status tests non-200 status codes
 func TestFromRemoteConfig_Non200Status(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -129,9 +129,9 @@ func TestFromRemoteConfig_Non200Status(t *testing.T) {
 	}
 }
 
-// TestFromRemoteConfig_LargeResponse 测试大响应体
+// TestFromRemoteConfig_LargeResponse tests large response body
 func TestFromRemoteConfig_LargeResponse(t *testing.T) {
-	// 创建一个返回大量数据的服务器
+	// Create a server returning large amount of data
 	largeData := make([]define.AllowListUser, 1000)
 	for i := range largeData {
 		largeData[i] = define.AllowListUser{
@@ -153,13 +153,13 @@ func TestFromRemoteConfig_LargeResponse(t *testing.T) {
 	assert.Len(t, result, 1000, "应该读取到所有记录")
 }
 
-// TestFromRemoteConfig_ResponseSizeLimit 测试响应体大小限制
+// TestFromRemoteConfig_ResponseSizeLimit tests response body size limit
 func TestFromRemoteConfig_ResponseSizeLimit(t *testing.T) {
-	// 创建一个返回超大数据的服务器（超过 MAX_JSON_SIZE）
-	// 注意：这个测试可能需要根据实际的 MAX_JSON_SIZE 值调整
+	// Create a server returning oversized data (exceeding MAX_JSON_SIZE)
+	// Note: This test may need adjustment based on actual MAX_JSON_SIZE value
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		// 生成一个超大的 JSON 字符串
+		// Generate an oversized JSON string
 		largeString := make([]byte, define.MAX_JSON_SIZE+1)
 		for i := range largeString {
 			largeString[i] = 'a'
@@ -172,15 +172,15 @@ func TestFromRemoteConfig_ResponseSizeLimit(t *testing.T) {
 	ctx := context.Background()
 	_, err := FromRemoteConfig(ctx, server.URL, "")
 
-	// 应该能够读取（因为使用了 LimitReader），但可能会在解析时失败
-	// 或者成功读取但被限制大小
+	// Should be able to read (because LimitReader is used), but may fail during parsing
+	// Or successfully read but limited in size
 	if err != nil {
-		// 如果出错，应该是解析错误
+		// If error occurs, should be parsing error
 		assert.Contains(t, err.Error(), "解析", "应该是解析错误")
 	}
 }
 
-// TestFromRemoteConfig_Headers 测试请求头设置
+// TestFromRemoteConfig_Headers tests request header settings
 func TestFromRemoteConfig_Headers(t *testing.T) {
 	var receivedHeaders http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -194,13 +194,13 @@ func TestFromRemoteConfig_Headers(t *testing.T) {
 	_, err := FromRemoteConfig(ctx, server.URL, "Bearer test-token")
 	require.NoError(t, err)
 
-	// 验证请求头
+	// Verify request headers
 	assert.Equal(t, "application/json", receivedHeaders.Get("Content-Type"), "应该设置 Content-Type")
 	assert.Equal(t, "max-age=0", receivedHeaders.Get("Cache-Control"), "应该设置 Cache-Control")
 	assert.Equal(t, "Bearer test-token", receivedHeaders.Get("Authorization"), "应该设置 Authorization")
 }
 
-// TestFromRemoteConfig_NoAuthorization 测试无授权头
+// TestFromRemoteConfig_NoAuthorization tests no authorization header
 func TestFromRemoteConfig_NoAuthorization(t *testing.T) {
 	var receivedHeaders http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -214,18 +214,18 @@ func TestFromRemoteConfig_NoAuthorization(t *testing.T) {
 	_, err := FromRemoteConfig(ctx, server.URL, "")
 	require.NoError(t, err)
 
-	// 验证没有设置 Authorization 头
+	// Verify Authorization header is not set
 	assert.Empty(t, receivedHeaders.Get("Authorization"), "不应该设置 Authorization 头")
 }
 
-// TestFromRemoteConfig_UserNormalization 测试用户数据规范化
+// TestFromRemoteConfig_UserNormalization tests user data normalization
 func TestFromRemoteConfig_UserNormalization(t *testing.T) {
 	testData := []define.AllowListUser{
 		{
 			Phone:  "13800138000",
 			Mail:   "test@example.com",
-			UserID: "", // 未设置 UserID
-			Status: "", // 未设置 Status
+			UserID: "", // UserID not set
+			Status: "", // Status not set
 		},
 	}
 
@@ -240,44 +240,44 @@ func TestFromRemoteConfig_UserNormalization(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result, 1)
 
-	// 验证数据被规范化
+	// Verify data is normalized
 	assert.NotEmpty(t, result[0].UserID, "UserID 应该被自动生成")
 	assert.Equal(t, "active", result[0].Status, "Status 应该有默认值")
 }
 
-// TestInitHTTPClient 测试 HTTP 客户端初始化
+// TestInitHTTPClient tests HTTP client initialization
 func TestInitHTTPClient(t *testing.T) {
-	// 保存原始客户端
+	// Save original client
 	originalClient := httpClient
 
-	// 测试初始化
+	// Test initialization
 	InitHTTPClient(30, 100, false)
 
-	// 验证客户端被更新
+	// Verify client is updated
 	assert.NotNil(t, httpClient, "客户端不应该为 nil")
 	assert.Equal(t, 30*time.Second, httpClient.Timeout, "超时时间应该正确设置")
 
-	// 恢复原始客户端
+	// Restore original client
 	httpClient = originalClient
 }
 
-// TestInitHTTPClient_InsecureTLS 测试不安全的 TLS 配置
+// TestInitHTTPClient_InsecureTLS tests insecure TLS configuration
 func TestInitHTTPClient_InsecureTLS(t *testing.T) {
-	// 保存原始客户端
+	// Save original client
 	originalClient := httpClient
 
-	// 测试初始化（启用不安全的 TLS）
+	// Test initialization (enable insecure TLS)
 	InitHTTPClient(30, 100, true)
 
-	// 验证客户端被更新
+	// Verify client is updated
 	assert.NotNil(t, httpClient, "客户端不应该为 nil")
 
-	// 验证 TLS 配置（如果可能）
+	// Verify TLS configuration (if possible)
 	transport, ok := httpClient.Transport.(*http.Transport)
 	if ok && transport.TLSClientConfig != nil {
 		assert.True(t, transport.TLSClientConfig.InsecureSkipVerify, "应该跳过 TLS 验证")
 	}
 
-	// 恢复原始客户端
+	// Restore original client
 	httpClient = originalClient
 }

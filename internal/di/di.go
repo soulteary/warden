@@ -1,17 +1,17 @@
-// Package di 提供了依赖注入功能。
-// 封装应用的所有依赖组件，提供统一的初始化和清理接口。
+// Package di provides dependency injection functionality.
+// Encapsulates all application dependency components, provides unified initialization and cleanup interfaces.
 package di
 
 import (
-	// 标准库
+	// Standard library
 	"context"
 	"net/http"
 	"time"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 
-	// 项目内部包
+	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
@@ -20,7 +20,7 @@ import (
 	"github.com/soulteary/warden/internal/router"
 )
 
-// Dependencies 依赖容器，封装所有应用依赖
+// Dependencies dependency container, encapsulates all application dependencies
 type Dependencies struct {
 	Config          *cmd.Config
 	RedisClient     *redis.Client
@@ -33,36 +33,36 @@ type Dependencies struct {
 	LogLevelHandler http.Handler
 }
 
-// NewDependencies 创建依赖容器
-// 按照依赖关系顺序初始化各个组件
+// NewDependencies creates dependency container
+// Initializes each component in dependency order
 func NewDependencies(cfg *cmd.Config) (*Dependencies, error) {
 	deps := &Dependencies{
 		Config: cfg,
 	}
 
-	// 1. 初始化 Redis 客户端
+	// 1. Initialize Redis client
 	if err := deps.initRedis(); err != nil {
 		return nil, errors.ErrRedisConnection.WithError(err)
 	}
 
-	// 2. 初始化缓存
+	// 2. Initialize cache
 	deps.initCache()
 
-	// 3. 初始化速率限制器
+	// 3. Initialize rate limiter
 	deps.initRateLimiter()
 
-	// 4. 初始化 HTTP 处理器
+	// 4. Initialize HTTP handlers
 	deps.initHandlers()
 
-	// 5. 初始化 HTTP 服务器
+	// 5. Initialize HTTP server
 	deps.initHTTPServer()
 
 	return deps, nil
 }
 
-// initRedis 初始化 Redis 客户端
+// initRedis initializes Redis client
 func (d *Dependencies) initRedis() error {
-	// 如果 Redis 被禁用，跳过初始化
+	// If Redis is disabled, skip initialization
 	if !d.Config.RedisEnabled {
 		d.RedisClient = nil
 		return nil
@@ -75,7 +75,7 @@ func (d *Dependencies) initRedis() error {
 
 	d.RedisClient = redis.NewClient(redisOptions)
 
-	// 验证 Redis 连接（带超时）
+	// Verify Redis connection (with timeout)
 	ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
 	defer cancel()
 	if err := d.RedisClient.Ping(ctx).Err(); err != nil {
@@ -85,9 +85,9 @@ func (d *Dependencies) initRedis() error {
 	return nil
 }
 
-// initCache 初始化缓存
+// initCache initializes cache
 func (d *Dependencies) initCache() {
-	// 只有在 Redis 客户端存在时才创建 RedisUserCache
+	// Only create RedisUserCache if Redis client exists
 	if d.RedisClient != nil {
 		d.RedisUserCache = cache.NewRedisUserCache(d.RedisClient)
 	} else {
@@ -96,17 +96,17 @@ func (d *Dependencies) initCache() {
 	d.UserCache = cache.NewSafeUserCache()
 }
 
-// initRateLimiter 初始化速率限制器
+// initRateLimiter initializes rate limiter
 func (d *Dependencies) initRateLimiter() {
 	d.RateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
 }
 
-// initHandlers 初始化 HTTP 处理器
+// initHandlers initializes HTTP handlers
 func (d *Dependencies) initHandlers() {
-	// 创建速率限制中间件
+	// Create rate limiting middleware
 	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(d.RateLimiter)
 
-	// 主数据接口处理器
+	// Main data interface handler
 	d.MainHandler = middleware.CompressMiddleware(
 		middleware.BodyLimitMiddleware(
 			middleware.MetricsMiddleware(
@@ -117,18 +117,18 @@ func (d *Dependencies) initHandlers() {
 		),
 	)
 
-	// 健康检查处理器
+	// Health check handler
 	d.HealthHandler = middleware.MetricsMiddleware(
 		router.ProcessWithLogger(router.HealthCheck(d.RedisClient, d.UserCache, d.Config.Mode, d.Config.RedisEnabled)),
 	)
 
-	// 日志级别控制处理器
+	// Log level control handler
 	d.LogLevelHandler = middleware.MetricsMiddleware(
 		router.ProcessWithLogger(router.LogLevelHandler()),
 	)
 }
 
-// initHTTPServer 初始化 HTTP 服务器
+// initHTTPServer initializes HTTP server
 func (d *Dependencies) initHTTPServer() {
 	d.HTTPServer = &http.Server{
 		Addr:              ":" + d.Config.Port,
@@ -140,15 +140,15 @@ func (d *Dependencies) initHTTPServer() {
 	}
 }
 
-// Cleanup 清理资源
+// Cleanup cleans up resources
 func (d *Dependencies) Cleanup() {
 	if d.RateLimiter != nil {
 		d.RateLimiter.Stop()
 	}
 	if d.RedisClient != nil {
 		if err := d.RedisClient.Close(); err != nil {
-			// 记录错误但不影响清理流程
-			_ = err // 明确忽略错误
+			// Log error but don't affect cleanup process
+			_ = err // Explicitly ignore error
 		}
 	}
 }

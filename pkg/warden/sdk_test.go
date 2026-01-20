@@ -53,7 +53,7 @@ func (m *mockLogger) Errorf(format string, args ...interface{}) {
 }
 
 func TestNewClient(t *testing.T) {
-	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
+	//nolint:govet // fieldalignment: test struct field order does not affect functionality
 	tests := []struct {
 		name    string
 		opts    *Options
@@ -330,7 +330,7 @@ func TestClient_ClearCache(t *testing.T) {
 }
 
 func TestOptions_Validate(t *testing.T) {
-	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
+	//nolint:govet // fieldalignment: test struct field order does not affect functionality
 	tests := []struct {
 		name    string
 		opts    *Options
@@ -431,10 +431,10 @@ func containsHelper(s, substr string) bool {
 	return false
 }
 
-// ========== 补充测试：错误处理 ==========
+// ========== Additional tests: Error handling ==========
 
 func TestClient_GetUsers_HTTPErrors(t *testing.T) {
-	//nolint:govet // fieldalignment: 测试结构体字段顺序不影响功能
+	//nolint:govet // fieldalignment: test struct field order does not affect functionality
 	tests := []struct {
 		name            string
 		statusCode      int
@@ -622,9 +622,9 @@ func TestClient_CheckUserInList_ErrorHandling(t *testing.T) {
 func TestClient_CheckUserInList_EdgeCases(t *testing.T) {
 	mockUsers := []AllowListUser{
 		{Phone: "13800138000", Mail: "user1@example.com"},
-		{Phone: " 13900139000 ", Mail: " USER2@EXAMPLE.COM "}, // 带空格
-		{Phone: "", Mail: "user3@example.com"},                // 空手机号
-		{Phone: "14000140000", Mail: ""},                      // 空邮箱
+		{Phone: " 13900139000 ", Mail: " USER2@EXAMPLE.COM "}, // With spaces
+		{Phone: "", Mail: "user3@example.com"},                // Empty phone number
+		{Phone: "14000140000", Mail: ""},                      // Empty email
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -726,7 +726,7 @@ func TestClient_AddAuthHeaders(t *testing.T) {
 	}
 }
 
-// ========== 补充测试：缓存功能 ==========
+// ========== Additional tests: Cache functionality ==========
 
 func TestCache_Expiration(t *testing.T) {
 	cache := NewCache(100 * time.Millisecond)
@@ -835,7 +835,7 @@ func TestCache_ZeroTTL(t *testing.T) {
 	}
 }
 
-// ========== 补充测试：Options ==========
+// ========== Additional tests: Options ==========
 
 func TestOptions_WithMethods(t *testing.T) {
 	opts := DefaultOptions()
@@ -954,7 +954,7 @@ func TestDefaultOptions(t *testing.T) {
 	}
 }
 
-// ========== 补充测试：Error 类型 ==========
+// ========== Additional tests: Error type ==========
 
 func TestError_WithNestedError(t *testing.T) {
 	originalErr := fmt.Errorf("original error")
@@ -1008,17 +1008,17 @@ func TestError_AllErrorCodes(t *testing.T) {
 	}
 }
 
-// ========== 补充测试：LogrusAdapter ==========
+// ========== Additional tests: LogrusAdapter ==========
 
 func TestLogrusAdapter(t *testing.T) {
-	// 这个测试需要 logrus，如果项目中有的话
-	// 为了不增加依赖，我们可以测试 nil logger 的情况
+	// This test requires logrus, if available in the project
+	// To avoid adding dependencies, we can test the nil logger case
 	adapter := NewLogrusAdapter(nil)
 	if adapter == nil {
 		t.Error("NewLogrusAdapter() should not return nil even with nil logger")
 	}
 
-	// 测试所有方法不会 panic
+	// Test all methods don't panic
 	adapter.Debug("test")
 	adapter.Debugf("test %s", "format")
 	adapter.Info("test")
@@ -1029,12 +1029,12 @@ func TestLogrusAdapter(t *testing.T) {
 	adapter.Errorf("test %s", "format")
 }
 
-// ========== 补充测试：NoOpLogger ==========
+// ========== Additional tests: NoOpLogger ==========
 
 func TestNoOpLogger(t *testing.T) {
 	logger := &NoOpLogger{}
 
-	// 测试所有方法不会 panic
+	// Test all methods don't panic
 	logger.Debug("test")
 	logger.Debugf("test %s", "format")
 	logger.Info("test")
@@ -1045,11 +1045,11 @@ func TestNoOpLogger(t *testing.T) {
 	logger.Errorf("test %s", "format")
 }
 
-// ========== 补充测试：Context 取消 ==========
+// ========== Additional tests: Context cancellation ==========
 
 func TestClient_GetUsers_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 模拟慢请求
+		// Simulate slow request
 		time.Sleep(2 * time.Second)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
@@ -1066,7 +1066,7 @@ func TestClient_GetUsers_ContextCancellation(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // 立即取消
+	cancel() // Cancel immediately
 
 	_, err = client.GetUsers(ctx)
 	if err == nil {
@@ -1076,7 +1076,7 @@ func TestClient_GetUsers_ContextCancellation(t *testing.T) {
 
 func TestClient_GetUsers_ContextTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 模拟慢请求
+		// Simulate slow request
 		time.Sleep(2 * time.Second)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
@@ -1101,7 +1101,7 @@ func TestClient_GetUsers_ContextTimeout(t *testing.T) {
 	}
 }
 
-// ========== 补充测试：边界情况 ==========
+// ========== Additional tests: Edge cases ==========
 
 func TestClient_GetUsersPaginated_EmptyResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

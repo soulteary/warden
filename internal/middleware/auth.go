@@ -1,94 +1,97 @@
-// Package middleware 提供了 HTTP 中间件功能。
-// 包括速率限制、压缩、请求体限制、指标收集等中间件。
+// Package middleware provides HTTP middleware functionality.
+// Includes rate limiting, compression, request body limiting, metrics collection and other middleware.
 package middleware
 
 import (
-	// 标准库
+	// Standard library
 	"net/http"
 	"strings"
 
-	// 第三方库
+	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
+
+	// Internal packages
+	"github.com/soulteary/warden/internal/i18n"
 )
 
-// AuthMiddleware 创建 API Key 认证中间件
+// AuthMiddleware creates API Key authentication middleware
 //
-// 该中间件通过检查请求头中的 X-API-Key 来验证请求是否被授权。
-// 如果 API Key 为空，则所有请求都会被拒绝（生产环境应该设置 API Key）。
-// 如果 API Key 不为空，则只有提供正确 API Key 的请求才能通过。
+// This middleware verifies whether requests are authorized by checking the X-API-Key in request headers.
+// If API Key is empty, all requests will be rejected (API Key should be set in production environment).
+// If API Key is not empty, only requests providing the correct API Key can pass.
 //
-// 参数:
-//   - apiKey: API Key 值，如果为空则禁用认证（不推荐在生产环境使用）
+// Parameters:
+//   - apiKey: API Key value, if empty then authentication is disabled (not recommended for production use)
 //
-// 返回:
-//   - func(http.Handler) http.Handler: HTTP 中间件函数
+// Returns:
+//   - func(http.Handler) http.Handler: HTTP middleware function
 //
-// 使用示例:
+// Usage example:
 //
 //	authMiddleware := AuthMiddleware("your-api-key-here")
 //	handler := authMiddleware(protectedHandler)
 func AuthMiddleware(apiKey string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 如果 API Key 为空，在生产环境应该拒绝所有请求
-			// 但在开发环境可能允许（通过环境变量控制）
+			// If API Key is empty, should reject all requests in production environment
+			// But may allow in development environment (controlled via environment variables)
 			if apiKey == "" {
-				// 检查是否为开发环境（通过环境变量判断）
-				// 在生产环境，应该设置 API Key
+				// Check if it's development environment (determined via environment variables)
+				// In production environment, API Key should be set
 				hlog.FromRequest(r).Warn().
-					Msg("API Key 未配置，请求被拒绝（生产环境必须配置 API Key）")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					Msg(i18n.T(r, "error.api_key_not_configured"))
+				http.Error(w, i18n.T(r, "http.unauthorized"), http.StatusUnauthorized)
 				return
 			}
 
-			// 从请求头获取 API Key
-			// 支持 X-API-Key 和 Authorization: Bearer <key> 两种方式
+			// Get API Key from request headers
+			// Supports both X-API-Key and Authorization: Bearer <key> methods
 			providedKey := r.Header.Get("X-API-Key")
 			if providedKey == "" {
-				// 尝试从 Authorization 头获取
+				// Try to get from Authorization header
 				authHeader := r.Header.Get("Authorization")
 				if strings.HasPrefix(authHeader, "Bearer ") {
 					providedKey = strings.TrimPrefix(authHeader, "Bearer ")
 				}
 			}
 
-			// 验证 API Key
+			// Verify API Key
 			if providedKey == "" || providedKey != apiKey {
 				hlog.FromRequest(r).Warn().
 					Str("ip", getClientIP(r)).
 					Str("path", r.URL.Path).
 					Str("method", r.Method).
-					Msg("认证失败：无效的 API Key")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					Msg(i18n.T(r, "error.auth_failed"))
+				http.Error(w, i18n.T(r, "http.unauthorized"), http.StatusUnauthorized)
 				return
 			}
 
-			// 认证成功，继续处理请求
+			// Authentication successful, continue processing request
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-// OptionalAuthMiddleware 创建可选的 API Key 认证中间件
+// OptionalAuthMiddleware creates optional API Key authentication middleware
 //
-// 与 AuthMiddleware 不同，如果 API Key 为空，该中间件不会拒绝请求。
-// 这适用于某些端点需要可选认证的场景。
+// Unlike AuthMiddleware, if API Key is empty, this middleware will not reject requests.
+// This is suitable for scenarios where certain endpoints require optional authentication.
 //
-// 参数:
-//   - apiKey: API Key 值，如果为空则不进行认证
+// Parameters:
+//   - apiKey: API Key value, if empty then no authentication is performed
 //
-// 返回:
-//   - func(http.Handler) http.Handler: HTTP 中间件函数
+// Returns:
+//   - func(http.Handler) http.Handler: HTTP middleware function
 func OptionalAuthMiddleware(apiKey string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 如果 API Key 为空，不进行认证
+			// If API Key is empty, do not perform authentication
 			if apiKey == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// 执行认证逻辑（与 AuthMiddleware 相同）
+			// Execute authentication logic (same as AuthMiddleware)
 			providedKey := r.Header.Get("X-API-Key")
 			if providedKey == "" {
 				authHeader := r.Header.Get("Authorization")
@@ -102,8 +105,8 @@ func OptionalAuthMiddleware(apiKey string) func(http.Handler) http.Handler {
 					Str("ip", getClientIP(r)).
 					Str("path", r.URL.Path).
 					Str("method", r.Method).
-					Msg("认证失败：无效的 API Key")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					Msg(i18n.T(r, "error.auth_failed"))
+				http.Error(w, i18n.T(r, "http.unauthorized"), http.StatusUnauthorized)
 				return
 			}
 
