@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -60,6 +61,7 @@ func TestLogLevelHandler_POST_ValidLevel(t *testing.T) {
 
 			req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
+			req = i18n.SetLanguageInContext(req, i18n.LangZH)
 			w := httptest.NewRecorder()
 
 			handler(w, req)
@@ -94,6 +96,7 @@ func TestLogLevelHandler_POST_InvalidLevel(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -113,6 +116,7 @@ func TestLogLevelHandler_POST_InvalidJSON(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -164,6 +168,7 @@ func TestLogLevelHandler_InvalidMethod(t *testing.T) {
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			req := httptest.NewRequest(method, "/log/level", http.NoBody)
+			req = i18n.SetLanguageInContext(req, i18n.LangZH)
 			w := httptest.NewRecorder()
 
 			handler(w, req)
@@ -204,6 +209,7 @@ func TestLogLevelHandler_POST_MissingLevel(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
 	w := httptest.NewRecorder()
 
 	handler(w, req)
@@ -230,6 +236,7 @@ func TestLogLevelHandler_POST_EmptyLevel(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
 	w := httptest.NewRecorder()
 
 	handler(w, req)

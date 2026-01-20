@@ -127,6 +127,24 @@ var translations = map[Language]map[string]string{
 		"error.health_check_encode_failed":   "Health check response encoding failed",
 		"error.error_response_hidden":        "Error response (details hidden)",
 		"error.request_error":                "Error occurred while processing request",
+		"error.request_cancelled":            "Request cancelled",
+		"error.toml_not_supported":           "TOML format is not supported yet, please use YAML format",
+
+		// Validation error messages
+		"validation.port_invalid":            "Invalid port number: %s (must be an integer between 1-65535)",
+		"validation.mode_invalid":            "Invalid mode: %s (valid values: DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)",
+		"validation.task_interval_invalid":   "Task interval must be greater than 0, current value: %d",
+		"validation.server_port_empty":       "server.port cannot be empty",
+		"validation.redis_addr_empty":        "redis.addr cannot be empty",
+		"validation.task_interval_too_short": "task.interval must be at least 1 second",
+		"validation.prod_tls_not_allowed":    "production environment does not allow disabling TLS certificate verification",
+
+		// Log level messages
+		"log_level.updated":              "Log level updated",
+		"log_level.invalid":              "Invalid log level, supported: trace, debug, info, warn, error, fatal, panic",
+		"log_level.empty":                "Log level cannot be empty",
+		"log_level.invalid_request_body": "Invalid request body",
+		"log_level.method_not_allowed":   "Method not allowed, please use GET or POST",
 
 		// Log messages
 		"log.http_tls_disabled":                "HTTP TLS certificate verification disabled (development only)",
@@ -226,6 +244,24 @@ var translations = map[Language]map[string]string{
 		"error.health_check_encode_failed":   "健康检查响应编码失败",
 		"error.error_response_hidden":        "错误响应（详细信息已隐藏）",
 		"error.request_error":                "处理请求时发生错误",
+		"error.request_cancelled":            "请求已取消",
+		"error.toml_not_supported":           "TOML 格式暂不支持，请使用 YAML 格式",
+
+		// Validation error messages
+		"validation.port_invalid":            "无效的端口号：%s（必须是 1-65535 之间的整数）",
+		"validation.mode_invalid":            "无效的模式：%s（有效值：DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED）",
+		"validation.task_interval_invalid":   "任务间隔必须大于 0，当前值：%d",
+		"validation.server_port_empty":       "server.port 不能为空",
+		"validation.redis_addr_empty":        "redis.addr 不能为空",
+		"validation.task_interval_too_short": "task.interval 必须至少为 1 秒",
+		"validation.prod_tls_not_allowed":    "生产环境不允许禁用 TLS 证书验证",
+
+		// Log level messages
+		"log_level.updated":              "日志级别已更新",
+		"log_level.invalid":              "无效的日志级别，支持的值：trace, debug, info, warn, error, fatal, panic",
+		"log_level.empty":                "日志级别不能为空",
+		"log_level.invalid_request_body": "无效的请求体",
+		"log_level.method_not_allowed":   "不支持的方法，请使用 GET 或 POST",
 
 		// Log messages
 		"log.http_tls_disabled":                "HTTP TLS 证书验证已禁用（仅用于开发环境）",

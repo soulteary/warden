@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	// Internal packages
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -45,7 +46,7 @@ func LogLevelHandler() http.HandlerFunc {
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
-					"error": "Invalid request body",
+					"error": i18n.T(r, "log_level.invalid_request_body"),
 				}); err != nil {
 					log.Error().Err(err).Msg("Failed to encode error response")
 				}
@@ -56,7 +57,7 @@ func LogLevelHandler() http.HandlerFunc {
 			if strings.TrimSpace(request.Level) == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
-					"error": "Log level cannot be empty",
+					"error": i18n.T(r, "log_level.empty"),
 				}); err != nil {
 					log.Error().Err(err).Msg("Failed to encode error response")
 				}
@@ -67,7 +68,7 @@ func LogLevelHandler() http.HandlerFunc {
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
-					"error": "Invalid log level, supported: trace, debug, info, warn, error, fatal, panic",
+					"error": i18n.T(r, "log_level.invalid"),
 				}); err != nil {
 					log.Error().Err(err).Msg("Failed to encode error response")
 				}
@@ -87,7 +88,7 @@ func LogLevelHandler() http.HandlerFunc {
 				Msg("Log level modified (security audit)")
 
 			response := map[string]interface{}{
-				"message": "Log level updated",
+				"message": i18n.T(r, "log_level.updated"),
 				"level":   level.String(),
 			}
 			w.WriteHeader(http.StatusOK)
@@ -98,7 +99,7 @@ func LogLevelHandler() http.HandlerFunc {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			if err := json.NewEncoder(w).Encode(map[string]string{
-				"error": "Method not allowed, please use GET or POST",
+				"error": i18n.T(r, "log_level.method_not_allowed"),
 			}); err != nil {
 				log := logger.GetLogger()
 				log.Error().Err(err).Msg("Failed to encode error response")

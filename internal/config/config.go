@@ -16,6 +16,7 @@ import (
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/errors"
+	"github.com/soulteary/warden/internal/i18n"
 )
 
 // Config application configuration struct
@@ -121,7 +122,7 @@ func LoadFromFile(configPath string) (*Config, error) {
 				}
 			case ".toml":
 				// TOML support requires additional library, return error message here
-				return nil, errors.ErrConfigParse.WithMessage("TOML format is not supported yet, please use YAML format")
+				return nil, errors.ErrConfigParse.WithMessage(i18n.TWithLang(i18n.LangZH, "error.toml_not_supported"))
 			default:
 				// Default to try YAML
 				if err := yaml.Unmarshal(data, cfg); err != nil {
@@ -306,21 +307,21 @@ func validate(cfg *Config) error {
 	var errs []string
 
 	if cfg.Server.Port == "" {
-		errs = append(errs, "server.port cannot be empty")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.server_port_empty"))
 	}
 
 	if cfg.Redis.Addr == "" {
-		errs = append(errs, "redis.addr cannot be empty")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.redis_addr_empty"))
 	}
 
 	if cfg.Task.Interval < time.Second {
-		errs = append(errs, "task.interval must be at least 1 second")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.task_interval_too_short"))
 	}
 
 	// Force TLS verification in production environment
 	isProduction := cfg.App.Mode == "production" || cfg.App.Mode == "prod"
 	if isProduction && cfg.HTTP.InsecureTLS {
-		errs = append(errs, "production environment does not allow disabling TLS certificate verification")
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_tls_not_allowed"))
 	}
 
 	if len(errs) > 0 {

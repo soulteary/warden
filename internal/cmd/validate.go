@@ -8,6 +8,7 @@ import (
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/validator"
 )
 
@@ -17,7 +18,7 @@ func ValidateConfig(cfg *Config) error {
 
 	// Validate port
 	if port, err := strconv.Atoi(cfg.Port); err != nil || port < 1 || port > 65535 {
-		errors = append(errors, fmt.Sprintf("Invalid port number: %s (must be an integer between 1-65535)", cfg.Port))
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
 	}
 
 	// Validate Redis address format
@@ -41,7 +42,7 @@ func ValidateConfig(cfg *Config) error {
 
 	// Validate task interval
 	if cfg.TaskInterval < 1 {
-		errors = append(errors, fmt.Sprintf("Task interval must be greater than 0, current value: %d", cfg.TaskInterval))
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
 	}
 
 	// Validate mode
@@ -55,11 +56,11 @@ func ValidateConfig(cfg *Config) error {
 		"LOCAL_FIRST_ALLOW_REMOTE_FAILED":  true,
 	}
 	if !validModes[cfg.Mode] {
-		errors = append(errors, fmt.Sprintf("Invalid mode: %s (valid values: DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)", cfg.Mode))
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("Configuration validation failed:\n  - %s", strings.Join(errors, "\n  - "))
+		return fmt.Errorf("%s:\n  - %s", i18n.TWithLang(i18n.LangZH, "error.config_validation_failed"), strings.Join(errors, "\n  - "))
 	}
 
 	return nil

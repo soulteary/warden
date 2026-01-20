@@ -14,6 +14,7 @@ import (
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/i18n"
 )
 
 // httpClient global HTTP client, uses connection pool to reuse connections
@@ -76,7 +77,7 @@ func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, 
 		// Check if context is cancelled
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("request cancelled: %w", ctx.Err())
+			return nil, fmt.Errorf("%s: %w", i18n.TWithLang(i18n.LangZH, "error.request_cancelled"), ctx.Err())
 		default:
 		}
 
@@ -84,7 +85,7 @@ func doRequestWithRetry(ctx context.Context, req *http.Request, maxRetries int, 
 			// Wait before retry, but check context
 			select {
 			case <-ctx.Done():
-				return nil, fmt.Errorf("request cancelled: %w", ctx.Err())
+				return nil, fmt.Errorf("%s: %w", i18n.TWithLang(i18n.LangZH, "error.request_cancelled"), ctx.Err())
 			case <-time.After(retryDelay * time.Duration(attempt)):
 			}
 			log.Debug().
