@@ -282,18 +282,25 @@ graph TB
 - `"unavailable"`: Redis 连接失败（fallback 模式）或 Redis 客户端为 nil
 - `"disabled"`: Redis 被显式禁用
 
+**重要说明**：
+- 在 `ONLY_LOCAL` 模式下，即使 Redis 不可用，健康检查也会返回 `200 OK`（因为该模式不依赖 Redis）
+- 如果数据已加载（`data_loaded: true`），即使 Redis 不可用，服务仍然健康，返回 `200 OK`
+- 只有在非 `ONLY_LOCAL` 模式且数据未加载时，Redis 不可用才会返回 `503 Service Unavailable`
+
 ### 配置参数
 
 ### 命令行参数
 
 ```bash
---redis-enabled=true|false  # 启用/禁用 Redis（默认: true）
+--redis-enabled=true|false  # 启用/禁用 Redis（默认: true，但在 ONLY_LOCAL 模式下默认为 false）
+                            # 注意: 在 ONLY_LOCAL 模式下，如果显式设置了 --redis 地址，会自动启用 Redis
 ```
 
 ### 环境变量
 
 ```bash
-REDIS_ENABLED=true|false|1|0  # 启用/禁用 Redis（默认: true）
+REDIS_ENABLED=true|false|1|0  # 启用/禁用 Redis（默认: true，但在 ONLY_LOCAL 模式下默认为 false）
+                              # 注意: 在 ONLY_LOCAL 模式下，如果显式设置了 REDIS 地址，会自动启用 Redis
 ```
 
 ### 优先级

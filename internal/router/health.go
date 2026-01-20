@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	// Third-party libraries
@@ -31,7 +32,11 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 		code := http.StatusOK
 		details := make(map[string]interface{})
 
+		// Check if it's ONLY_LOCAL mode (case-insensitive)
+		isOnlyLocalMode := strings.ToUpper(strings.TrimSpace(appMode)) == "ONLY_LOCAL"
+
 		// Check Redis connection status
+		redisUnavailable := false
 		switch {
 		case !redisEnabled:
 			// Redis is explicitly disabled
@@ -41,8 +46,7 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := redisClient.Ping(ctx).Err(); err != nil {
-				status = "redis_unavailable"
-				code = http.StatusServiceUnavailable
+				redisUnavailable = true
 				details["redis"] = "unavailable"
 				// Production environment does not return detailed error information to avoid leaking sensitive information
 				if !isProduction {
@@ -54,22 +58,24 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 			}
 		default:
 			// Redis client is nil (may be fallback state after connection failure)
-			status = "redis_unavailable"
-			code = http.StatusServiceUnavailable
+			redisUnavailable = true
 			details["redis"] = "unavailable"
 		}
 
 		// Check if data is loaded
+		dataLoaded := false
+		userCount := 0
 		if userCache != nil {
-			userCount := userCache.Len()
-			details["data_loaded"] = userCount > 0
+			userCount = userCache.Len()
+			dataLoaded = userCount > 0
+			details["data_loaded"] = dataLoaded
 			// Production environment hides specific user count, only returns whether data is loaded
 			if isProduction {
 				// Production environment: only return boolean value, not specific count
-				details["data_loaded"] = userCount > 0
+				details["data_loaded"] = dataLoaded
 			} else {
 				// Development environment: return detailed information
-				details["data_loaded"] = userCount > 0
+				details["data_loaded"] = dataLoaded
 				details["user_count"] = userCount
 			}
 			if userCount == 0 {
@@ -86,6 +92,23 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 				details["data_warning"] = "cache not initialized"
 			}
 		}
+
+		// Determine final status and code
+		// In ONLY_LOCAL mode, Redis unavailability is not a critical issue
+		// If data is loaded, the service is healthy even without Redis
+		if redisUnavailable && !isOnlyLocalMode {
+			// Redis is unavailable and not in ONLY_LOCAL mode
+			status = "redis_unavailable"
+			if !dataLoaded {
+				// No data loaded: critical failure
+				code = http.StatusServiceUnavailable
+			} else {
+				// Data is loaded: service can still function, return 200
+				code = http.StatusOK
+			}
+		}
+		// Note: If redisUnavailable && isOnlyLocalMode, status remains "ok" and code remains 200
+		// (default values are correct, no action needed)
 
 		response := map[string]interface{}{
 			"status":  status,

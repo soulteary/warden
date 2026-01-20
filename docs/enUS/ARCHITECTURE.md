@@ -282,18 +282,25 @@ The health check endpoint (`/health`) returns Redis status:
 - `"unavailable"`: Redis connection failed (fallback mode) or Redis client is nil
 - `"disabled"`: Redis is explicitly disabled
 
+**Important Notes**:
+- In `ONLY_LOCAL` mode, even if Redis is unavailable, the health check will return `200 OK` (because this mode does not depend on Redis)
+- If data is loaded (`data_loaded: true`), the service is still healthy even if Redis is unavailable, returning `200 OK`
+- Only when not in `ONLY_LOCAL` mode and data is not loaded, Redis unavailability will return `503 Service Unavailable`
+
 ### Configuration Parameters
 
 ### Command Line Arguments
 
 ```bash
---redis-enabled=true|false  # Enable/disable Redis (default: true)
+--redis-enabled=true|false  # Enable/disable Redis (default: true, but defaults to false in ONLY_LOCAL mode)
+                            # Note: In ONLY_LOCAL mode, if --redis address is explicitly set, Redis will be enabled automatically
 ```
 
 ### Environment Variables
 
 ```bash
-REDIS_ENABLED=true|false|1|0  # Enable/disable Redis (default: true)
+REDIS_ENABLED=true|false|1|0  # Enable/disable Redis (default: true, but defaults to false in ONLY_LOCAL mode)
+                              # Note: In ONLY_LOCAL mode, if REDIS address is explicitly set, Redis will be enabled automatically
 ```
 
 ### Priority

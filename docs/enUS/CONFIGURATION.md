@@ -12,7 +12,7 @@ The system supports 6 data merging modes, selected via the `MODE` parameter:
 |------|-------------|----------|
 | `DEFAULT` / `REMOTE_FIRST` | Remote-first, use local data to supplement when remote data doesn't exist | Default mode, suitable for most scenarios |
 | `ONLY_REMOTE` | Use only remote data source | Fully dependent on remote configuration |
-| `ONLY_LOCAL` | Use only local configuration file | Offline environment or test environment |
+| `ONLY_LOCAL` | Use only local configuration file, **Redis disabled by default** (will be enabled if `REDIS` address is explicitly set or `REDIS_ENABLED=true`) | Offline environment or test environment |
 | `LOCAL_FIRST` | Local-first, use remote data to supplement when local data doesn't exist | Local configuration as primary, remote as secondary |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | Remote-first, allow fallback to local when remote fails | High availability scenarios |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | Local-first, allow fallback to remote when local fails | Hybrid mode |
@@ -169,6 +169,8 @@ export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis password (optional)
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis password file path (optional, higher priority than REDIS_PASSWORD)
 export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true, supports true/false/1/0)
+                                        # Note: In ONLY_LOCAL mode, default is false
+                                        #       But if REDIS address is explicitly set, Redis will be enabled automatically
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5

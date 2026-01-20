@@ -7,7 +7,7 @@ This is the simplest Warden usage example, using only local data files, suitable
 ## 📋 Prerequisites
 
 - Go 1.25+ or Docker
-- Redis (for caching and distributed locks, required even when using only local files)
+- Redis (optional, for caching and distributed locks - disabled by default in ONLY_LOCAL mode)
 
 ## 🚀 Quick Start
 
@@ -30,24 +30,28 @@ Create a `data.json` file:
 ]
 ```
 
-2. **Start Redis**
+2. **Run Warden** (Redis is optional in ONLY_LOCAL mode)
 
+```bash
+# Execute in project root directory (Redis disabled by default)
+go run main.go \
+  --port 8081 \
+  --mode ONLY_LOCAL
+
+# Or set Redis address (Redis will be enabled automatically, no need for --redis-enabled)
+go run main.go \
+  --port 8081 \
+  --redis localhost:6379 \
+  --mode ONLY_LOCAL
+```
+
+**Note**: If you want to use Redis, start it first:
 ```bash
 # Start Redis using Docker (simplest)
 docker run -d --name redis -p 6379:6379 redis:6.2.4
 
 # Or use local Redis
 redis-server
-```
-
-3. **Run Warden**
-
-```bash
-# Execute in project root directory
-go run main.go \
-  --port 8081 \
-  --redis localhost:6379 \
-  --mode ONLY_LOCAL
 ```
 
 4. **Test Service**
@@ -102,7 +106,8 @@ curl http://localhost:8081/health
 This example uses `ONLY_LOCAL` mode, which means:
 - ✅ Only reads data from local `data.json` file
 - ❌ Does not use remote API
-- ✅ Data is cached in Redis for improved performance
+- ⚠️  **Redis is disabled by default** (will be enabled automatically if `REDIS` address is explicitly set)
+- ✅ If Redis is enabled, data is cached in Redis for improved performance
 
 ### Data File Format
 
