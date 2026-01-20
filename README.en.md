@@ -257,10 +257,20 @@ Create a `data.json` file (refer to `data.example.json`):
 [
     {
         "phone": "13800138000",
-        "mail": "admin@admin.com"
+        "mail": "admin@example.com"
     }
 ]
 ```
+
+**Note**: The `data.json` file supports the following fields:
+- `phone` (required): User phone number
+- `mail` (required): User email address
+- `user_id` (optional): User unique identifier, auto-generated if not provided
+- `status` (optional): User status, such as "active", "inactive", "suspended", defaults to "active"
+- `scope` (optional): User permission scope array, such as `["read", "write"]`
+- `role` (optional): User role, such as "admin", "user"
+
+For a complete example, please refer to the `data.example.json` file.
 
 4. **Run the service**
 ```bash
@@ -274,6 +284,7 @@ go run main.go \
   --port 8081 \                    # Web service port (default: 8081)
   --redis localhost:6379 \         # Redis address (default: localhost:6379)
   --redis-password "password" \    # Redis password (optional, recommend using environment variables)
+  --redis-enabled=true \           # Enable/disable Redis (default: true)
   --config http://example.com/api \ # Remote configuration URL
   --key "Bearer token" \           # Remote configuration authentication header
   --interval 5 \                   # Scheduled task interval (seconds, default: 5)
@@ -281,6 +292,7 @@ go run main.go \
   --http-timeout 5 \               # HTTP request timeout (seconds, default: 5)
   --http-max-idle-conns 100 \     # HTTP maximum idle connections (default: 100)
   --http-insecure-tls \           # Skip TLS certificate verification (development only)
+  --api-key "your-secret-api-key" \ # API Key for authentication (optional, recommend using environment variables)
   --config-file config.yaml        # Configuration file path (supports YAML format)
 ```
 
@@ -298,6 +310,7 @@ export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis password (optional)
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis password file path (optional, higher priority than REDIS_PASSWORD)
+export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true, supports true/false/1/0)
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5
@@ -340,18 +353,44 @@ export LOG_LEVEL="info"                # Log level (optional, default: info, opt
 
 Local user data file `data.json` format (refer to `data.example.json`):
 
+**Minimal format** (required fields only):
 ```json
 [
     {
         "phone": "13800138000",
         "mail": "admin@example.com"
-    },
-    {
-        "phone": "13900139000",
-        "mail": "user@example.com"
     }
 ]
 ```
+
+**Complete format** (with all optional fields):
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com",
+        "user_id": "a1b2c3d4e5f6g7h8",
+        "status": "active",
+        "scope": ["read", "write", "admin"],
+        "role": "admin"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com",
+        "status": "active",
+        "scope": ["read"],
+        "role": "user"
+    }
+]
+```
+
+**Field descriptions**:
+- `phone` (required): User phone number
+- `mail` (required): User email address
+- `user_id` (optional): User unique identifier, auto-generated based on phone or mail if not provided
+- `status` (optional): User status, defaults to "active"
+- `scope` (optional): User permission scope array, defaults to empty array
+- `role` (optional): User role, defaults to empty string
 
 #### Application Configuration File (`config.yaml`)
 
@@ -469,6 +508,46 @@ X-API-Key: your-secret-api-key
 **Status Code**: `200 OK`
 
 **Content-Type**: `application/json`
+
+#### Get Single User
+
+**Request**
+```http
+GET /user?phone=13800138000
+X-API-Key: your-secret-api-key
+
+GET /user?mail=admin@example.com
+X-API-Key: your-secret-api-key
+
+GET /user?user_id=user-123
+X-API-Key: your-secret-api-key
+```
+
+**Note**: This endpoint requires API Key authentication, provided via the `X-API-Key` header or `Authorization: Bearer <key>`. Only one query parameter (`phone`, `mail`, or `user_id`) is allowed.
+
+**Response (user exists)**
+```json
+{
+    "phone": "13800138000",
+    "mail": "admin@example.com",
+    "user_id": "user-123",
+    "status": "active",
+    "scope": ["read", "write"],
+    "role": "admin"
+}
+```
+
+**Response (user not found)**
+- **Status Code**: `404 Not Found`
+- **Response Body**: `User not found`
+
+**Error Response (missing parameter)**
+- **Status Code**: `400 Bad Request`
+- **Response Body**: `Bad Request: missing identifier (phone, mail, or user_id)`
+
+**Error Response (multiple parameters)**
+- **Status Code**: `400 Bad Request`
+- **Response Body**: `Bad Request: only one identifier allowed (phone, mail, or user_id)`
 
 #### Health Check
 

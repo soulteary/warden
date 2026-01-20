@@ -69,9 +69,8 @@ graph TB
 健康检查端点 (`/health`) 返回 Redis 状态：
 
 - `"ok"`: Redis 正常
-- `"unavailable"`: Redis 连接失败（fallback 模式）
+- `"unavailable"`: Redis 连接失败（fallback 模式）或 Redis 客户端为 nil
 - `"disabled"`: Redis 被显式禁用
-- `"not_configured"`: Redis 客户端为 nil（向后兼容）
 
 ## 配置参数
 

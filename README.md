@@ -257,10 +257,20 @@ go mod download
 [
     {
         "phone": "13800138000",
-        "mail": "admin@admin.com"
+        "mail": "admin@example.com"
     }
 ]
 ```
+
+**注意**：`data.json` 支持以下字段：
+- `phone`（必需）：用户手机号
+- `mail`（必需）：用户邮箱地址
+- `user_id`（可选）：用户唯一标识符，如果未提供则自动生成
+- `status`（可选）：用户状态，如 "active"、"inactive"、"suspended"，默认为 "active"
+- `scope`（可选）：用户权限范围数组，如 `["read", "write"]`
+- `role`（可选）：用户角色，如 "admin"、"user"
+
+完整示例请参考 `data.example.json` 文件。
 
 4. **运行服务**
 ```bash
@@ -274,6 +284,7 @@ go run main.go \
   --port 8081 \                    # Web 服务端口 (默认: 8081)
   --redis localhost:6379 \         # Redis 地址 (默认: localhost:6379)
   --redis-password "password" \    # Redis 密码（可选，建议使用环境变量）
+  --redis-enabled=true \           # 启用/禁用 Redis（默认: true）
   --config http://example.com/api \ # 远程配置 URL
   --key "Bearer token" \           # 远程配置认证头
   --interval 5 \                   # 定时任务间隔（秒，默认: 5）
@@ -281,6 +292,7 @@ go run main.go \
   --http-timeout 5 \               # HTTP 请求超时时间（秒，默认: 5）
   --http-max-idle-conns 100 \     # HTTP 最大空闲连接数 (默认: 100)
   --http-insecure-tls \           # 跳过 TLS 证书验证（仅用于开发环境）
+  --api-key "your-secret-api-key" \ # API Key 用于认证（可选，建议使用环境变量）
   --config-file config.yaml        # 配置文件路径（支持 YAML 格式）
 ```
 
@@ -298,6 +310,7 @@ export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis 密码（可选）
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis 密码文件路径（可选，优先级高于 REDIS_PASSWORD）
+export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认: true，支持 true/false/1/0）
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5
@@ -340,18 +353,44 @@ export LOG_LEVEL="info"                # 日志级别（可选，默认: info，
 
 本地用户数据文件 `data.json` 格式（可参考 `data.example.json`）：
 
+**最小格式**（仅必需字段）：
 ```json
 [
     {
         "phone": "13800138000",
         "mail": "admin@example.com"
-    },
-    {
-        "phone": "13900139000",
-        "mail": "user@example.com"
     }
 ]
 ```
+
+**完整格式**（包含所有可选字段）：
+```json
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com",
+        "user_id": "a1b2c3d4e5f6g7h8",
+        "status": "active",
+        "scope": ["read", "write", "admin"],
+        "role": "admin"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com",
+        "status": "active",
+        "scope": ["read"],
+        "role": "user"
+    }
+]
+```
+
+**字段说明**：
+- `phone`（必需）：用户手机号
+- `mail`（必需）：用户邮箱地址
+- `user_id`（可选）：用户唯一标识符，如果未提供则基于 phone 或 mail 自动生成
+- `status`（可选）：用户状态，默认为 "active"
+- `scope`（可选）：用户权限范围数组，默认为空数组
+- `role`（可选）：用户角色，默认为空字符串
 
 #### 应用配置文件 (`config.yaml`)
 
@@ -547,6 +586,46 @@ opts := warden.DefaultOptions().
 **状态码**: `200 OK`
 
 **Content-Type**: `application/json`
+
+#### 查询单个用户
+
+**请求**
+```http
+GET /user?phone=13800138000
+X-API-Key: your-secret-api-key
+
+GET /user?mail=admin@example.com
+X-API-Key: your-secret-api-key
+
+GET /user?user_id=user-123
+X-API-Key: your-secret-api-key
+```
+
+**注意**: 此端点需要 API Key 认证，通过 `X-API-Key` 请求头或 `Authorization: Bearer <key>` 提供。只能提供一个查询参数（`phone`、`mail` 或 `user_id` 之一）。
+
+**响应（用户存在）**
+```json
+{
+    "phone": "13800138000",
+    "mail": "admin@example.com",
+    "user_id": "user-123",
+    "status": "active",
+    "scope": ["read", "write"],
+    "role": "admin"
+}
+```
+
+**响应（用户不存在）**
+- **状态码**: `404 Not Found`
+- **响应体**: `User not found`
+
+**错误响应（缺少参数）**
+- **状态码**: `400 Bad Request`
+- **响应体**: `Bad Request: missing identifier (phone, mail, or user_id)`
+
+**错误响应（多个参数）**
+- **状态码**: `400 Bad Request`
+- **响应体**: `Bad Request: only one identifier allowed (phone, mail, or user_id)`
 
 #### 健康检查
 
