@@ -1,82 +1,110 @@
-# Warden SDK 设计说明
+# Warden SDK Design Documentation
 
-## 设计原则
+> 📖 **Multi-language Documentation**: For documentation in other languages, please refer to [docs directory](../../docs/)
 
-1. **简单易用**：提供简洁的 API 接口
-2. **高性能**：内置缓存支持，减少 API 调用
-3. **线程安全**：所有方法都是并发安全的
-4. **灵活配置**：支持自定义超时、缓存、日志等
+This document describes the design principles, architecture, and implementation details of the Warden SDK.
 
-## 架构设计
+## Design Principles
 
-### 核心组件
+1. **Simple and Easy**: Provides clean API interfaces
+2. **High Performance**: Built-in cache support, reduces API calls
+3. **Thread Safe**: All methods are concurrency-safe
+4. **Flexible Configuration**: Supports custom timeout, cache, logger, etc.
 
-1. **Client**：HTTP 客户端封装
-2. **Cache**：线程安全的内存缓存
-3. **Options**：配置选项（使用 Builder 模式）
-4. **Logger**：日志接口（支持不同日志库）
+## Architecture Design
 
-### 并发安全
+### Core Components
 
-- `http.Client` 是并发安全的
-- `Cache` 使用 `sync.RWMutex` 保证线程安全
-- `Client` 的所有字段在创建后都是只读的
-- 所有方法都是线程安全的，可以在多个 goroutine 中并发调用
+1. **Client**: HTTP client wrapper
+2. **Cache**: Thread-safe in-memory cache
+3. **Options**: Configuration options (using Builder pattern)
+4. **Logger**: Logger interface (supports different logging libraries)
 
-### 缓存策略
+### Concurrency Safety
 
-1. **GetUsers()**：使用缓存
-   - 首先检查缓存
-   - 如果缓存有效，直接返回
-   - 如果缓存无效或不存在，从 API 获取并更新缓存
+- `http.Client` is concurrency-safe
+- `Cache` uses `sync.RWMutex` to ensure thread safety
+- All fields of `Client` are read-only after creation
+- All methods are thread-safe and can be called concurrently in multiple goroutines
 
-2. **GetUsersPaginated()**：不使用缓存
-   - 原因：不同的分页参数会产生不同的结果
-   - 如果实现分页缓存，需要按分页参数缓存，复杂度较高
-   - 当前设计：每次都从 API 获取，保证数据准确性
+### Cache Strategy
 
-3. **CheckUserInList()**：间接使用缓存
-   - 通过调用 `GetUsers()` 间接使用缓存
-   - 如果缓存有效，不会发起新的 API 请求
+1. **GetUsers()**: Uses cache
+   - First checks cache
+   - If cache is valid, returns directly
+   - If cache is invalid or doesn't exist, fetches from API and updates cache
 
-### 错误处理
+2. **GetUsersPaginated()**: Does not use cache
+   - Reason: Different pagination parameters produce different results
+   - If pagination cache is implemented, caching by pagination parameters is complex
+   - Current design: Fetches from API each time to ensure data accuracy
 
-- 使用自定义 `Error` 类型，包含错误代码和详细信息
-- 支持错误包装（`Unwrap()` 方法）
-- 所有错误都实现了 `error` 接口
+3. **GetUserByIdentifier()**: Does not use cache
+   - Reason: Needs to fetch the latest single user information to ensure data real-time
+   - Each call fetches from API to avoid data inconsistency caused by cache
 
-### 配置验证
+4. **CheckUserInList()**: Does not use cache
+   - Uses `GetUserByIdentifier()` to directly query a single user
+   - Each call makes an API request to ensure data real-time
+   - Supports smart fallback: When phone lookup fails (NotFound) and mail is not empty, automatically falls back to mail lookup
+   - Performance optimization: Direct query of a single user is more efficient than iterating through the entire user list
 
-- `Validate()` 方法会规范化 `BaseURL`（添加协议、去除尾部斜杠）
-- 验证超时时间和缓存 TTL
-- 如果未提供 Logger，使用 `NoOpLogger`
+### Error Handling
 
-## 已知限制
+- Uses custom `Error` type with error codes and detailed information
+- Supports error wrapping (`Unwrap()` method)
+- All errors implement the `error` interface
+- `CheckUserInList()` method does not expose detailed information when encountering errors to avoid leaking whether a user exists (security consideration)
 
-1. **HTTP Transport 配置**：当前不支持自定义 `http.Transport`
-   - 对于大多数场景，默认配置已足够
-   - 如需自定义 TLS、代理等，可以在后续版本中添加
+### CheckUserInList Implementation Strategy
 
-2. **分页缓存**：`GetUsersPaginated()` 不使用缓存
-   - 这是有意的设计，保证数据准确性
-   - 如需分页缓存，可以实现更复杂的缓存策略
+The `CheckUserInList()` method uses the following strategy:
 
-3. **缓存失效**：当前只支持 TTL 过期
-   - 不支持手动设置过期时间
-   - 不支持基于事件的缓存失效
+1. **Input Normalization**: Automatically trims leading and trailing spaces from phone and mail, and converts mail to lowercase
+2. **Priority Strategy**: If both phone and mail are provided, phone takes priority
+3. **Smart Fallback**:
+   - When phone lookup returns `NotFound` error, if mail is not empty, automatically falls back to mail lookup
+   - When phone lookup succeeds but user status is not active, does not fall back to mail (user already found)
+   - When phone lookup encounters other errors (e.g., network error), does not fall back to mail
+4. **Status Validation**: Only users with status "active" will return `true`
+5. **Performance Optimization**: Uses `GetUserByIdentifier()` for direct query, avoiding fetching the entire user list
 
-## 使用建议
+### Configuration Validation
 
-1. **复用 Client**：创建一次 Client，在整个应用生命周期中复用
-2. **合理设置缓存 TTL**：根据数据更新频率设置合适的缓存时间
-3. **使用 Context**：传递 context 以支持取消和超时控制
-4. **错误处理**：始终检查并处理错误
-5. **日志记录**：在生产环境中使用合适的日志实现
+- `Validate()` method normalizes `BaseURL` (adds protocol, removes trailing slash)
+- Validates timeout and cache TTL
+- If Logger is not provided, uses `NoOpLogger`
 
-## 未来改进方向
+## Known Limitations
 
-1. 支持自定义 `http.Transport`
-2. 支持基于事件的缓存失效
-3. 支持重试机制
-4. 支持请求/响应中间件
-5. 支持指标收集（metrics）
+1. **HTTP Transport Configuration**: Currently does not support custom `http.Transport`
+   - Default configuration is sufficient for most scenarios
+   - If custom TLS, proxy, etc. are needed, can be added in future versions
+
+2. **Pagination Cache**: `GetUsersPaginated()` does not use cache
+   - This is an intentional design to ensure data accuracy
+   - If pagination cache is needed, more complex caching strategies can be implemented
+
+3. **Single User Query Cache**: `GetUserByIdentifier()` and `CheckUserInList()` do not use cache
+   - This is an intentional design to ensure data real-time
+   - If caching is needed, cache strategies based on user identifiers can be implemented
+
+4. **Cache Invalidation**: Currently only supports TTL expiration
+   - Does not support manual setting of expiration time
+   - Does not support event-based cache invalidation
+
+## Usage Recommendations
+
+1. **Reuse Client**: Create the Client once and reuse it throughout the application lifecycle
+2. **Set Cache TTL Appropriately**: Set appropriate cache time based on data update frequency
+3. **Use Context**: Pass context to support cancellation and timeout control
+4. **Error Handling**: Always check and handle errors
+5. **Logging**: Use appropriate logger implementation in production environments
+
+## Future Improvements
+
+1. Support custom `http.Transport`
+2. Support event-based cache invalidation
+3. Support retry mechanism
+4. Support request/response middleware
+5. Support metrics collection

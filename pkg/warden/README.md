@@ -1,67 +1,82 @@
 # Warden SDK
 
-Warden SDK 是一个用于与 Warden API 交互的 Go 客户端库。它提供了简单易用的接口来获取用户列表、检查用户是否在允许列表中，并支持缓存以提高性能。
+> 📖 **Multi-language Documentation**: For documentation in other languages, please refer to [docs directory](../../docs/)
 
-## 功能特性
+Warden SDK is a Go client library for interacting with the Warden API. It provides simple and easy-to-use interfaces for fetching user lists, querying individual user information, checking if users are in the allow list, and supports caching for improved performance.
 
-- 🚀 **简单易用**: 提供简洁的 API 接口
-- ⚡ **高性能**: 内置缓存支持，减少 API 调用
-- 🔒 **安全**: 支持 API Key 认证
-- 📦 **灵活**: 可配置的超时时间、缓存 TTL 等
-- 🔌 **可扩展**: 支持自定义日志实现
+## Features
 
-## 安装
+- 🚀 **Simple and Easy**: Provides clean API interfaces
+- ⚡ **High Performance**: Built-in cache support (GetUsers), direct queries (GetUserByIdentifier) reduce API calls
+- 🔒 **Secure**: Supports API Key authentication, error handling doesn't leak sensitive information
+- 📦 **Flexible**: Configurable timeout, cache TTL, etc.
+- 🔌 **Extensible**: Supports custom logger implementations
+- 🎯 **Smart Fallback**: CheckUserInList supports automatic fallback to mail when phone is not found
+
+## Installation
 
 ```bash
 go get github.com/soulteary/warden/pkg/warden
 ```
 
-## 快速开始
+## Quick Start
 
-### 基本使用
+### Basic Usage
 
 ```go
 package main
 
 import (
     "context"
+    "fmt"
     "time"
     
     "github.com/soulteary/warden/pkg/warden"
 )
 
 func main() {
-    // 创建客户端选项
+    // Create client options
     opts := warden.DefaultOptions().
         WithBaseURL("http://localhost:8081").
         WithAPIKey("your-api-key").
         WithTimeout(10 * time.Second).
         WithCacheTTL(5 * time.Minute)
     
-    // 创建客户端
+    // Create client
     client, err := warden.NewClient(opts)
     if err != nil {
         panic(err)
     }
     
-    // 获取用户列表
+    // Get user list
     ctx := context.Background()
     users, err := client.GetUsers(ctx)
     if err != nil {
         panic(err)
     }
     
-    // 检查用户是否在列表中
+    // Check if user is in the list (can provide phone, mail, or both)
     exists := client.CheckUserInList(ctx, "13800138000", "user@example.com")
     if exists {
-        println("User is in the allow list")
+        println("User is in the allow list and active")
     }
+    
+    // Can also use only phone or mail
+    existsByPhone := client.CheckUserInList(ctx, "13800138000", "")
+    existsByMail := client.CheckUserInList(ctx, "", "user@example.com")
+    
+    // Get user details
+    user, err := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("User: %s, Status: %s\n", user.UserID, user.Status)
 }
 ```
 
-### 使用自定义日志
+### Using Custom Logger
 
-SDK 支持自定义日志实现。例如，使用 logrus:
+The SDK supports custom logger implementations. For example, using logrus:
 
 ```go
 import (
@@ -81,11 +96,11 @@ func main() {
 }
 ```
 
-### 分页查询
+### Paginated Query
 
 ```go
-// 获取分页用户列表
-resp, err := client.GetUsersPaginated(ctx, 1, 10) // 第1页，每页10条
+// Get paginated user list
+resp, err := client.GetUsersPaginated(ctx, 1, 10) // Page 1, 10 items per page
 if err != nil {
     panic(err)
 }
@@ -93,79 +108,133 @@ if err != nil {
 fmt.Printf("Total users: %d\n", resp.Pagination.Total)
 fmt.Printf("Total pages: %d\n", resp.Pagination.TotalPages)
 for _, user := range resp.Data {
-    fmt.Printf("Phone: %s, Mail: %s\n", user.Phone, user.Mail)
+    fmt.Printf("UserID: %s, Phone: %s, Mail: %s, Status: %s\n", 
+        user.UserID, user.Phone, user.Mail, user.Status)
 }
 ```
 
-### 清除缓存
+### Get Single User Information
 
 ```go
-// 清除客户端缓存
+// Get user information by phone
+user, err := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+if err != nil {
+    if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound {
+        println("User not found")
+    } else {
+        panic(err)
+    }
+} else {
+    fmt.Printf("UserID: %s, Phone: %s, Mail: %s, Status: %s\n", 
+        user.UserID, user.Phone, user.Mail, user.Status)
+    if user.IsActive() {
+        println("User is active")
+    }
+}
+
+// Get user information by email
+user, err = client.GetUserByIdentifier(ctx, "", "user@example.com", "")
+
+// Get user information by user ID
+user, err = client.GetUserByIdentifier(ctx, "", "", "user123")
+```
+
+### Clear Cache
+
+```go
+// Clear client cache
 client.ClearCache()
 ```
 
-## API 参考
+## API Reference
 
 ### Options
 
-`Options` 结构体用于配置客户端：
+The `Options` struct is used to configure the client:
 
-- `BaseURL`: Warden 服务地址（必需）
-- `APIKey`: API Key（可选）
-- `Timeout`: HTTP 请求超时时间（默认 10 秒）
-- `CacheTTL`: 缓存 TTL（默认 5 分钟）
-- `Logger`: 日志接口（可选，默认使用 NoOpLogger）
+- `BaseURL`: Warden service address (required)
+- `APIKey`: API Key (optional)
+- `Timeout`: HTTP request timeout (default 10 seconds)
+- `CacheTTL`: Cache TTL (default 5 minutes)
+- `Logger`: Logger interface (optional, defaults to NoOpLogger)
 
-### Client 方法
+### Client Methods
 
 #### `NewClient(opts *Options) (*Client, error)`
 
-创建新的 Warden 客户端。
+Creates a new Warden client.
 
 #### `GetUsers(ctx context.Context) ([]AllowListUser, error)`
 
-获取所有用户列表。如果缓存有效，会直接返回缓存的数据。
+Gets all user list. If cache is valid, returns cached data directly.
 
 #### `GetUsersPaginated(ctx context.Context, page, pageSize int) (*PaginatedResponse, error)`
 
-获取分页用户列表。
+Gets paginated user list.
 
-- `page`: 页码（从 1 开始）
-- `pageSize`: 每页大小
+- `page`: Page number (starts from 1)
+- `pageSize`: Page size
 
-返回 `PaginatedResponse`，包含：
-- `Data`: 用户列表
-- `Pagination`: 分页信息（页码、每页大小、总数、总页数）
+Returns `PaginatedResponse`, containing:
+- `Data`: User list
+- `Pagination`: Pagination information (page number, page size, total, total pages)
+
+**Note:** This method does not use cache, each call fetches the latest data from the API.
+
+#### `GetUserByIdentifier(ctx context.Context, phone, mail, userID string) (*AllowListUser, error)`
+
+Gets a single user information by identifier.
+
+- `phone`: User phone number (optional, but must provide one of phone, mail, or userID)
+- `mail`: User email (optional)
+- `userID`: User unique identifier (optional)
+
+**Important:** Must provide exactly one identifier among `phone`, `mail`, or `userID`.
+
+Returns `*AllowListUser` and error. If user does not exist, returns `ErrCodeNotFound` error.
+
+**Note:** This method does not use cache, each call fetches the latest data from the API.
 
 #### `CheckUserInList(ctx context.Context, phone, mail string) bool`
 
-检查用户是否在允许列表中。
+Checks if a user is in the allow list.
 
-- `phone`: 用户手机号（可选）
-- `mail`: 用户邮箱（可选）
+- `phone`: User phone number (optional)
+- `mail`: User email (optional)
 
-如果用户存在（通过手机号或邮箱匹配），返回 `true`；否则返回 `false`。
+Returns `true` if the user exists (matched by phone or email), `false` otherwise.
 
-**行为说明：**
-- 如果同时提供 `phone` 和 `mail`，优先使用 `phone` 进行查找
-- 如果 `phone` 查找失败（用户不存在），且 `mail` 不为空，会自动回退到使用 `mail` 进行查找
-- 如果 `phone` 查找成功但用户状态不活跃，不会回退到 `mail`（因为已经找到了用户）
-- 输入会自动规范化：`phone` 会去除首尾空格，`mail` 会去除首尾空格并转换为小写
+**Behavior:**
+- If both `phone` and `mail` are provided, `phone` takes priority
+- If `phone` lookup fails (returns `NotFound` error) and `mail` is not empty, automatically falls back to `mail` lookup
+- If `phone` lookup succeeds but user status is not active, does not fall back to `mail` (user already found)
+- If `phone` lookup fails and error is not `NotFound` (e.g., network error), does not fall back to `mail`
+- Input is automatically normalized: `phone` is trimmed, `mail` is trimmed and converted to lowercase
+- This method uses `GetUserByIdentifier` for lookup, more efficient than iterating through user list
+- Only users with status "active" will return `true`
 
 #### `ClearCache()`
 
-清除客户端内部缓存。
+Clears the internal client cache.
 
-## 类型定义
+## Type Definitions
 
 ### AllowListUser
 
 ```go
 type AllowListUser struct {
-    Phone string `json:"phone"` // 用户手机号
-    Mail  string `json:"mail"`  // 用户邮箱地址
+    Phone  string   `json:"phone"`   // User phone number
+    Mail   string   `json:"mail"`    // User email address
+    UserID string   `json:"user_id"` // User unique identifier (optional, auto-generated if not provided)
+    Status string   `json:"status"`  // User status (e.g., "active", "inactive", "suspended")
+    Scope  []string `json:"scope"`   // User permission scope (optional)
+    Role   string   `json:"role"`    // User role (optional)
 }
 ```
+
+**Methods:**
+- `IsActive() bool`: Checks if user status is "active"
+- `IsValid() bool`: Checks if user status is valid (currently only supports "active")
 
 ### PaginatedResponse
 
@@ -176,52 +245,52 @@ type PaginatedResponse struct {
 }
 
 type PaginationInfo struct {
-    Page       int `json:"page"`        // 当前页码（从 1 开始）
-    PageSize   int `json:"page_size"`    // 每页大小
-    Total      int `json:"total"`        // 总记录数
-    TotalPages int `json:"total_pages"`  // 总页数
+    Page       int `json:"page"`        // Current page number (starts from 1)
+    PageSize   int `json:"page_size"`   // Page size
+    Total      int `json:"total"`       // Total number of records
+    TotalPages int `json:"total_pages"` // Total number of pages
 }
 ```
 
-## 错误处理
+## Error Handling
 
-SDK 使用自定义错误类型，包含错误代码和详细信息：
+The SDK uses custom error types with error codes and detailed information:
 
 ```go
 if err != nil {
     if sdkErr, ok := err.(*warden.Error); ok {
         switch sdkErr.Code {
         case warden.ErrCodeUnauthorized:
-            // 处理认证错误
+            // Handle authentication error
         case warden.ErrCodeRequestFailed:
-            // 处理请求失败
+            // Handle request failure
         // ...
         }
     }
 }
 ```
 
-### 错误代码
+### Error Codes
 
-- `ErrCodeInvalidConfig`: 配置无效
-- `ErrCodeRequestFailed`: 请求失败
-- `ErrCodeInvalidResponse`: 响应格式无效
-- `ErrCodeUnauthorized`: 未授权
-- `ErrCodeNotFound`: 未找到
-- `ErrCodeServerError`: 服务器错误
+- `ErrCodeInvalidConfig`: Invalid configuration
+- `ErrCodeRequestFailed`: Request failed
+- `ErrCodeInvalidResponse`: Invalid response format
+- `ErrCodeUnauthorized`: Unauthorized
+- `ErrCodeNotFound`: Not found
+- `ErrCodeServerError`: Server error
 
-## 最佳实践
+## Best Practices
 
-1. **复用客户端**: 创建一次客户端，在整个应用生命周期中复用
-2. **合理设置缓存 TTL**: 根据数据更新频率设置合适的缓存时间
-3. **使用 Context**: 传递 context 以支持取消和超时控制
-4. **错误处理**: 始终检查并处理错误
-5. **日志记录**: 在生产环境中使用合适的日志实现
+1. **Reuse Client**: Create the client once and reuse it throughout the application lifecycle
+2. **Set Cache TTL Appropriately**: Set appropriate cache time based on data update frequency
+3. **Use Context**: Pass context to support cancellation and timeout control
+4. **Error Handling**: Always check and handle errors
+5. **Logging**: Use appropriate logger implementation in production environments
 
-## 示例
+## Examples
 
-完整示例请参考 [example](../example) 目录。
+For complete examples, please refer to the [example](../example) directory.
 
-## 许可证
+## License
 
 MIT License

@@ -234,7 +234,10 @@ func main() {
 
 ## Detailed Documentation
 
-For more usage instructions and API references, please check the [SDK Documentation](../pkg/warden/README.md) (if exists).
+For source code and design documentation, please refer to:
+
+- **[SDK Source Code](../../pkg/warden/)** - SDK source code directory
+- **[SDK Design Documentation](../../pkg/warden/DESIGN.md)** - Design principles and implementation details
 
 ## Related Documentation
 
