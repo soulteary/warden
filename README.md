@@ -38,7 +38,7 @@ For detailed architecture documentation, please refer to: [Architecture Design D
 ### Prerequisites
 
 - Go 1.25+ (refer to [go.mod](go.mod))
-- Redis (for distributed locks and caching)
+- Redis (optional, for distributed locks and caching - disabled by default in ONLY_LOCAL mode)
 - Docker (optional, for containerized deployment)
 
 ### Quick Start

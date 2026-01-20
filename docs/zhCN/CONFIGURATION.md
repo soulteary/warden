@@ -12,7 +12,7 @@
 |------|------|----------|
 | `DEFAULT` / `REMOTE_FIRST` | 远程优先，远程数据不存在时使用本地数据补充 | 默认模式，适合大多数场景 |
 | `ONLY_REMOTE` | 仅使用远程数据源 | 完全依赖远程配置 |
-| `ONLY_LOCAL` | 仅使用本地配置文件 | 离线环境或测试环境 |
+| `ONLY_LOCAL` | 仅使用本地配置文件，**默认禁用 Redis**（可通过 `REDIS_ENABLED=true` 显式启用） | 离线环境或测试环境 |
 | `LOCAL_FIRST` | 本地优先，本地数据不存在时使用远程数据补充 | 本地配置为主，远程为辅 |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程优先，允许远程失败时回退到本地 | 高可用场景 |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 本地优先，允许远程失败时回退到本地 | 混合模式 |
@@ -169,6 +169,7 @@ export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis 密码（可选）
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis 密码文件路径（可选，优先级高于 REDIS_PASSWORD）
 export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认: true，支持 true/false/1/0）
+                                        # 注意: 在 ONLY_LOCAL 模式下，默认值为 false（除非显式设置）
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5

@@ -695,6 +695,12 @@ export REDIS_ENABLED=false
 ./warden
 ```
 
+**注意**: 在 `ONLY_LOCAL` 模式下，Redis 默认禁用，无需额外配置。如果需要启用 Redis，可以显式设置：
+```bash
+# 在 ONLY_LOCAL 模式下启用 Redis
+MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
+```
+
 ### Q6: 配置文件加载失败会怎样？
 
 **A**: 如果指定的配置文件加载失败，程序会：

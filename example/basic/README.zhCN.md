@@ -30,24 +30,29 @@
 ]
 ```
 
-2. **启动 Redis**
+2. **运行 Warden**（在 ONLY_LOCAL 模式下 Redis 是可选的）
 
+```bash
+# 在项目根目录执行（默认禁用 Redis）
+go run main.go \
+  --port 8081 \
+  --mode ONLY_LOCAL
+
+# 或者如果需要，显式启用 Redis
+go run main.go \
+  --port 8081 \
+  --redis localhost:6379 \
+  --mode ONLY_LOCAL \
+  --redis-enabled=true
+```
+
+**注意**: 如果需要使用 Redis，请先启动它：
 ```bash
 # 使用 Docker 启动 Redis（最简单）
 docker run -d --name redis -p 6379:6379 redis:6.2.4
 
 # 或使用本地 Redis
 redis-server
-```
-
-3. **运行 Warden**
-
-```bash
-# 在项目根目录执行
-go run main.go \
-  --port 8081 \
-  --redis localhost:6379 \
-  --mode ONLY_LOCAL
 ```
 
 4. **测试服务**
@@ -102,7 +107,8 @@ curl http://localhost:8081/health
 本示例使用 `ONLY_LOCAL` 模式，表示：
 - ✅ 仅从本地 `data.json` 文件读取数据
 - ❌ 不使用远程 API
-- ✅ 数据会缓存在 Redis 中以提高性能
+- ⚠️  **Redis 默认禁用**（可通过 `REDIS_ENABLED=true` 显式启用）
+- ✅ 如果启用 Redis，数据会缓存在 Redis 中以提高性能
 
 ### 数据文件格式
 

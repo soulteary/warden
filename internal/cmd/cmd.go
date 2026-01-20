@@ -102,15 +102,27 @@ func processPortFromFlags(cfg *Config, fs *flag.FlagSet, portFlag int) {
 
 // processRedisFromFlags processes Redis configuration
 func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswordFlag string, redisEnabledFlag bool) {
-	// Process Redis enabled state (priority: command-line argument > environment variable > default value true)
+	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable for safety)
+	isOnlyLocalMode := false
+	if cfg.Mode != "" {
+		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(cfg.Mode)) == "ONLY_LOCAL"
+	} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
+		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
+	}
+
+	// Process Redis enabled state (priority: command-line argument > environment variable > default value)
 	if hasFlag(fs, "redis-enabled") {
 		cfg.RedisEnabled = redisEnabledFlag
 	} else if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
 		// Supports true/false/1/0
 		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	} else {
-		// Default to enable Redis (backward compatibility)
-		cfg.RedisEnabled = true
+		// Default behavior: disable Redis in ONLY_LOCAL mode, enable otherwise (backward compatibility)
+		if isOnlyLocalMode {
+			cfg.RedisEnabled = false
+		} else {
+			cfg.RedisEnabled = true
+		}
 	}
 
 	if hasFlag(fs, "redis") {
@@ -254,11 +266,12 @@ func getArgsFromFlags() *Config {
 	}
 
 	// Process each configuration item
+	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
+	processModeFromFlags(cfg, fs, modeFlag)
 	processPortFromFlags(cfg, fs, portFlag)
 	processRedisFromFlags(cfg, fs, redisFlag, redisPasswordFlag, redisEnabledFlag)
 	processRemoteConfigFromFlags(cfg, fs, configFlag, keyFlag)
 	processTaskFromFlags(cfg, fs, intervalFlag)
-	processModeFromFlags(cfg, fs, modeFlag)
 	processHTTPFromFlags(cfg, fs, httpTimeoutFlag, httpMaxIdleConnsFlag, httpInsecureTLSFlag)
 	processAPIKeyFromFlags(cfg, fs, apiKeyFlag)
 
@@ -384,6 +397,19 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	if hasFlag(overrideFs, "api-key") && apiKeyFlag != "" {
 		cfg.APIKey = apiKeyFlag
 	}
+
+	// If Mode is ONLY_LOCAL and RedisEnabled was not explicitly set via command-line, disable Redis
+	if !hasFlag(overrideFs, "redis-enabled") {
+		isOnlyLocalMode := false
+		if cfg.Mode != "" {
+			isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(cfg.Mode)) == "ONLY_LOCAL"
+		} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
+			isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
+		}
+		if isOnlyLocalMode {
+			cfg.RedisEnabled = false
+		}
+	}
 }
 
 // LoadConfig loads configuration (new interface, supports configuration file)
@@ -475,7 +501,20 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	}
 
 	// Redis enabled state
-	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
-		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
+	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable)
+	isOnlyLocalMode := false
+	if cfg.Mode != "" {
+		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(cfg.Mode)) == "ONLY_LOCAL"
+	} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
+		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
 	}
+
+	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
+		// Explicitly set via environment variable
+		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
+	} else if isOnlyLocalMode {
+		// In ONLY_LOCAL mode, disable Redis by default if not explicitly enabled
+		cfg.RedisEnabled = false
+	}
+	// Note: If not ONLY_LOCAL mode and REDIS_ENABLED is not set, keep the value from config file
 }
