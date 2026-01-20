@@ -6,7 +6,8 @@ services:
     restart: always
     image: warden-release
     container_name: warden
-    # debug
+    # Main service port mapping: host port 8081 -> container port 8081
+    # Purpose: Main service port for user whitelist service
     ports:
       - 8081:8081
     expose:
@@ -37,6 +38,9 @@ services:
   warden-redis:
     container_name: warden-redis
     image: redis:6.2.4
+    # Redis port configuration: expose only, not mapped to host
+    # Purpose: Redis cache for Warden service, used only within Docker internal network
+    # Benefit: Avoids port conflicts with host or other services (e.g., herald's Redis mapped to host 6379)
     expose:
       - 6379
     networks:

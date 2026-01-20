@@ -4,6 +4,8 @@
 
 A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
+![Warden](.github/assets/banner.jpg)
+
 > **Warden** (The Gatekeeper) — The guardian of the Stargate who decides who may pass and who will be denied. Just as the Warden of Stargate guards the Stargate, Warden guards your allowlist, ensuring only authorized users can pass through.
 
 ## 📋 Project Overview

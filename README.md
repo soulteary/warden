@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](README.en.md) | [中文](README.md)
 
+![Warden](.github/assets/banner.jpg)
+
 一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
 
 > **Warden**（看守者）—— 守护星门的看守者，决定谁可以通过，谁将被拒绝。正如 Stargate 的看守者守护着星际之门，Warden 守护着你的允许列表，确保只有授权用户能够通过。
