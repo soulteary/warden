@@ -39,9 +39,30 @@ type Config struct {
 // 如果提供了 -config-file 参数，会尝试从配置文件加载
 func GetArgs() *Config {
 	// 创建 FlagSet 解析命令行参数
+	// 需要定义所有可能的参数，避免出现 "flag provided but not defined" 错误
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	var configFileFlag string
+	var portFlag int
+	var redisFlag, configFlag, keyFlag, modeFlag string
+	var intervalFlag int
+	var httpTimeoutFlag, httpMaxIdleConnsFlag int
+	var httpInsecureTLSFlag bool
+	var redisPasswordFlag string
+	var redisEnabledFlag bool
+
 	fs.StringVar(&configFileFlag, "config-file", "", "配置文件路径 (支持 YAML 格式)")
+	// 定义所有参数以避免未定义参数错误（但这里只用于解析，实际值在后续处理）
+	fs.IntVar(&portFlag, "port", 0, "web port")
+	fs.StringVar(&redisFlag, "redis", "", "redis host and port")
+	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
+	fs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
+	fs.StringVar(&configFlag, "config", "", "remote config url")
+	fs.StringVar(&keyFlag, "key", "", "remote config key")
+	fs.StringVar(&modeFlag, "mode", "", "app mode")
+	fs.IntVar(&intervalFlag, "interval", 0, "task interval")
+	fs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
+	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
+	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
 
 	// 先解析一次以获取配置文件路径
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -55,7 +76,7 @@ func GetArgs() *Config {
 			// 成功加载配置文件，转换为旧格式并应用命令行参数覆盖
 			legacyCfg := newCfg.ToCmdConfig()
 			// 命令行参数优先级最高，会覆盖配置文件中的值
-			overrideWithFlags(legacyCfg, fs)
+			overrideWithFlags(legacyCfg)
 			return convertToConfig(legacyCfg)
 		}
 		// 配置文件加载失败，继续使用原有逻辑（向后兼容）
@@ -278,8 +299,9 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 }
 
 // overrideWithFlags 使用命令行参数覆盖配置（命令行参数优先级最高）
-func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
-	// 重新解析命令行参数以获取所有标志
+func overrideWithFlags(cfg *config.CmdConfigData) {
+	// 创建新的 FlagSet 来解析命令行参数（避免重复定义标志）
+	overrideFs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	var portFlag int
 	var redisFlag, configFlag, keyFlag, modeFlag string
 	var intervalFlag int
@@ -288,55 +310,55 @@ func overrideWithFlags(cfg *config.CmdConfigData, fs *flag.FlagSet) {
 	var redisPasswordFlag string
 	var redisEnabledFlag bool
 
-	fs.IntVar(&portFlag, "port", 0, "web port")
-	fs.StringVar(&redisFlag, "redis", "", "redis host and port")
-	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	fs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
-	fs.StringVar(&configFlag, "config", "", "remote config url")
-	fs.StringVar(&keyFlag, "key", "", "remote config key")
-	fs.StringVar(&modeFlag, "mode", "", "app mode")
-	fs.IntVar(&intervalFlag, "interval", 0, "task interval")
-	fs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
-	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
-	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
+	overrideFs.IntVar(&portFlag, "port", 0, "web port")
+	overrideFs.StringVar(&redisFlag, "redis", "", "redis host and port")
+	overrideFs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
+	overrideFs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
+	overrideFs.StringVar(&configFlag, "config", "", "remote config url")
+	overrideFs.StringVar(&keyFlag, "key", "", "remote config key")
+	overrideFs.StringVar(&modeFlag, "mode", "", "app mode")
+	overrideFs.IntVar(&intervalFlag, "interval", 0, "task interval")
+	overrideFs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
+	overrideFs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
+	overrideFs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
 
-	if err := fs.Parse(os.Args[1:]); err != nil {
+	if err := overrideFs.Parse(os.Args[1:]); err != nil {
 		// 忽略解析错误，继续使用默认值
 		_ = err // 明确忽略错误
 	}
 
 	// 如果命令行参数被设置，覆盖配置
-	if hasFlag(fs, "port") && portFlag > 0 {
+	if hasFlag(overrideFs, "port") && portFlag > 0 {
 		cfg.Port = strconv.Itoa(portFlag)
 	}
-	if hasFlag(fs, "redis") && redisFlag != "" {
+	if hasFlag(overrideFs, "redis") && redisFlag != "" {
 		cfg.Redis = redisFlag
 	}
-	if hasFlag(fs, "redis-password") && redisPasswordFlag != "" {
+	if hasFlag(overrideFs, "redis-password") && redisPasswordFlag != "" {
 		cfg.RedisPassword = redisPasswordFlag
 	}
-	if hasFlag(fs, "redis-enabled") {
+	if hasFlag(overrideFs, "redis-enabled") {
 		cfg.RedisEnabled = redisEnabledFlag
 	}
-	if hasFlag(fs, "config") && configFlag != "" {
+	if hasFlag(overrideFs, "config") && configFlag != "" {
 		cfg.RemoteConfig = configFlag
 	}
-	if hasFlag(fs, "key") && keyFlag != "" {
+	if hasFlag(overrideFs, "key") && keyFlag != "" {
 		cfg.RemoteKey = keyFlag
 	}
-	if hasFlag(fs, "mode") && modeFlag != "" {
+	if hasFlag(overrideFs, "mode") && modeFlag != "" {
 		cfg.Mode = modeFlag
 	}
-	if hasFlag(fs, "interval") && intervalFlag > 0 {
+	if hasFlag(overrideFs, "interval") && intervalFlag > 0 {
 		cfg.TaskInterval = intervalFlag
 	}
-	if hasFlag(fs, "http-timeout") && httpTimeoutFlag > 0 {
+	if hasFlag(overrideFs, "http-timeout") && httpTimeoutFlag > 0 {
 		cfg.HTTPTimeout = httpTimeoutFlag
 	}
-	if hasFlag(fs, "http-max-idle-conns") && httpMaxIdleConnsFlag > 0 {
+	if hasFlag(overrideFs, "http-max-idle-conns") && httpMaxIdleConnsFlag > 0 {
 		cfg.HTTPMaxIdleConns = httpMaxIdleConnsFlag
 	}
-	if hasFlag(fs, "http-insecure-tls") {
+	if hasFlag(overrideFs, "http-insecure-tls") {
 		cfg.HTTPInsecureTLS = httpInsecureTLSFlag
 	}
 }
