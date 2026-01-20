@@ -3,23 +3,80 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 env:
+  GO_VERSION: '1.25'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # 构建并发布 Docker 镜像
-  docker:
-    name: 构建并发布 Docker 镜像
+  release:
+    name: Release
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
+
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 缓存 Go 模块
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 运行测试
+        run: go test -v -race ./...
+
+      - name: 提取版本信息
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +%FT%T%z)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+
+      - name: 构建多平台二进制文件
+        run: |
+          mkdir -p dist
+          VERSION=${{ steps.version.outputs.version }}
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +%FT%T%z)
+          LDFLAGS="-s -w -X github.com/soulteary/warden/internal/version.Version=${VERSION} -X github.com/soulteary/warden/internal/version.Commit=${COMMIT} -X github.com/soulteary/warden/internal/version.BuildDate=${BUILD_DATE}"
+
+          # 构建多个平台
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-linux-amd64 ./main.go
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-linux-arm64 ./main.go
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-darwin-amd64 ./main.go
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-darwin-arm64 ./main.go
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-windows-amd64.exe ./main.go
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-windows-arm64.exe ./main.go
+
+      - name: 生成校验和
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
 
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -31,16 +88,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 提取版本信息
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +%FT%T%z)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
-          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
-          echo "版本: $VERSION, 提交: $COMMIT"
+      - name: 提取元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: 构建并推送 Docker 镜像
         uses: docker/build-push-action@v5
@@ -48,22 +106,44 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             COMMIT=${{ steps.version.outputs.commit }}
             BUILD_DATE=${{ steps.version.outputs.build_date }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
 
-      - name: 生成摘要
-        run: |
-          echo "### Docker 镜像已发布 🐳" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **版本**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **提交**: ${{ steps.version.outputs.commit }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **镜像**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Latest**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## Changes
+
+            See [CHANGELOG](CHANGELOG.md) for details.
+
+            ## Downloads
+
+            ### Docker Image
+            ```bash
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+            ```
+
+            ### Binaries
+            - Linux AMD64: `warden-linux-amd64`
+            - Linux ARM64: `warden-linux-arm64`
+            - macOS AMD64: `warden-darwin-amd64`
+            - macOS ARM64: `warden-darwin-arm64`
+            - Windows AMD64: `warden-windows-amd64.exe`
+            - Windows ARM64: `warden-windows-arm64.exe`
+
+            ### Checksums
+            See `checksums.txt` for SHA256 checksums.
+          draft: false
+          prerelease: false
 

@@ -22,9 +22,15 @@ ARG COMMIT=unknown
 ARG BUILD_DATE
 
 # 如果没有提供 BUILD_DATE，则使用当前时间
+# 使用 TARGETOS 和 TARGETARCH 支持多平台构建（由 Docker Buildx 自动提供）
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
-    GO111MODULE=on GOARCH=amd64 go build -ldflags "-w -s -X 'github.com/soulteary/warden/internal/version.Version=$VERSION' -X 'github.com/soulteary/warden/internal/version.Commit=$COMMIT' -X 'github.com/soulteary/warden/internal/version.BuildDate=$BUILD_DATE' " -o warden main.go
-RUN upx -9 -o warden.minify warden && mv warden.minify warden
+    GO111MODULE=on GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/warden/internal/version.Version=$VERSION' -X 'github.com/soulteary/warden/internal/version.Commit=$COMMIT' -X 'github.com/soulteary/warden/internal/version.BuildDate=$BUILD_DATE' " -o warden main.go
+# upx 压缩（如果失败则跳过，确保多平台构建兼容性）
+RUN if command -v upx > /dev/null 2>&1; then \
+      upx -9 -o warden.minify warden 2>/dev/null && mv warden.minify warden || true; \
+    fi
 
 
 FROM alpine:3.22
