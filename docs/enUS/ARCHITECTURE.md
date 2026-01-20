@@ -293,12 +293,14 @@ The health check endpoint (`/health`) returns Redis status:
 
 ```bash
 --redis-enabled=true|false  # Enable/disable Redis (default: true, but defaults to false in ONLY_LOCAL mode)
+                            # Note: In ONLY_LOCAL mode, if --redis address is explicitly set, Redis will be enabled automatically
 ```
 
 ### Environment Variables
 
 ```bash
 REDIS_ENABLED=true|false|1|0  # Enable/disable Redis (default: true, but defaults to false in ONLY_LOCAL mode)
+                              # Note: In ONLY_LOCAL mode, if REDIS address is explicitly set, Redis will be enabled automatically
 ```
 
 ### Priority

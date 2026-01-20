@@ -293,12 +293,14 @@ graph TB
 
 ```bash
 --redis-enabled=true|false  # 启用/禁用 Redis（默认: true，但在 ONLY_LOCAL 模式下默认为 false）
+                            # 注意: 在 ONLY_LOCAL 模式下，如果显式设置了 --redis 地址，会自动启用 Redis
 ```
 
 ### 环境变量
 
 ```bash
 REDIS_ENABLED=true|false|1|0  # 启用/禁用 Redis（默认: true，但在 ONLY_LOCAL 模式下默认为 false）
+                              # 注意: 在 ONLY_LOCAL 模式下，如果显式设置了 REDIS 地址，会自动启用 Redis
 ```
 
 ### 优先级

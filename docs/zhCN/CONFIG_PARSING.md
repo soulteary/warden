@@ -695,9 +695,19 @@ export REDIS_ENABLED=false
 ./warden
 ```
 
-**注意**: 在 `ONLY_LOCAL` 模式下，Redis 默认禁用，无需额外配置。如果需要启用 Redis，可以显式设置：
+**注意**: 在 `ONLY_LOCAL` 模式下，Redis 默认禁用，无需额外配置。如果需要启用 Redis，可以通过以下方式：
+
+1. **显式设置 Redis 地址**（推荐，会自动启用 Redis）：
 ```bash
-# 在 ONLY_LOCAL 模式下启用 Redis
+# 设置 REDIS 地址会自动启用 Redis
+MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
+# 或使用命令行参数
+./warden --mode ONLY_LOCAL --redis localhost:6379
+```
+
+2. **显式设置 REDIS_ENABLED**：
+```bash
+# 显式启用 Redis
 MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ```
 

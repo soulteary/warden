@@ -38,12 +38,11 @@ go run main.go \
   --port 8081 \
   --mode ONLY_LOCAL
 
-# 或者如果需要，显式启用 Redis
+# 或者设置 Redis 地址（会自动启用 Redis，无需额外设置 --redis-enabled）
 go run main.go \
   --port 8081 \
   --redis localhost:6379 \
-  --mode ONLY_LOCAL \
-  --redis-enabled=true
+  --mode ONLY_LOCAL
 ```
 
 **注意**: 如果需要使用 Redis，请先启动它：
@@ -107,7 +106,7 @@ curl http://localhost:8081/health
 本示例使用 `ONLY_LOCAL` 模式，表示：
 - ✅ 仅从本地 `data.json` 文件读取数据
 - ❌ 不使用远程 API
-- ⚠️  **Redis 默认禁用**（可通过 `REDIS_ENABLED=true` 显式启用）
+- ⚠️  **Redis 默认禁用**（如果显式设置了 `REDIS` 地址，则会自动启用 Redis）
 - ✅ 如果启用 Redis，数据会缓存在 Redis 中以提高性能
 
 ### 数据文件格式

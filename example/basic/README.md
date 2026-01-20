@@ -38,12 +38,11 @@ go run main.go \
   --port 8081 \
   --mode ONLY_LOCAL
 
-# Or enable Redis explicitly if needed
+# Or set Redis address (Redis will be enabled automatically, no need for --redis-enabled)
 go run main.go \
   --port 8081 \
   --redis localhost:6379 \
-  --mode ONLY_LOCAL \
-  --redis-enabled=true
+  --mode ONLY_LOCAL
 ```
 
 **Note**: If you want to use Redis, start it first:
@@ -107,7 +106,7 @@ curl http://localhost:8081/health
 This example uses `ONLY_LOCAL` mode, which means:
 - ✅ Only reads data from local `data.json` file
 - ❌ Does not use remote API
-- ⚠️  **Redis is disabled by default** (can be explicitly enabled via `REDIS_ENABLED=true`)
+- ⚠️  **Redis is disabled by default** (will be enabled automatically if `REDIS` address is explicitly set)
 - ✅ If Redis is enabled, data is cached in Redis for improved performance
 
 ### Data File Format
