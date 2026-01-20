@@ -58,6 +58,19 @@ jobs:
     strategy:
       matrix:
         go-version: ['1.25']
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      REDIS: localhost:6379
+      REDIS_ENABLED: "true"
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -69,6 +82,36 @@ jobs:
 
       - name: 下载依赖
         run: go mod download
+
+      - name: 等待 Redis 就绪
+        run: |
+          echo "检查 Redis 连接..."
+          go run - << 'EOF'
+          package main
+          import (
+            "context"
+            "fmt"
+            "os"
+            "time"
+            "github.com/redis/go-redis/v9"
+          )
+          func main() {
+            client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+            defer client.Close()
+            ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+            defer cancel()
+            for i := 0; i < 30; i++ {
+              if err := client.Ping(ctx).Err(); err == nil {
+                fmt.Println("Redis 已就绪")
+                os.Exit(0)
+              }
+              fmt.Printf("等待 Redis 启动... (%d/30)\n", i+1)
+              time.Sleep(1 * time.Second)
+            }
+            fmt.Println("Redis 启动超时")
+            os.Exit(1)
+          }
+          EOF
 
       - name: 运行测试
         run: go test -v -race -coverprofile=coverage.out ./...

@@ -62,6 +62,12 @@ func NewDependencies(cfg *cmd.Config) (*Dependencies, error) {
 
 // initRedis 初始化 Redis 客户端
 func (d *Dependencies) initRedis() error {
+	// 如果 Redis 被禁用，跳过初始化
+	if !d.Config.RedisEnabled {
+		d.RedisClient = nil
+		return nil
+	}
+
 	redisOptions := &redis.Options{Addr: d.Config.Redis}
 	if d.Config.RedisPassword != "" {
 		redisOptions.Password = d.Config.RedisPassword
@@ -81,7 +87,12 @@ func (d *Dependencies) initRedis() error {
 
 // initCache 初始化缓存
 func (d *Dependencies) initCache() {
-	d.RedisUserCache = cache.NewRedisUserCache(d.RedisClient)
+	// 只有在 Redis 客户端存在时才创建 RedisUserCache
+	if d.RedisClient != nil {
+		d.RedisUserCache = cache.NewRedisUserCache(d.RedisClient)
+	} else {
+		d.RedisUserCache = nil
+	}
 	d.UserCache = cache.NewSafeUserCache()
 }
 
