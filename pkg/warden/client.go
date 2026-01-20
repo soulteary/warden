@@ -174,7 +174,8 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 	var user *AllowListUser
 	var err error
 
-	if phone != "" {
+	switch {
+	case phone != "":
 		// Try phone first if provided
 		user, err = c.GetUserByIdentifier(ctx, phone, "", "")
 		if err != nil {
@@ -193,10 +194,10 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 			c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
 			return false
 		}
-	} else if mail != "" {
+	case mail != "":
 		// Fall back to mail if phone is empty
 		user, err = c.GetUserByIdentifier(ctx, "", mail, "")
-	} else {
+	default:
 		// Both are empty
 		c.logger.Debug("CheckUserInList called with both phone and mail empty")
 		return false
