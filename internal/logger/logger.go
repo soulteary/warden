@@ -4,6 +4,7 @@ package logger
 
 import (
 	// Standard library
+	"net/url"
 	"os"
 	"strings"
 
@@ -73,4 +74,60 @@ func SanitizeHeader(header string) string {
 		return SanitizeString(header)
 	}
 	return header
+}
+
+// SanitizePhone sanitizes phone number
+func SanitizePhone(phone string) string {
+	return SanitizeString(phone)
+}
+
+// SanitizeEmail sanitizes email address
+func SanitizeEmail(email string) string {
+	return SanitizeString(email)
+}
+
+// SanitizeURL sanitizes URL by masking sensitive query parameters (phone, mail, email)
+// Parameter names are matched case-insensitively
+func SanitizeURL(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+
+	// Create a copy to avoid modifying the original
+	sanitized := *u
+	query := u.Query()
+
+	// Sanitize sensitive query parameters (case-insensitive matching)
+	sensitiveParams := []string{"phone", "mail", "email"}
+	for key, values := range query {
+		keyLower := strings.ToLower(key)
+		for _, param := range sensitiveParams {
+			if keyLower == param {
+				sanitizedValues := make([]string, len(values))
+				for i, v := range values {
+					sanitizedValues[i] = SanitizeString(v)
+				}
+				query[key] = sanitizedValues
+				break
+			}
+		}
+	}
+
+	sanitized.RawQuery = query.Encode()
+	return sanitized.String()
+}
+
+// SanitizeURLString sanitizes URL string by parsing and masking sensitive query parameters
+func SanitizeURLString(urlStr string) string {
+	if urlStr == "" {
+		return ""
+	}
+
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		// If parsing fails, return original string (better than empty)
+		return urlStr
+	}
+
+	return SanitizeURL(u)
 }

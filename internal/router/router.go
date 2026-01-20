@@ -68,9 +68,11 @@ func AccessLogMiddleware() func(http.Handler) http.Handler {
 		// Then add access log handler
 		c = c.Append(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
 			// Access logs use default language as this is system logging
+			// Sanitize URL to mask sensitive query parameters (phone, mail, email)
+			sanitizedURL := logger.SanitizeURL(r.URL)
 			hlog.FromRequest(r).Info().
 				Str("method", r.Method).
-				Stringer("url", r.URL).
+				Str("url", sanitizedURL).
 				Int("status", status).
 				Int("size", size).
 				Dur("duration", duration).

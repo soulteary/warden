@@ -15,6 +15,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // GetUserByIdentifier queries a single user by identifier
@@ -88,8 +89,8 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		// If user not found, return 404
 		if !found {
 			hlog.FromRequest(r).Info().
-				Str("phone", phone).
-				Str("mail", mail).
+				Str("phone", logger.SanitizePhone(phone)).
+				Str("mail", logger.SanitizeEmail(mail)).
 				Str("user_id", userID).
 				Msg(i18n.T(r, "log.user_not_found"))
 			http.Error(w, i18n.T(r, "http.user_not_found"), http.StatusNotFound)
@@ -110,8 +111,8 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 
 		hlog.FromRequest(r).Info().
 			Str("user_id", user.UserID).
-			Str("phone", user.Phone).
-			Str("mail", user.Mail).
+			Str("phone", logger.SanitizePhone(user.Phone)).
+			Str("mail", logger.SanitizeEmail(user.Mail)).
 			Msg(i18n.T(r, "log.user_query_success"))
 	}
 }

@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"net/url"
 	"os"
 	"testing"
 
@@ -297,4 +298,222 @@ func TestSanitizeHeader_EdgeCases(t *testing.T) {
 	// Test case with multiple sensitive keywords
 	result := SanitizeHeader("Authorization: Bearer token123")
 	assert.Contains(t, result, "**", "应该被脱敏")
+}
+
+func TestSanitizePhone(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "短手机号",
+			input:    "138",
+			expected: "***",
+		},
+		{
+			name:     "正常手机号",
+			input:    "13800138000",
+			expected: "13*******00", // 11位：前2后2，中间7个*
+		},
+		{
+			name:     "国际手机号",
+			input:    "+8613800138000",
+			expected: "+8**********00",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizePhone(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSanitizeEmail(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "空字符串",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "短邮箱",
+			input:    "a@b",
+			expected: "***",
+		},
+		{
+			name:     "正常邮箱",
+			input:    "test@example.com",
+			expected: "te************om", // 16位：前2后2，中间12个*
+		},
+		{
+			name:     "长邮箱",
+			input:    "verylongemailaddress@example.com",
+			expected: "ve****************************om", // 34位：前2后2，中间30个*
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeEmail(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSanitizeURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string // Expected URL string (we'll check if sensitive params are masked)
+	}{
+		{
+			name:     "无查询参数",
+			input:    "https://example.com/user",
+			expected: "https://example.com/user",
+		},
+		{
+			name:     "单个phone参数",
+			input:    "https://example.com/user?phone=13800138000",
+			expected: "phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+		},
+		{
+			name:     "单个mail参数",
+			input:    "https://example.com/user?mail=test@example.com",
+			expected: "mail=te%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2Aom", // URL编码后的脱敏值
+		},
+		{
+			name:     "单个email参数",
+			input:    "https://example.com/user?email=user@example.com",
+			expected: "email=us%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2Aom", // URL编码后的脱敏值
+		},
+		{
+			name:     "多个敏感参数",
+			input:    "https://example.com/user?phone=13800138000&mail=test@example.com",
+			expected: "phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+		},
+		{
+			name:     "敏感参数和非敏感参数混合",
+			input:    "https://example.com/user?phone=13800138000&page=1&page_size=10",
+			expected: "phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+		},
+		{
+			name:     "空值参数",
+			input:    "https://example.com/user?phone=",
+			expected: "phone=",
+		},
+		{
+			name:     "大小写混合参数名",
+			input:    "https://example.com/user?Phone=13800138000&MAIL=test@example.com",
+			expected: "Phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u, err := url.Parse(tt.input)
+			require.NoError(t, err, "应该能解析URL")
+
+			result := SanitizeURL(u)
+			assert.Contains(t, result, tt.expected, "URL应该包含脱敏后的查询参数")
+
+			// 验证敏感参数确实被脱敏了（使用大小写不敏感的查询）
+			// 注意：URL编码后，* 会被编码为 %2A
+			if phoneVal := u.Query().Get("phone"); phoneVal != "" {
+				assert.NotContains(t, result, phoneVal, "phone参数应该被脱敏")
+				assert.Contains(t, result, "%2A", "应该包含脱敏标记（URL编码后的*）")
+			}
+			if mailVal := u.Query().Get("mail"); mailVal != "" {
+				assert.NotContains(t, result, mailVal, "mail参数应该被脱敏")
+				assert.Contains(t, result, "%2A", "应该包含脱敏标记（URL编码后的*）")
+			}
+			if emailVal := u.Query().Get("email"); emailVal != "" {
+				assert.NotContains(t, result, emailVal, "email参数应该被脱敏")
+				assert.Contains(t, result, "%2A", "应该包含脱敏标记（URL编码后的*）")
+			}
+		})
+	}
+}
+
+func TestSanitizeURLString(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		shouldMask bool
+	}{
+		{
+			name:       "空字符串",
+			input:      "",
+			shouldMask: false,
+		},
+		{
+			name:       "无效URL",
+			input:      "not-a-valid-url",
+			shouldMask: false, // 解析失败时返回原始字符串
+		},
+		{
+			name:       "包含phone参数的URL",
+			input:      "https://example.com/user?phone=13800138000",
+			shouldMask: true,
+		},
+		{
+			name:       "包含mail参数的URL",
+			input:      "https://example.com/user?mail=test@example.com",
+			shouldMask: true,
+		},
+		{
+			name:       "包含email参数的URL",
+			input:      "https://example.com/user?email=user@example.com",
+			shouldMask: true,
+		},
+		{
+			name:       "多个敏感参数",
+			input:      "https://example.com/user?phone=13800138000&mail=test@example.com&email=user@example.com",
+			shouldMask: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeURLString(tt.input)
+			if tt.shouldMask {
+				// URL编码后，* 会被编码为 %2A
+				assert.Contains(t, result, "%2A", "应该包含脱敏标记（URL编码后的*）")
+				// 验证原始敏感信息不在结果中
+				if tt.input != "" {
+					u, err := url.Parse(tt.input)
+					if err == nil {
+						if phone := u.Query().Get("phone"); phone != "" {
+							assert.NotContains(t, result, phone, "phone参数应该被脱敏")
+						}
+						if mail := u.Query().Get("mail"); mail != "" {
+							assert.NotContains(t, result, mail, "mail参数应该被脱敏")
+						}
+						if email := u.Query().Get("email"); email != "" {
+							assert.NotContains(t, result, email, "email参数应该被脱敏")
+						}
+					}
+				}
+			} else if tt.input == "not-a-valid-url" {
+				// 对于无效URL，应该返回原始字符串
+				assert.Equal(t, tt.input, result, "无效URL应该返回原始字符串")
+			}
+		})
+	}
+}
+
+func TestSanitizeURL_NilURL(t *testing.T) {
+	result := SanitizeURL(nil)
+	assert.Equal(t, "", result, "nil URL应该返回空字符串")
 }

@@ -181,17 +181,17 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 		if err != nil {
 			// Check if error is NotFound and mail is available for fallback
 			if sdkErr, ok := err.(*Error); ok && sdkErr.Code == ErrCodeNotFound && mail != "" {
-				c.logger.Debugf("User not found by phone, falling back to mail: phone=%s, mail=%s", phone, mail)
+				c.logger.Debugf("User not found by phone, falling back to mail: phone=%s, mail=%s", sanitizePhone(phone), sanitizeEmail(mail))
 				// Fall back to mail lookup
 				user, err = c.GetUserByIdentifier(ctx, "", mail, "")
 			} else {
 				// Log error but don't expose details to caller (security: don't reveal if user exists)
-				c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, phone, mail)
+				c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, sanitizePhone(phone), sanitizeEmail(mail))
 				return false
 			}
 		} else if user != nil && !user.IsActive() {
 			// User found by phone but not active - don't try mail (user exists but inactive)
-			c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+			c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", sanitizePhone(phone), sanitizeEmail(mail), user.Status)
 			return false
 		}
 	case mail != "":
@@ -205,17 +205,17 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 
 	if err != nil {
 		// Log error but don't expose details to caller (security: don't reveal if user exists)
-		c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, phone, mail)
+		c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, sanitizePhone(phone), sanitizeEmail(mail))
 		return false
 	}
 
 	// Check if user status is active
 	if !user.IsActive() {
-		c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+		c.logger.Warnf("User status is not active: phone=%s, mail=%s, status=%s", sanitizePhone(phone), sanitizeEmail(mail), user.Status)
 		return false
 	}
 
-	c.logger.Debugf("User found and active: phone=%s, mail=%s, user_id=%s", phone, mail, user.UserID)
+	c.logger.Debugf("User found and active: phone=%s, mail=%s, user_id=%s", sanitizePhone(phone), sanitizeEmail(mail), user.UserID)
 	return true
 }
 
@@ -256,7 +256,9 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 		reqURL += "?" + params.Encode()
 	}
 
-	c.logger.Debugf("Fetching user from Warden API: %s", reqURL)
+	// Sanitize URL in logs to mask sensitive query parameters
+	sanitizedURL := sanitizeURLString(reqURL)
+	c.logger.Debugf("Fetching user from Warden API: %s", sanitizedURL)
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
@@ -290,7 +292,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
 	}
 
-	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", user.UserID, user.Phone, user.Mail)
+	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", user.UserID, sanitizePhone(user.Phone), sanitizeEmail(user.Mail))
 
 	return &user, nil
 }
