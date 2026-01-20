@@ -1,5 +1,7 @@
 // Package i18n 提供了国际化支持功能。
 // 支持从请求上下文获取语言，实现多语言文本翻译。
+//
+//nolint:misspell // 此文件包含多语言翻译，misspell linter 会误报非英语单词
 package i18n
 
 import (

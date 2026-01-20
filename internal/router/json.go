@@ -6,7 +6,7 @@ import (
 	// 标准库
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
 	"sync"
@@ -61,7 +61,7 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 	const maxParamLength = 20
 	if len(pageStr) > maxParamLength || len(sizeStr) > maxParamLength {
 		// 注意：这里没有请求上下文，使用默认语言
-		return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+		return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 	}
 
 	// 安全验证：检查参数是否包含非法字符（只允许数字）
@@ -69,18 +69,18 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 		// 验证是否为纯数字
 		for _, c := range pageStr {
 			if c < '0' || c > '9' {
-				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 		}
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 			// 限制最大页码，防止过大的值导致性能问题
 			const maxPage = 1000000
 			if p > maxPage {
-				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 			page = p
 		} else {
-			return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+			return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 		}
 	}
 
@@ -88,16 +88,16 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 		// 验证是否为纯数字
 		for _, c := range sizeStr {
 			if c < '0' || c > '9' {
-				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
 		}
 		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MAX_PAGE_SIZE {
 			pageSize = s
 		} else {
 			if s > define.MAX_PAGE_SIZE {
-				return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 			}
-			return 0, 0, false, fmt.Errorf(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+			return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
 		}
 	}
 

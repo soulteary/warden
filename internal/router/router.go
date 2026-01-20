@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	// 项目内部包
-	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
 
