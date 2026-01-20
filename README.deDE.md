@@ -21,6 +21,7 @@ Warden ist ein leichtgewichtiger HTTP-API-Dienst, der in Go entwickelt wurde und
 - 📦 **Containerisierte Bereitstellung**: Vollständige Docker-Unterstützung, sofort einsatzbereit
 - 📊 **Strukturierte Protokollierung**: Verwendet zerolog, um detaillierte Zugriffs- und Fehlerprotokolle bereitzustellen
 - 🔒 **Verteilte Sperren**: Verwendet Redis, um sicherzustellen, dass geplante Aufgaben in verteilten Umgebungen nicht wiederholt ausgeführt werden
+- 🌐 **Mehrsprachige Unterstützung**: Unterstützt 7 Sprachen (Englisch, Chinesisch, Französisch, Italienisch, Japanisch, Deutsch, Koreanisch) mit automatischer Spracherkennung
 
 ## 🏗️ Architekturdesign
 
@@ -86,6 +87,41 @@ Warden bietet eine vollständige RESTful-API mit Unterstützung für Benutzerlis
 Für detaillierte API-Dokumentation siehe: [API-Dokumentation](docs/enUS/API.md)
 
 OpenAPI-Spezifikationsdatei: [openapi.yaml](openapi.yaml)
+
+## 🌐 Mehrsprachige Unterstützung
+
+Warden unterstützt eine vollständige Internationalisierungsfunktion (i18N). Alle API-Antworten, Fehlermeldungen und Protokolle unterstützen die Internationalisierung.
+
+### Unterstützte Sprachen
+
+- 🇺🇸 Englisch (en) - Standard
+- 🇨🇳 Chinesisch (zh)
+- 🇫🇷 Französisch (fr)
+- 🇮🇹 Italienisch (it)
+- 🇯🇵 Japanisch (ja)
+- 🇩🇪 Deutsch (de)
+- 🇰🇷 Koreanisch (ko)
+
+### Spracherkennung
+
+Warden unterstützt zwei Methoden zur Spracherkennung mit der folgenden Priorität:
+
+1. **Abfrageparameter**: Sprache über `?lang=de` angeben
+2. **Accept-Language-Header**: Automatische Erkennung der Browser-Spracheinstellung
+3. **Standardsprache**: Englisch, wenn nicht angegeben
+
+### Verwendungsbeispiele
+
+```bash
+# Deutsch über Abfrageparameter angeben
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=de"
+
+# Automatische Erkennung über Accept-Language-Header
+curl -H "X-API-Key: your-key" -H "Accept-Language: de-DE,de;q=0.9" "http://localhost:8081/"
+
+# Französisch verwenden
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+```
 
 ## 🔌 SDK-Verwendung
 
@@ -162,6 +198,7 @@ warden/
 │   ├── define/            # Konstantendefinitionen und Datenstrukturen
 │   ├── di/                # Abhängigkeitsinjektion
 │   ├── errors/            # Fehlerbehandlung
+│   ├── i18n/              # Internationalisierungsunterstützung
 │   ├── logger/            # Protokollierungsinitialisierung
 │   ├── metrics/           # Metrikensammlung
 │   ├── middleware/        # HTTP-Middleware

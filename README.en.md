@@ -21,6 +21,7 @@ Warden is a lightweight HTTP API service developed in Go, primarily used for pro
 - 📦 **Containerized Deployment**: Complete Docker support, ready to use out of the box
 - 📊 **Structured Logging**: Uses zerolog to provide detailed access logs and error logs
 - 🔒 **Distributed Locks**: Uses Redis to ensure scheduled tasks don't execute repeatedly in distributed environments
+- 🌐 **Multi-language Support**: Supports 7 languages (English, Chinese, French, Italian, Japanese, German, Korean) with automatic language detection
 
 ## 🏗️ Architecture Design
 
@@ -86,6 +87,43 @@ Warden provides a complete RESTful API with support for user list queries, pagin
 For detailed API documentation, please refer to: [API Documentation](docs/enUS/API.md)
 
 OpenAPI specification file: [openapi.yaml](openapi.yaml)
+
+## 🌐 Multi-language Support
+
+Warden supports complete internationalization (i18N) functionality. All API responses, error messages, and logs support internationalization.
+
+### Supported Languages
+
+- 🇺🇸 English (en) - Default
+- 🇨🇳 Chinese (zh)
+- 🇫🇷 French (fr)
+- 🇮🇹 Italian (it)
+- 🇯🇵 Japanese (ja)
+- 🇩🇪 German (de)
+- 🇰🇷 Korean (ko)
+
+### Language Detection
+
+Warden supports two language detection methods with the following priority:
+
+1. **Query Parameter**: Specify language via `?lang=zh`
+2. **Accept-Language Header**: Automatically detect browser language preference
+3. **Default Language**: English if not specified
+
+### Usage Examples
+
+```bash
+# Specify Chinese via query parameter
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+
+# Auto-detect via Accept-Language header
+curl -H "X-API-Key: your-key" -H "Accept-Language: zh-CN,zh;q=0.9" "http://localhost:8081/"
+
+# Use Japanese
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+```
+
+For detailed multi-language documentation, please refer to: [Multi-language Documentation](docs/enUS/README.md#multi-language-support)
 
 ## 🐳 Docker Deployment
 

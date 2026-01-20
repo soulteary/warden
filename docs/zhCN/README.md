@@ -58,6 +58,72 @@
   - 命名约定
   - 最佳实践
 
+## 🌐 多语言支持
+
+Warden 支持完整的多语言（i18N）功能，所有 API 响应、错误消息和日志都支持国际化。
+
+### 支持的语言
+
+- 🇺🇸 英语 (en) - 默认语言
+- 🇨🇳 中文 (zh)
+- 🇫🇷 法语 (fr)
+- 🇮🇹 意大利语 (it)
+- 🇯🇵 日语 (ja)
+- 🇩🇪 德语 (de)
+- 🇰🇷 韩语 (ko)
+
+### 语言检测方式
+
+Warden 支持两种语言检测方式，优先级如下：
+
+1. **查询参数**: 通过 URL 查询参数 `?lang=zh` 指定语言
+2. **Accept-Language 头**: 自动检测浏览器或客户端的语言偏好
+3. **默认语言**: 如果未指定，使用英语
+
+### 使用示例
+
+#### 通过查询参数指定语言
+
+```bash
+# 使用中文
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+
+# 使用日语
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+
+# 使用法语
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+```
+
+#### 通过 Accept-Language 头自动检测
+
+```bash
+# 浏览器会自动发送 Accept-Language 头
+curl -H "X-API-Key: your-key" \
+     -H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8" \
+     "http://localhost:8081/"
+```
+
+### 国际化范围
+
+以下内容支持多语言：
+
+- ✅ API 错误响应消息
+- ✅ HTTP 状态码对应的错误消息
+- ✅ 日志消息（基于请求上下文）
+- ✅ 配置和警告消息
+
+### 技术实现
+
+- 使用请求上下文（context）存储语言信息，避免全局状态
+- 支持线程安全的语言切换
+- 自动回退到英语（如果翻译不存在）
+- 所有翻译内容内置在代码中，无需外部文件
+
+### 开发说明
+
+如需添加新的翻译或修改现有翻译，请编辑 `internal/i18n/i18n.go` 文件中的 `translations` map。
+
 ## 🚀 快速导航
 
 ### 新手入门

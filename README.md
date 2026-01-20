@@ -21,6 +21,7 @@ Warden 是一个基于 Go 语言开发的轻量级 HTTP API 服务，主要用�
 - 📦 **容器化部署**: 完整的 Docker 支持，开箱即用
 - 📊 **结构化日志**: 使用 zerolog 提供详细的访问日志和错误日志
 - 🔒 **分布式锁**: 使用 Redis 确保定时任务在分布式环境下不会重复执行
+- 🌐 **多语言支持**: 支持 7 种语言（英语、中文、法语、意大利语、日语、德语、韩语），自动检测用户语言偏好
 
 ## 🏗️ 架构设计
 
@@ -86,6 +87,43 @@ Warden 提供了完整的 RESTful API，支持用户列表查询、分页、健�
 详细 API 文档请参考：[API 文档](docs/zhCN/API.md)
 
 OpenAPI 规范文件：[openapi.yaml](openapi.yaml)
+
+## 🌐 多语言支持
+
+Warden 支持完整的多语言（i18N）功能，所有 API 响应、错误消息和日志都支持国际化。
+
+### 支持的语言
+
+- 🇺🇸 英语 (en) - 默认
+- 🇨🇳 中文 (zh)
+- 🇫🇷 法语 (fr)
+- 🇮🇹 意大利语 (it)
+- 🇯🇵 日语 (ja)
+- 🇩🇪 德语 (de)
+- 🇰🇷 韩语 (ko)
+
+### 语言检测方式
+
+Warden 支持两种语言检测方式，优先级如下：
+
+1. **查询参数**: 通过 `?lang=zh` 指定语言
+2. **Accept-Language 头**: 自动检测浏览器语言偏好
+3. **默认语言**: 如果未指定，使用英语
+
+### 使用示例
+
+```bash
+# 通过查询参数指定中文
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+
+# 通过 Accept-Language 头自动检测
+curl -H "X-API-Key: your-key" -H "Accept-Language: zh-CN,zh;q=0.9" "http://localhost:8081/"
+
+# 使用日语
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+```
+
+详细多语言文档请参考：[多语言文档](docs/zhCN/README.md#多语言支持)
 
 ## 🔌 SDK 使用
 
@@ -162,6 +200,7 @@ warden/
 │   ├── define/            # 常量定义和数据结构
 │   ├── di/                # 依赖注入
 │   ├── errors/            # 错误处理
+│   ├── i18n/              # 国际化支持
 │   ├── logger/            # 日志初始化
 │   ├── metrics/           # 指标收集
 │   ├── middleware/        # HTTP 中间件

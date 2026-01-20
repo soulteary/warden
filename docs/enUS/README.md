@@ -58,6 +58,72 @@ Welcome to the Warden AllowList user data service documentation.
   - Naming conventions
   - Best practices
 
+## 🌐 Multi-language Support
+
+Warden supports complete internationalization (i18N) functionality. All API responses, error messages, and logs support internationalization.
+
+### Supported Languages
+
+- 🇺🇸 English (en) - Default language
+- 🇨🇳 Chinese (zh)
+- 🇫🇷 French (fr)
+- 🇮🇹 Italian (it)
+- 🇯🇵 Japanese (ja)
+- 🇩🇪 German (de)
+- 🇰🇷 Korean (ko)
+
+### Language Detection
+
+Warden supports two language detection methods with the following priority:
+
+1. **Query Parameter**: Specify language via URL query parameter `?lang=zh`
+2. **Accept-Language Header**: Automatically detect browser or client language preference
+3. **Default Language**: English if not specified
+
+### Usage Examples
+
+#### Specify Language via Query Parameter
+
+```bash
+# Use Chinese
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+
+# Use Japanese
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+
+# Use French
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+```
+
+#### Auto-detect via Accept-Language Header
+
+```bash
+# Browser automatically sends Accept-Language header
+curl -H "X-API-Key: your-key" \
+     -H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8" \
+     "http://localhost:8081/"
+```
+
+### Internationalization Scope
+
+The following content supports multiple languages:
+
+- ✅ API error response messages
+- ✅ HTTP status code error messages
+- ✅ Log messages (based on request context)
+- ✅ Configuration and warning messages
+
+### Technical Implementation
+
+- Uses request context to store language information, avoiding global state
+- Supports thread-safe language switching
+- Automatic fallback to English (if translation not found)
+- All translations are built into the code, no external files required
+
+### Development Notes
+
+To add new translations or modify existing translations, please edit the `translations` map in the `internal/i18n/i18n.go` file.
+
 ## 🚀 Quick Navigation
 
 ### Getting Started

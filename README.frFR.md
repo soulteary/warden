@@ -21,6 +21,7 @@ Warden est un service API HTTP léger développé en Go, principalement utilisé
 - 📦 **Déploiement Conteneurisé**: Support Docker complet, prêt à l'emploi
 - 📊 **Journalisation Structurée**: Utilise zerolog pour fournir des journaux d'accès et d'erreur détaillés
 - 🔒 **Verrous Distribués**: Utilise Redis pour s'assurer que les tâches planifiées ne s'exécutent pas de manière répétée dans les environnements distribués
+- 🌐 **Support Multi-langues**: Prend en charge 7 langues (Anglais, Chinois, Français, Italien, Japonais, Allemand, Coréen) avec détection automatique de la langue préférée
 
 ## 🏗️ Conception de l'Architecture
 
@@ -86,6 +87,41 @@ Warden fournit une API RESTful complète avec support pour les requêtes de list
 Pour la documentation API détaillée, veuillez vous référer à: [Documentation API](docs/enUS/API.md)
 
 Fichier de spécification OpenAPI: [openapi.yaml](openapi.yaml)
+
+## 🌐 Support Multi-langues
+
+Warden prend en charge une fonctionnalité complète d'internationalisation (i18N). Toutes les réponses API, messages d'erreur et journaux prennent en charge l'internationalisation.
+
+### Langues Supportées
+
+- 🇺🇸 Anglais (en) - Par défaut
+- 🇨🇳 Chinois (zh)
+- 🇫🇷 Français (fr)
+- 🇮🇹 Italien (it)
+- 🇯🇵 Japonais (ja)
+- 🇩🇪 Allemand (de)
+- 🇰🇷 Coréen (ko)
+
+### Détection de la Langue
+
+Warden prend en charge deux méthodes de détection de langue avec la priorité suivante :
+
+1. **Paramètre de requête**: Spécifier la langue via `?lang=fr`
+2. **En-tête Accept-Language**: Détection automatique de la préférence linguistique du navigateur
+3. **Langue par défaut**: Anglais si non spécifié
+
+### Exemples d'Utilisation
+
+```bash
+# Spécifier le français via le paramètre de requête
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+
+# Détection automatique via l'en-tête Accept-Language
+curl -H "X-API-Key: your-key" -H "Accept-Language: fr-FR,fr;q=0.9" "http://localhost:8081/"
+
+# Utiliser le chinois
+curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+```
 
 ## 🔌 Utilisation du SDK
 
@@ -162,6 +198,7 @@ warden/
 │   ├── define/            # Définitions de constantes et structures de données
 │   ├── di/                # Injection de dépendances
 │   ├── errors/            # Gestion des erreurs
+│   ├── i18n/              # Support d'internationalisation
 │   ├── logger/            # Initialisation de la journalisation
 │   ├── metrics/           # Collecte de métriques
 │   ├── middleware/        # Middleware HTTP
