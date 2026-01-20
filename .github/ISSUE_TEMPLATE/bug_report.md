@@ -37,7 +37,7 @@ assignees: ''
 - **操作系统**: [例如: macOS 12.0, Ubuntu 22.04, Windows 11]
 - **Go 版本**: [例如: 1.25]
 - **Redis 版本**: [例如: 7.0]
-- **Warden 版本**: [例如: 查看 RELEASE_VERSION 文件]
+- **Warden 版本**: [例如: 运行 `warden --version` 或查看启动日志]
 - **运行模式**: [例如: DEFAULT, ONLY_REMOTE, ONLY_LOCAL]
 
 ## ⚙️ 配置信息

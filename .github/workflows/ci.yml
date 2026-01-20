@@ -195,24 +195,13 @@ jobs:
       - name: 获取版本信息
         id: version
         run: |
-          if [ -f RELEASE_VERSION ]; then
-            VERSION=$(cat RELEASE_VERSION)
-          else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          fi
-          if [ -f RELEASE_COMMIT ]; then
-            COMMIT=$(cat RELEASE_COMMIT)
-          else
-            COMMIT=$(git rev-parse --short HEAD)
-          fi
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +%FT%T%z)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "最近版本: $VERSION / $COMMIT"
-
-      - name: 准备版本文件
-        run: |
-          echo "${{ steps.version.outputs.version }}" > RELEASE_VERSION
-          echo "${{ steps.version.outputs.commit }}" > RELEASE_COMMIT
 
       - name: 构建 Docker 镜像
         uses: docker/build-push-action@v5
@@ -222,6 +211,10 @@ jobs:
           push: false
           load: true
           tags: warden:test
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ steps.version.outputs.commit }}
+            BUILD_DATE=${{ steps.version.outputs.build_date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

@@ -835,6 +835,5 @@ For questions or suggestions, please contact via Issues.
 
 ---
 
-**Version**: See `RELEASE_VERSION` file  
-**Build Information**: The program displays version, build time, and code version on startup
+**Version**: The program displays version, build time, and code version on startup (via `warden --version` or startup logs)
 
