@@ -64,7 +64,7 @@ Please follow these code standards:
 5. **Add Comments**: Public functions and types must have documentation comments
 6. **Constant Naming**: All constants must use `ALL_CAPS` (UPPER_SNAKE_CASE) naming style
 
-For detailed code style guidelines, please refer to [CODE_STYLE.en.md](CODE_STYLE.en.md).
+For detailed code style guidelines, please refer to [CODE_STYLE.en.md](docs/CODE_STYLE.en.md).
 
 ## 📦 Commit Standards
 

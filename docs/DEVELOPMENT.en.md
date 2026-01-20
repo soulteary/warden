@@ -94,7 +94,7 @@ go tool cover -html=coverage.out
 
 The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
-- [CODE_STYLE.en.md](../CODE_STYLE.en.md) / [CODE_STYLE.md](../CODE_STYLE.md) - Code style guide
+- [CODE_STYLE.en.md](CODE_STYLE.en.md) / [CODE_STYLE.md](CODE_STYLE.md) - Code style guide
 - [CONTRIBUTING.en.md](../CONTRIBUTING.en.md) / [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guide
 
 ### Code Formatting

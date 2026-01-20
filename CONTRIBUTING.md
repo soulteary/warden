@@ -64,7 +64,7 @@ go run main.go
 5. **添加注释**: 公共函数和类型必须有文档注释
 6. **常量命名**: 所有常量必须使用 `ALL_CAPS` (UPPER_SNAKE_CASE) 命名风格
 
-详细的代码风格指南请参考 [CODE_STYLE.md](CODE_STYLE.md)。
+详细的代码风格指南请参考 [CODE_STYLE.md](docs/CODE_STYLE.md)。
 
 ## 📦 提交规范
 

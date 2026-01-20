@@ -148,7 +148,7 @@ For detailed development documentation, please refer to: [Development Documentat
 
 The project follows Go official code standards and best practices. For detailed standards, please refer to:
 
-- [CODE_STYLE.en.md](CODE_STYLE.en.md) - Code style guide
+- [CODE_STYLE.en.md](docs/CODE_STYLE.en.md) - Code style guide
 - [CONTRIBUTING.en.md](CONTRIBUTING.en.md) - Contribution guide
 
 ## 📄 License

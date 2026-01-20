@@ -97,7 +97,7 @@ docker-compose up -d
 - [Warden 主文档](../README.md) - 完整的项目文档
 - [API 文档](../openapi.yaml) - OpenAPI 规范
 - [配置示例](../config.example.yaml) - 配置文件参考
-- [代码风格指南](../CODE_STYLE.md) - 开发规范
+- [代码风格指南](../docs/CODE_STYLE.md) - 开发规范
 
 ## 💡 提示
 

@@ -94,7 +94,7 @@ go tool cover -html=coverage.out
 
 项目遵循 Go 官方代码规范和最佳实践。详细规范请参考：
 
-- [CODE_STYLE.md](../CODE_STYLE.md) / [CODE_STYLE.en.md](../CODE_STYLE.en.md) - 代码风格指南
+- [CODE_STYLE.md](CODE_STYLE.md) / [CODE_STYLE.en.md](CODE_STYLE.en.md) - 代码风格指南
 - [CONTRIBUTING.md](../CONTRIBUTING.md) / [CONTRIBUTING.en.md](../CONTRIBUTING.en.md) - 贡献指南
 
 ### 代码格式化
