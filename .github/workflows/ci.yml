@@ -86,32 +86,16 @@ jobs:
       - name: 等待 Redis 就绪
         run: |
           echo "检查 Redis 连接..."
-          go run - << 'EOF'
-          package main
-          import (
-            "context"
-            "fmt"
-            "os"
-            "time"
-            "github.com/redis/go-redis/v9"
-          )
-          func main() {
-            client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
-            defer client.Close()
-            ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-            defer cancel()
-            for i := 0; i < 30; i++ {
-              if err := client.Ping(ctx).Err(); err == nil {
-                fmt.Println("Redis 已就绪")
-                os.Exit(0)
-              }
-              fmt.Printf("等待 Redis 启动... (%d/30)\n", i+1)
-              time.Sleep(1 * time.Second)
-            }
-            fmt.Println("Redis 启动超时")
-            os.Exit(1)
-          }
-          EOF
+          for i in {1..30}; do
+            if docker run --rm --network host redis:8-alpine redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG; then
+              echo "Redis 已就绪"
+              exit 0
+            fi
+            echo "等待 Redis 启动... ($i/30)"
+            sleep 1
+          done
+          echo "Redis 启动超时"
+          exit 1
 
       - name: 运行测试
         run: go test -v -race -coverprofile=coverage.out ./...
