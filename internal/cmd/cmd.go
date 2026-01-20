@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	// 项目内部包
 	"github.com/soulteary/warden/internal/config"
@@ -174,7 +175,10 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMa
 	if hasFlag(fs, "http-timeout") {
 		cfg.HTTPTimeout = httpTimeoutFlag
 	} else if timeoutEnv := os.Getenv("HTTP_TIMEOUT"); timeoutEnv != "" {
-		if timeout, err := strconv.Atoi(timeoutEnv); err == nil {
+		// 支持两种格式：整数秒数（如 "30"）或 duration 格式（如 "30s", "1m30s"）
+		if timeout, err := time.ParseDuration(timeoutEnv); err == nil {
+			cfg.HTTPTimeout = int(timeout.Seconds())
+		} else if timeout, err := strconv.Atoi(timeoutEnv); err == nil {
 			cfg.HTTPTimeout = timeout
 		}
 	}
@@ -448,7 +452,10 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	}
 
 	if timeoutEnv := os.Getenv("HTTP_TIMEOUT"); timeoutEnv != "" {
-		if timeout, err := strconv.Atoi(timeoutEnv); err == nil {
+		// 支持两种格式：整数秒数（如 "30"）或 duration 格式（如 "30s", "1m30s"）
+		if timeout, err := time.ParseDuration(timeoutEnv); err == nil {
+			cfg.HTTPTimeout = int(timeout.Seconds())
+		} else if timeout, err := strconv.Atoi(timeoutEnv); err == nil {
 			cfg.HTTPTimeout = timeout
 		}
 	}
