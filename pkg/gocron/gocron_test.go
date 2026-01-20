@@ -389,8 +389,9 @@ func TestTaskAt(t *testing.T) {
 
 	// Schedule to run in next minute
 	now := time.Now()
+	nextMinuteTime := now.Add(time.Minute)
 	// Schedule every day At
-	startAt := fmt.Sprintf("%02d:%02d", now.Hour(), now.Add(time.Minute).Minute())
+	startAt := fmt.Sprintf("%02d:%02d", nextMinuteTime.Hour(), nextMinuteTime.Minute())
 	dayJob := s.Every(1).Day().At(startAt)
 
 	dayJobDone := make(chan bool, 1)
@@ -400,8 +401,8 @@ func TestTaskAt(t *testing.T) {
 		t.Fatalf("调度任务失败: %v", err)
 	}
 
-	// Expected start time
-	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Add(time.Minute).Minute(), 0, 0, loc)
+	// Expected start time - if next minute is tomorrow, schedule for tomorrow
+	expectedStartTime := time.Date(nextMinuteTime.Year(), nextMinuteTime.Month(), nextMinuteTime.Day(), nextMinuteTime.Hour(), nextMinuteTime.Minute(), 0, 0, loc)
 	nextRun := dayJob.NextScheduledTime()
 	assert.Equal(t, expectedStartTime, nextRun)
 
