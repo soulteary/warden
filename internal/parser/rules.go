@@ -181,6 +181,11 @@ func parseRemoteResponse(res *http.Response, url string) ([]define.AllowListUser
 		return nil, fmt.Errorf("%s: %w", define.ERR_PARSE_CONFIG_FAILED, err)
 	}
 
+	// 规范化所有用户数据（设置默认值，生成 user_id）
+	for i := range data {
+		data[i].Normalize()
+	}
+
 	return data, nil
 }
 

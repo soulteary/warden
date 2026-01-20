@@ -82,16 +82,32 @@ paths:
                   value:
                     - phone: "13800138000"
                       mail: "admin@example.com"
+                      user_id: "a1b2c3d4e5f6g7h8"
+                      status: "active"
+                      scope: ["read", "write"]
+                      role: "admin"
                     - phone: "13900139000"
                       mail: "user@example.com"
+                      user_id: "b2c3d4e5f6g7h8i9"
+                      status: "active"
+                      scope: ["read"]
+                      role: "user"
                 with_pagination:
                   summary: 分页响应示例
                   value:
                     data:
                       - phone: "13800138000"
                         mail: "admin@example.com"
+                        user_id: "a1b2c3d4e5f6g7h8"
+                        status: "active"
+                        scope: ["read", "write"]
+                        role: "admin"
                       - phone: "13900139000"
                         mail: "user@example.com"
+                        user_id: "b2c3d4e5f6g7h8i9"
+                        status: "active"
+                        scope: ["read"]
+                        role: "user"
                     pagination:
                       page: 1
                       page_size: 100
@@ -228,6 +244,74 @@ paths:
               example:
                 error: "不支持的方法，请使用 GET 或 POST"
 
+  /user:
+    get:
+      tags:
+        - users
+      summary: 查询单个用户
+      description: |
+        根据标识符查询单个用户信息。支持通过手机号、邮箱或用户ID查询。
+
+        注意：只能提供一个查询参数（phone、mail 或 user_id）。
+      operationId: getUserByIdentifier
+      parameters:
+        - name: phone
+          in: query
+          description: 用户手机号
+          required: false
+          schema:
+            type: string
+            example: "13800138000"
+        - name: mail
+          in: query
+          description: 用户邮箱
+          required: false
+          schema:
+            type: string
+            format: email
+            example: "admin@example.com"
+        - name: user_id
+          in: query
+          description: 用户唯一标识符
+          required: false
+          schema:
+            type: string
+            example: "a1b2c3d4e5f6g7h8"
+      responses:
+        '200':
+          description: 成功返回用户信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowListUser'
+              example:
+                phone: "13800138000"
+                mail: "admin@example.com"
+                user_id: "a1b2c3d4e5f6g7h8"
+                status: "active"
+                scope: ["read", "write"]
+                role: "admin"
+        '400':
+          description: 请求参数错误（缺少标识符或提供了多个标识符）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Bad Request: missing identifier (phone, mail, or user_id)"
+        '404':
+          description: 用户未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "User not found"
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /metrics:
     get:
       tags:
@@ -242,7 +326,7 @@ paths:
             text/plain:
               schema:
                 type: string
-                example: |
+              example: |
                   # HELP http_requests_total Total number of HTTP requests
                   # TYPE http_requests_total counter
                   http_requests_total{method="GET",path="/"} 1000
@@ -267,6 +351,29 @@ components:
           format: email
           description: 用户邮箱
           example: "admin@example.com"
+        user_id:
+          type: string
+          description: 用户唯一标识符（可选，如果未提供则自动生成）
+          example: "a1b2c3d4e5f6g7h8"
+        status:
+          type: string
+          description: 用户状态（如 "active", "inactive", "suspended"）
+          enum:
+            - active
+            - inactive
+            - suspended
+          default: "active"
+          example: "active"
+        scope:
+          type: array
+          description: 用户权限范围（可选）
+          items:
+            type: string
+          example: ["read", "write"]
+        role:
+          type: string
+          description: 用户角色（可选）
+          example: "admin"
 
     PaginatedUsers:
       type: object

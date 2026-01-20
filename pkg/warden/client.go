@@ -189,6 +189,77 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 	return false
 }
 
+// GetUserByIdentifier fetches a single user by phone, mail, or user_id.
+// Only one identifier should be provided.
+func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID string) (*AllowListUser, error) {
+	// Validate that exactly one identifier is provided
+	identifierCount := 0
+	if phone != "" {
+		identifierCount++
+	}
+	if mail != "" {
+		identifierCount++
+	}
+	if userID != "" {
+		identifierCount++
+	}
+
+	if identifierCount == 0 {
+		return nil, NewError(ErrCodeInvalidConfig, "at least one identifier (phone, mail, or user_id) must be provided", nil)
+	}
+	if identifierCount > 1 {
+		return nil, NewError(ErrCodeInvalidConfig, "only one identifier (phone, mail, or user_id) should be provided", nil)
+	}
+
+	// Build request URL
+	reqURL := fmt.Sprintf("%s/user", c.baseURL)
+	params := url.Values{}
+	if phone != "" {
+		params.Set("phone", phone)
+	} else if mail != "" {
+		params.Set("mail", mail)
+	} else if userID != "" {
+		params.Set("user_id", userID)
+	}
+	if len(params) > 0 {
+		reqURL += "?" + params.Encode()
+	}
+
+	c.logger.Debugf("Fetching user from Warden API: %s", reqURL)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
+	}
+
+	// Add API key header if configured
+	c.addAuthHeaders(req)
+
+	// Make request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		c.logger.Errorf("Failed to fetch user from Warden API: %v", err)
+		return nil, NewError(ErrCodeRequestFailed, "failed to fetch user from Warden", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if err := c.checkResponseStatus(resp); err != nil {
+		return nil, err
+	}
+
+	// Parse response
+	var user AllowListUser
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
+	}
+
+	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", user.UserID, user.Phone, user.Mail)
+
+	return &user, nil
+}
+
 // ClearCache clears the internal cache.
 func (c *Client) ClearCache() {
 	c.cache.Clear()

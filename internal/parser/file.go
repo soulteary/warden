@@ -75,5 +75,11 @@ func FromFile(rulesFile string) (rules []define.AllowListUser) {
 			Msg(define.WARN_PARSE_RULE_ERR)
 		return rules
 	}
+
+	// 规范化所有用户数据（设置默认值，生成 user_id）
+	for i := range rules {
+		rules[i].Normalize()
+	}
+
 	return rules
 }

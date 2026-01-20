@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"strings"
 	"sync"
 
 	// 项目内部包
@@ -24,18 +25,23 @@ var log = logger.GetLogger()
 // 使用 map 结构提高查找效率，同时保持 API 兼容性
 // 维护顺序列表以保持插入顺序
 // 缓存哈希值以优化数据变化检测
+// 维护多个索引以支持通过 phone、mail、user_id 快速查询
 type SafeUserCache struct { //nolint:govet // fieldalignment: 字段顺序已优化，但为了保持 API 兼容性，不进一步调整
-	mu    sync.RWMutex                    // 24 bytes
-	order []string                        // 24 bytes (8 pointer + 8 len + 8 cap)
-	hash  string                          // 16 bytes (8 pointer + 8 len)
-	users map[string]define.AllowListUser // 8 bytes pointer
+	mu       sync.RWMutex                    // 24 bytes
+	order    []string                        // 24 bytes (8 pointer + 8 len + 8 cap)
+	hash     string                          // 16 bytes (8 pointer + 8 len)
+	users    map[string]define.AllowListUser // 8 bytes pointer (以 phone 为 key)
+	byMail   map[string]string               // 8 bytes pointer (mail -> phone 映射)
+	byUserID map[string]string               // 8 bytes pointer (user_id -> phone 映射)
 }
 
 // NewSafeUserCache 创建新的线程安全用户缓存
 func NewSafeUserCache() *SafeUserCache {
 	return &SafeUserCache{
-		users: make(map[string]define.AllowListUser),
-		order: make([]string, 0),
+		users:    make(map[string]define.AllowListUser),
+		order:    make([]string, 0),
+		byMail:   make(map[string]string),
+		byUserID: make(map[string]string),
 	}
 }
 
@@ -74,15 +80,20 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 	// 清空现有数据
 	c.users = make(map[string]define.AllowListUser, len(users))
 	c.order = make([]string, 0, len(users))
+	c.byMail = make(map[string]string, len(users))
+	c.byUserID = make(map[string]string, len(users))
 
 	// 使用 map 去重并存储（以 phone 为 key）
-	// 同时维护顺序列表
+	// 同时维护顺序列表和索引
 	validCount := 0
 	invalidCount := 0
 	duplicateCount := 0
 
 	for _, user := range users {
 		if user.Phone != "" {
+			// 规范化用户数据（设置默认值，生成 user_id）
+			user.Normalize()
+
 			// 验证用户数据
 			if err := validator.ValidateUser(user.Phone, user.Mail); err != nil {
 				invalidCount++
@@ -110,6 +121,17 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 					Msg("更新已存在的用户数据")
 			}
 			c.users[user.Phone] = user
+
+			// 建立 mail 索引（如果存在）
+			if user.Mail != "" {
+				mailKey := strings.ToLower(strings.TrimSpace(user.Mail))
+				c.byMail[mailKey] = user.Phone
+			}
+
+			// 建立 user_id 索引（如果存在）
+			if user.UserID != "" {
+				c.byUserID[user.UserID] = user.Phone
+			}
 		}
 	}
 
@@ -152,11 +174,13 @@ func calculateHashInternal(users map[string]define.AllowListUser, order []string
 		return sortedUsers[i].Mail < sortedUsers[j].Mail
 	})
 
-	// 计算哈希
+	// 计算哈希（包含所有字段以确保数据变化检测准确）
 	h := sha256.New()
 	for _, user := range sortedUsers {
 		// 使用分隔符确保不同字段不会混淆
-		h.Write([]byte(user.Phone + ":" + user.Mail + "\n"))
+		// 包含所有字段以确保数据变化检测准确
+		scopeStr := strings.Join(user.Scope, ",")
+		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -172,6 +196,31 @@ func (c *SafeUserCache) Len() int {
 func (c *SafeUserCache) GetByPhone(phone string) (define.AllowListUser, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	user, exists := c.users[phone]
+	return user, exists
+}
+
+// GetByMail 根据邮箱获取用户（线程安全，O(1) 查找）
+func (c *SafeUserCache) GetByMail(mail string) (define.AllowListUser, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	mailKey := strings.ToLower(strings.TrimSpace(mail))
+	phone, exists := c.byMail[mailKey]
+	if !exists {
+		return define.AllowListUser{}, false
+	}
+	user, exists := c.users[phone]
+	return user, exists
+}
+
+// GetByUserID 根据用户ID获取用户（线程安全，O(1) 查找）
+func (c *SafeUserCache) GetByUserID(userID string) (define.AllowListUser, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	phone, exists := c.byUserID[userID]
+	if !exists {
+		return define.AllowListUser{}, false
+	}
 	user, exists := c.users[phone]
 	return user, exists
 }

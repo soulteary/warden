@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -137,6 +138,18 @@ func (app *App) loadInitialData(rulesFile string) error {
 			}
 			return nil
 		}
+		// 检查文件是否存在
+		_, err := os.Stat(rulesFile)
+		if stderrors.Is(err, os.ErrNotExist) {
+			app.log.Warn().
+				Str("data_file", rulesFile).
+				Str("example_file", "data.example.json").
+				Msg("⚠️  数据文件不存在")
+			app.log.Info().
+				Msg("💡 提示：ONLY_LOCAL 模式下需要本地数据文件")
+			app.log.Info().
+				Msgf("   请创建 %s 文件（可参考 %s）", rulesFile, "data.example.json")
+		}
 		app.log.Warn().Msg("ONLY_LOCAL 模式下本地文件加载失败，使用空数据")
 		return nil
 	}
@@ -182,8 +195,29 @@ func (app *App) loadInitialData(rulesFile string) error {
 		return nil
 	}
 
-	// 4. 都失败，使用空数据
-	app.log.Warn().Msg("所有数据源都失败，使用空数据")
+	// 4. 都失败，检查是否需要提示用户
+	// 检查本地文件是否存在
+	_, localFileErr := os.Stat(rulesFile)
+	hasRemoteConfig := app.configURL != "" && app.configURL != define.DEFAULT_REMOTE_CONFIG
+
+	if stderrors.Is(localFileErr, os.ErrNotExist) && !hasRemoteConfig {
+		// 本地文件不存在且没有配置远程地址，给出友好提示
+		app.log.Warn().
+			Str("data_file", rulesFile).
+			Str("example_file", "data.example.json").
+			Msg("⚠️  数据文件不存在且未配置远程数据地址")
+		app.log.Info().
+			Msg("💡 提示：请执行以下操作之一：")
+		app.log.Info().
+			Msgf("   1. 创建 %s 文件（可参考 %s）", rulesFile, "data.example.json")
+		app.log.Info().
+			Msg("   2. 或通过 --config 参数指定远程数据地址")
+		app.log.Info().
+			Msg("   3. 或通过环境变量 CONFIG 指定远程数据地址")
+		app.log.Warn().Msg("当前使用空数据，服务将继续运行但无法提供用户数据")
+	} else {
+		app.log.Warn().Msg("所有数据源都失败，使用空数据")
+	}
 	return nil
 }
 
@@ -455,6 +489,27 @@ func registerRoutes(app *App) {
 		),
 	)
 	http.Handle("/", mainHandler)
+
+	// 注册用户查询接口（需要认证）
+	// 将访问日志中间件放在最外层，确保所有请求（包括认证失败的）都能记录
+	userHandler := router.AccessLogMiddleware()(
+		securityHeadersMiddleware(
+			errorHandlerMiddleware(
+				middleware.CompressMiddleware(
+					middleware.BodyLimitMiddleware(
+						middleware.MetricsMiddleware(
+							rateLimitMiddleware(
+								authMiddleware(
+									router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
+								),
+							),
+						),
+					),
+				),
+			),
+		),
+	)
+	http.Handle("/user", userHandler)
 
 	// 注册健康检查端点（IP 白名单保护，限制信息泄露）
 	// 将访问日志中间件放在最外层，确保所有请求都能记录

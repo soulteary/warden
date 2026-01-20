@@ -1,7 +1,22 @@
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "user_id": "a1b2c3d4e5f6g7h8",
+        "status": "active",
+        "scope": ["read", "write", "admin"],
+        "role": "admin"
+    },
+    {
+        "phone": "13900139000",
+        "mail": "user@example.com",
+        "status": "active",
+        "scope": ["read"],
+        "role": "user"
+    },
+    {
+        "phone": "13700137000",
+        "mail": "guest@example.com"
     }
 ]
 
