@@ -110,6 +110,16 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
 	}
 
+	// Check if Redis address is explicitly set (command-line argument or environment variable)
+	redisExplicitlySet := hasFlag(fs, "redis") || strings.TrimSpace(os.Getenv("REDIS")) != ""
+
+	// Process Redis address first
+	if hasFlag(fs, "redis") {
+		cfg.Redis = redisFlag
+	} else if redisEnv := strings.TrimSpace(os.Getenv("REDIS")); redisEnv != "" {
+		cfg.Redis = redisEnv
+	}
+
 	// Process Redis enabled state (priority: command-line argument > environment variable > default value)
 	if hasFlag(fs, "redis-enabled") {
 		cfg.RedisEnabled = redisEnabledFlag
@@ -117,18 +127,21 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 		// Supports true/false/1/0
 		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	} else {
-		// Default behavior: disable Redis in ONLY_LOCAL mode, enable otherwise (backward compatibility)
-		if isOnlyLocalMode {
+		// Default behavior:
+		// - If Redis address is explicitly set, enable Redis (user intent to use Redis)
+		// - In ONLY_LOCAL mode without explicit Redis address, disable Redis by default
+		// - Otherwise, enable Redis (backward compatibility)
+		switch {
+		case redisExplicitlySet:
+			// User explicitly set Redis address, enable Redis
+			cfg.RedisEnabled = true
+		case isOnlyLocalMode:
+			// ONLY_LOCAL mode without explicit Redis address, disable Redis by default
 			cfg.RedisEnabled = false
-		} else {
+		default:
+			// Other modes, enable Redis by default
 			cfg.RedisEnabled = true
 		}
-	}
-
-	if hasFlag(fs, "redis") {
-		cfg.Redis = redisFlag
-	} else if redisEnv := strings.TrimSpace(os.Getenv("REDIS")); redisEnv != "" {
-		cfg.Redis = redisEnv
 	}
 
 	// Process Redis password (priority: environment variable > password file > command-line argument)
@@ -398,7 +411,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 		cfg.APIKey = apiKeyFlag
 	}
 
-	// If Mode is ONLY_LOCAL and RedisEnabled was not explicitly set via command-line, disable Redis
+	// If Mode is ONLY_LOCAL and RedisEnabled was not explicitly set via command-line, check Redis address
 	if !hasFlag(overrideFs, "redis-enabled") {
 		isOnlyLocalMode := false
 		if cfg.Mode != "" {
@@ -407,7 +420,15 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 			isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
 		}
 		if isOnlyLocalMode {
-			cfg.RedisEnabled = false
+			// Check if Redis address is explicitly set (command-line argument or environment variable)
+			redisExplicitlySet := hasFlag(overrideFs, "redis") || strings.TrimSpace(os.Getenv("REDIS")) != ""
+			if redisExplicitlySet {
+				// User explicitly set Redis address, enable Redis
+				cfg.RedisEnabled = true
+			} else {
+				// No explicit Redis address, disable Redis by default in ONLY_LOCAL mode
+				cfg.RedisEnabled = false
+			}
 		}
 	}
 }
@@ -509,12 +530,21 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
 	}
 
+	// Check if Redis address is explicitly set via environment variable
+	redisExplicitlySet := strings.TrimSpace(os.Getenv("REDIS")) != ""
+
 	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
 		// Explicitly set via environment variable
 		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	} else if isOnlyLocalMode {
-		// In ONLY_LOCAL mode, disable Redis by default if not explicitly enabled
-		cfg.RedisEnabled = false
+		// In ONLY_LOCAL mode:
+		// - If Redis address is explicitly set, enable Redis (user intent to use Redis)
+		// - Otherwise, disable Redis by default
+		if redisExplicitlySet {
+			cfg.RedisEnabled = true
+		} else {
+			cfg.RedisEnabled = false
+		}
 	}
 	// Note: If not ONLY_LOCAL mode and REDIS_ENABLED is not set, keep the value from config file
 }
