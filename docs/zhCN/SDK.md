@@ -142,8 +142,68 @@ user, err = client.GetUserByIdentifier(ctx, "", "", "user123")
 ### 清除缓存
 
 ```go
-// 清除客户端缓存
+// 手动清除客户端缓存
 client.ClearCache()
+
+// 或使用别名
+client.InvalidateCache()
+```
+
+### 自定义 HTTP Transport
+
+```go
+import "net/http"
+
+// 创建自定义 transport
+customTransport := &http.Transport{
+    MaxIdleConns: 100,
+    IdleConnTimeout: 90 * time.Second,
+}
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithTransport(customTransport)
+
+client, err := warden.NewClient(opts)
+```
+
+### 重试配置
+
+```go
+// 配置重试选项
+retryOpts := warden.DefaultRetryOptions()
+retryOpts.MaxRetries = 3
+retryOpts.RetryDelay = 100 * time.Millisecond
+retryOpts.MaxRetryDelay = 5 * time.Second
+retryOpts.BackoffMultiplier = 2.0
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithRetry(retryOpts)
+
+client, err := warden.NewClient(opts)
+```
+
+### 事件驱动缓存失效
+
+```go
+// 创建缓存失效事件通道
+invalidationCh := make(chan struct{}, 1)
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithCacheInvalidationChannel(invalidationCh)
+
+client, err := warden.NewClient(opts)
+if err != nil {
+    panic(err)
+}
+defer client.Close() // 重要：关闭以停止后台监听器
+
+// 稍后，从外部事件触发缓存失效
+invalidationCh <- struct{}{}
+
+// 当接收到信号时，缓存会自动清除
 ```
 
 ## API 参考
@@ -157,6 +217,9 @@ client.ClearCache()
 - `Timeout`: HTTP 请求超时时间（默认 10 秒）
 - `CacheTTL`: 缓存 TTL（默认 5 分钟）
 - `Logger`: 日志接口（可选，默认使用 NoOpLogger）
+- `Transport`: 自定义 HTTP transport（可选）
+- `Retry`: 重试配置（可选，默认不重试）
+- `CacheInvalidationChannel`: 事件驱动缓存失效通道（可选）
 
 ### Client 方法
 
@@ -216,6 +279,15 @@ client.ClearCache()
 #### `ClearCache()`
 
 清除客户端内部缓存。
+
+#### `InvalidateCache()`
+
+`ClearCache()` 的别名，用于与事件驱动失效保持一致。
+
+#### `Close()`
+
+停止后台 goroutine（如缓存失效监听器）并释放资源。
+当客户端不再需要时应调用此方法。
 
 ## 类型定义
 
@@ -290,6 +362,9 @@ if err != nil {
 3. **使用 Context**: 传递 context 以支持取消和超时控制
 4. **错误处理**: 始终检查并处理错误
 5. **日志记录**: 在生产环境中使用合适的日志实现
+6. **关闭客户端**: 当客户端不再需要时调用 `Close()` 以停止后台 goroutine
+7. **配置重试**: 在生产环境中启用重试以处理临时故障
+8. **自定义 Transport**: 在高级场景中使用自定义 transport（TLS、代理、连接池等）
 
 ## 设计说明
 
@@ -351,31 +426,34 @@ if err != nil {
 4. **状态验证**：只有状态为 "active" 的用户才会返回 `true`
 5. **性能优化**：使用 `GetUserByIdentifier()` 直接查询，避免获取整个用户列表
 
+### RetryOptions
+
+`RetryOptions` 结构体配置重试行为：
+
+- `MaxRetries`: 最大重试次数（默认 0，不重试）
+- `RetryDelay`: 重试之间的初始延迟（默认 100ms）
+- `MaxRetryDelay`: 重试之间的最大延迟（默认 5s）
+- `BackoffMultiplier`: 指数退避乘数（默认 2.0）
+- `RetryableStatusCodes`: 触发重试的 HTTP 状态码（默认：5xx）
+
+**注意：** 网络错误总是可重试的。客户端错误（4xx）从不重试。
+
 ### 已知限制
 
-1. **HTTP Transport 配置**：当前不支持自定义 `http.Transport`
-   - 对于大多数场景，默认配置已足够
-   - 如需自定义 TLS、代理等，可以在后续版本中添加
-
-2. **分页缓存**：`GetUsersPaginated()` 不使用缓存
+1. **分页缓存**：`GetUsersPaginated()` 不使用缓存
    - 这是有意的设计，保证数据准确性
    - 如需分页缓存，可以实现更复杂的缓存策略
 
-3. **单用户查询缓存**：`GetUserByIdentifier()` 和 `CheckUserInList()` 不使用缓存
+2. **单用户查询缓存**：`GetUserByIdentifier()` 和 `CheckUserInList()` 不使用缓存
    - 这是有意的设计，保证数据实时性
    - 如需缓存，可以实现基于用户标识符的缓存策略
 
-4. **缓存失效**：当前只支持 TTL 过期
-   - 不支持手动设置过期时间
-   - 不支持基于事件的缓存失效
-
 ### 未来改进方向
 
-1. 支持自定义 `http.Transport`
-2. 支持基于事件的缓存失效
-3. 支持重试机制
-4. 支持请求/响应中间件
-5. 支持指标收集（metrics）
+1. 支持请求/响应中间件
+2. 支持指标收集（metrics）
+3. 支持连接池配置
+4. 支持熔断器模式
 
 ## 完整示例
 

@@ -142,8 +142,68 @@ user, err = client.GetUserByIdentifier(ctx, "", "", "user123")
 ### Clear Cache
 
 ```go
-// Clear client cache
+// Clear client cache manually
 client.ClearCache()
+
+// Or use the alias
+client.InvalidateCache()
+```
+
+### Custom HTTP Transport
+
+```go
+import "net/http"
+
+// Create custom transport
+customTransport := &http.Transport{
+    MaxIdleConns: 100,
+    IdleConnTimeout: 90 * time.Second,
+}
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithTransport(customTransport)
+
+client, err := warden.NewClient(opts)
+```
+
+### Retry Configuration
+
+```go
+// Configure retry options
+retryOpts := warden.DefaultRetryOptions()
+retryOpts.MaxRetries = 3
+retryOpts.RetryDelay = 100 * time.Millisecond
+retryOpts.MaxRetryDelay = 5 * time.Second
+retryOpts.BackoffMultiplier = 2.0
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithRetry(retryOpts)
+
+client, err := warden.NewClient(opts)
+```
+
+### Event-Driven Cache Invalidation
+
+```go
+// Create channel for cache invalidation events
+invalidationCh := make(chan struct{}, 1)
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithCacheInvalidationChannel(invalidationCh)
+
+client, err := warden.NewClient(opts)
+if err != nil {
+    panic(err)
+}
+defer client.Close() // Important: close to stop background listener
+
+// Later, trigger cache invalidation from external event
+invalidationCh <- struct{}{}
+
+// Cache will be automatically cleared when signal is received
 ```
 
 ## API Reference
@@ -157,6 +217,9 @@ The `Options` struct is used to configure the client:
 - `Timeout`: HTTP request timeout (default 10 seconds)
 - `CacheTTL`: Cache TTL (default 5 minutes)
 - `Logger`: Logger interface (optional, defaults to NoOpLogger)
+- `Transport`: Custom HTTP transport (optional)
+- `Retry`: Retry configuration (optional, defaults to no retry)
+- `CacheInvalidationChannel`: Channel for event-driven cache invalidation (optional)
 
 ### Client Methods
 
@@ -216,6 +279,15 @@ Returns `true` if the user exists (matched by phone or email), `false` otherwise
 #### `ClearCache()`
 
 Clears the internal client cache.
+
+#### `InvalidateCache()`
+
+Alias for `ClearCache()` for consistency with event-driven invalidation.
+
+#### `Close()`
+
+Stops background goroutines (e.g., cache invalidation listener) and releases resources.
+Should be called when the client is no longer needed.
 
 ## Type Definitions
 
@@ -279,6 +351,18 @@ if err != nil {
 - `ErrCodeNotFound`: Not found
 - `ErrCodeServerError`: Server error
 
+## RetryOptions
+
+The `RetryOptions` struct configures retry behavior:
+
+- `MaxRetries`: Maximum number of retries (default 0, no retry)
+- `RetryDelay`: Initial delay between retries (default 100ms)
+- `MaxRetryDelay`: Maximum delay between retries (default 5s)
+- `BackoffMultiplier`: Multiplier for exponential backoff (default 2.0)
+- `RetryableStatusCodes`: HTTP status codes that trigger retry (default: 5xx)
+
+**Note:** Network errors are always retryable. Client errors (4xx) are never retried.
+
 ## Best Practices
 
 1. **Reuse Client**: Create the client once and reuse it throughout the application lifecycle
@@ -286,6 +370,9 @@ if err != nil {
 3. **Use Context**: Pass context to support cancellation and timeout control
 4. **Error Handling**: Always check and handle errors
 5. **Logging**: Use appropriate logger implementation in production environments
+6. **Close Client**: Call `Close()` when the client is no longer needed to stop background goroutines
+7. **Configure Retry**: Enable retry for production environments to handle transient failures
+8. **Custom Transport**: Use custom transport for advanced scenarios (TLS, proxy, connection pooling, etc.)
 
 ## Examples
 

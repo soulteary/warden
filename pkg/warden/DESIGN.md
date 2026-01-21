@@ -75,23 +75,42 @@ The `CheckUserInList()` method uses the following strategy:
 - Validates timeout and cache TTL
 - If Logger is not provided, uses `NoOpLogger`
 
+### Retry Mechanism
+
+The SDK supports configurable retry logic for handling transient failures:
+
+1. **Retryable Errors**: Network errors and server errors (5xx) are retryable by default
+2. **Non-Retryable Errors**: Client errors (4xx) like 401 Unauthorized and 404 Not Found are never retried
+3. **Exponential Backoff**: Uses exponential backoff with configurable multiplier and max delay
+4. **Configurable**: Retry behavior can be customized via `RetryOptions`
+
+### Custom HTTP Transport
+
+The SDK supports custom `http.Transport` configuration:
+- Allows custom TLS settings, proxy configuration, connection pooling, etc.
+- Set via `Options.WithTransport()`
+- If not provided, uses default HTTP client transport
+
+### Cache Invalidation
+
+The SDK supports multiple cache invalidation strategies:
+
+1. **TTL Expiration**: Automatic expiration based on configured TTL (default behavior)
+2. **Manual Invalidation**: `ClearCache()` or `InvalidateCache()` methods
+3. **Event-Driven Invalidation**: Listen to external events via channel
+   - Configure via `Options.WithCacheInvalidationChannel()`
+   - Automatically clears cache when signal is received
+   - Runs in background goroutine, call `Close()` to stop listener
+
 ## Known Limitations
 
-1. **HTTP Transport Configuration**: Currently does not support custom `http.Transport`
-   - Default configuration is sufficient for most scenarios
-   - If custom TLS, proxy, etc. are needed, can be added in future versions
-
-2. **Pagination Cache**: `GetUsersPaginated()` does not use cache
+1. **Pagination Cache**: `GetUsersPaginated()` does not use cache
    - This is an intentional design to ensure data accuracy
    - If pagination cache is needed, more complex caching strategies can be implemented
 
-3. **Single User Query Cache**: `GetUserByIdentifier()` and `CheckUserInList()` do not use cache
+2. **Single User Query Cache**: `GetUserByIdentifier()` and `CheckUserInList()` do not use cache
    - This is an intentional design to ensure data real-time
    - If caching is needed, cache strategies based on user identifiers can be implemented
-
-4. **Cache Invalidation**: Currently only supports TTL expiration
-   - Does not support manual setting of expiration time
-   - Does not support event-based cache invalidation
 
 ## Usage Recommendations
 
@@ -100,11 +119,13 @@ The `CheckUserInList()` method uses the following strategy:
 3. **Use Context**: Pass context to support cancellation and timeout control
 4. **Error Handling**: Always check and handle errors
 5. **Logging**: Use appropriate logger implementation in production environments
+6. **Close Client**: Call `Close()` when the client is no longer needed to stop background goroutines (e.g., cache invalidation listener)
+7. **Configure Retry**: Enable retry for production environments to handle transient failures
+8. **Custom Transport**: Use custom transport for advanced scenarios (TLS, proxy, etc.)
 
 ## Future Improvements
 
-1. Support custom `http.Transport`
-2. Support event-based cache invalidation
-3. Support retry mechanism
-4. Support request/response middleware
-5. Support metrics collection
+1. Support request/response middleware
+2. Support metrics collection
+3. Support connection pooling configuration
+4. Support circuit breaker pattern
