@@ -20,6 +20,7 @@ import (
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
+	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
@@ -82,22 +83,20 @@ func NewApp(cfg *cmd.Config) *App {
 
 	// Handle Redis initialization (optional)
 	if cfg.RedisEnabled {
-		// Initialize Redis client (security improvement)
-		redisOptions := &redis.Options{Addr: cfg.Redis}
+		// Initialize Redis client using redis-kit
+		redisCfg := rediskitclient.DefaultConfig().WithAddr(cfg.Redis)
 		if cfg.RedisPassword != "" {
-			redisOptions.Password = cfg.RedisPassword
+			redisCfg = redisCfg.WithPassword(cfg.RedisPassword)
 			// Security check: if password is passed via command line argument, log warning
 			// Note: cannot directly determine password source here, but can infer from environment variable check
 			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
 				app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_password_warning"))
 			}
 		}
-		app.redisClient = redis.NewClient(redisOptions)
 
-		// Verify Redis connection (with timeout)
-		ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
-		if err := app.redisClient.Ping(ctx).Err(); err != nil {
-			cancel()
+		var err error
+		app.redisClient, err = rediskitclient.NewClient(redisCfg)
+		if err != nil {
 			// Redis connection failed, log warning and fallback to memory mode
 			app.log.Warn().
 				Err(err).
@@ -106,7 +105,6 @@ func NewApp(cfg *cmd.Config) *App {
 			app.redisClient = nil
 			app.redisUserCache = nil
 		} else {
-			cancel()
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
 			// Initialize Redis cache
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)

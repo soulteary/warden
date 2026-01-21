@@ -275,17 +275,7 @@ func TestLocalLocker_UnlockNonExistent(t *testing.T) {
 }
 
 // TestGenerateLockValue tests lock value generation
-func TestGenerateLockValue(t *testing.T) {
-	value1, err := generateLockValue()
-	require.NoError(t, err)
-	assert.NotEmpty(t, value1)
-	assert.Len(t, value1, 32, "锁值应该是32个字符（16字节的十六进制）")
-
-	// Generate multiple lock values, should be different
-	value2, err := generateLockValue()
-	require.NoError(t, err)
-	assert.NotEqual(t, value1, value2, "不同的锁值应该不同")
-}
+// Note: This test is removed as generateLockValue is now handled internally by redis-kit's HybridLocker
 
 // TestLocker_NilCache tests case when Cache is nil
 func TestLocker_NilCache(t *testing.T) {

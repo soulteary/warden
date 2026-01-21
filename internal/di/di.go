@@ -4,12 +4,12 @@ package di
 
 import (
 	// Standard library
-	"context"
 	"net/http"
 	"time"
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
+	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
@@ -68,17 +68,15 @@ func (d *Dependencies) initRedis() error {
 		return nil
 	}
 
-	redisOptions := &redis.Options{Addr: d.Config.Redis}
+	// Initialize Redis client using redis-kit
+	redisCfg := rediskitclient.DefaultConfig().WithAddr(d.Config.Redis)
 	if d.Config.RedisPassword != "" {
-		redisOptions.Password = d.Config.RedisPassword
+		redisCfg = redisCfg.WithPassword(d.Config.RedisPassword)
 	}
 
-	d.RedisClient = redis.NewClient(redisOptions)
-
-	// Verify Redis connection (with timeout)
-	ctx, cancel := context.WithTimeout(context.Background(), define.REDIS_CONNECTION_TIMEOUT)
-	defer cancel()
-	if err := d.RedisClient.Ping(ctx).Err(); err != nil {
+	var err error
+	d.RedisClient, err = rediskitclient.NewClient(redisCfg)
+	if err != nil {
 		return errors.ErrRedisConnection.WithError(err)
 	}
 
@@ -146,7 +144,7 @@ func (d *Dependencies) Cleanup() {
 		d.RateLimiter.Stop()
 	}
 	if d.RedisClient != nil {
-		if err := d.RedisClient.Close(); err != nil {
+		if err := rediskitclient.Close(d.RedisClient); err != nil {
 			// Log error but don't affect cleanup process
 			_ = err // Explicitly ignore error
 		}
