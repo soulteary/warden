@@ -101,45 +101,71 @@ if exists {
 }
 ```
 
-### Cache Management
+### Clear Cache
 
 ```go
-// Clear client cache
+// Clear client cache manually
 client.ClearCache()
+
+// Or use the alias
+client.InvalidateCache()
 ```
 
-## Client Options
-
-### Basic Configuration
+### Custom HTTP Transport
 
 ```go
-opts := warden.DefaultOptions().
-    WithBaseURL("http://localhost:8081").
-    WithAPIKey("your-api-key").
-    WithTimeout(10 * time.Second)
-```
+import "net/http"
 
-### Cache Configuration
-
-```go
-opts := warden.DefaultOptions().
-    WithBaseURL("http://localhost:8081").
-    WithCacheTTL(5 * time.Minute)  // Set cache TTL
-```
-
-### Custom HTTP Client
-
-```go
-httpClient := &http.Client{
-    Timeout: 30 * time.Second,
-    Transport: &http.Transport{
-        MaxIdleConns: 100,
-    },
+// Create custom transport
+customTransport := &http.Transport{
+    MaxIdleConns: 100,
+    IdleConnTimeout: 90 * time.Second,
 }
 
 opts := warden.DefaultOptions().
     WithBaseURL("http://localhost:8081").
-    WithHTTPClient(httpClient)
+    WithTransport(customTransport)
+
+client, err := warden.NewClient(opts)
+```
+
+### Retry Configuration
+
+```go
+// Configure retry options
+retryOpts := warden.DefaultRetryOptions()
+retryOpts.MaxRetries = 3
+retryOpts.RetryDelay = 100 * time.Millisecond
+retryOpts.MaxRetryDelay = 5 * time.Second
+retryOpts.BackoffMultiplier = 2.0
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithRetry(retryOpts)
+
+client, err := warden.NewClient(opts)
+```
+
+### Event-Driven Cache Invalidation
+
+```go
+// Create channel for cache invalidation events
+invalidationCh := make(chan struct{}, 1)
+
+opts := warden.DefaultOptions().
+    WithBaseURL("http://localhost:8081").
+    WithCacheInvalidationChannel(invalidationCh)
+
+client, err := warden.NewClient(opts)
+if err != nil {
+    panic(err)
+}
+defer client.Close() // Important: close to stop background listener
+
+// Later, trigger cache invalidation from external event
+invalidationCh <- struct{}{}
+
+// Cache will be automatically cleared when signal is received
 ```
 
 ## Using Custom Logger
@@ -229,6 +255,9 @@ func main() {
     // Clear cache
     client.ClearCache()
     fmt.Println("Cache cleared")
+    
+    // Close client to stop background goroutines
+    client.Close()
 }
 ```
 
