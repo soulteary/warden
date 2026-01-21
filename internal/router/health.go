@@ -12,6 +12,7 @@ import (
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
+	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
@@ -42,16 +43,16 @@ func HealthCheck(redisClient *redis.Client, userCache *cache.SafeUserCache, appM
 			// Redis is explicitly disabled
 			details["redis"] = "disabled"
 		case redisClient != nil:
-			// Redis is enabled, check connection status
+			// Redis is enabled, check connection status using redis-kit
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if err := redisClient.Ping(ctx).Err(); err != nil {
+			if !rediskitclient.HealthCheck(ctx, redisClient) {
 				redisUnavailable = true
 				details["redis"] = "unavailable"
 				// Production environment does not return detailed error information to avoid leaking sensitive information
 				if !isProduction {
 					// Only return detailed error information in non-production environment
-					details["redis_error"] = err.Error()
+					details["redis_error"] = "health check failed"
 				}
 			} else {
 				details["redis"] = "ok"

@@ -11,6 +11,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 )
 
+require github.com/soulteary/redis-kit v0.1.0
+
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
