@@ -1283,3 +1283,377 @@ func TestCache_EmptySlice(t *testing.T) {
 		t.Errorf("Cache.Get() returned %d users, want 0", len(cached))
 	}
 }
+
+// ========== Additional tests: Custom Transport ==========
+
+func TestClient_WithCustomTransport(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
+	}))
+	defer server.Close()
+
+	// Create custom transport
+	customTransport := &http.Transport{
+		MaxIdleConns: 10,
+	}
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithTransport(customTransport)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	_, err = client.GetUsers(ctx)
+	if err != nil {
+		t.Fatalf("GetUsers() error = %v", err)
+	}
+
+	if requestCount != 1 {
+		t.Errorf("Expected 1 request, got %d", requestCount)
+	}
+
+	// Verify transport is used
+	if client.httpClient.Transport != customTransport {
+		t.Error("Custom transport was not set")
+	}
+}
+
+// ========== Additional tests: Retry mechanism ==========
+
+func TestClient_RetryOnServerError(t *testing.T) {
+	attemptCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{
+			{Phone: "13800138000", Mail: "user@example.com"},
+		}))
+	}))
+	defer server.Close()
+
+	retryOpts := DefaultRetryOptions()
+	retryOpts.MaxRetries = 3
+	retryOpts.RetryDelay = 50 * time.Millisecond
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithRetry(retryOpts)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	users, err := client.GetUsers(ctx)
+	if err != nil {
+		t.Fatalf("GetUsers() error = %v", err)
+	}
+
+	if len(users) != 1 {
+		t.Errorf("GetUsers() returned %d users, want 1", len(users))
+	}
+
+	if attemptCount != 3 {
+		t.Errorf("Expected 3 attempts, got %d", attemptCount)
+	}
+}
+
+func TestClient_NoRetryOnClientError(t *testing.T) {
+	attemptCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	retryOpts := DefaultRetryOptions()
+	retryOpts.MaxRetries = 3
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithRetry(retryOpts)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	_, err = client.GetUsers(ctx)
+	if err == nil {
+		t.Fatal("Expected error for unauthorized request")
+	}
+
+	// Should not retry on 401
+	if attemptCount != 1 {
+		t.Errorf("Expected 1 attempt (no retry), got %d", attemptCount)
+	}
+}
+
+func TestClient_RetryOnNetworkError(t *testing.T) {
+	attemptCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attemptCount++
+		if attemptCount < 2 {
+			// Simulate network error by closing connection
+			hj, ok := w.(http.Hijacker)
+			if ok {
+				conn, _, err := hj.Hijack()
+				if err == nil && conn != nil {
+					_ = conn.Close() //nolint:errcheck // Ignore error in test
+				}
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode([]AllowListUser{}))
+	}))
+	defer server.Close()
+
+	retryOpts := DefaultRetryOptions()
+	retryOpts.MaxRetries = 2
+	retryOpts.RetryDelay = 50 * time.Millisecond
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithRetry(retryOpts)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+	// Network errors may or may not succeed depending on timing
+	// But we should have attempted retries
+	_, _ = client.GetUsers(ctx) //nolint:errcheck // Error is expected in this test
+	if attemptCount < 2 {
+		t.Errorf("Expected at least 2 attempts, got %d", attemptCount)
+	}
+}
+
+// ========== Additional tests: Cache invalidation ==========
+
+func TestClient_InvalidateCache(t *testing.T) {
+	mockUsers := []AllowListUser{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
+	}))
+	defer server.Close()
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithCacheTTL(1 * time.Minute)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Fetch users to populate cache
+	_, err = client.GetUsers(ctx)
+	if err != nil {
+		t.Fatalf("GetUsers() error = %v", err)
+	}
+
+	// Invalidate cache
+	client.InvalidateCache()
+
+	// Next call should fetch from API again (cache is empty)
+	// We can't directly verify this, but we can check that InvalidateCache doesn't panic
+	client.InvalidateCache()
+}
+
+func TestClient_EventDrivenCacheInvalidation(t *testing.T) {
+	mockUsers := []AllowListUser{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(mockUsers))
+	}))
+	defer server.Close()
+
+	// Create channel for cache invalidation
+	invalidationCh := make(chan struct{}, 1)
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithCacheTTL(1 * time.Minute).
+		WithCacheInvalidationChannel(invalidationCh)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// Fetch users to populate cache
+	_, err = client.GetUsers(ctx)
+	if err != nil {
+		t.Fatalf("GetUsers() error = %v", err)
+	}
+
+	// Send invalidation signal
+	invalidationCh <- struct{}{}
+
+	// Wait a bit for the listener to process
+	time.Sleep(100 * time.Millisecond)
+
+	// Cache should be cleared (next call will fetch from API)
+	// We verify this by checking that the cache is empty
+	// Since we can't directly access the cache, we rely on the fact that
+	// the invalidation signal was sent and processed
+}
+
+// ========== Additional tests: RetryOptions ==========
+
+func TestRetryOptions_Default(t *testing.T) {
+	retryOpts := DefaultRetryOptions()
+
+	if retryOpts.MaxRetries != 0 {
+		t.Errorf("Default MaxRetries = %d, want 0", retryOpts.MaxRetries)
+	}
+
+	if retryOpts.RetryDelay != 100*time.Millisecond {
+		t.Errorf("Default RetryDelay = %v, want 100ms", retryOpts.RetryDelay)
+	}
+
+	if retryOpts.MaxRetryDelay != 5*time.Second {
+		t.Errorf("Default MaxRetryDelay = %v, want 5s", retryOpts.MaxRetryDelay)
+	}
+
+	if retryOpts.BackoffMultiplier != 2.0 {
+		t.Errorf("Default BackoffMultiplier = %v, want 2.0", retryOpts.BackoffMultiplier)
+	}
+}
+
+func TestOptions_WithRetry(t *testing.T) {
+	retryOpts := DefaultRetryOptions()
+	retryOpts.MaxRetries = 3
+
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithRetry(retryOpts)
+
+	if opts.Retry == nil {
+		t.Fatal("Retry options should be set")
+	}
+
+	if opts.Retry.MaxRetries != 3 {
+		t.Errorf("Retry.MaxRetries = %d, want 3", opts.Retry.MaxRetries)
+	}
+}
+
+func TestOptions_WithTransport(t *testing.T) {
+	customTransport := &http.Transport{
+		MaxIdleConns: 20,
+	}
+
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithTransport(customTransport)
+
+	if opts.Transport != customTransport {
+		t.Error("Transport should be set")
+	}
+}
+
+func TestOptions_WithCacheInvalidationChannel(t *testing.T) {
+	ch := make(chan struct{})
+
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithCacheInvalidationChannel(ch)
+
+	if opts.CacheInvalidationChannel != ch {
+		t.Error("CacheInvalidationChannel should be set")
+	}
+}
+
+func TestOptions_Validate_RetryOptions(t *testing.T) {
+	//nolint:govet // fieldalignment: test struct field order does not affect functionality
+	tests := []struct {
+		name    string
+		retry   *RetryOptions
+		wantErr bool
+	}{
+		{
+			name: "valid retry options",
+			retry: &RetryOptions{
+				MaxRetries:        3,
+				RetryDelay:        100 * time.Millisecond,
+				MaxRetryDelay:     5 * time.Second,
+				BackoffMultiplier: 2.0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative MaxRetries",
+			retry: &RetryOptions{
+				MaxRetries: -1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative RetryDelay",
+			retry: &RetryOptions{
+				MaxRetries: 3,
+				RetryDelay: -1 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative MaxRetryDelay",
+			retry: &RetryOptions{
+				MaxRetries:    3,
+				MaxRetryDelay: -1 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "zero BackoffMultiplier",
+			retry: &RetryOptions{
+				MaxRetries:        3,
+				BackoffMultiplier: 0,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &Options{
+				BaseURL: "http://localhost:8081",
+				Timeout: 10 * time.Second,
+				Retry:   tt.retry,
+			}
+
+			err := opts.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Options.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

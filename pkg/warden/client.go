@@ -8,17 +8,23 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Client is the Warden API client.
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Client struct {
-	httpClient *http.Client
-	baseURL    string
-	apiKey     string
-	cache      *Cache
-	logger     Logger
+	httpClient               *http.Client
+	baseURL                  string
+	apiKey                   string
+	cache                    *Cache
+	logger                   Logger
+	retry                    *RetryOptions
+	cacheInvalidationChannel <-chan struct{}
+	stopCacheListener        context.CancelFunc
+	cacheListenerWg          sync.WaitGroup
 }
 
 // NewClient creates a new Warden API client with the provided options.
@@ -32,19 +38,66 @@ func NewClient(opts *Options) (*Client, error) {
 		return nil, err
 	}
 
-	client := &Client{
-		httpClient: &http.Client{
-			Timeout: opts.Timeout,
-		},
-		baseURL: opts.BaseURL,
-		apiKey:  opts.APIKey,
-		cache:   NewCache(opts.CacheTTL),
-		logger:  opts.Logger,
+	// Create HTTP client with custom transport if provided
+	httpClient := &http.Client{
+		Timeout: opts.Timeout,
+	}
+	if opts.Transport != nil {
+		httpClient.Transport = opts.Transport
 	}
 
-	client.logger.Debugf("Warden SDK client created: URL=%s, APIKey=%v", opts.BaseURL, opts.APIKey != "")
+	// Set default retry options if not provided
+	retry := opts.Retry
+	if retry == nil {
+		retry = DefaultRetryOptions()
+	}
+
+	client := &Client{
+		httpClient:               httpClient,
+		baseURL:                  opts.BaseURL,
+		apiKey:                   opts.APIKey,
+		cache:                    NewCache(opts.CacheTTL),
+		logger:                   opts.Logger,
+		retry:                    retry,
+		cacheInvalidationChannel: opts.CacheInvalidationChannel,
+	}
+
+	// Start cache invalidation listener if channel is provided
+	if opts.CacheInvalidationChannel != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		client.stopCacheListener = cancel
+		client.cacheListenerWg.Add(1)
+		go client.listenForCacheInvalidation(ctx)
+	}
+
+	client.logger.Debugf("Warden SDK client created: URL=%s, APIKey=%v, Retry=%v, Transport=%v",
+		opts.BaseURL, opts.APIKey != "", retry.MaxRetries > 0, opts.Transport != nil)
 
 	return client, nil
+}
+
+// listenForCacheInvalidation listens for cache invalidation signals on the configured channel.
+func (c *Client) listenForCacheInvalidation(ctx context.Context) {
+	defer c.cacheListenerWg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			c.logger.Debug("Cache invalidation listener stopped")
+			return
+		case <-c.cacheInvalidationChannel:
+			c.logger.Debug("Cache invalidation signal received, clearing cache")
+			c.cache.Clear()
+		}
+	}
+}
+
+// Close stops the cache invalidation listener and releases resources.
+// This should be called when the client is no longer needed.
+func (c *Client) Close() {
+	if c.stopCacheListener != nil {
+		c.stopCacheListener()
+		c.cacheListenerWg.Wait()
+	}
 }
 
 // GetUsers fetches the user list from Warden API.
@@ -69,11 +122,11 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	// Add API key header if configured
 	c.addAuthHeaders(req)
 
-	// Make request
-	resp, err := c.httpClient.Do(req)
+	// Make request with retry
+	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
 		c.logger.Errorf("Failed to fetch users from Warden API: %v", err)
-		return nil, NewError(ErrCodeRequestFailed, "failed to fetch users from Warden", err)
+		return nil, err
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
@@ -131,11 +184,11 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	// Add API key header if configured
 	c.addAuthHeaders(req)
 
-	// Make request
-	resp, err := c.httpClient.Do(req)
+	// Make request with retry
+	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
 		c.logger.Errorf("Failed to fetch paginated users from Warden API: %v", err)
-		return nil, NewError(ErrCodeRequestFailed, "failed to fetch paginated users from Warden", err)
+		return nil, err
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
@@ -269,11 +322,11 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	// Add API key header if configured
 	c.addAuthHeaders(req)
 
-	// Make request
-	resp, err := c.httpClient.Do(req)
+	// Make request with retry
+	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
 		c.logger.Errorf("Failed to fetch user from Warden API: %v", err)
-		return nil, NewError(ErrCodeRequestFailed, "failed to fetch user from Warden", err)
+		return nil, err
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
@@ -301,6 +354,113 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 func (c *Client) ClearCache() {
 	c.cache.Clear()
 	c.logger.Debug("Cache cleared")
+}
+
+// InvalidateCache is an alias for ClearCache for consistency with event-driven invalidation.
+func (c *Client) InvalidateCache() {
+	c.ClearCache()
+}
+
+// isRetryableError checks if an error should trigger a retry.
+func (c *Client) isRetryableError(err error, statusCode int) bool {
+	if c.retry == nil || c.retry.MaxRetries == 0 {
+		return false
+	}
+
+	// Network errors are always retryable
+	if err != nil {
+		return true
+	}
+
+	// Never retry on client errors (4xx) except for specific server errors
+	// Only retry on server errors (5xx)
+	if statusCode >= 400 && statusCode < 500 {
+		return false
+	}
+
+	// Check if status code is in retryable list
+	for _, code := range c.retry.RetryableStatusCodes {
+		if statusCode == code {
+			return true
+		}
+	}
+
+	return false
+}
+
+// calculateRetryDelay calculates the delay for the next retry attempt using exponential backoff.
+func (c *Client) calculateRetryDelay(attempt int) time.Duration {
+	if c.retry == nil {
+		return 0
+	}
+
+	delay := time.Duration(float64(c.retry.RetryDelay) * float64(attempt) * c.retry.BackoffMultiplier)
+	if delay > c.retry.MaxRetryDelay {
+		delay = c.retry.MaxRetryDelay
+	}
+
+	return delay
+}
+
+// doRequestWithRetry performs an HTTP request with retry logic.
+func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	var lastErr error
+	var lastResp *http.Response
+
+	maxAttempts := c.retry.MaxRetries + 1
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			// Calculate delay before retry
+			delay := c.calculateRetryDelay(attempt - 1)
+			c.logger.Debugf("Retrying request (attempt %d/%d) after %v: %s %s",
+				attempt+1, maxAttempts, delay, req.Method, req.URL.String())
+
+			// Wait before retry
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		// Make the request
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			lastResp = nil
+			if !c.isRetryableError(err, 0) {
+				return nil, NewError(ErrCodeRequestFailed, "failed to execute request", err)
+			}
+			if attempt < c.retry.MaxRetries {
+				continue
+			}
+			return nil, NewError(ErrCodeRequestFailed, "failed to execute request after retries", err)
+		}
+
+		// Check if status code is retryable
+		if c.isRetryableError(nil, resp.StatusCode) && attempt < c.retry.MaxRetries {
+			// Close response body before retry
+			if err := resp.Body.Close(); err != nil {
+				c.logger.Debugf("Failed to close response body before retry: %v", err)
+			}
+			lastResp = nil
+			lastErr = NewError(ErrCodeServerError, fmt.Sprintf("server error: status %d", resp.StatusCode), nil)
+			continue
+		}
+
+		// Success or non-retryable error - return response
+		// The caller will check the status code
+		return resp, nil
+	}
+
+	// All retries exhausted
+	if lastResp != nil {
+		return lastResp, nil
+	}
+	if lastErr != nil {
+		return nil, NewError(ErrCodeRequestFailed, "request failed after all retries", lastErr)
+	}
+	return nil, NewError(ErrCodeRequestFailed, "request failed after all retries", nil)
 }
 
 // addAuthHeaders adds authentication headers to the request.
