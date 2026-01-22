@@ -219,9 +219,102 @@ API 响应格式应与 `data.json` 文件格式一致：
 Authorization: Bearer your-token-here
 ```
 
+## 可选服务集成配置
+
+如果选择与其他服务（如 Stargate）集成使用，可以配置服务间鉴权。以下是相关配置项：
+
+**注意**：如果 Warden 独立使用，以下配置是可选的。
+
+### mTLS 配置（推荐）
+
+使用双向 TLS 证书进行服务间鉴权：
+
+**环境变量**：
+```bash
+# Warden 服务端证书
+export WARDEN_TLS_CERT=/path/to/warden.crt
+export WARDEN_TLS_KEY=/path/to/warden.key
+export WARDEN_TLS_CA=/path/to/ca.crt
+
+# 是否要求客户端证书（mTLS）
+export WARDEN_TLS_REQUIRE_CLIENT_CERT=true
+
+# TLS 监听端口（可选，默认使用 HTTP_PORT）
+export WARDEN_TLS_PORT=8443
+```
+
+**配置文件**（`config.yaml`）：
+```yaml
+tls:
+  cert: "/path/to/warden.crt"
+  key: "/path/to/warden.key"
+  ca: "/path/to/ca.crt"
+  require_client_cert: true
+  port: 8443
+```
+
+### HMAC 签名配置
+
+使用 HMAC-SHA256 签名进行服务间鉴权：
+
+**环境变量**：
+```bash
+# HMAC 密钥（JSON 格式，支持多个密钥用于轮换）
+export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+
+# 时间戳容差（秒），默认 60
+export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+```
+
+**配置文件**（`config.yaml`）：
+```yaml
+hmac:
+  keys:
+    key-id-1: "secret-key-1"
+    key-id-2: "secret-key-2"
+  timestamp_tolerance: 60
+```
+
+### Stargate 调用配置
+
+Stargate 需要配置 Warden 服务地址和认证信息：
+
+**Stargate 配置示例**（环境变量）：
+```bash
+# Warden 服务地址
+export STARGATE_WARDEN_BASE_URL=http://warden:8081
+
+# 服务间鉴权方式（mTLS 或 HMAC）
+export STARGATE_WARDEN_AUTH_TYPE=hmac
+
+# HMAC 配置（如果使用 HMAC）
+export STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
+export STARGATE_WARDEN_HMAC_SECRET=secret-key-1
+
+# mTLS 配置（如果使用 mTLS）
+export STARGATE_WARDEN_TLS_CERT=/path/to/stargate.crt
+export STARGATE_WARDEN_TLS_KEY=/path/to/stargate.key
+export STARGATE_WARDEN_TLS_CA=/path/to/ca.crt
+```
+
+### 配置优先级
+
+1. **mTLS**：如果配置了 TLS 证书，优先使用 mTLS
+2. **HMAC**：如果未配置 mTLS，则使用 HMAC 签名
+3. **API Key**：如果两者都未配置，则回退到 API Key 认证（不推荐用于服务间调用）
+
+### 配置验证
+
+启动 Warden 时，会检查服务间鉴权配置：
+
+- 如果配置了 mTLS，会验证证书文件是否存在
+- 如果配置了 HMAC，会验证密钥格式是否正确
+- 如果两者都未配置，会记录警告（生产环境不推荐）
+
 ## 详细配置说明
 
 更多关于参数解析机制、优先级规则和使用示例的详细信息，请参考：
 
 - [参数解析设计文档](CONFIG_PARSING.md) - 详细的参数解析机制说明
 - [架构设计文档](ARCHITECTURE.md) - 了解整体架构和配置影响
+- [安全文档](SECURITY.md) - 了解服务间鉴权详细说明

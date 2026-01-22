@@ -13,53 +13,61 @@ Un service de données utilisateur de liste d'autorisation (AllowList) haute per
 
 > **Warden** (Le Gardien) — Le gardien de la Porte des Étoiles qui décide qui peut passer et qui sera refusé. Tout comme le Gardien de Stargate garde la Porte des Étoiles, Warden garde votre liste d'autorisation, garantissant que seuls les utilisateurs autorisés peuvent passer.
 
-## 📋 Aperçu du Projet
+## 📋 Aperçu
 
 Warden est un service API HTTP léger développé en Go, principalement utilisé pour fournir et gérer les données utilisateur de liste d'autorisation (numéros de téléphone et adresses e-mail). Le service prend en charge la récupération de données à partir de fichiers de configuration locaux et d'API distantes, et fournit plusieurs stratégies de fusion de données pour assurer la performance et la fiabilité des données en temps réel.
 
+Warden peut être utilisé **de manière autonome** ou intégré avec d'autres services (tels que Stargate et Herald) dans le cadre d'une architecture d'authentification plus large. Pour des informations détaillées sur l'architecture, consultez la [Documentation de l'Architecture](docs/enUS/ARCHITECTURE.md).
+
 ## ✨ Fonctionnalités Principales
 
-- 🚀 **Haute Performance**: Prend en charge plus de 5000 requêtes par seconde avec une latence moyenne de 21ms
-- 🔄 **Sources de Données Multiples**: Prend en charge les fichiers de configuration locaux et les API distantes
-- 🎯 **Stratégies Flexibles**: Fournit 6 modes de fusion de données (priorité distante, priorité locale, distant uniquement, local uniquement, etc.)
-- ⏰ **Mises à Jour Planifiées**: Tâches planifiées basées sur des verrous distribués Redis pour la synchronisation automatique des données
+- 🚀 **Haute Performance**: Plus de 5000 requêtes par seconde avec une latence moyenne de 21ms
+- 🔄 **Sources de Données Multiples**: Fichiers de configuration locaux et API distantes
+- 🎯 **Stratégies Flexibles**: 6 modes de fusion de données (priorité distante, priorité locale, distant uniquement, local uniquement, etc.)
+- ⏰ **Mises à Jour Planifiées**: Synchronisation automatique des données avec verrous distribués Redis
 - 📦 **Déploiement Conteneurisé**: Support Docker complet, prêt à l'emploi
-- 📊 **Journalisation Structurée**: Utilise zerolog pour fournir des journaux d'accès et d'erreur détaillés
-- 🔒 **Verrous Distribués**: Utilise Redis pour s'assurer que les tâches planifiées ne s'exécutent pas de manière répétée dans les environnements distribués
-- 🌐 **Support Multi-langues**: Prend en charge 7 langues (Anglais, Chinois, Français, Italien, Japonais, Allemand, Coréen) avec détection automatique de la langue préférée
+- 🌐 **Support Multi-langues**: 7 langues avec détection automatique de la langue
 
-## 🏗️ Conception de l'Architecture
+## 🚀 Démarrage Rapide
 
-Warden utilise une conception d'architecture en couches, comprenant la couche HTTP, la couche métier et la couche d'infrastructure. Le système prend en charge plusieurs sources de données, la mise en cache multi-niveaux et les mécanismes de verrouillage distribués.
+### Option 1: Docker (Recommandé)
 
-Pour la documentation détaillée de l'architecture, veuillez vous référer à: [Documentation de Conception de l'Architecture](docs/enUS/ARCHITECTURE.md)
+Le moyen le plus rapide de commencer est d'utiliser l'image Docker pré-construite:
 
-## 📦 Installation et Exécution
+```bash
+# Télécharger la dernière image
+docker pull ghcr.io/soulteary/warden:latest
 
-> 💡 **Démarrage Rapide**: Vous voulez découvrir rapidement Warden ? Consultez nos [Exemples de Démarrage Rapide](example/README.en.md):
-> - [Exemple Simple](example/basic/README.en.md) - Utilisation de base, fichier de données local uniquement
-> - [Exemple Avancé](example/advanced/README.en.md) - Fonctionnalités complètes, incluant l'API distante et le service Mock
+# Créer un fichier de données
+cat > data.json <<EOF
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    }
+]
+EOF
 
-### Prérequis
+# Exécuter le conteneur
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e API_KEY=your-api-key-here \
+  ghcr.io/soulteary/warden:latest
+```
 
-- Go 1.25+ (référez-vous à [go.mod](go.mod))
-- Redis (pour les verrous distribués et la mise en cache)
-- Docker (optionnel, pour le déploiement conteneurisé)
+> 💡 **Astuce**: Pour des exemples complets avec Docker Compose, consultez le [Répertoire d'Exemples](example/README.md).
 
-### Démarrage Rapide
+### Option 2: À partir du Code Source
 
-1. **Cloner le projet**
+1. **Cloner et construire**
 ```bash
 git clone <repository-url>
 cd warden
-```
-
-2. **Installer les dépendances**
-```bash
 go mod download
 ```
 
-3. **Configurer le fichier de données local**
+2. **Créer un fichier de données**
 Créez un fichier `data.json` (référez-vous à `data.example.json`):
 ```json
 [
@@ -70,172 +78,64 @@ Créez un fichier `data.json` (référez-vous à `data.example.json`):
 ]
 ```
 
-4. **Exécuter le service**
+3. **Exécuter le service**
 ```bash
-go run main.go
+go run main.go --api-key your-api-key-here
 ```
 
-Pour les instructions détaillées de configuration et de déploiement, veuillez vous référer à:
-- [Documentation de Configuration](docs/enUS/CONFIGURATION.md) - Découvrir toutes les options de configuration
-- [Documentation de Déploiement](docs/enUS/DEPLOYMENT.md) - Découvrir les méthodes de déploiement
+## ⚙️ Configuration Essentielle
 
-## ⚙️ Configuration
+Warden prend en charge la configuration via les arguments de ligne de commande, les variables d'environnement et les fichiers de configuration. Voici les paramètres les plus essentiels:
 
-Warden prend en charge plusieurs méthodes de configuration: arguments de ligne de commande, variables d'environnement et fichiers de configuration. Le système fournit 6 modes de fusion de données avec des stratégies de configuration flexibles.
+| Paramètre | Variable d'Environnement | Description | Requis |
+|-----------|-------------------------|-------------|--------|
+| Port | `PORT` | Port du serveur HTTP (par défaut: 8081) | Non |
+| Clé API | `API_KEY` | Clé d'authentification API (recommandée pour la production) | Recommandé |
+| Redis | `REDIS` | Adresse Redis pour la mise en cache et les verrous distribués (ex: `localhost:6379`) | Optionnel |
+| Fichier de Données | - | Chemin du fichier de données local (par défaut: `data.json`) | Oui* |
+| Configuration Distante | `CONFIG` | URL de l'API distante pour la récupération de données | Optionnel |
 
-Pour la documentation détaillée de configuration, veuillez vous référer à: [Documentation de Configuration](docs/enUS/CONFIGURATION.md)
+\* Requis si aucune API distante n'est utilisée
 
-## 📡 Documentation API
+Pour les options de configuration complètes, consultez la [Documentation de Configuration](docs/enUS/CONFIGURATION.md).
 
-Warden fournit une API RESTful complète avec support pour les requêtes de liste d'utilisateurs, la pagination, les vérifications de santé, etc. Le projet fournit également une documentation de spécification OpenAPI 3.0.
+## 📡 Utilisation de l'API
 
-Pour la documentation API détaillée, veuillez vous référer à: [Documentation API](docs/enUS/API.md)
+Warden fournit une API RESTful pour interroger les listes d'utilisateurs, la pagination et les vérifications de santé. Le service prend en charge les réponses multi-langues via le paramètre de requête `?lang=xx` ou l'en-tête `Accept-Language`.
 
-Fichier de spécification OpenAPI: [openapi.yaml](openapi.yaml)
-
-## 🌐 Support Multi-langues
-
-Warden prend en charge une fonctionnalité complète d'internationalisation (i18N). Toutes les réponses API, messages d'erreur et journaux prennent en charge l'internationalisation.
-
-### Langues Supportées
-
-- 🇺🇸 Anglais (en) - Par défaut
-- 🇨🇳 Chinois (zh)
-- 🇫🇷 Français (fr)
-- 🇮🇹 Italien (it)
-- 🇯🇵 Japonais (ja)
-- 🇩🇪 Allemand (de)
-- 🇰🇷 Coréen (ko)
-
-### Détection de la Langue
-
-Warden prend en charge deux méthodes de détection de langue avec la priorité suivante :
-
-1. **Paramètre de requête**: Spécifier la langue via `?lang=fr`
-2. **En-tête Accept-Language**: Détection automatique de la préférence linguistique du navigateur
-3. **Langue par défaut**: Anglais si non spécifié
-
-### Exemples d'Utilisation
-
+**Exemple**:
 ```bash
-# Spécifier le français via le paramètre de requête
-curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+# Interroger les utilisateurs
+curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
-# Détection automatique via l'en-tête Accept-Language
-curl -H "X-API-Key: your-key" -H "Accept-Language: fr-FR,fr;q=0.9" "http://localhost:8081/"
-
-# Utiliser le chinois
-curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+# Vérification de santé
+curl "http://localhost:8081/healthz"
 ```
 
-## 🔌 Utilisation du SDK
+Pour la documentation API complète, consultez la [Documentation API](docs/enUS/API.md) ou la [Spécification OpenAPI](openapi.yaml).
 
-Warden fournit un SDK Go pour faciliter l'intégration dans d'autres projets. Le SDK fournit des interfaces API simples avec support pour la mise en cache, l'authentification, etc.
+## 📊 Performance
 
-Pour la documentation SDK détaillée, veuillez vous référer à: [Documentation SDK](docs/enUS/SDK.md)
+Basé sur le test de charge wrk (30s, 16 threads, 100 connexions):
+- **Requêtes/seconde**: 5038.81
+- **Latence Moyenne**: 21.30ms
+- **Latence Maximale**: 226.09ms
 
-## 🐳 Déploiement Docker
+## 📚 Documentation
 
-Warden prend en charge le déploiement Docker et Docker Compose complet, prêt à l'emploi.
+### Documentation Principale
 
-### Démarrage Rapide avec Image Pré-construite (Recommandé)
+- **[Architecture](docs/enUS/ARCHITECTURE.md)** - Architecture technique et décisions de conception
+- **[Référence API](docs/enUS/API.md)** - Documentation complète des points de terminaison API
+- **[Configuration](docs/enUS/CONFIGURATION.md)** - Référence et exemples de configuration
+- **[Déploiement](docs/enUS/DEPLOYMENT.md)** - Guide de déploiement (Docker, Kubernetes, etc.)
 
-Utilisez l'image pré-construite fournie par GitHub Container Registry (GHCR) pour démarrer rapidement sans construction locale:
+### Ressources Supplémentaires
 
-```bash
-# Télécharger l'image de la dernière version
-docker pull ghcr.io/soulteary/warden:latest
-
-# Exécuter le conteneur (exemple de base)
-docker run -d \
-  -p 8081:8081 \
-  -v $(pwd)/data.json:/app/data.json:ro \
-  -e PORT=8081 \
-  -e REDIS=localhost:6379 \
-  -e API_KEY=your-api-key-here \
-  ghcr.io/soulteary/warden:latest
-```
-
-> 💡 **Astuce**: L'utilisation d'images pré-construites vous permet de démarrer rapidement sans environnement de construction local. Les images sont automatiquement mises à jour pour garantir que vous utilisez la dernière version.
-
-### Utilisation de Docker Compose
-
-> 🚀 **Déploiement Rapide**: Consultez le [Répertoire d'Exemples](example/README.en.md) pour des exemples de configuration Docker Compose complets
-
-Pour la documentation de déploiement détaillée, veuillez vous référer à: [Documentation de Déploiement](docs/enUS/DEPLOYMENT.md)
-
-## 📊 Métriques de Performance
-
-Basé sur les résultats des tests de charge wrk (test de 30 secondes, 16 threads, 100 connexions):
-
-```
-Requests/sec:   5038.81
-Transfer/sec:   38.96MB
-Latence Moyenne: 21.30ms
-Latence Maximale: 226.09ms
-```
-
-## 📁 Structure du Projet
-
-```
-warden/
-├── main.go                 # Point d'entrée du programme
-├── data.example.json      # Exemple de fichier de données local
-├── config.example.yaml    # Exemple de fichier de configuration
-├── openapi.yaml           # Fichier de spécification OpenAPI
-├── go.mod                 # Définition du module Go
-├── docker-compose.yml     # Configuration Docker Compose
-├── LICENSE                # Fichier de licence
-├── README.*.md            # Documents du projet multilingues (Chinois/Anglais/Français/Italien/Japonais/Allemand/Coréen)
-├── CONTRIBUTING.*.md      # Guides de contribution multilingues
-├── docker/
-│   └── Dockerfile         # Fichier de construction d'image Docker
-├── docs/                  # Répertoire de documentation (multilingue)
-│   ├── enUS/              # Documentation anglaise
-│   └── zhCN/              # Documentation chinoise
-├── example/               # Exemples de démarrage rapide
-│   ├── basic/             # Exemple simple (fichier local uniquement)
-│   └── advanced/          # Exemple avancé (fonctionnalités complètes, inclut Mock API)
-├── internal/
-│   ├── cache/             # Implémentation du cache et des verrous Redis
-│   ├── cmd/               # Analyse des arguments de ligne de commande
-│   ├── config/            # Gestion de la configuration
-│   ├── define/            # Définitions de constantes et structures de données
-│   ├── di/                # Injection de dépendances
-│   ├── errors/            # Gestion des erreurs
-│   ├── i18n/              # Support d'internationalisation
-│   ├── logger/            # Initialisation de la journalisation
-│   ├── metrics/           # Collecte de métriques
-│   ├── middleware/        # Middleware HTTP
-│   ├── parser/            # Analyseur de données (local/distant)
-│   ├── router/            # Gestion des routes HTTP
-│   ├── validator/         # Validateur
-│   └── version/           # Informations de version
-├── pkg/
-│   ├── gocron/            # Planificateur de tâches planifiées
-│   └── warden/            # SDK Warden
-├── scripts/               # Répertoire de scripts
-└── .github/               # Configuration GitHub (CI/CD, modèles Issue/PR, etc.)
-```
-
-## 🔒 Fonctionnalités de Sécurité
-
-Warden implémente plusieurs fonctionnalités de sécurité, notamment l'authentification API, la protection SSRF, la limitation du débit, la vérification TLS, etc.
-
-Pour la documentation de sécurité détaillée, veuillez vous référer à: [Documentation de Sécurité](docs/enUS/SECURITY.md)
-
-## 🔧 Guide de Développement
-
-> 📚 **Exemples de Référence**: Consultez le [Répertoire d'Exemples](example/README.en.md) pour des exemples de code et de configurations complets pour différents scénarios d'utilisation.
-
-Pour la documentation de développement détaillée, veuillez vous référer à: [Documentation de Développement](docs/enUS/DEVELOPMENT.md)
-
-### Standards de Code
-
-Le projet suit les standards de code officiels de Go et les meilleures pratiques. Pour les standards détaillés, veuillez vous référer à:
-
-- [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Guide de style de code
-- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - Guide de contribution
+- **[Guide de Développement](docs/enUS/DEVELOPMENT.md)** - Configuration de l'environnement de développement et guide de contribution
+- **[Sécurité](docs/enUS/SECURITY.md)** - Fonctionnalités de sécurité et meilleures pratiques
+- **[SDK](docs/enUS/SDK.md)** - Documentation d'utilisation du SDK Go
+- **[Exemples](example/README.md)** - Exemples de démarrage rapide (de base et avancés)
 
 ## 📄 Licence
 
@@ -243,12 +143,4 @@ Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ## 🤝 Contribution
 
-Les soumissions d'Issues et de Pull Requests sont les bienvenues !
-
-## 📞 Contact
-
-Pour les questions ou suggestions, veuillez contacter via Issues.
-
----
-
-**Version**: Le programme affiche la version, l'heure de construction et la version du code au démarrage (via `warden --version` ou les journaux de démarrage)
+Les soumissions d'Issues et de Pull Requests sont les bienvenues! Consultez [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) pour les directives.

@@ -140,6 +140,13 @@ X-API-Key: your-secret-api-key
 - 只有 `status` 为 `"active"` 的用户才能通过认证检查
 - `scope` 和 `role` 字段会被 Stargate 用于设置授权 Header（`X-Auth-Scopes` 和 `X-Auth-Role`），供下游服务使用
 
+**可选集成场景**：
+如果选择与其他服务（如 Stargate）集成，在登录流程中可以调用此端点查询用户信息：
+1. 用户输入标识（email/phone/username）后，调用 `GET /user?phone=xxx` 或 `GET /user?mail=xxx`
+2. Warden 返回用户信息（包括 `user_id`、`email`、`phone`、`status`）
+3. 如果用户存在且状态为 `"active"`，可以继续后续的认证流程
+4. 返回的 `scope` 和 `role` 可以用于设置授权 Header
+
 **响应（用户不存在）**
 - **状态码**: `404 Not Found`
 - **响应体**: `User not found`
@@ -343,8 +350,116 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 
 所有 API 响应都支持自动压缩（gzip），客户端可以通过 `Accept-Encoding: gzip` 请求头启用压缩。
 
+## 可选集成示例
+
+### 与其他服务集成的调用示例（可选）
+
+如果需要与其他服务（如 Stargate）集成，可以在登录流程中调用 Warden 的 `/user` 端点查询用户信息：
+
+**场景 1：通过手机号查询**
+
+```bash
+# Stargate 调用 Warden
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?phone=13800138000"
+```
+
+**响应示例**：
+```json
+{
+    "phone": "13800138000",
+    "mail": "admin@example.com",
+    "user_id": "user-123",
+    "status": "active",
+    "scope": ["read", "write"],
+    "role": "admin"
+}
+```
+
+**场景 2：通过邮箱查询**
+
+```bash
+# Stargate 调用 Warden
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?mail=admin@example.com"
+```
+
+### Go SDK 集成示例
+
+Stargate 可以使用 Warden Go SDK 进行集成：
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/soulteary/warden/pkg/warden"
+)
+
+func main() {
+    // 创建 Warden 客户端
+    opts := warden.DefaultOptions().
+        WithBaseURL("http://warden:8081").
+        WithAPIKey("your-api-key").
+        WithTimeout(10 * time.Second)
+    
+    client, err := warden.NewClient(opts)
+    if err != nil {
+        panic(err)
+    }
+    
+    ctx := context.Background()
+    
+    // 在登录流程中查询用户
+    user, err := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+    if err != nil {
+        if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound {
+            // 用户不存在，拒绝登录
+            fmt.Println("User not found in allowlist")
+            return
+        }
+        panic(err)
+    }
+    
+    // 检查用户状态
+    if !user.IsActive() {
+        // 用户状态非 active，拒绝登录
+        fmt.Printf("User status is %s, cannot login\n", user.Status)
+        return
+    }
+    
+    // 用户存在且状态为 active，继续登录流程
+    fmt.Printf("User found: %s, Status: %s, Role: %s, Scopes: %v\n",
+        user.UserID, user.Status, user.Role, user.Scope)
+    
+    // 后续：调用 Herald 发送验证码
+    // ...
+}
+```
+
+### 完整登录流程示例（可选集成场景）
+
+在可选的集成场景中，完整的登录流程可能如下：
+
+1. **用户输入标识** → 认证服务接收
+2. **认证服务 → Warden**：查询用户信息
+   ```go
+   user, err := wardenClient.GetUserByIdentifier(ctx, phone, mail, "")
+   ```
+3. **验证用户状态**：检查 `user.Status == "active"`
+4. **认证服务 → OTP 服务**：创建 challenge 并发送验证码（可选）
+5. **用户提交验证码** → 认证服务接收（可选）
+6. **认证服务 → OTP 服务**：验证验证码（可选）
+7. **认证服务**：签发 session，使用 `user.Scope` 和 `user.Role` 设置授权 Header
+
+**注意**：Warden 可以独立使用，上述集成流程是可选的。
+
 ## 相关文档
 
 - [OpenAPI 规范](../openapi.yaml) - 完整的 OpenAPI 3.0 规范
 - [配置文档](CONFIGURATION.md) - 了解如何配置 API Key 和其他选项
 - [安全文档](SECURITY.md) - 了解安全特性和最佳实践
+- [架构文档](ARCHITECTURE.md) - 了解服务集成架构

@@ -4,11 +4,14 @@
 
 本文档详细说明 Warden 的系统架构、核心组件和数据流程。
 
+Warden 是一个**独立**的允许列表用户数据服务，可以单独使用，也可以选择性地与其他服务集成。
+
 ## 系统架构图
 
 ```mermaid
 graph TB
     subgraph "客户端层"
+        Stargate[Stargate 认证服务]
         Client[HTTP 客户端]
     end
 
@@ -44,6 +47,7 @@ graph TB
         Redis[(Redis 服务器)]
     end
 
+    Stargate -->|查询用户信息| Router
     Client -->|HTTP 请求| Router
     Router --> Middleware
     Middleware --> RateLimit
@@ -341,8 +345,130 @@ go run main.go --redis invalid-host:6379
 3. **分布式锁**：本地锁仅适用于单机部署，多实例时无法防止重复执行
 4. **日志记录**：Redis 不可用时应记录清晰的警告日志，便于运维排查
 
+## 可选服务集成
+
+Warden 可以**独立使用**，也可以选择性地与其他服务（如 Stargate 和 Herald）集成。以下集成方案是**可选的**，仅适用于需要构建完整认证架构的场景。
+
+### Warden 职责边界
+
+根据系统架构设计，Warden 的职责边界如下：
+
+**必须做**：
+- 白名单用户管理与查询
+- 提供用户基本信息给 Stargate（email/phone/user_id/status）
+- 可选：提供 scope/role/资源授权信息（用于 Stargate 输出到下游）
+
+**禁止做**：
+- ❌ 不发送验证码
+- ❌ 不进行 OTP 校验
+
+验证码和 OTP 相关功能由 Herald 服务负责，Warden 只负责用户数据查询和授权信息提供。
+
+### Stargate + Warden + Herald 架构（可选）
+
+如果需要构建完整的认证架构，Warden 可以与 Stargate 和 Herald 协同工作：
+
+```mermaid
+graph TB
+    subgraph "用户"
+        User[用户浏览器]
+    end
+    
+    subgraph "网关层"
+        Traefik[Traefik<br/>forwardAuth]
+    end
+    
+    subgraph "认证服务"
+        Stargate[Stargate<br/>认证/会话管理]
+    end
+    
+    subgraph "数据服务"
+        Warden[Warden<br/>白名单用户数据]
+    end
+    
+    subgraph "OTP 服务"
+        Herald[Herald<br/>验证码/OTP]
+    end
+    
+    subgraph "数据源"
+        LocalFile[本地数据文件]
+        RemoteAPI[远程 API]
+    end
+    
+    User -->|1. 访问受保护资源| Traefik
+    Traefik -->|2. forwardAuth 请求| Stargate
+    Stargate -->|3. 未登录，跳转登录页| User
+    User -->|4. 输入标识| Stargate
+    Stargate -->|5. 查询用户| Warden
+    Warden -->|读取| LocalFile
+    Warden -->|读取| RemoteAPI
+    Warden -->|6. 返回 user_id + email/phone| Stargate
+    Stargate -->|7. 创建 challenge| Herald
+    Herald -->|8. 发送验证码| User
+    User -->|9. 提交验证码| Stargate
+    Stargate -->|10. 验证验证码| Herald
+    Herald -->|11. 验证结果| Stargate
+    Stargate -->|12. 签发 session| User
+    User -->|13. 后续请求| Traefik
+    Traefik -->|14. forwardAuth| Stargate
+    Stargate -->|15. 校验 session| Stargate
+    Stargate -->|16. 返回授权 Header| Traefik
+```
+
+### Stargate 调用 Warden 流程（可选集成场景）
+
+在可选的集成场景中，登录流程中 Stargate 可以调用 Warden 查询用户信息：
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Stargate as Stargate
+    participant Warden as Warden
+    participant Herald as Herald
+    
+    User->>Stargate: 输入标识（email/phone/username）
+    Stargate->>Warden: GET /user?phone=xxx 或 ?mail=xxx
+    Note over Warden: 白名单验证<br/>状态检查
+    Warden-->>Stargate: 返回 user_id + email/phone + status
+    alt 用户存在且状态为 active
+        Stargate->>Herald: 创建 challenge 并发送验证码
+        Herald-->>Stargate: 返回 challenge_id
+        Stargate-->>User: 显示验证码输入页面
+        User->>Stargate: 提交验证码
+        Stargate->>Herald: 验证验证码
+        Herald-->>Stargate: 验证成功
+        Stargate->>Stargate: 签发 session（cookie/JWT）
+        Stargate-->>User: 登录成功
+    else 用户不存在或状态非 active
+        Stargate-->>User: 拒绝登录
+    end
+```
+
+### 数据流向
+
+1. **登录流程**（首次认证）：
+   - Stargate → Warden：查询用户信息（白名单验证、状态检查）
+   - Stargate → Herald：创建 challenge 并发送验证码
+   - Stargate → Herald：验证验证码
+   - Stargate：签发 session
+
+2. **后续请求**（已登录）：
+   - Traefik forwardAuth → Stargate：校验 session
+   - Stargate：返回授权 Header（`X-Auth-User`、`X-Auth-Email`、`X-Auth-Scopes`、`X-Auth-Role`）
+   - **不再调用 Warden/Herald**（除非需要刷新授权信息）
+
+### 服务间鉴权（可选）
+
+如果选择集成使用，Stargate 调用 Warden 时可以进行服务间鉴权，支持以下方式：
+
+- **mTLS**（推荐）：使用双向 TLS 证书进行身份验证
+- **HMAC 签名**：使用 HMAC-SHA256 签名验证请求
+
+**注意**：如果 Warden 独立使用，服务间鉴权是可选的。详细配置请参考 [安全文档](SECURITY.md#服务间鉴权)。
+
 ## 相关文档
 
 - [配置文档](CONFIGURATION.md) - 了解详细的配置选项
 - [部署文档](DEPLOYMENT.md) - 了解部署架构
 - [开发文档](DEVELOPMENT.md) - 了解开发相关架构
+- [安全文档](SECURITY.md) - 了解服务间鉴权配置

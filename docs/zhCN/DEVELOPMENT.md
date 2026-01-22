@@ -142,7 +142,7 @@ golangci-lint run
 
 ## 参考示例
 
-查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.en.md) 了解不同使用场景的完整示例代码和配置。
+查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.md) 了解不同使用场景的完整示例代码和配置。
 
 ## 性能测试
 

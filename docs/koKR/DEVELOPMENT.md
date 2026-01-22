@@ -142,7 +142,7 @@ Can be set via the `LOG_LEVEL` environment variable or the `/log/level` API endp
 
 ## Reference Examples
 
-Check the [Examples Directory](../example/README.en.md) / [示例目录](../example/README.md) for complete example code and configurations for different usage scenarios.
+Check the [Examples Directory](../example/README.md) / [示例目录](../example/README.md) for complete example code and configurations for different usage scenarios.
 
 ## Performance Testing
 

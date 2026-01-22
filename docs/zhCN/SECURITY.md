@@ -205,8 +205,118 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
 2. 发送邮件到项目维护者
 3. 不要公开披露漏洞，直到修复完成
 
+## 服务间鉴权（可选）
+
+如果选择与其他服务（如 Stargate）集成使用，可以进行服务间鉴权以确保安全性。Warden 支持以下两种鉴权方式：
+
+**注意**：如果 Warden 独立使用，服务间鉴权是可选的。
+
+### mTLS（推荐）
+
+使用双向 TLS 证书进行身份验证，提供更高的安全性。
+
+**配置方式**：
+
+1. **生成证书**：
+   ```bash
+   # 生成 CA 证书
+   openssl genrsa -out ca.key 2048
+   openssl req -new -x509 -days 365 -key ca.key -out ca.crt
+   
+   # 生成 Warden 服务端证书
+   openssl genrsa -out warden.key 2048
+   openssl req -new -key warden.key -out warden.csr
+   openssl x509 -req -days 365 -in warden.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out warden.crt
+   
+   # 生成 Stargate 客户端证书
+   openssl genrsa -out stargate.key 2048
+   openssl req -new -key stargate.key -out stargate.csr
+   openssl x509 -req -days 365 -in stargate.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out stargate.crt
+   ```
+
+2. **Warden 配置**（环境变量）：
+   ```bash
+   export WARDEN_TLS_CERT=/path/to/warden.crt
+   export WARDEN_TLS_KEY=/path/to/warden.key
+   export WARDEN_TLS_CA=/path/to/ca.crt
+   export WARDEN_TLS_REQUIRE_CLIENT_CERT=true
+   ```
+
+3. **Stargate 配置**：
+   - 配置客户端证书路径
+   - 配置 CA 证书路径以验证 Warden 服务端证书
+
+### HMAC 签名
+
+使用 HMAC-SHA256 签名验证请求，更易于部署。
+
+**签名算法**：
+```
+signature = HMAC_SHA256(secret, method + path + timestamp + body_hash)
+```
+
+**请求头**：
+- `X-Signature`: HMAC 签名值
+- `X-Timestamp`: Unix 时间戳（秒）
+- `X-Key-Id`: 密钥 ID（用于密钥轮换）
+
+**Warden 配置**（环境变量）：
+```bash
+export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # 时间戳容差（秒），默认 60
+```
+
+**Stargate 调用示例**：
+```go
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "time"
+)
+
+func signRequest(method, path, body, secret string) (string, int64) {
+    timestamp := time.Now().Unix()
+    bodyHash := sha256.Sum256([]byte(body))
+    bodyHashHex := hex.EncodeToString(bodyHash[:])
+    
+    message := fmt.Sprintf("%s%s%d%s", method, path, timestamp, bodyHashHex)
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write([]byte(message))
+    signature := hex.EncodeToString(mac.Sum(nil))
+    
+    return signature, timestamp
+}
+
+// 在请求中使用
+signature, timestamp := signRequest("GET", "/user?phone=13800138000", "", "your-secret-key")
+req.Header.Set("X-Signature", signature)
+req.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
+req.Header.Set("X-Key-Id", "key-id-1")
+```
+
+**验证规则**：
+- Warden 会验证时间戳是否在容差范围内（默认 ±60 秒）
+- Warden 会验证签名是否匹配
+- 如果签名验证失败，返回 `401 Unauthorized`
+
+### 配置优先级
+
+1. **mTLS**：如果配置了 TLS 证书，优先使用 mTLS
+2. **HMAC**：如果未配置 mTLS，则使用 HMAC 签名
+3. **API Key**：如果两者都未配置，则回退到 API Key 认证（不推荐用于服务间调用）
+
+### 安全建议
+
+1. **生产环境**：强烈建议使用 mTLS 进行服务间鉴权
+2. **密钥管理**：使用密钥管理服务（如 HashiCorp Vault）存储密钥和证书
+3. **密钥轮换**：定期轮换 HMAC 密钥和 TLS 证书
+4. **网络隔离**：在可能的情况下，使用网络策略限制只有 Stargate 可以访问 Warden
+
 ## 相关文档
 
 - [配置文档](CONFIGURATION.md) - 了解安全相关的配置选项
 - [部署文档](DEPLOYMENT.md) - 了解生产环境部署建议
 - [API 文档](API.md) - 了解 API 安全特性
+- [架构文档](ARCHITECTURE.md) - 了解服务集成架构

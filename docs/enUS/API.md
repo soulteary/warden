@@ -140,6 +140,13 @@ X-API-Key: your-secret-api-key
 - Only users with `status` of `"active"` can pass authentication checks
 - `scope` and `role` fields are used by Stargate to set authorization headers (`X-Auth-Scopes` and `X-Auth-Role`) for downstream services
 
+**Optional Integration Scenario**:
+If you choose to integrate with other services (such as Stargate), you can call this endpoint to query user information in the login flow:
+1. After user enters identifier (email/phone/username), call `GET /user?phone=xxx` or `GET /user?mail=xxx`
+2. Warden returns user information (including `user_id`, `email`, `phone`, `status`)
+3. If user exists and status is `"active"`, you can continue with subsequent authentication flow
+4. Returned `scope` and `role` can be used to set authorization headers
+
 **Response (user not found)**
 - **Status Code**: `404 Not Found`
 - **Response Body**: `User not found`
@@ -343,8 +350,116 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 
 All API responses support automatic compression (gzip). Clients can enable compression via the `Accept-Encoding: gzip` request header.
 
+## Optional Integration Examples
+
+### Calling Example for Integration with Other Services (Optional)
+
+If you need to integrate with other services (such as Stargate), you can call Warden's `/user` endpoint to query user information in the login flow:
+
+**Scenario 1: Query by Phone Number**
+
+```bash
+# Stargate calls Warden
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?phone=13800138000"
+```
+
+**Response Example**:
+```json
+{
+    "phone": "13800138000",
+    "mail": "admin@example.com",
+    "user_id": "user-123",
+    "status": "active",
+    "scope": ["read", "write"],
+    "role": "admin"
+}
+```
+
+**Scenario 2: Query by Email**
+
+```bash
+# Stargate calls Warden
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?mail=admin@example.com"
+```
+
+### Go SDK Integration Example
+
+Stargate can use Warden Go SDK for integration:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/soulteary/warden/pkg/warden"
+)
+
+func main() {
+    // Create Warden client
+    opts := warden.DefaultOptions().
+        WithBaseURL("http://warden:8081").
+        WithAPIKey("your-api-key").
+        WithTimeout(10 * time.Second)
+    
+    client, err := warden.NewClient(opts)
+    if err != nil {
+        panic(err)
+    }
+    
+    ctx := context.Background()
+    
+    // Query user in login flow
+    user, err := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+    if err != nil {
+        if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound {
+            // User not found, reject login
+            fmt.Println("User not found in allowlist")
+            return
+        }
+        panic(err)
+    }
+    
+    // Check user status
+    if !user.IsActive() {
+        // User status is not active, reject login
+        fmt.Printf("User status is %s, cannot login\n", user.Status)
+        return
+    }
+    
+    // User exists and status is active, continue login flow
+    fmt.Printf("User found: %s, Status: %s, Role: %s, Scopes: %v\n",
+        user.UserID, user.Status, user.Role, user.Scope)
+    
+    // Next: Call Herald to send verification code
+    // ...
+}
+```
+
+### Complete Login Flow Example (Optional Integration Scenario)
+
+In optional integration scenarios, the complete login flow might be as follows:
+
+1. **User enters identifier** → Authentication service receives
+2. **Authentication Service → Warden**: Query user information
+   ```go
+   user, err := wardenClient.GetUserByIdentifier(ctx, phone, mail, "")
+   ```
+3. **Validate user status**: Check `user.Status == "active"`
+4. **Authentication Service → OTP Service**: Create challenge and send verification code (optional)
+5. **User submits verification code** → Authentication service receives (optional)
+6. **Authentication Service → OTP Service**: Verify verification code (optional)
+7. **Authentication Service**: Issue session, use `user.Scope` and `user.Role` to set authorization headers
+
+**Note**: Warden can be used standalone, and the above integration flow is optional.
+
 ## Related Documentation
 
 - [OpenAPI Specification](../openapi.yaml) - Complete OpenAPI 3.0 specification
 - [Configuration Documentation](CONFIGURATION.md) - Learn how to configure API Key and other options
 - [Security Documentation](SECURITY.md) - Learn about security features and best practices
+- [Architecture Documentation](ARCHITECTURE.md) - Learn about service integration architecture

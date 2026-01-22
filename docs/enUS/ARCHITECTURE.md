@@ -4,11 +4,14 @@
 
 This document details the system architecture, core components, and data flow of Warden.
 
+Warden is a **standalone** allowlist user data service that can be used independently or optionally integrated with other services.
+
 ## System Architecture Diagram
 
 ```mermaid
 graph TB
     subgraph "Client Layer"
+        Stargate[Stargate Auth Service]
         Client[HTTP Client]
     end
 
@@ -44,6 +47,7 @@ graph TB
         Redis[(Redis Server)]
     end
 
+    Stargate -->|Query User Info| Router
     Client -->|HTTP Request| Router
     Router --> Middleware
     Middleware --> RateLimit
@@ -341,8 +345,130 @@ go run main.go --redis invalid-host:6379
 3. **Distributed Lock**: Local lock is only suitable for single-machine deployment, cannot prevent duplicate execution in multi-instance scenarios
 4. **Logging**: When Redis is unavailable, clear warning logs should be recorded for operations troubleshooting
 
+## Optional Service Integration
+
+Warden can be used **standalone** or optionally integrated with other services (such as Stargate and Herald). The following integration scenarios are **optional** and only apply when building a complete authentication architecture.
+
+### Warden Responsibility Boundaries
+
+According to the system architecture design, Warden's responsibility boundaries are as follows:
+
+**Must do**:
+- Allowlist user management and queries
+- Provide basic user information to Stargate (email/phone/user_id/status)
+- Optional: Provide scope/role/resource authorization information (for Stargate to output to downstream services)
+
+**Must not do**:
+- ❌ Do not send verification codes
+- ❌ Do not perform OTP verification
+
+Verification code and OTP-related functions are handled by the Herald service. Warden is only responsible for user data queries and authorization information provision.
+
+### Stargate + Warden + Herald Architecture (Optional)
+
+If you need to build a complete authentication architecture, Warden can work with Stargate and Herald:
+
+```mermaid
+graph TB
+    subgraph "User"
+        User[User Browser]
+    end
+    
+    subgraph "Gateway Layer"
+        Traefik[Traefik<br/>forwardAuth]
+    end
+    
+    subgraph "Auth Service"
+        Stargate[Stargate<br/>Auth/Session Management]
+    end
+    
+    subgraph "Data Service"
+        Warden[Warden<br/>Allowlist User Data]
+    end
+    
+    subgraph "OTP Service"
+        Herald[Herald<br/>Verification Code/OTP]
+    end
+    
+    subgraph "Data Sources"
+        LocalFile[Local Data File]
+        RemoteAPI[Remote API]
+    end
+    
+    User -->|1. Access Protected Resource| Traefik
+    Traefik -->|2. forwardAuth Request| Stargate
+    Stargate -->|3. Not Logged In, Redirect to Login| User
+    User -->|4. Enter Identifier| Stargate
+    Stargate -->|5. Query User| Warden
+    Warden -->|Read| LocalFile
+    Warden -->|Read| RemoteAPI
+    Warden -->|6. Return user_id + email/phone| Stargate
+    Stargate -->|7. Create Challenge| Herald
+    Herald -->|8. Send Verification Code| User
+    User -->|9. Submit Verification Code| Stargate
+    Stargate -->|10. Verify Code| Herald
+    Herald -->|11. Verification Result| Stargate
+    Stargate -->|12. Issue Session| User
+    User -->|13. Subsequent Requests| Traefik
+    Traefik -->|14. forwardAuth| Stargate
+    Stargate -->|15. Validate Session| Stargate
+    Stargate -->|16. Return Auth Headers| Traefik
+```
+
+### Stargate Calling Warden Flow (Optional Integration Scenario)
+
+In optional integration scenarios, Stargate can call Warden to query user information in the login flow:
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant Stargate as Stargate
+    participant Warden as Warden
+    participant Herald as Herald
+    
+    User->>Stargate: Enter Identifier (email/phone/username)
+    Stargate->>Warden: GET /user?phone=xxx or ?mail=xxx
+    Note over Warden: Allowlist Verification<br/>Status Check
+    Warden-->>Stargate: Return user_id + email/phone + status
+    alt User Exists and Status is active
+        Stargate->>Herald: Create Challenge and Send Code
+        Herald-->>Stargate: Return challenge_id
+        Stargate-->>User: Show Verification Code Input Page
+        User->>Stargate: Submit Verification Code
+        Stargate->>Herald: Verify Code
+        Herald-->>Stargate: Verification Success
+        Stargate->>Stargate: Issue Session (cookie/JWT)
+        Stargate-->>User: Login Success
+    else User Not Found or Status Not active
+        Stargate-->>User: Reject Login
+    end
+```
+
+### Data Flow
+
+1. **Login Flow** (First-time Authentication):
+   - Stargate → Warden: Query user information (allowlist verification, status check)
+   - Stargate → Herald: Create challenge and send verification code
+   - Stargate → Herald: Verify verification code
+   - Stargate: Issue session
+
+2. **Subsequent Requests** (Already Logged In):
+   - Traefik forwardAuth → Stargate: Validate session
+   - Stargate: Return authorization headers (`X-Auth-User`, `X-Auth-Email`, `X-Auth-Scopes`, `X-Auth-Role`)
+   - **No longer calls Warden/Herald** (unless authorization information needs to be refreshed)
+
+### Inter-Service Authentication (Optional)
+
+If you choose to integrate, inter-service authentication can be used when Stargate calls Warden. The following methods are supported:
+
+- **mTLS** (Recommended): Use mutual TLS certificates for authentication
+- **HMAC Signature**: Use HMAC-SHA256 signature to verify requests
+
+**Note**: If Warden is used standalone, inter-service authentication is optional. For detailed configuration, please refer to [Security Documentation](SECURITY.md#inter-service-authentication).
+
 ## Related Documentation
 
 - [Configuration Documentation](CONFIGURATION.md) - Learn about detailed configuration options
 - [Deployment Documentation](DEPLOYMENT.md) - Learn about deployment architecture
 - [Development Documentation](DEVELOPMENT.md) - Learn about development-related architecture
+- [Security Documentation](SECURITY.md) - Learn about inter-service authentication configuration

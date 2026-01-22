@@ -219,9 +219,102 @@ If the `KEY` environment variable or `--key` parameter is configured, the `Autho
 Authorization: Bearer your-token-here
 ```
 
+## Optional Service Integration Configuration
+
+If you choose to integrate with other services (such as Stargate), inter-service authentication can be configured. The following are relevant configuration items:
+
+**Note**: If Warden is used standalone, the following configurations are optional.
+
+### mTLS Configuration (Recommended)
+
+Use mutual TLS certificates for inter-service authentication:
+
+**Environment Variables**:
+```bash
+# Warden server certificate
+export WARDEN_TLS_CERT=/path/to/warden.crt
+export WARDEN_TLS_KEY=/path/to/warden.key
+export WARDEN_TLS_CA=/path/to/ca.crt
+
+# Require client certificate (mTLS)
+export WARDEN_TLS_REQUIRE_CLIENT_CERT=true
+
+# TLS listen port (optional, defaults to HTTP_PORT)
+export WARDEN_TLS_PORT=8443
+```
+
+**Configuration File** (`config.yaml`):
+```yaml
+tls:
+  cert: "/path/to/warden.crt"
+  key: "/path/to/warden.key"
+  ca: "/path/to/ca.crt"
+  require_client_cert: true
+  port: 8443
+```
+
+### HMAC Signature Configuration
+
+Use HMAC-SHA256 signature for inter-service authentication:
+
+**Environment Variables**:
+```bash
+# HMAC keys (JSON format, supports multiple keys for rotation)
+export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+
+# Timestamp tolerance (seconds), default 60
+export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+```
+
+**Configuration File** (`config.yaml`):
+```yaml
+hmac:
+  keys:
+    key-id-1: "secret-key-1"
+    key-id-2: "secret-key-2"
+  timestamp_tolerance: 60
+```
+
+### Stargate Calling Configuration
+
+Stargate needs to configure Warden service address and authentication information:
+
+**Stargate Configuration Example** (Environment Variables):
+```bash
+# Warden service address
+export STARGATE_WARDEN_BASE_URL=http://warden:8081
+
+# Inter-service authentication method (mTLS or HMAC)
+export STARGATE_WARDEN_AUTH_TYPE=hmac
+
+# HMAC configuration (if using HMAC)
+export STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
+export STARGATE_WARDEN_HMAC_SECRET=secret-key-1
+
+# mTLS configuration (if using mTLS)
+export STARGATE_WARDEN_TLS_CERT=/path/to/stargate.crt
+export STARGATE_WARDEN_TLS_KEY=/path/to/stargate.key
+export STARGATE_WARDEN_TLS_CA=/path/to/ca.crt
+```
+
+### Configuration Priority
+
+1. **mTLS**: If TLS certificates are configured, mTLS is used first
+2. **HMAC**: If mTLS is not configured, HMAC signature is used
+3. **API Key**: If neither is configured, falls back to API Key authentication (not recommended for inter-service calls)
+
+### Configuration Validation
+
+When Warden starts, it checks inter-service authentication configuration:
+
+- If mTLS is configured, verifies certificate files exist
+- If HMAC is configured, verifies key format is correct
+- If neither is configured, logs a warning (not recommended for production)
+
 ## Detailed Configuration Documentation
 
 For more detailed information about parameter parsing mechanisms, priority rules, and usage examples, please refer to:
 
 - [Parameter Parsing Design Document](CONFIG_PARSING.md) - Detailed parameter parsing mechanism documentation
 - [Architecture Design Document](ARCHITECTURE.md) - Understand overall architecture and configuration impact
+- [Security Documentation](SECURITY.md) - Learn about inter-service authentication details

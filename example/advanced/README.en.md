@@ -366,14 +366,14 @@ Expected results:
 
 ## 📚 Next Steps
 
-- Read [Complete Documentation](../../README.en.md) to learn all features
+- Read [Complete Documentation](../../README.md) to learn all features
 - Check [API Documentation](../../openapi.yaml) to learn API details
-- Refer to [Simple Example](../basic/README.en.md) to learn basic usage
+- Refer to [Simple Example](../basic/README.md) to learn basic usage
 - Check [Configuration Example](../../config.example.yaml) to learn all configuration options
 
 ## 🔗 Related Resources
 
-- [Warden Main Documentation](../../README.en.md)
+- [Warden Main Documentation](../../README.md)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [Redis Documentation](https://redis.io/docs/)
 

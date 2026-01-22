@@ -13,54 +13,62 @@
 
 > **Warden**（看守者）—— スターゲートの看守者であり、誰が通過でき、誰が拒否されるかを決定します。スターゲートの看守者がスターゲートを守るように、Warden はあなたの許可リストを守り、承認されたユーザーのみが通過できるようにします。
 
-## 📋 プロジェクト概要
+## 📋 概要
 
 Warden は、Go で開発された軽量な HTTP API サービスで、主に許可リストユーザーデータ（電話番号とメールアドレス）の提供と管理に使用されます。このサービスは、ローカル設定ファイルとリモート API からのデータ取得をサポートし、リアルタイムのパフォーマンスと信頼性を確保するための複数のデータマージ戦略を提供します。
+
+Warden は**独立して使用**することも、より大きな認証アーキテクチャの一部として他のサービス（Stargate や Herald など）と統合することもできます。詳細なアーキテクチャ情報については、[アーキテクチャドキュメント](docs/enUS/ARCHITECTURE.md)を参照してください。
 
 ## ✨ 主要機能
 
 - 🚀 **高性能**: 平均レイテンシ 21ms で毎秒 5000 以上のリクエストをサポート
-- 🔄 **複数のデータソース**: ローカル設定ファイルとリモート API の両方をサポート
-- 🎯 **柔軟な戦略**: 6 つのデータマージモード（リモート優先、ローカル優先、リモートのみ、ローカルのみなど）を提供
-- ⏰ **スケジュール更新**: Redis 分散ロックベースのスケジュールタスクによる自動データ同期
+- 🔄 **複数のデータソース**: ローカル設定ファイルとリモート API
+- 🎯 **柔軟な戦略**: 6 つのデータマージモード（リモート優先、ローカル優先、リモートのみ、ローカルのみなど）
+- ⏰ **スケジュール更新**: Redis 分散ロックによる自動データ同期
 - 📦 **コンテナ化デプロイ**: 完全な Docker サポート、すぐに使用可能
-- 📊 **構造化ログ**: zerolog を使用して詳細なアクセスログとエラーログを提供
-- 🔒 **分散ロック**: Redis を使用して、分散環境でスケジュールタスクが繰り返し実行されないようにします
-- 🌐 **多言語サポート**: 7 つの言語（英語、中国語、フランス語、イタリア語、日本語、ドイツ語、韓国語）をサポートし、ユーザーの言語設定を自動検出
+- 🌐 **多言語サポート**: 7 つの言語をサポートし、自動言語検出
 
-## 🏗️ アーキテクチャ設計
+## 🚀 クイックスタート
 
-Warden は、HTTP 層、ビジネス層、インフラストラクチャ層を含む階層型アーキテクチャ設計を使用します。システムは、複数のデータソース、マルチレベルキャッシュ、分散ロックメカニズムをサポートします。
+### オプション 1: Docker（推奨）
 
-詳細なアーキテクチャドキュメントについては、以下を参照してください: [アーキテクチャ設計ドキュメント](docs/enUS/ARCHITECTURE.md)
+最も簡単な方法は、事前に構築された Docker イメージを使用することです：
 
-## 📦 インストールと実行
+```bash
+# 最新のイメージをプル
+docker pull ghcr.io/soulteary/warden:latest
 
-> 💡 **クイックスタート**: Warden をすぐに体験したいですか？[クイックスタート例](example/README.en.md)をご覧ください:
-> - [簡単な例](example/basic/README.en.md) - 基本的な使用、ローカルデータファイルのみ
-> - [高度な例](example/advanced/README.en.md) - 完全な機能、リモート API と Mock サービスを含む
+# データファイルを作成
+cat > data.json <<EOF
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    }
+]
+EOF
 
-### 前提条件
+# コンテナを実行
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e API_KEY=your-api-key-here \
+  ghcr.io/soulteary/warden:latest
+```
 
-- Go 1.25+ ([go.mod](go.mod) を参照)
-- Redis (分散ロックとキャッシュ用)
-- Docker (オプション、コンテナ化デプロイ用)
+> 💡 **ヒント**: Docker Compose の完全な例については、[例ディレクトリ](example/README.md)を参照してください。
 
-### クイックスタート
+### オプション 2: ソースから
 
-1. **プロジェクトをクローン**
+1. **クローンしてビルド**
 ```bash
 git clone <repository-url>
 cd warden
-```
-
-2. **依存関係をインストール**
-```bash
 go mod download
 ```
 
-3. **ローカルデータファイルを設定**
-`data.json` ファイルを作成（`data.example.json` を参照）:
+2. **データファイルを作成**
+`data.json` ファイルを作成（`data.example.json` を参照）：
 ```json
 [
     {
@@ -70,172 +78,64 @@ go mod download
 ]
 ```
 
-4. **サービスを実行**
+3. **サービスを実行**
 ```bash
-go run main.go
+go run main.go --api-key your-api-key-here
 ```
 
-詳細な設定とデプロイの手順については、以下を参照してください:
-- [設定ドキュメント](docs/enUS/CONFIGURATION.md) - すべての設定オプションを学ぶ
-- [デプロイドキュメント](docs/enUS/DEPLOYMENT.md) - デプロイ方法を学ぶ
+## ⚙️ 基本設定
 
-## ⚙️ 設定
+Warden は、コマンドライン引数、環境変数、設定ファイルによる設定をサポートしています。以下は最も重要な設定です：
 
-Warden は、コマンドライン引数、環境変数、設定ファイルなど、複数の設定方法をサポートします。システムは、柔軟な設定戦略を持つ 6 つのデータマージモードを提供します。
+| 設定 | 環境変数 | 説明 | 必須 |
+|------|---------|------|------|
+| ポート | `PORT` | HTTP サーバーポート（デフォルト: 8081） | いいえ |
+| API キー | `API_KEY` | API 認証キー（本番環境で推奨） | 推奨 |
+| Redis | `REDIS` | キャッシュと分散ロック用の Redis アドレス（例: `localhost:6379`） | オプション |
+| データファイル | - | ローカルデータファイルのパス（デフォルト: `data.json`） | はい* |
+| リモート設定 | `CONFIG` | データ取得用のリモート API URL | オプション |
 
-詳細な設定ドキュメントについては、以下を参照してください: [設定ドキュメント](docs/enUS/CONFIGURATION.md)
+\* リモート API を使用しない場合は必須
 
-## 📡 API ドキュメント
+完全な設定オプションについては、[設定ドキュメント](docs/enUS/CONFIGURATION.md)を参照してください。
 
-Warden は、ユーザーリストクエリ、ページネーション、ヘルスチェックなどをサポートする完全な RESTful API を提供します。プロジェクトは、OpenAPI 3.0 仕様ドキュメントも提供します。
+## 📡 API の使用
 
-詳細な API ドキュメントについては、以下を参照してください: [API ドキュメント](docs/enUS/API.md)
+Warden は、ユーザーリストのクエリ、ページネーション、ヘルスチェック用の RESTful API を提供します。サービスは、クエリパラメータ `?lang=xx` または `Accept-Language` ヘッダーによる多言語応答をサポートします。
 
-OpenAPI 仕様ファイル: [openapi.yaml](openapi.yaml)
-
-## 🌐 多言語サポート
-
-Warden は完全な国際化（i18N）機能をサポートしています。すべての API レスポンス、エラーメッセージ、ログが国際化をサポートしています。
-
-### サポート言語
-
-- 🇺🇸 英語 (en) - デフォルト
-- 🇨🇳 中国語 (zh)
-- 🇫🇷 フランス語 (fr)
-- 🇮🇹 イタリア語 (it)
-- 🇯🇵 日本語 (ja)
-- 🇩🇪 ドイツ語 (de)
-- 🇰🇷 韓国語 (ko)
-
-### 言語検出
-
-Warden は次の優先順位で 2 つの言語検出方法をサポートしています：
-
-1. **クエリパラメータ**: `?lang=ja` で言語を指定
-2. **Accept-Language ヘッダー**: ブラウザの言語設定を自動検出
-3. **デフォルト言語**: 指定されていない場合、英語を使用
-
-### 使用例
-
+**例**:
 ```bash
-# クエリパラメータで日本語を指定
-curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=ja"
+# ユーザーをクエリ
+curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
-# Accept-Language ヘッダーで自動検出
-curl -H "X-API-Key: your-key" -H "Accept-Language: ja-JP,ja;q=0.9" "http://localhost:8081/"
-
-# 中国語を使用
-curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=zh"
+# ヘルスチェック
+curl "http://localhost:8081/healthz"
 ```
 
-## 🔌 SDK の使用
+完全な API ドキュメントについては、[API ドキュメント](docs/enUS/API.md)または[OpenAPI 仕様](openapi.yaml)を参照してください。
 
-Warden は、他のプロジェクトでの統合を容易にする Go SDK を提供します。SDK は、キャッシュ、認証などの機能をサポートするシンプルな API インターフェースを提供します。
+## 📊 パフォーマンス
 
-詳細な SDK ドキュメントについては、以下を参照してください: [SDK ドキュメント](docs/enUS/SDK.md)
+wrk ストレステストに基づく（30秒、16スレッド、100接続）：
+- **リクエスト/秒**: 5038.81
+- **平均レイテンシ**: 21.30ms
+- **最大レイテンシ**: 226.09ms
 
-## 🐳 Docker デプロイ
+## 📚 ドキュメント
 
-Warden は、完全な Docker と Docker Compose デプロイをサポートし、すぐに使用できます。
+### 主要ドキュメント
 
-### プリビルドイメージでクイックスタート（推奨）
+- **[アーキテクチャ](docs/enUS/ARCHITECTURE.md)** - 技術アーキテクチャと設計決定
+- **[API リファレンス](docs/enUS/API.md)** - 完全な API エンドポイントドキュメント
+- **[設定](docs/enUS/CONFIGURATION.md)** - 設定リファレンスと例
+- **[デプロイ](docs/enUS/DEPLOYMENT.md)** - デプロイガイド（Docker、Kubernetes など）
 
-GitHub Container Registry (GHCR) が提供するプリビルドイメージを使用して、ローカルビルドなしで迅速に開始:
+### 追加リソース
 
-```bash
-# 最新バージョンのイメージをプル
-docker pull ghcr.io/soulteary/warden:latest
-
-# コンテナを実行（基本例）
-docker run -d \
-  -p 8081:8081 \
-  -v $(pwd)/data.json:/app/data.json:ro \
-  -e PORT=8081 \
-  -e REDIS=localhost:6379 \
-  -e API_KEY=your-api-key-here \
-  ghcr.io/soulteary/warden:latest
-```
-
-> 💡 **ヒント**: プリビルドイメージを使用すると、ローカルビルド環境なしで迅速に開始できます。イメージは自動的に更新され、最新バージョンを使用していることを確認します。
-
-### Docker Compose の使用
-
-> 🚀 **クイックデプロイ**: 完全な Docker Compose 設定例については、[例ディレクトリ](example/README.en.md) を確認してください
-
-詳細なデプロイドキュメントについては、以下を参照してください: [デプロイドキュメント](docs/enUS/DEPLOYMENT.md)
-
-## 📊 パフォーマンス指標
-
-wrk 負荷テスト結果に基づく（30 秒テスト、16 スレッド、100 接続）:
-
-```
-Requests/sec:   5038.81
-Transfer/sec:   38.96MB
-平均レイテンシ: 21.30ms
-最大レイテンシ: 226.09ms
-```
-
-## 📁 プロジェクト構造
-
-```
-warden/
-├── main.go                 # プログラムエントリーポイント
-├── data.example.json      # ローカルデータファイルの例
-├── config.example.yaml    # 設定ファイルの例
-├── openapi.yaml           # OpenAPI 仕様ファイル
-├── go.mod                 # Go モジュール定義
-├── docker-compose.yml     # Docker Compose 設定
-├── LICENSE                # ライセンスファイル
-├── README.*.md            # 多言語プロジェクトドキュメント（中国語/英語/フランス語/イタリア語/日本語/ドイツ語/韓国語）
-├── CONTRIBUTING.*.md      # 多言語貢献ガイド
-├── docker/
-│   └── Dockerfile         # Docker イメージビルドファイル
-├── docs/                  # ドキュメントディレクトリ（多言語）
-│   ├── enUS/              # 英語ドキュメント
-│   └── zhCN/              # 中国語ドキュメント
-├── example/               # クイックスタート例
-│   ├── basic/             # 簡単な例（ローカルファイルのみ）
-│   └── advanced/          # 高度な例（完全な機能、Mock API を含む）
-├── internal/
-│   ├── cache/             # Redis キャッシュとロック実装
-│   ├── cmd/               # コマンドライン引数解析
-│   ├── config/            # 設定管理
-│   ├── define/            # 定数定義とデータ構造
-│   ├── di/                # 依存性注入
-│   ├── errors/            # エラー処理
-│   ├── i18n/              # 国際化サポート
-│   ├── logger/            # ログ初期化
-│   ├── metrics/           # メトリクス収集
-│   ├── middleware/        # HTTP ミドルウェア
-│   ├── parser/            # データパーサー（ローカル/リモート）
-│   ├── router/            # HTTP ルーティング処理
-│   ├── validator/         # バリデーター
-│   └── version/           # バージョン情報
-├── pkg/
-│   ├── gocron/            # スケジュールタスクスケジューラー
-│   └── warden/            # Warden SDK
-├── scripts/               # スクリプトディレクトリ
-└── .github/               # GitHub 設定（CI/CD、Issue/PR テンプレートなど）
-```
-
-## 🔒 セキュリティ機能
-
-Warden は、API 認証、SSRF 保護、レート制限、TLS 検証などの複数のセキュリティ機能を実装しています。
-
-詳細なセキュリティドキュメントについては、以下を参照してください: [セキュリティドキュメント](docs/enUS/SECURITY.md)
-
-## 🔧 開発ガイド
-
-> 📚 **参照例**: さまざまな使用シナリオの完全な例コードと設定については、[例ディレクトリ](example/README.en.md) を確認してください。
-
-詳細な開発ドキュメントについては、以下を参照してください: [開発ドキュメント](docs/enUS/DEVELOPMENT.md)
-
-### コード標準
-
-プロジェクトは、Go の公式コード標準とベストプラクティスに従います。詳細な標準については、以下を参照してください:
-
-- [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - コードスタイルガイド
-- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - 貢献ガイド
+- **[開発ガイド](docs/enUS/DEVELOPMENT.md)** - 開発環境のセットアップと貢献ガイド
+- **[セキュリティ](docs/enUS/SECURITY.md)** - セキュリティ機能とベストプラクティス
+- **[SDK](docs/enUS/SDK.md)** - Go SDK の使用ドキュメント
+- **[例](example/README.md)** - クイックスタート例（基本と高度）
 
 ## 📄 ライセンス
 
@@ -243,12 +143,4 @@ Warden は、API 認証、SSRF 保護、レート制限、TLS 検証などの複
 
 ## 🤝 貢献
 
-Issues と Pull Request の提出を歓迎します！
-
-## 📞 連絡先
-
-質問や提案については、Issues を通じてお問い合わせください。
-
----
-
-**バージョン**: プログラムは起動時にバージョン、ビルド時間、コードバージョンを表示します（`warden --version` または起動ログを介して）
+Issues と Pull Request の提出を歓迎します！ガイドラインについては、[CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md)を参照してください。

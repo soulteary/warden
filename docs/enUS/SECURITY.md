@@ -205,8 +205,118 @@ If you discover a security vulnerability, please report it through:
 2. Send email to project maintainers
 3. Do not publicly disclose the vulnerability until it is fixed
 
+## Inter-Service Authentication (Optional)
+
+If you choose to integrate with other services (such as Stargate), inter-service authentication can be used to ensure security. Warden supports the following two authentication methods:
+
+**Note**: If Warden is used standalone, inter-service authentication is optional.
+
+### mTLS (Recommended)
+
+Use mutual TLS certificates for authentication, providing higher security.
+
+**Configuration**:
+
+1. **Generate Certificates**:
+   ```bash
+   # Generate CA certificate
+   openssl genrsa -out ca.key 2048
+   openssl req -new -x509 -days 365 -key ca.key -out ca.crt
+   
+   # Generate Warden server certificate
+   openssl genrsa -out warden.key 2048
+   openssl req -new -key warden.key -out warden.csr
+   openssl x509 -req -days 365 -in warden.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out warden.crt
+   
+   # Generate Stargate client certificate
+   openssl genrsa -out stargate.key 2048
+   openssl req -new -key stargate.key -out stargate.csr
+   openssl x509 -req -days 365 -in stargate.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out stargate.crt
+   ```
+
+2. **Warden Configuration** (Environment Variables):
+   ```bash
+   export WARDEN_TLS_CERT=/path/to/warden.crt
+   export WARDEN_TLS_KEY=/path/to/warden.key
+   export WARDEN_TLS_CA=/path/to/ca.crt
+   export WARDEN_TLS_REQUIRE_CLIENT_CERT=true
+   ```
+
+3. **Stargate Configuration**:
+   - Configure client certificate path
+   - Configure CA certificate path to verify Warden server certificate
+
+### HMAC Signature
+
+Use HMAC-SHA256 signature to verify requests, easier to deploy.
+
+**Signature Algorithm**:
+```
+signature = HMAC_SHA256(secret, method + path + timestamp + body_hash)
+```
+
+**Request Headers**:
+- `X-Signature`: HMAC signature value
+- `X-Timestamp`: Unix timestamp (seconds)
+- `X-Key-Id`: Key ID (for key rotation)
+
+**Warden Configuration** (Environment Variables):
+```bash
+export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Timestamp tolerance (seconds), default 60
+```
+
+**Stargate Calling Example**:
+```go
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "time"
+)
+
+func signRequest(method, path, body, secret string) (string, int64) {
+    timestamp := time.Now().Unix()
+    bodyHash := sha256.Sum256([]byte(body))
+    bodyHashHex := hex.EncodeToString(bodyHash[:])
+    
+    message := fmt.Sprintf("%s%s%d%s", method, path, timestamp, bodyHashHex)
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write([]byte(message))
+    signature := hex.EncodeToString(mac.Sum(nil))
+    
+    return signature, timestamp
+}
+
+// Use in request
+signature, timestamp := signRequest("GET", "/user?phone=13800138000", "", "your-secret-key")
+req.Header.Set("X-Signature", signature)
+req.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
+req.Header.Set("X-Key-Id", "key-id-1")
+```
+
+**Verification Rules**:
+- Warden verifies if timestamp is within tolerance range (default ±60 seconds)
+- Warden verifies if signature matches
+- If signature verification fails, returns `401 Unauthorized`
+
+### Configuration Priority
+
+1. **mTLS**: If TLS certificates are configured, mTLS is used first
+2. **HMAC**: If mTLS is not configured, HMAC signature is used
+3. **API Key**: If neither is configured, falls back to API Key authentication (not recommended for inter-service calls)
+
+### Security Recommendations
+
+1. **Production Environment**: Strongly recommend using mTLS for inter-service authentication
+2. **Key Management**: Use key management services (such as HashiCorp Vault) to store keys and certificates
+3. **Key Rotation**: Regularly rotate HMAC keys and TLS certificates
+4. **Network Isolation**: When possible, use network policies to restrict access to Warden only from Stargate
+
 ## Related Documentation
 
 - [Configuration Documentation](CONFIGURATION.md) - Learn about security-related configuration options
 - [Deployment Documentation](DEPLOYMENT.md) - Learn about production environment deployment recommendations
 - [API Documentation](API.md) - Learn about API security features
+- [Architecture Documentation](ARCHITECTURE.md) - Learn about service integration architecture

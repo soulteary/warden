@@ -36,7 +36,7 @@ docker-compose pull
 docker-compose up -d
 ```
 
-[View Detailed Documentation →](./basic/README.en.md)
+[View Detailed Documentation →](./basic/README.md)
 
 ### 2. [Advanced Example](./advanced/) - Full Features
 
@@ -63,7 +63,7 @@ docker-compose pull
 docker-compose up -d
 ```
 
-[View Detailed Documentation →](./advanced/README.en.md)
+[View Detailed Documentation →](./advanced/README.md)
 
 ## 🎯 Selection Guide
 
@@ -103,11 +103,11 @@ docker-compose up -d
 ### Experienced User Path
 1. Directly check [Advanced Example](./advanced/)
 2. Adjust configuration according to needs
-3. Refer to main project [README](../README.en.md) to learn all features
+3. Refer to main project [README](../README.md) to learn all features
 
 ## 🔗 Related Resources
 
-- [Warden Main Documentation](../README.en.md) - Complete project documentation
+- [Warden Main Documentation](../README.md) - Complete project documentation
 - [API Documentation](../openapi.yaml) - OpenAPI specification
 - [Configuration Example](../config.example.yaml) - Configuration file reference
 - [Code Style Guide](../docs/CODE_STYLE.en.md) - Development standards
@@ -123,7 +123,7 @@ docker-compose up -d
 
 If you encounter problems:
 1. Check the corresponding example's README documentation
-2. Check the troubleshooting section in [Main Project README](../README.en.md)
+2. Check the troubleshooting section in [Main Project README](../README.md)
 3. Submit an Issue to the project repository
 
 ---

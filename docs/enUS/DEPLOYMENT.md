@@ -12,7 +12,7 @@ This document explains how to deploy the Warden service, including Docker deploy
 
 ## Docker Deployment
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](../example/README.en.md) / [示例目录](../example/README.md) for complete Docker Compose configuration examples:
+> 🚀 **Quick Deployment**: Check the [Examples Directory](../example/README.md) / [示例目录](../example/README.md) for complete Docker Compose configuration examples:
 > - [Simple Example](../example/basic/docker-compose.yml) / [简单示例](../example/basic/docker-compose.yml) - Basic Docker Compose configuration
 > - [Advanced Example](../example/advanced/docker-compose.yml) / [复杂示例](../example/advanced/docker-compose.yml) - Complete configuration including Mock API
 
@@ -303,8 +303,220 @@ Max Latency:     226.09ms
 
 Adjust configuration parameters based on actual load.
 
+## Optional Integration Deployment (with Stargate/Herald)
+
+Warden can be deployed and used standalone, or optionally integrated with Stargate and Herald. The following are optional integration deployment configuration examples.
+
+**Note**: The following integration deployment scenarios are optional, and Warden can be deployed and used completely independently.
+
+### Docker Compose Integration Example
+
+Complete Stargate + Warden + Herald integration deployment configuration:
+
+```yaml
+version: '3.8'
+
+services:
+  # Warden Service
+  warden:
+    image: ghcr.io/soulteary/warden:latest
+    container_name: warden
+    ports:
+      - "8081:8081"
+    networks:
+      - auth-network
+    environment:
+      - PORT=8081
+      - REDIS=warden-redis:6379
+      - API_KEY=${WARDEN_API_KEY}
+      - MODE=DEFAULT
+      # Inter-service authentication configuration (HMAC example)
+      - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
+      - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+    volumes:
+      - ./warden-data.json:/app/data.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    depends_on:
+      - warden-redis
+
+  # Warden Redis
+  warden-redis:
+    image: redis:6.2.4
+    container_name: warden-redis
+    networks:
+      - auth-network
+    volumes:
+      - warden-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+
+  # Stargate Service (example configuration)
+  stargate:
+    image: ghcr.io/soulteary/stargate:latest
+    container_name: stargate
+    ports:
+      - "8080:8080"
+    networks:
+      - auth-network
+    environment:
+      - STARGATE_WARDEN_BASE_URL=http://warden:8081
+      - STARGATE_WARDEN_AUTH_TYPE=hmac
+      - STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
+      - STARGATE_WARDEN_HMAC_SECRET=${WARDEN_HMAC_SECRET}
+      - STARGATE_HERALD_BASE_URL=http://herald:8082
+    depends_on:
+      - warden
+      - herald
+
+  # Herald Service (example configuration)
+  herald:
+    image: ghcr.io/soulteary/herald:latest
+    container_name: herald
+    ports:
+      - "8082:8082"
+    networks:
+      - auth-network
+    environment:
+      - HERALD_REDIS_URL=redis://herald-redis:6379
+    depends_on:
+      - herald-redis
+
+  # Herald Redis
+  herald-redis:
+    image: redis:6.2.4
+    container_name: herald-redis
+    networks:
+      - auth-network
+    volumes:
+      - herald-redis-data:/data
+
+networks:
+  auth-network:
+    driver: bridge
+
+volumes:
+  warden-redis-data:
+  herald-redis-data:
+```
+
+### Environment Variable Configuration
+
+Create `.env` file:
+
+```bash
+# Warden API Key
+WARDEN_API_KEY=your-warden-api-key-here
+
+# Warden HMAC keys (JSON format)
+WARDEN_HMAC_KEYS='{"key-id-1":"your-hmac-secret-key-1"}'
+
+# HMAC secret used by Stargate (corresponds to key in WARDEN_HMAC_KEYS)
+WARDEN_HMAC_SECRET=your-hmac-secret-key-1
+```
+
+### Network Configuration
+
+All services should be in the same Docker network for mutual communication:
+
+- **Warden**: Listens on port `8081`, called by Stargate
+- **Stargate**: Listens on port `8080`, serves as Traefik forwardAuth service
+- **Herald**: Listens on port `8082`, called by Stargate
+
+### Service Dependencies
+
+- **Stargate** depends on **Warden** and **Herald**
+- **Warden** depends on **warden-redis** (optional, if Redis is enabled)
+- **Herald** depends on **herald-redis**
+
+### Health Checks
+
+All services should configure health checks to ensure normal operation:
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+  interval: 10s
+  timeout: 1s
+  retries: 3
+```
+
+### Production Environment Recommendations
+
+1. **Use Independent Redis Instances**: Warden and Herald should use independent Redis instances to avoid data conflicts
+2. **Configure Inter-Service Authentication**: Production environment must configure mTLS or HMAC signature
+3. **Use Key Management Services**: Use HashiCorp Vault or similar services to manage keys and certificates
+4. **Network Isolation**: Use Docker network policies to restrict inter-service access
+5. **Monitoring and Logging**: Configure unified monitoring and log collection systems
+
+### Kubernetes Integration Deployment
+
+When deploying in Kubernetes, it is recommended to:
+
+1. **Use Services**: Create Kubernetes Services for each service
+2. **Use ConfigMap and Secret**: Store configuration and keys
+3. **Use NetworkPolicy**: Restrict inter-service network access
+4. **Use Ingress**: Configure Traefik Ingress to route to Stargate
+
+Example Kubernetes configuration:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: warden
+spec:
+  selector:
+    app: warden
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warden
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: warden
+  template:
+    metadata:
+      labels:
+        app: warden
+    spec:
+      containers:
+      - name: warden
+        image: ghcr.io/soulteary/warden:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: PORT
+          value: "8081"
+        - name: REDIS
+          value: "warden-redis:6379"
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: api-key
+        - name: WARDEN_HMAC_KEYS
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: hmac-keys
+```
+
 ## Related Documentation
 
 - [Configuration Documentation](CONFIGURATION.md) - Learn about detailed configuration options
 - [Security Documentation](SECURITY.md) - Learn about security configuration and best practices
 - [Architecture Design Documentation](ARCHITECTURE.md) - Understand system architecture
+- [API Documentation](API.md) - Learn about API interfaces and integration examples

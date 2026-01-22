@@ -223,7 +223,7 @@ go run main.go --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
 
 ## 📚 Next Steps
 
-- Check [Advanced Example](../advanced/README.en.md) to learn how to use remote APIs
-- Read [Complete Documentation](../../README.en.md) to learn more features
+- Check [Advanced Example](../advanced/README.md) to learn how to use remote APIs
+- Read [Complete Documentation](../../README.md) to learn more features
 - Check [API Documentation](../../openapi.yaml) to learn all API endpoints
 

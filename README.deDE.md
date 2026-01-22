@@ -13,53 +13,61 @@ Ein hochperformanter AllowList-Benutzerdatendienst, der die Datensynchronisation
 
 > **Warden** (Der Wächter) — Der Wächter des Stargate, der entscheidet, wer passieren darf und wer abgelehnt wird. Genau wie der Wächter des Stargate das Stargate bewacht, bewacht Warden Ihre AllowList und stellt sicher, dass nur autorisierte Benutzer passieren können.
 
-## 📋 Projektübersicht
+## 📋 Übersicht
 
 Warden ist ein leichtgewichtiger HTTP-API-Dienst, der in Go entwickelt wurde und hauptsächlich zur Bereitstellung und Verwaltung von AllowList-Benutzerdaten (Telefonnummern und E-Mail-Adressen) verwendet wird. Der Dienst unterstützt das Abrufen von Daten aus lokalen Konfigurationsdateien und Remote-APIs und bietet mehrere Datenzusammenführungsstrategien, um die Echtzeitleistung und Zuverlässigkeit der Daten sicherzustellen.
 
+Warden kann **eigenständig** verwendet werden oder mit anderen Diensten (wie Stargate und Herald) als Teil einer größeren Authentifizierungsarchitektur integriert werden. Detaillierte Architekturinformationen finden Sie in der [Architekturdokumentation](docs/enUS/ARCHITECTURE.md).
+
 ## ✨ Hauptfunktionen
 
-- 🚀 **Hohe Leistung**: Unterstützt über 5000 Anfragen pro Sekunde mit einer durchschnittlichen Latenz von 21ms
-- 🔄 **Mehrere Datenquellen**: Unterstützt sowohl lokale Konfigurationsdateien als auch Remote-APIs
-- 🎯 **Flexible Strategien**: Bietet 6 Datenzusammenführungsmodi (Remote-zuerst, lokal-zuerst, nur Remote, nur lokal usw.)
-- ⏰ **Geplante Updates**: Geplante Aufgaben basierend auf Redis-Verteilte Sperren für automatische Datensynchronisation
+- 🚀 **Hohe Leistung**: Über 5000 Anfragen pro Sekunde mit einer durchschnittlichen Latenz von 21ms
+- 🔄 **Mehrere Datenquellen**: Lokale Konfigurationsdateien und Remote-APIs
+- 🎯 **Flexible Strategien**: 6 Datenzusammenführungsmodi (Remote-zuerst, lokal-zuerst, nur Remote, nur lokal usw.)
+- ⏰ **Geplante Updates**: Automatische Datensynchronisation mit Redis-Verteilte Sperren
 - 📦 **Containerisierte Bereitstellung**: Vollständige Docker-Unterstützung, sofort einsatzbereit
-- 📊 **Strukturierte Protokollierung**: Verwendet zerolog, um detaillierte Zugriffs- und Fehlerprotokolle bereitzustellen
-- 🔒 **Verteilte Sperren**: Verwendet Redis, um sicherzustellen, dass geplante Aufgaben in verteilten Umgebungen nicht wiederholt ausgeführt werden
-- 🌐 **Mehrsprachige Unterstützung**: Unterstützt 7 Sprachen (Englisch, Chinesisch, Französisch, Italienisch, Japanisch, Deutsch, Koreanisch) mit automatischer Spracherkennung
+- 🌐 **Mehrsprachige Unterstützung**: 7 Sprachen mit automatischer Spracherkennung
 
-## 🏗️ Architekturdesign
+## 🚀 Schnellstart
 
-Warden verwendet ein geschichtetes Architekturdesign, einschließlich HTTP-Schicht, Geschäftsschicht und Infrastrukturschicht. Das System unterstützt mehrere Datenquellen, mehrstufiges Caching und verteilte Sperrmechanismen.
+### Option 1: Docker (Empfohlen)
 
-Für detaillierte Architekturdokumentation siehe: [Architekturdesign-Dokumentation](docs/enUS/ARCHITECTURE.md)
+Der schnellste Weg zum Einstieg ist die Verwendung des vorgefertigten Docker-Images:
 
-## 📦 Installation und Ausführung
+```bash
+# Neuestes Image abrufen
+docker pull ghcr.io/soulteary/warden:latest
 
-> 💡 **Schnellstart**: Möchten Sie Warden schnell erleben? Schauen Sie sich unsere [Schnellstart-Beispiele](example/README.en.md) an:
-> - [Einfaches Beispiel](example/basic/README.en.md) - Grundlegende Verwendung, nur lokale Datendatei
-> - [Erweitertes Beispiel](example/advanced/README.en.md) - Vollständige Funktionen, einschließlich Remote-API und Mock-Service
+# Datendatei erstellen
+cat > data.json <<EOF
+[
+    {
+        "phone": "13800138000",
+        "mail": "admin@example.com"
+    }
+]
+EOF
 
-### Voraussetzungen
+# Container ausführen
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e API_KEY=your-api-key-here \
+  ghcr.io/soulteary/warden:latest
+```
 
-- Go 1.25+ (siehe [go.mod](go.mod))
-- Redis (für verteilte Sperren und Caching)
-- Docker (optional, für containerisierte Bereitstellung)
+> 💡 **Tipp**: Vollständige Beispiele mit Docker Compose finden Sie im [Beispielverzeichnis](example/README.md).
 
-### Schnellstart
+### Option 2: Aus dem Quellcode
 
-1. **Projekt klonen**
+1. **Projekt klonen und erstellen**
 ```bash
 git clone <repository-url>
 cd warden
-```
-
-2. **Abhängigkeiten installieren**
-```bash
 go mod download
 ```
 
-3. **Lokale Datendatei konfigurieren**
+2. **Datendatei erstellen**
 Erstellen Sie eine `data.json`-Datei (siehe `data.example.json`):
 ```json
 [
@@ -70,172 +78,64 @@ Erstellen Sie eine `data.json`-Datei (siehe `data.example.json`):
 ]
 ```
 
-4. **Service ausführen**
+3. **Service ausführen**
 ```bash
-go run main.go
+go run main.go --api-key your-api-key-here
 ```
 
-Für detaillierte Konfigurations- und Bereitstellungsanweisungen siehe:
-- [Konfigurationsdokumentation](docs/enUS/CONFIGURATION.md) - Erfahren Sie mehr über alle Konfigurationsoptionen
-- [Bereitstellungsdokumentation](docs/enUS/DEPLOYMENT.md) - Erfahren Sie mehr über Bereitstellungsmethoden
+## ⚙️ Wesentliche Konfiguration
 
-## ⚙️ Konfiguration
+Warden unterstützt die Konfiguration über Befehlszeilenargumente, Umgebungsvariablen und Konfigurationsdateien. Die folgenden sind die wichtigsten Einstellungen:
 
-Warden unterstützt mehrere Konfigurationsmethoden: Befehlszeilenargumente, Umgebungsvariablen und Konfigurationsdateien. Das System bietet 6 Datenzusammenführungsmodi mit flexiblen Konfigurationsstrategien.
+| Einstellung | Umgebungsvariable | Beschreibung | Erforderlich |
+|-------------|-------------------|--------------|--------------|
+| Port | `PORT` | HTTP-Server-Port (Standard: 8081) | Nein |
+| API-Schlüssel | `API_KEY` | API-Authentifizierungsschlüssel (für Produktion empfohlen) | Empfohlen |
+| Redis | `REDIS` | Redis-Adresse für Caching und verteilte Sperren (z.B. `localhost:6379`) | Optional |
+| Datendatei | - | Pfad zur lokalen Datendatei (Standard: `data.json`) | Ja* |
+| Remote-Konfiguration | `CONFIG` | Remote-API-URL zum Abrufen von Daten | Optional |
 
-Für detaillierte Konfigurationsdokumentation siehe: [Konfigurationsdokumentation](docs/enUS/CONFIGURATION.md)
+\* Erforderlich, wenn keine Remote-API verwendet wird
 
-## 📡 API-Dokumentation
+Vollständige Konfigurationsoptionen finden Sie in der [Konfigurationsdokumentation](docs/enUS/CONFIGURATION.md).
 
-Warden bietet eine vollständige RESTful-API mit Unterstützung für Benutzerlistenabfragen, Paginierung, Gesundheitsprüfungen usw. Das Projekt bietet auch OpenAPI 3.0-Spezifikationsdokumentation.
+## 📡 API-Verwendung
 
-Für detaillierte API-Dokumentation siehe: [API-Dokumentation](docs/enUS/API.md)
+Warden bietet eine RESTful-API zum Abfragen von Benutzerlisten, Paginierung und Gesundheitsprüfungen. Der Dienst unterstützt mehrsprachige Antworten über den Abfrageparameter `?lang=xx` oder den `Accept-Language`-Header.
 
-OpenAPI-Spezifikationsdatei: [openapi.yaml](openapi.yaml)
-
-## 🌐 Mehrsprachige Unterstützung
-
-Warden unterstützt eine vollständige Internationalisierungsfunktion (i18N). Alle API-Antworten, Fehlermeldungen und Protokolle unterstützen die Internationalisierung.
-
-### Unterstützte Sprachen
-
-- 🇺🇸 Englisch (en) - Standard
-- 🇨🇳 Chinesisch (zh)
-- 🇫🇷 Französisch (fr)
-- 🇮🇹 Italienisch (it)
-- 🇯🇵 Japanisch (ja)
-- 🇩🇪 Deutsch (de)
-- 🇰🇷 Koreanisch (ko)
-
-### Spracherkennung
-
-Warden unterstützt zwei Methoden zur Spracherkennung mit der folgenden Priorität:
-
-1. **Abfrageparameter**: Sprache über `?lang=de` angeben
-2. **Accept-Language-Header**: Automatische Erkennung der Browser-Spracheinstellung
-3. **Standardsprache**: Englisch, wenn nicht angegeben
-
-### Verwendungsbeispiele
-
+**Beispiel**:
 ```bash
-# Deutsch über Abfrageparameter angeben
-curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=de"
+# Benutzer abfragen
+curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
-# Automatische Erkennung über Accept-Language-Header
-curl -H "X-API-Key: your-key" -H "Accept-Language: de-DE,de;q=0.9" "http://localhost:8081/"
-
-# Französisch verwenden
-curl -H "X-API-Key: your-key" "http://localhost:8081/?lang=fr"
+# Gesundheitsprüfung
+curl "http://localhost:8081/healthz"
 ```
 
-## 🔌 SDK-Verwendung
+Vollständige API-Dokumentation finden Sie in der [API-Dokumentation](docs/enUS/API.md) oder der [OpenAPI-Spezifikation](openapi.yaml).
 
-Warden bietet ein Go-SDK zur einfachen Integration in andere Projekte. Das SDK bietet einfache API-Schnittstellen mit Unterstützung für Caching, Authentifizierung usw.
+## 📊 Leistung
 
-Für detaillierte SDK-Dokumentation siehe: [SDK-Dokumentation](docs/enUS/SDK.md)
+Basierend auf wrk-Stresstest (30s, 16 Threads, 100 Verbindungen):
+- **Anfragen/Sekunde**: 5038.81
+- **Durchschnittliche Latenz**: 21.30ms
+- **Maximale Latenz**: 226.09ms
 
-## 🐳 Docker-Bereitstellung
+## 📚 Dokumentation
 
-Warden unterstützt vollständige Docker- und Docker Compose-Bereitstellung, sofort einsatzbereit.
+### Kern-Dokumentation
 
-### Schnellstart mit vorgefertigtem Image (Empfohlen)
+- **[Architektur](docs/enUS/ARCHITECTURE.md)** - Technische Architektur und Designentscheidungen
+- **[API-Referenz](docs/enUS/API.md)** - Vollständige API-Endpunkt-Dokumentation
+- **[Konfiguration](docs/enUS/CONFIGURATION.md)** - Konfigurationsreferenz und Beispiele
+- **[Bereitstellung](docs/enUS/DEPLOYMENT.md)** - Bereitstellungsanleitung (Docker, Kubernetes usw.)
 
-Verwenden Sie das vorgefertigte Image von GitHub Container Registry (GHCR), um schnell ohne lokalen Build zu starten:
+### Zusätzliche Ressourcen
 
-```bash
-# Image der neuesten Version abrufen
-docker pull ghcr.io/soulteary/warden:latest
-
-# Container ausführen (Basisbeispiel)
-docker run -d \
-  -p 8081:8081 \
-  -v $(pwd)/data.json:/app/data.json:ro \
-  -e PORT=8081 \
-  -e REDIS=localhost:6379 \
-  -e API_KEY=your-api-key-here \
-  ghcr.io/soulteary/warden:latest
-```
-
-> 💡 **Tipp**: Die Verwendung vorgefertigter Images ermöglicht es Ihnen, schnell ohne lokale Build-Umgebung zu starten. Images werden automatisch aktualisiert, um sicherzustellen, dass Sie die neueste Version verwenden.
-
-### Verwendung von Docker Compose
-
-> 🚀 **Schnelle Bereitstellung**: Schauen Sie sich das [Beispielverzeichnis](example/README.en.md) für vollständige Docker Compose-Konfigurationsbeispiele an
-
-Für detaillierte Bereitstellungsdokumentation siehe: [Bereitstellungsdokumentation](docs/enUS/DEPLOYMENT.md)
-
-## 📊 Leistungsmetriken
-
-Basierend auf wrk-Lasttest-Ergebnissen (30-Sekunden-Test, 16 Threads, 100 Verbindungen):
-
-```
-Requests/sec:   5038.81
-Transfer/sec:   38.96MB
-Durchschnittliche Latenz: 21.30ms
-Maximale Latenz: 226.09ms
-```
-
-## 📁 Projektstruktur
-
-```
-warden/
-├── main.go                 # Programmeinstiegspunkt
-├── data.example.json      # Beispiel für lokale Datendatei
-├── config.example.yaml    # Beispiel für Konfigurationsdatei
-├── openapi.yaml           # OpenAPI-Spezifikationsdatei
-├── go.mod                 # Go-Moduldefinition
-├── docker-compose.yml     # Docker Compose-Konfiguration
-├── LICENSE                # Lizenzdatei
-├── README.*.md            # Mehrsprachige Projektdokumente (Chinesisch/Englisch/Französisch/Italienisch/Japanisch/Deutsch/Koreanisch)
-├── CONTRIBUTING.*.md      # Mehrsprachige Beitragsleitfäden
-├── docker/
-│   └── Dockerfile         # Docker-Image-Build-Datei
-├── docs/                  # Dokumentationsverzeichnis (mehrsprachig)
-│   ├── enUS/              # Englische Dokumentation
-│   └── zhCN/              # Chinesische Dokumentation
-├── example/               # Schnellstart-Beispiele
-│   ├── basic/             # Einfaches Beispiel (nur lokale Datei)
-│   └── advanced/          # Erweitertes Beispiel (vollständige Funktionen, enthält Mock API)
-├── internal/
-│   ├── cache/             # Redis-Cache- und Sperr-Implementierung
-│   ├── cmd/               # Befehlszeilenargument-Parsing
-│   ├── config/            # Konfigurationsverwaltung
-│   ├── define/            # Konstantendefinitionen und Datenstrukturen
-│   ├── di/                # Abhängigkeitsinjektion
-│   ├── errors/            # Fehlerbehandlung
-│   ├── i18n/              # Internationalisierungsunterstützung
-│   ├── logger/            # Protokollierungsinitialisierung
-│   ├── metrics/           # Metrikensammlung
-│   ├── middleware/        # HTTP-Middleware
-│   ├── parser/            # Datenparser (lokal/remote)
-│   ├── router/            # HTTP-Routenverarbeitung
-│   ├── validator/         # Validator
-│   └── version/           # Versionsinformationen
-├── pkg/
-│   ├── gocron/            # Geplante Aufgabenplaner
-│   └── warden/            # Warden SDK
-├── scripts/               # Skriptverzeichnis
-└── .github/               # GitHub-Konfiguration (CI/CD, Issue/PR-Vorlagen, etc.)
-```
-
-## 🔒 Sicherheitsfunktionen
-
-Warden implementiert mehrere Sicherheitsfunktionen, einschließlich API-Authentifizierung, SSRF-Schutz, Ratenbegrenzung, TLS-Überprüfung usw.
-
-Für detaillierte Sicherheitsdokumentation siehe: [Sicherheitsdokumentation](docs/enUS/SECURITY.md)
-
-## 🔧 Entwicklungsleitfaden
-
-> 📚 **Referenzbeispiele**: Schauen Sie sich das [Beispielverzeichnis](example/README.en.md) für vollständige Beispielcode und Konfigurationen für verschiedene Verwendungsszenarien an.
-
-Für detaillierte Entwicklungsdokumentation siehe: [Entwicklungsdokumentation](docs/enUS/DEVELOPMENT.md)
-
-### Codestandards
-
-Das Projekt folgt den offiziellen Go-Codestandards und Best Practices. Für detaillierte Standards siehe:
-
-- [CODE_STYLE.md](docs/enUS/CODE_STYLE.md) - Codestil-Leitfaden
-- [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) - Beitragsleitfaden
+- **[Entwicklungsleitfaden](docs/enUS/DEVELOPMENT.md)** - Entwicklungsumgebung einrichten und Beitragsleitfaden
+- **[Sicherheit](docs/enUS/SECURITY.md)** - Sicherheitsfunktionen und Best Practices
+- **[SDK](docs/enUS/SDK.md)** - Go SDK-Verwendungsdokumentation
+- **[Beispiele](example/README.md)** - Schnellstart-Beispiele (grundlegend und erweitert)
 
 ## 📄 Lizenz
 
@@ -243,12 +143,4 @@ Siehe die [LICENSE](LICENSE)-Datei für Details.
 
 ## 🤝 Beitragen
 
-Issues und Pull Requests sind willkommen!
-
-## 📞 Kontakt
-
-Bei Fragen oder Vorschlägen kontaktieren Sie uns bitte über Issues.
-
----
-
-**Version**: Das Programm zeigt Version, Build-Zeit und Code-Version beim Start an (über `warden --version` oder Startprotokolle)
+Willkommen zur Einreichung von Issues und Pull Requests! Siehe [CONTRIBUTING.md](docs/enUS/CONTRIBUTING.md) für Richtlinien.

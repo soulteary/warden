@@ -12,7 +12,7 @@
 
 ## Docker 部署
 
-> 🚀 **快速部署**: 查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.en.md) 获取完整的 Docker Compose 配置示例：
+> 🚀 **快速部署**: 查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.md) 获取完整的 Docker Compose 配置示例：
 > - [简单示例](../example/basic/docker-compose.yml) / [Simple Example](../example/basic/docker-compose.yml) - 基础 Docker Compose 配置
 > - [复杂示例](../example/advanced/docker-compose.yml) / [Advanced Example](../example/advanced/docker-compose.yml) - 包含 Mock API 的完整配置
 
@@ -303,8 +303,220 @@ Transfer/sec:   38.96MB
 
 根据实际负载调整配置参数。
 
+## 可选集成部署（与 Stargate/Herald）
+
+Warden 可以独立部署使用，也可以选择性地与 Stargate 和 Herald 集成部署。以下是可选的集成部署配置示例。
+
+**注意**：以下集成部署方案是可选的，Warden 完全可以独立部署和使用。
+
+### Docker Compose 集成示例
+
+完整的 Stargate + Warden + Herald 集成部署配置：
+
+```yaml
+version: '3.8'
+
+services:
+  # Warden 服务
+  warden:
+    image: ghcr.io/soulteary/warden:latest
+    container_name: warden
+    ports:
+      - "8081:8081"
+    networks:
+      - auth-network
+    environment:
+      - PORT=8081
+      - REDIS=warden-redis:6379
+      - API_KEY=${WARDEN_API_KEY}
+      - MODE=DEFAULT
+      # 服务间鉴权配置（HMAC 示例）
+      - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
+      - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+    volumes:
+      - ./warden-data.json:/app/data.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    depends_on:
+      - warden-redis
+
+  # Warden Redis
+  warden-redis:
+    image: redis:6.2.4
+    container_name: warden-redis
+    networks:
+      - auth-network
+    volumes:
+      - warden-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+
+  # Stargate 服务（示例配置）
+  stargate:
+    image: ghcr.io/soulteary/stargate:latest
+    container_name: stargate
+    ports:
+      - "8080:8080"
+    networks:
+      - auth-network
+    environment:
+      - STARGATE_WARDEN_BASE_URL=http://warden:8081
+      - STARGATE_WARDEN_AUTH_TYPE=hmac
+      - STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
+      - STARGATE_WARDEN_HMAC_SECRET=${WARDEN_HMAC_SECRET}
+      - STARGATE_HERALD_BASE_URL=http://herald:8082
+    depends_on:
+      - warden
+      - herald
+
+  # Herald 服务（示例配置）
+  herald:
+    image: ghcr.io/soulteary/herald:latest
+    container_name: herald
+    ports:
+      - "8082:8082"
+    networks:
+      - auth-network
+    environment:
+      - HERALD_REDIS_URL=redis://herald-redis:6379
+    depends_on:
+      - herald-redis
+
+  # Herald Redis
+  herald-redis:
+    image: redis:6.2.4
+    container_name: herald-redis
+    networks:
+      - auth-network
+    volumes:
+      - herald-redis-data:/data
+
+networks:
+  auth-network:
+    driver: bridge
+
+volumes:
+  warden-redis-data:
+  herald-redis-data:
+```
+
+### 环境变量配置
+
+创建 `.env` 文件：
+
+```bash
+# Warden API Key
+WARDEN_API_KEY=your-warden-api-key-here
+
+# Warden HMAC 密钥（JSON 格式）
+WARDEN_HMAC_KEYS='{"key-id-1":"your-hmac-secret-key-1"}'
+
+# Stargate 使用的 HMAC 密钥（与 WARDEN_HMAC_KEYS 中的密钥对应）
+WARDEN_HMAC_SECRET=your-hmac-secret-key-1
+```
+
+### 网络配置
+
+所有服务应在同一 Docker 网络中，以便相互通信：
+
+- **Warden**：监听 `8081` 端口，供 Stargate 调用
+- **Stargate**：监听 `8080` 端口，作为 Traefik forwardAuth 服务
+- **Herald**：监听 `8082` 端口，供 Stargate 调用
+
+### 服务依赖
+
+- **Stargate** 依赖 **Warden** 和 **Herald**
+- **Warden** 依赖 **warden-redis**（可选，如果启用 Redis）
+- **Herald** 依赖 **herald-redis**
+
+### 健康检查
+
+所有服务都应配置健康检查，确保服务正常运行：
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+  interval: 10s
+  timeout: 1s
+  retries: 3
+```
+
+### 生产环境建议
+
+1. **使用独立的 Redis 实例**：Warden 和 Herald 应使用独立的 Redis 实例，避免数据冲突
+2. **配置服务间鉴权**：生产环境必须配置 mTLS 或 HMAC 签名
+3. **使用密钥管理服务**：使用 HashiCorp Vault 或类似服务管理密钥和证书
+4. **网络隔离**：使用 Docker 网络策略限制服务间访问
+5. **监控和日志**：配置统一的监控和日志收集系统
+
+### Kubernetes 集成部署
+
+在 Kubernetes 中部署时，建议：
+
+1. **使用 Service**：为每个服务创建 Kubernetes Service
+2. **使用 ConfigMap 和 Secret**：存储配置和密钥
+3. **使用 NetworkPolicy**：限制服务间网络访问
+4. **使用 Ingress**：配置 Traefik Ingress 路由到 Stargate
+
+示例 Kubernetes 配置：
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: warden
+spec:
+  selector:
+    app: warden
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warden
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: warden
+  template:
+    metadata:
+      labels:
+        app: warden
+    spec:
+      containers:
+      - name: warden
+        image: ghcr.io/soulteary/warden:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: PORT
+          value: "8081"
+        - name: REDIS
+          value: "warden-redis:6379"
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: api-key
+        - name: WARDEN_HMAC_KEYS
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: hmac-keys
+```
+
 ## 相关文档
 
 - [配置文档](CONFIGURATION.md) - 了解详细的配置选项
 - [安全文档](SECURITY.md) - 了解安全配置和最佳实践
 - [架构设计文档](ARCHITECTURE.md) - 了解系统架构
+- [API 文档](API.md) - 了解 API 接口和集成示例

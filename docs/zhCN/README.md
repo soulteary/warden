@@ -10,7 +10,8 @@
 
 ### 核心文档
 
-- **[README.md](../../README.md)** - 项目概述和快速开始指南
+- **[README.md](../../README.md)** - 项目概述和快速开始指南（英文）
+- **[README.zhCN.md](../../README.zhCN.md)** - 项目概述和快速开始指南（中文）
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 技术架构和设计决策
 
 ### 详细文档
@@ -128,15 +129,15 @@ curl -H "X-API-Key: your-key" \
 
 ### 新手入门
 
-1. 阅读 [README.md](../../README.md) 了解项目
-2. 查看 [快速开始](../../README.md#快速开始) 部分
-3. 参考 [配置说明](../../README.md#配置说明) 配置服务
+1. 阅读 [README.zhCN.md](../../README.zhCN.md) 了解项目
+2. 查看 [快速开始](../../README.zhCN.md#快速开始) 部分
+3. 参考 [配置说明](../../README.zhCN.md#配置说明) 配置服务
 
 ### 开发人员
 
 1. 阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解架构
 2. 查看 [API.md](API.md) 了解 API 接口
-3. 参考 [开发指南](../../README.md#开发指南) 进行开发
+3. 参考 [开发指南](../../README.zhCN.md#开发指南) 进行开发
 
 ### 运维人员
 
@@ -149,7 +150,7 @@ curl -H "X-API-Key: your-key" \
 ```
 warden/
 ├── README.md              # 项目主文档（中文）
-├── README.en.md           # 项目主文档（英文）
+├── README.md           # 项目主文档（英文）
 ├── docs/
 │   ├── enUS/
 │   │   ├── README.md       # 文档索引（英文）
@@ -204,7 +205,7 @@ warden/
 
 ## 💡 使用建议
 
-1. **首次使用**：从 [README.md](../../README.md) 开始，按照快速开始指南操作
+1. **首次使用**：从 [README.zhCN.md](../../README.zhCN.md) 开始，按照快速开始指南操作
 2. **配置服务**：参考 [CONFIGURATION.md](CONFIGURATION.md) 了解所有配置选项
 3. **部署服务**：查看 [DEPLOYMENT.md](DEPLOYMENT.md) 了解部署方式
 4. **开发扩展**：阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解架构设计

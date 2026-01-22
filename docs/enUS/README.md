@@ -10,7 +10,8 @@ Welcome to the Warden AllowList user data service documentation.
 
 ### Core Documents
 
-- **[README.md](../../README.en.md)** - Project overview and quick start guide
+- **[README.md](../../README.md)** - Project overview and quick start guide
+- **[README.md](../../README.md)** - Project overview and quick start guide (English)
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture and design decisions
 
 ### Detailed Documents
@@ -128,15 +129,15 @@ To add new translations or modify existing translations, please edit the `transl
 
 ### Getting Started
 
-1. Read [README.en.md](../../README.en.md) to understand the project
-2. Check the [Quick Start](../../README.en.md#quick-start) section
-3. Refer to [Configuration](../../README.en.md#configuration) to configure the service
+1. Read [README.md](../../README.md) to understand the project
+2. Check the [Quick Start](../../README.md#quick-start) section
+3. Refer to [Configuration](../../README.md#configuration) to configure the service
 
 ### Developers
 
 1. Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the architecture
 2. Check [API.md](API.md) to understand the API interfaces
-3. Refer to [Development Guide](../../README.en.md#development-guide) for development
+3. Refer to [Development Guide](../../README.md#development-guide) for development
 
 ### Operations
 
@@ -148,8 +149,8 @@ To add new translations or modify existing translations, please edit the `transl
 
 ```
 warden/
-├── README.md              # Main project document (English)
-├── README.en.md           # Main project document (English)
+├── README.md              # Main project document (English, default)
+├── README.md           # Main project document (English, alias)
 ├── docs/
 │   ├── enUS/
 │   │   ├── README.md       # Documentation index (English, this file)
@@ -204,7 +205,7 @@ warden/
 
 ## 💡 Usage Recommendations
 
-1. **First-time users**: Start with [README.en.md](../../README.en.md) and follow the quick start guide
+1. **First-time users**: Start with [README.md](../../README.md) and follow the quick start guide
 2. **Configure service**: Refer to [CONFIGURATION.md](CONFIGURATION.md) to understand all configuration options
 3. **Deploy service**: Check [DEPLOYMENT.md](DEPLOYMENT.md) to understand deployment methods
 4. **Develop extensions**: Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the architecture design
