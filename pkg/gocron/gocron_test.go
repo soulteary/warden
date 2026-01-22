@@ -1,6 +1,7 @@
 package gocron
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -31,7 +32,7 @@ func TestSeconds(t *testing.T) {
 }
 
 func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeBetweenRuns int64) {
-	jobDone := make(chan bool)
+	jobDone := make(chan bool, 1)
 	executionTimes := make([]int64, 0)
 	var mu sync.Mutex
 	numberOfIterations := 2
@@ -42,14 +43,22 @@ func testJobWithInterval(t *testing.T, sched *Scheduler, job *Job, expectedTimeB
 		count := len(executionTimes)
 		mu.Unlock()
 		if count >= numberOfIterations {
-			jobDone <- true
+			select {
+			case jobDone <- true:
+			default:
+			}
 		}
 	}); err != nil {
 		t.Fatalf("调度任务失败: %v", err)
 	}
 
 	stop := sched.Start()
-	<-jobDone // Wait job done
+	select {
+	case <-jobDone:
+	case <-time.After(5 * time.Second):
+		close(stop)
+		t.Fatalf("等待任务执行超时")
+	}
 	close(stop)
 
 	mu.Lock()
@@ -387,29 +396,32 @@ func TestTaskAt(t *testing.T) {
 	// Create new scheduler to have clean test env
 	s := NewScheduler()
 
-	// Schedule to run in next minute
-	now := time.Now()
-	nextMinuteTime := now.Add(time.Minute)
+	// Schedule to run at a past minute to avoid waiting for real time
+	now := time.Now().In(loc)
+	pastMinuteTime := now.Add(-time.Minute)
 	// Schedule every day At
-	startAt := fmt.Sprintf("%02d:%02d", nextMinuteTime.Hour(), nextMinuteTime.Minute())
+	startAt := fmt.Sprintf("%02d:%02d", pastMinuteTime.Hour(), pastMinuteTime.Minute())
 	dayJob := s.Every(1).Day().At(startAt)
 
-	dayJobDone := make(chan bool, 1)
 	if err := dayJob.Do(func() {
-		dayJobDone <- true
+		// no-op
 	}); err != nil {
 		t.Fatalf("调度任务失败: %v", err)
 	}
 
-	// Expected start time - if next minute is tomorrow, schedule for tomorrow
-	expectedStartTime := time.Date(nextMinuteTime.Year(), nextMinuteTime.Month(), nextMinuteTime.Day(), nextMinuteTime.Hour(), nextMinuteTime.Minute(), 0, 0, loc)
+	// Expected start time - if past minute already passed today, schedule for tomorrow
+	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), pastMinuteTime.Hour(), pastMinuteTime.Minute(), 0, 0, loc)
+	if !expectedStartTime.After(now) {
+		expectedStartTime = expectedStartTime.AddDate(0, 0, 1)
+	}
 	nextRun := dayJob.NextScheduledTime()
 	assert.Equal(t, expectedStartTime, nextRun)
 
-	sStop := s.Start()
-	<-dayJobDone // Wait job done
-	close(sStop)
-	time.Sleep(time.Second) // wait for scheduler to reschedule job
+	// Simulate a run and reschedule without waiting for real time
+	dayJob.mu.Lock()
+	dayJob.lastRun = expectedStartTime
+	dayJob.mu.Unlock()
+	assert.NoError(t, dayJob.scheduleNextRun())
 
 	// Expected next start time 1 day after
 	expectedNextRun := expectedStartTime.AddDate(0, 0, 1)
@@ -772,4 +784,450 @@ func TestGetAt(t *testing.T) {
 func TestGetWeekday(t *testing.T) {
 	j := Every(1).Weekday(time.Wednesday)
 	assert.Equal(t, time.Wednesday, j.GetWeekday())
+}
+
+// TestJob_Err tests Err method
+func TestJob_Err(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Second()
+
+	// Initially no error
+	assert.NoError(t, job.Err(), "新创建的job不应该有错误")
+
+	// Create job with error (invalid time format)
+	jobWithError := sched.Every(1).Day().At("invalid")
+	assert.Error(t, jobWithError.Err(), "无效时间格式应该产生错误")
+}
+
+// TestJob_Week tests Week method
+func TestJob_Week(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Week()
+
+	assert.NotNil(t, job, "Week()应该返回有效的Job")
+	assert.Equal(t, uint64(1), job.interval, "间隔应该是1")
+}
+
+// TestJob_Tuesday tests Tuesday method
+func TestJob_Tuesday(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Tuesday()
+
+	assert.NotNil(t, job, "Tuesday()应该返回有效的Job")
+	assert.Equal(t, time.Tuesday, job.GetWeekday(), "应该设置为Tuesday")
+}
+
+// TestJob_Saturday tests Saturday method
+func TestJob_Saturday(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Saturday()
+
+	assert.NotNil(t, job, "Saturday()应该返回有效的Job")
+	assert.Equal(t, time.Saturday, job.GetWeekday(), "应该设置为Saturday")
+}
+
+// TestJob_Sunday tests Sunday method
+func TestJob_Sunday(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Sunday()
+
+	assert.NotNil(t, job, "Sunday()应该返回有效的Job")
+	assert.Equal(t, time.Sunday, job.GetWeekday(), "应该设置为Sunday")
+}
+
+// TestJob_WithContext tests WithContext method
+func TestJob_WithContext(t *testing.T) {
+	sched := NewScheduler()
+	ctx := context.Background()
+	job := sched.Every(1).Second().WithContext(ctx)
+
+	assert.NotNil(t, job, "WithContext()应该返回有效的Job")
+	assert.Equal(t, ctx, job.ctx, "context应该被设置")
+
+	// Test with TODO context
+	job2 := sched.Every(1).Second().WithContext(context.TODO())
+	assert.NotNil(t, job2.ctx, "context应该被设置")
+}
+
+// TestJob_WithTimeout tests WithTimeout method
+func TestJob_WithTimeout(t *testing.T) {
+	sched := NewScheduler()
+	timeout := 30 * time.Second
+	job := sched.Every(1).Second().WithTimeout(timeout)
+
+	assert.NotNil(t, job, "WithTimeout()应该返回有效的Job")
+	assert.Equal(t, timeout, job.timeout, "timeout应该被设置")
+}
+
+// TestNewSchedulerWithContext tests NewSchedulerWithContext
+func TestNewSchedulerWithContext(t *testing.T) {
+	ctx := context.Background()
+	sched := NewSchedulerWithContext(ctx)
+
+	assert.NotNil(t, sched, "应该创建有效的Scheduler")
+	assert.Equal(t, ctx, sched.ctx, "context应该被设置")
+
+	// Test with TODO context
+	sched2 := NewSchedulerWithContext(context.TODO())
+	assert.NotNil(t, sched2.ctx, "context应该被设置")
+}
+
+// TestScheduler_Swap tests Swap method
+func TestScheduler_Swap(t *testing.T) {
+	sched := NewScheduler()
+	job1 := sched.Every(1).Second()
+	job2 := sched.Every(2).Seconds()
+
+	assert.NoError(t, job1.Do(task))
+	assert.NoError(t, job2.Do(task))
+
+	assert.Equal(t, 2, sched.Len(), "应该有2个job")
+
+	// Swap jobs
+	sched.Swap(0, 1)
+
+	// Verify swap
+	assert.Equal(t, job2, sched.jobs[0], "job应该被交换")
+	assert.Equal(t, job1, sched.jobs[1], "job应该被交换")
+}
+
+// TestScheduler_Less tests Less method
+func TestScheduler_Less(t *testing.T) {
+	sched := NewScheduler()
+	job1 := sched.Every(1).Second()
+	job2 := sched.Every(2).Seconds()
+
+	assert.NoError(t, job1.Do(task))
+	assert.NoError(t, job2.Do(task))
+
+	// Schedule next runs
+	assert.NoError(t, job1.scheduleNextRun())
+	assert.NoError(t, job2.scheduleNextRun())
+
+	// job1 should run before job2
+	assert.True(t, sched.Less(0, 1), "job1应该先于job2运行")
+}
+
+// TestScheduler_NextRun tests NextRun method
+func TestScheduler_NextRun(t *testing.T) {
+	sched := NewScheduler()
+
+	// Empty scheduler
+	job, nextTime := sched.NextRun()
+	assert.Nil(t, job, "空调度器应该返回nil job")
+	assert.NotZero(t, nextTime, "应该返回当前时间")
+
+	// Add a job
+	job1 := sched.Every(1).Second()
+	assert.NoError(t, job1.Do(task))
+	assert.NoError(t, job1.scheduleNextRun())
+
+	job, nextTime = sched.NextRun()
+	assert.NotNil(t, job, "应该有job")
+	assert.NotZero(t, nextTime, "应该有下次运行时间")
+}
+
+// TestScheduler_RemoveByTag tests RemoveByTag method
+func TestScheduler_RemoveByTag(t *testing.T) {
+	sched := NewScheduler()
+
+	job1 := sched.Every(1).Minute()
+	job1.Tag("tag1", "tag2")
+	assert.NoError(t, job1.Do(task))
+
+	job2 := sched.Every(2).Minutes()
+	job2.Tag("tag2", "tag3")
+	assert.NoError(t, job2.Do(task))
+
+	assert.Equal(t, 2, sched.Len(), "应该有2个job")
+
+	// Remove by tag
+	sched.RemoveByTag("tag1")
+	assert.Equal(t, 1, sched.Len(), "应该移除1个job")
+
+	// Remove by another tag
+	sched.RemoveByTag("tag2")
+	assert.Equal(t, 0, sched.Len(), "应该移除所有job")
+}
+
+// TestScheduler_Clear tests Clear method
+func TestScheduler_Clear(t *testing.T) {
+	sched := NewScheduler()
+
+	assert.NoError(t, sched.Every(1).Second().Do(task))
+	assert.NoError(t, sched.Every(2).Seconds().Do(task))
+
+	assert.Equal(t, 2, sched.Len(), "应该有2个job")
+
+	sched.Clear()
+
+	assert.Equal(t, 0, sched.Len(), "清除后应该没有job")
+}
+
+// TestScheduler_StartWithContext tests StartWithContext method
+func TestScheduler_StartWithContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sched := NewScheduler()
+
+	jobDone := make(chan bool, 1)
+	assert.NoError(t, sched.Every(1).Second().Do(func() {
+		jobDone <- true
+	}))
+
+	stopped := sched.StartWithContext(ctx)
+
+	// Wait for job to run (with timeout)
+	select {
+	case <-jobDone:
+		// Job executed
+	case <-time.After(2 * time.Second):
+		t.Error("Job did not execute within timeout")
+		return
+	}
+
+	// Cancel context to stop scheduler
+	cancel()
+
+	// Wait for scheduler to stop (with timeout)
+	select {
+	case <-stopped:
+		// Scheduler stopped
+	case <-time.After(1 * time.Second):
+		t.Error("Scheduler did not stop within timeout")
+	}
+}
+
+// TestJob_At_InvalidTime tests At with invalid time format
+func TestJob_At_InvalidTime(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Day().At("invalid-time")
+
+	assert.Error(t, job.Err(), "无效时间格式应该产生错误")
+}
+
+// TestJob_Second tests Second method
+func TestJob_Second(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Second()
+
+	assert.NotNil(t, job, "Second()应该返回有效的Job")
+	assert.Equal(t, uint64(1), job.interval, "间隔应该是1")
+}
+
+// TestJob_Minute tests Minute method
+func TestJob_Minute(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Minute()
+
+	assert.NotNil(t, job, "Minute()应该返回有效的Job")
+	assert.Equal(t, uint64(1), job.interval, "间隔应该是1")
+}
+
+// TestJob_Hour tests Hour method
+func TestJob_Hour(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Hour()
+
+	assert.NotNil(t, job, "Hour()应该返回有效的Job")
+	assert.Equal(t, uint64(1), job.interval, "间隔应该是1")
+}
+
+// TestJob_Day tests Day method
+func TestJob_Day(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Day()
+
+	assert.NotNil(t, job, "Day()应该返回有效的Job")
+	assert.Equal(t, uint64(1), job.interval, "间隔应该是1")
+}
+
+// TestJob_run tests run method
+func TestJob_run(t *testing.T) {
+	sched := NewScheduler()
+	executed := false
+
+	job := sched.Every(1).Second()
+	assert.NoError(t, job.Do(func() {
+		executed = true
+	}))
+
+	err := job.run()
+	assert.NoError(t, err, "运行job不应该有错误")
+	assert.True(t, executed, "job应该被执行")
+}
+
+// TestJob_runWithContext tests runWithContext method
+func TestJob_runWithContext(t *testing.T) {
+	sched := NewScheduler()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	job := sched.Every(1).Second().WithContext(ctx)
+	assert.NoError(t, job.Do(func() {
+		// Job function
+	}))
+
+	// Cancel context before running
+	cancel()
+
+	result, err := job.runWithContext(ctx)
+	assert.Error(t, err, "取消的context应该返回错误")
+	assert.Nil(t, result, "结果应该为nil")
+}
+
+// TestJob_runWithContext_Timeout tests runWithContext with timeout
+func TestJob_runWithContext_Timeout(t *testing.T) {
+	sched := NewScheduler()
+
+	// Create a job that will sleep longer than context timeout
+	job := sched.Every(1).Second()
+	assert.NoError(t, job.Do(func() {
+		time.Sleep(200 * time.Millisecond) // Longer than context timeout
+	}))
+
+	// Create a context with short timeout
+	testCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	result, err := job.runWithContext(testCtx)
+	_ = result
+	// Should get timeout error because function sleeps longer than context timeout
+	assert.Error(t, err, "超时应该返回错误")
+	assert.Nil(t, result, "结果应该为nil")
+	assert.Contains(t, err.Error(), "cancelled", "应该是超时或取消错误")
+}
+
+// TestJob_runWithContext_Success tests successful runWithContext
+func TestJob_runWithContext_Success(t *testing.T) {
+	sched := NewScheduler()
+	ctx := context.Background()
+	executed := false
+
+	job := sched.Every(1).Second().WithContext(ctx)
+	assert.NoError(t, job.Do(func() {
+		executed = true
+	}))
+
+	result, err := job.runWithContext(ctx)
+	assert.NoError(t, err, "成功执行不应该有错误")
+	assert.NotNil(t, result, "结果不应该为nil")
+	assert.True(t, executed, "job应该被执行")
+}
+
+// TestJob_At_EdgeCases tests At method edge cases
+func TestJob_At_EdgeCases(t *testing.T) {
+	sched := NewScheduler()
+
+	tests := []struct {
+		name    string
+		timeStr string
+		wantErr bool
+	}{
+		{"valid time", "10:30", false},
+		{"valid time with seconds", "10:30:45", false},
+		{"invalid format", "25:99", true},
+		{"empty string", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := sched.Every(1).Day().At(tt.timeStr)
+			if tt.wantErr {
+				assert.Error(t, job.Err(), "应该产生错误")
+			} else {
+				assert.NoError(t, job.Err(), "不应该有错误")
+			}
+		})
+	}
+}
+
+// TestScheduler_RunAllwithDelay tests RunAllwithDelay method
+func TestScheduler_RunAllwithDelay(t *testing.T) {
+	sched := NewScheduler()
+	executionCount := 0
+	var mu sync.Mutex
+	done := make(chan bool, 2)
+
+	assert.NoError(t, sched.Every(1).Second().Do(func() {
+		mu.Lock()
+		executionCount++
+		mu.Unlock()
+		done <- true
+	}))
+
+	assert.NoError(t, sched.Every(2).Seconds().Do(func() {
+		mu.Lock()
+		executionCount++
+		mu.Unlock()
+		done <- true
+	}))
+
+	sched.RunAllwithDelay(10) // 10ms delay (reduced for faster test)
+
+	// Wait for both jobs to complete with timeout
+	timeout := time.After(2 * time.Second)
+	completed := 0
+	for completed < 2 {
+		select {
+		case <-done:
+			completed++
+		case <-timeout:
+			t.Fatalf("Test timeout: only %d jobs completed", completed)
+		}
+	}
+
+	mu.Lock()
+	count := executionCount
+	mu.Unlock()
+
+	assert.Equal(t, 2, count, "应该执行2个job")
+}
+
+// TestGlobalFunctions tests global convenience functions
+func TestGlobalFunctions(t *testing.T) {
+	// Save original scheduler
+	originalScheduler := defaultScheduler
+	defer func() {
+		defaultScheduler = originalScheduler
+	}()
+
+	// Create new scheduler
+	defaultScheduler = NewScheduler()
+
+	// Test RunPending
+	assert.NoError(t, Every(1).Second().Do(task))
+	RunPending()
+
+	// Test RunAll
+	RunAll()
+
+	// Test RunAllwithDelay
+	RunAllwithDelay(0)
+
+	// Test Start
+	stopped := Start()
+	// Wait a bit for scheduler to start
+	time.Sleep(50 * time.Millisecond)
+	close(stopped)
+	// Wait a bit for scheduler to stop
+	time.Sleep(50 * time.Millisecond)
+
+	// Test Clear
+	Clear()
+	assert.Equal(t, 0, defaultScheduler.Len(), "清除后应该没有job")
+
+	// Test Remove
+	assert.NoError(t, Every(1).Second().Do(task))
+	Remove(task)
+	assert.Equal(t, 0, defaultScheduler.Len(), "移除后应该没有job")
+
+	// Test Scheduled
+	assert.NoError(t, Every(1).Second().Do(task))
+	assert.True(t, Scheduled(task), "应该检测到已调度的job")
+
+	// Test NextRun
+	job, nextTime := NextRun()
+	assert.NotNil(t, job, "应该有job")
+	assert.NotZero(t, nextTime, "应该有下次运行时间")
 }

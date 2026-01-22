@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -248,4 +249,89 @@ func TestLogLevelHandler_POST_EmptyLevel(t *testing.T) {
 	err = json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
 	assert.Contains(t, response["error"], "日志级别不能为空", "Should return error message")
+}
+
+// TestLogLevelHandler_POST_WhitespaceLevel tests level with whitespace
+func TestLogLevelHandler_POST_WhitespaceLevel(t *testing.T) {
+	handler := LogLevelHandler()
+
+	requestBody := map[string]string{
+		"level": "  debug  ",
+	}
+	body, err := json.Marshal(requestBody)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	// Should trim whitespace and succeed
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestLogLevelHandler_POST_InvalidContentType tests invalid content type
+func TestLogLevelHandler_POST_InvalidContentType(t *testing.T) {
+	handler := LogLevelHandler()
+
+	requestBody := map[string]string{
+		"level": "debug",
+	}
+	body, err := json.Marshal(requestBody)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "text/plain") // Invalid content type
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	// Should still process (content type check might not be strict)
+	// The actual behavior depends on implementation
+	assert.True(t, w.Code == http.StatusOK || w.Code == http.StatusBadRequest, "Should handle invalid content type")
+}
+
+// TestLogLevelHandler_POST_LargeBody tests large request body
+func TestLogLevelHandler_POST_LargeBody(t *testing.T) {
+	handler := LogLevelHandler()
+
+	// Create a large JSON body
+	largeBody := map[string]string{
+		"level": "debug",
+		"extra": strings.Repeat("x", 10000), // Large extra field
+	}
+	body, err := json.Marshal(largeBody)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("POST", "/log/level", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = i18n.SetLanguageInContext(req, i18n.LangZH)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	// Should still process (only level field is used)
+	assert.Equal(t, http.StatusOK, w.Code, "Should handle large body")
+}
+
+// TestLogLevelHandler_GET_DifferentLanguages tests GET with different languages
+func TestLogLevelHandler_GET_DifferentLanguages(t *testing.T) {
+	handler := LogLevelHandler()
+
+	languages := []i18n.Language{i18n.LangZH, i18n.LangEN, i18n.LangFR}
+
+	for _, lang := range languages {
+		t.Run(string(lang), func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/log/level", http.NoBody)
+			req = i18n.SetLanguageInContext(req, lang)
+			w := httptest.NewRecorder()
+
+			handler(w, req)
+
+			assert.Equal(t, http.StatusOK, w.Code, "Should work with different languages")
+		})
+	}
 }

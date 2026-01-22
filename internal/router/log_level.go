@@ -53,8 +53,9 @@ func LogLevelHandler() http.HandlerFunc {
 				return
 			}
 
+			levelText := strings.TrimSpace(request.Level)
 			// Validate level field is not empty
-			if strings.TrimSpace(request.Level) == "" {
+			if levelText == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{
 					"error": i18n.T(r, "log_level.empty"),
@@ -64,7 +65,7 @@ func LogLevelHandler() http.HandlerFunc {
 				return
 			}
 
-			level, err := zerolog.ParseLevel(strings.ToLower(request.Level))
+			level, err := zerolog.ParseLevel(strings.ToLower(levelText))
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				if err := json.NewEncoder(w).Encode(map[string]string{

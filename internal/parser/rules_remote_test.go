@@ -3,6 +3,7 @@ package parser
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,14 +14,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFromRemoteConfig_RetryOn5xx tests retry on 5xx errors
-func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
-	if testing.Short() {
-		t.Skip("跳过需要网络的测试")
+// createTestServer creates a test HTTP server that works in restricted environments
+func createTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	server := httptest.NewUnstartedServer(handler)
+
+	// Try to create a listener on localhost
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		// Fallback to NewServer if listener creation fails
+		server.Close()
+		return httptest.NewServer(handler)
 	}
 
+	server.Listener = listener
+	server.Start()
+	return server
+}
+
+// TestFromRemoteConfig_RetryOn5xx tests retry on 5xx errors
+func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
 	attemptCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		attemptCount++
 		if attemptCount < 3 {
 			// First two attempts return 500 error
@@ -50,12 +65,8 @@ func TestFromRemoteConfig_RetryOn5xx(t *testing.T) {
 
 // TestFromRemoteConfig_ContextCancellation tests context cancellation
 func TestFromRemoteConfig_ContextCancellation(t *testing.T) {
-	if testing.Short() {
-		t.Skip("跳过需要网络的测试")
-	}
-
 	// Create a slow server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("[]"))
@@ -77,12 +88,8 @@ func TestFromRemoteConfig_ContextCancellation(t *testing.T) {
 
 // TestFromRemoteConfig_ContextTimeout tests context timeout
 func TestFromRemoteConfig_ContextTimeout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("跳过需要网络的测试")
-	}
-
 	// Create a slow server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("[]"))
@@ -113,7 +120,7 @@ func TestFromRemoteConfig_Non200Status(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				_, err := w.Write([]byte("Error"))
 				require.NoError(t, err)
@@ -140,7 +147,7 @@ func TestFromRemoteConfig_LargeResponse(t *testing.T) {
 		}
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(largeData))
 	}))
@@ -157,7 +164,7 @@ func TestFromRemoteConfig_LargeResponse(t *testing.T) {
 func TestFromRemoteConfig_ResponseSizeLimit(t *testing.T) {
 	// Create a server returning oversized data (exceeding MAX_JSON_SIZE)
 	// Note: This test may need adjustment based on actual MAX_JSON_SIZE value
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// Generate an oversized JSON string
 		largeString := make([]byte, define.MAX_JSON_SIZE+1)
@@ -203,7 +210,7 @@ func TestFromRemoteConfig_Headers(t *testing.T) {
 // TestFromRemoteConfig_NoAuthorization tests no authorization header
 func TestFromRemoteConfig_NoAuthorization(t *testing.T) {
 	var receivedHeaders http.Header
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedHeaders = r.Header
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode([]define.AllowListUser{}))
@@ -229,7 +236,7 @@ func TestFromRemoteConfig_UserNormalization(t *testing.T) {
 		},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := createTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(testData))
 	}))
