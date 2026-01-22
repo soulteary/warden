@@ -6,10 +6,12 @@ import (
 	// Standard library
 	"flag"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
+
+	// External packages
+	"github.com/soulteary/cli-kit/env"
+	"github.com/soulteary/cli-kit/flagutil"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/config"
@@ -91,12 +93,10 @@ func GetArgs() *Config {
 
 // processPortFromFlags processes port configuration
 func processPortFromFlags(cfg *Config, fs *flag.FlagSet, portFlag int) {
-	if hasFlag(fs, "port") {
+	if flagutil.HasFlag(fs, "port") {
 		cfg.Port = strconv.Itoa(portFlag)
-	} else if portEnv := os.Getenv("PORT"); portEnv != "" {
-		if port, err := strconv.Atoi(portEnv); err == nil {
-			cfg.Port = strconv.Itoa(port)
-		}
+	} else if portEnv := env.GetInt("PORT", 0); portEnv > 0 {
+		cfg.Port = strconv.Itoa(portEnv)
 	}
 }
 
@@ -105,25 +105,25 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable for safety)
 	isOnlyLocalMode := false
 	if cfg.Mode != "" {
-		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(cfg.Mode)) == "ONLY_LOCAL"
-	} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
-		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
+		isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
+	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
+		isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
 	}
 
 	// Check if Redis address is explicitly set (command-line argument or environment variable)
-	redisExplicitlySet := hasFlag(fs, "redis") || strings.TrimSpace(os.Getenv("REDIS")) != ""
+	redisExplicitlySet := flagutil.HasFlag(fs, "redis") || env.GetTrimmed("REDIS", "") != ""
 
 	// Process Redis address first
-	if hasFlag(fs, "redis") {
+	if flagutil.HasFlag(fs, "redis") {
 		cfg.Redis = redisFlag
-	} else if redisEnv := strings.TrimSpace(os.Getenv("REDIS")); redisEnv != "" {
+	} else if redisEnv := env.GetTrimmed("REDIS", ""); redisEnv != "" {
 		cfg.Redis = redisEnv
 	}
 
 	// Process Redis enabled state (priority: command-line argument > environment variable > default value)
-	if hasFlag(fs, "redis-enabled") {
+	if flagutil.HasFlag(fs, "redis-enabled") {
 		cfg.RedisEnabled = redisEnabledFlag
-	} else if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
+	} else if redisEnabledEnv := env.GetTrimmed("REDIS_ENABLED", ""); redisEnabledEnv != "" {
 		// Supports true/false/1/0
 		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	} else {
@@ -145,89 +145,85 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 	}
 
 	// Process Redis password (priority: environment variable > password file > command-line argument)
-	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
-	redisPasswordFile := strings.TrimSpace(os.Getenv("REDIS_PASSWORD_FILE"))
+	redisPasswordEnv := env.GetTrimmed("REDIS_PASSWORD", "")
+	redisPasswordFile := env.GetTrimmed("REDIS_PASSWORD_FILE", "")
 
 	switch {
 	case redisPasswordEnv != "":
 		cfg.RedisPassword = redisPasswordEnv
 	case redisPasswordFile != "":
-		if password, err := readPasswordFromFile(redisPasswordFile); err == nil {
+		if password, err := flagutil.ReadPasswordFromFile(redisPasswordFile); err == nil {
 			cfg.RedisPassword = password
 		}
-	case hasFlag(fs, "redis-password"):
+	case flagutil.HasFlag(fs, "redis-password"):
 		cfg.RedisPassword = redisPasswordFlag
 	}
 }
 
 // processRemoteConfigFromFlags processes remote configuration
 func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet, configFlag, keyFlag string) {
-	if hasFlag(fs, "config") {
+	if flagutil.HasFlag(fs, "config") {
 		cfg.RemoteConfig = configFlag
-	} else if configEnv := strings.TrimSpace(os.Getenv("CONFIG")); configEnv != "" {
+	} else if configEnv := env.GetTrimmed("CONFIG", ""); configEnv != "" {
 		cfg.RemoteConfig = configEnv
 	}
 
-	if hasFlag(fs, "key") {
+	if flagutil.HasFlag(fs, "key") {
 		cfg.RemoteKey = keyFlag
-	} else if keyEnv := strings.TrimSpace(os.Getenv("KEY")); keyEnv != "" {
+	} else if keyEnv := env.GetTrimmed("KEY", ""); keyEnv != "" {
 		cfg.RemoteKey = keyEnv
 	}
 }
 
 // processTaskFromFlags processes task configuration
 func processTaskFromFlags(cfg *Config, fs *flag.FlagSet, intervalFlag int) {
-	if hasFlag(fs, "interval") {
+	if flagutil.HasFlag(fs, "interval") {
 		cfg.TaskInterval = intervalFlag
-	} else if intervalEnv := os.Getenv("INTERVAL"); intervalEnv != "" {
-		if interval, err := strconv.Atoi(intervalEnv); err == nil {
-			cfg.TaskInterval = interval
-		}
+	} else {
+		cfg.TaskInterval = env.GetInt("INTERVAL", cfg.TaskInterval)
 	}
 }
 
 // processModeFromFlags processes mode configuration
 func processModeFromFlags(cfg *Config, fs *flag.FlagSet, modeFlag string) {
-	if hasFlag(fs, "mode") {
+	if flagutil.HasFlag(fs, "mode") {
 		cfg.Mode = modeFlag
-	} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
+	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
 		cfg.Mode = modeEnv
 	}
 }
 
 // processHTTPFromFlags processes HTTP configuration
 func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMaxIdleConnsFlag int, httpInsecureTLSFlag bool) {
-	if hasFlag(fs, "http-timeout") {
+	if flagutil.HasFlag(fs, "http-timeout") {
 		cfg.HTTPTimeout = httpTimeoutFlag
-	} else if timeoutEnv := os.Getenv("HTTP_TIMEOUT"); timeoutEnv != "" {
+	} else {
 		// Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
-		if timeout, err := time.ParseDuration(timeoutEnv); err == nil {
+		if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
 			cfg.HTTPTimeout = int(timeout.Seconds())
-		} else if timeout, err := strconv.Atoi(timeoutEnv); err == nil {
+		} else if timeout := env.GetInt("HTTP_TIMEOUT", 0); timeout > 0 {
 			cfg.HTTPTimeout = timeout
 		}
 	}
 
-	if hasFlag(fs, "http-max-idle-conns") {
+	if flagutil.HasFlag(fs, "http-max-idle-conns") {
 		cfg.HTTPMaxIdleConns = httpMaxIdleConnsFlag
-	} else if maxIdleConnsEnv := os.Getenv("HTTP_MAX_IDLE_CONNS"); maxIdleConnsEnv != "" {
-		if maxIdleConns, err := strconv.Atoi(maxIdleConnsEnv); err == nil {
-			cfg.HTTPMaxIdleConns = maxIdleConns
-		}
+	} else {
+		cfg.HTTPMaxIdleConns = env.GetInt("HTTP_MAX_IDLE_CONNS", cfg.HTTPMaxIdleConns)
 	}
 
-	if hasFlag(fs, "http-insecure-tls") {
+	if flagutil.HasFlag(fs, "http-insecure-tls") {
 		cfg.HTTPInsecureTLS = httpInsecureTLSFlag
-	} else if insecureTLSEnv := os.Getenv("HTTP_INSECURE_TLS"); insecureTLSEnv != "" {
-		cfg.HTTPInsecureTLS = strings.EqualFold(insecureTLSEnv, "true") || insecureTLSEnv == "1"
+	} else {
+		cfg.HTTPInsecureTLS = env.GetBool("HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
 	}
 }
 
 // processAPIKeyFromFlags processes API Key configuration
 func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet, apiKeyFlag string) {
-	if hasFlag(fs, "api-key") {
+	if flagutil.HasFlag(fs, "api-key") {
 		cfg.APIKey = apiKeyFlag
-	} else if apiKeyEnv := strings.TrimSpace(os.Getenv("API_KEY")); apiKeyEnv != "" {
+	} else if apiKeyEnv := env.GetTrimmed("API_KEY", ""); apiKeyEnv != "" {
 		cfg.APIKey = apiKeyEnv
 	}
 }
@@ -291,39 +287,6 @@ func getArgsFromFlags() *Config {
 	return cfg
 }
 
-// hasFlag checks if command-line argument is set
-func hasFlag(fs *flag.FlagSet, name string) bool {
-	found := false
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == name {
-			found = true
-		}
-	})
-	return found
-}
-
-// readPasswordFromFile reads password from file (security improvement)
-// File path should be absolute path or relative to working directory
-// File content will have leading and trailing whitespace trimmed
-func readPasswordFromFile(filePath string) (string, error) {
-	// Security check: ensure file path is relative or absolute path, prevent path traversal attacks
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	// Read file content
-	// #nosec G304 -- file path has been validated via filepath.Abs, is safe
-	data, err := os.ReadFile(absPath)
-	if err != nil {
-		return "", err
-	}
-
-	// Trim leading and trailing whitespace
-	password := strings.TrimSpace(string(data))
-	return password, nil
-}
-
 // convertToConfig converts internal configuration type to Config
 func convertToConfig(cfg *config.CmdConfigData) *Config {
 	return &Config{
@@ -374,54 +337,54 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	}
 
 	// If command-line arguments are set, override configuration
-	if hasFlag(overrideFs, "port") && portFlag > 0 {
-		cfg.Port = strconv.Itoa(portFlag)
+	if portVal := flagutil.GetInt(overrideFs, "port", 0); portVal > 0 {
+		cfg.Port = strconv.Itoa(portVal)
 	}
-	if hasFlag(overrideFs, "redis") && redisFlag != "" {
-		cfg.Redis = redisFlag
+	if redisVal := flagutil.GetString(overrideFs, "redis", ""); redisVal != "" {
+		cfg.Redis = redisVal
 	}
-	if hasFlag(overrideFs, "redis-password") && redisPasswordFlag != "" {
-		cfg.RedisPassword = redisPasswordFlag
+	if redisPasswordVal := flagutil.GetString(overrideFs, "redis-password", ""); redisPasswordVal != "" {
+		cfg.RedisPassword = redisPasswordVal
 	}
-	if hasFlag(overrideFs, "redis-enabled") {
-		cfg.RedisEnabled = redisEnabledFlag
+	if flagutil.HasFlag(overrideFs, "redis-enabled") {
+		cfg.RedisEnabled = flagutil.GetBool(overrideFs, "redis-enabled", redisEnabledFlag)
 	}
-	if hasFlag(overrideFs, "config") && configFlag != "" {
-		cfg.RemoteConfig = configFlag
+	if configVal := flagutil.GetString(overrideFs, "config", ""); configVal != "" {
+		cfg.RemoteConfig = configVal
 	}
-	if hasFlag(overrideFs, "key") && keyFlag != "" {
-		cfg.RemoteKey = keyFlag
+	if keyVal := flagutil.GetString(overrideFs, "key", ""); keyVal != "" {
+		cfg.RemoteKey = keyVal
 	}
-	if hasFlag(overrideFs, "mode") && modeFlag != "" {
-		cfg.Mode = modeFlag
+	if modeVal := flagutil.GetString(overrideFs, "mode", ""); modeVal != "" {
+		cfg.Mode = modeVal
 	}
-	if hasFlag(overrideFs, "interval") && intervalFlag > 0 {
-		cfg.TaskInterval = intervalFlag
+	if intervalVal := flagutil.GetInt(overrideFs, "interval", 0); intervalVal > 0 {
+		cfg.TaskInterval = intervalVal
 	}
-	if hasFlag(overrideFs, "http-timeout") && httpTimeoutFlag > 0 {
-		cfg.HTTPTimeout = httpTimeoutFlag
+	if timeoutVal := flagutil.GetInt(overrideFs, "http-timeout", 0); timeoutVal > 0 {
+		cfg.HTTPTimeout = timeoutVal
 	}
-	if hasFlag(overrideFs, "http-max-idle-conns") && httpMaxIdleConnsFlag > 0 {
-		cfg.HTTPMaxIdleConns = httpMaxIdleConnsFlag
+	if maxIdleConnsVal := flagutil.GetInt(overrideFs, "http-max-idle-conns", 0); maxIdleConnsVal > 0 {
+		cfg.HTTPMaxIdleConns = maxIdleConnsVal
 	}
-	if hasFlag(overrideFs, "http-insecure-tls") {
-		cfg.HTTPInsecureTLS = httpInsecureTLSFlag
+	if flagutil.HasFlag(overrideFs, "http-insecure-tls") {
+		cfg.HTTPInsecureTLS = flagutil.GetBool(overrideFs, "http-insecure-tls", httpInsecureTLSFlag)
 	}
-	if hasFlag(overrideFs, "api-key") && apiKeyFlag != "" {
-		cfg.APIKey = apiKeyFlag
+	if apiKeyVal := flagutil.GetString(overrideFs, "api-key", ""); apiKeyVal != "" {
+		cfg.APIKey = apiKeyVal
 	}
 
 	// If Mode is ONLY_LOCAL and RedisEnabled was not explicitly set via command-line, check Redis address
-	if !hasFlag(overrideFs, "redis-enabled") {
+	if !flagutil.HasFlag(overrideFs, "redis-enabled") {
 		isOnlyLocalMode := false
 		if cfg.Mode != "" {
-			isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(cfg.Mode)) == "ONLY_LOCAL"
-		} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
-			isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
+			isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
+		} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
+			isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
 		}
 		if isOnlyLocalMode {
 			// Check if Redis address is explicitly set (command-line argument or environment variable)
-			redisExplicitlySet := hasFlag(overrideFs, "redis") || strings.TrimSpace(os.Getenv("REDIS")) != ""
+			redisExplicitlySet := flagutil.HasFlag(overrideFs, "redis") || env.GetTrimmed("REDIS", "") != ""
 			if redisExplicitlySet {
 				// User explicitly set Redis address, enable Redis
 				cfg.RedisEnabled = true
@@ -458,66 +421,56 @@ func LoadConfig(configFile string) (*Config, error) {
 func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	// Environment variables have higher priority than configuration file, but lower than command-line arguments
 	// Only process environment variables here, command-line arguments are processed in GetArgs
-	if portEnv := os.Getenv("PORT"); portEnv != "" {
-		if port, err := strconv.Atoi(portEnv); err == nil {
-			cfg.Port = strconv.Itoa(port)
-		}
+	if portEnv := env.GetInt("PORT", 0); portEnv > 0 {
+		cfg.Port = strconv.Itoa(portEnv)
 	}
 
-	if redisEnv := strings.TrimSpace(os.Getenv("REDIS")); redisEnv != "" {
+	if redisEnv := env.GetTrimmed("REDIS", ""); redisEnv != "" {
 		cfg.Redis = redisEnv
 	}
 
 	// Redis password priority: environment variable > password file > configuration file
-	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
-	redisPasswordFile := strings.TrimSpace(os.Getenv("REDIS_PASSWORD_FILE"))
+	redisPasswordEnv := env.GetTrimmed("REDIS_PASSWORD", "")
+	redisPasswordFile := env.GetTrimmed("REDIS_PASSWORD_FILE", "")
 
 	if redisPasswordEnv != "" {
 		cfg.RedisPassword = redisPasswordEnv
 	} else if redisPasswordFile != "" {
-		if password, err := readPasswordFromFile(redisPasswordFile); err == nil {
+		if password, err := flagutil.ReadPasswordFromFile(redisPasswordFile); err == nil {
 			cfg.RedisPassword = password
 		}
 	}
 
-	if configEnv := strings.TrimSpace(os.Getenv("CONFIG")); configEnv != "" {
+	if configEnv := env.GetTrimmed("CONFIG", ""); configEnv != "" {
 		cfg.RemoteConfig = configEnv
 	}
 
-	if keyEnv := strings.TrimSpace(os.Getenv("KEY")); keyEnv != "" {
+	if keyEnv := env.GetTrimmed("KEY", ""); keyEnv != "" {
 		cfg.RemoteKey = keyEnv
 	}
 
-	if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
+	if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
 		cfg.Mode = modeEnv
 	}
 
-	if intervalEnv := os.Getenv("INTERVAL"); intervalEnv != "" {
-		if interval, err := strconv.Atoi(intervalEnv); err == nil {
-			cfg.TaskInterval = interval
-		}
+	if intervalEnv := env.GetInt("INTERVAL", 0); intervalEnv > 0 {
+		cfg.TaskInterval = intervalEnv
 	}
 
-	if timeoutEnv := os.Getenv("HTTP_TIMEOUT"); timeoutEnv != "" {
-		// Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
-		if timeout, err := time.ParseDuration(timeoutEnv); err == nil {
-			cfg.HTTPTimeout = int(timeout.Seconds())
-		} else if timeout, err := strconv.Atoi(timeoutEnv); err == nil {
-			cfg.HTTPTimeout = timeout
-		}
+	// Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
+	if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
+		cfg.HTTPTimeout = int(timeout.Seconds())
+	} else if timeout := env.GetInt("HTTP_TIMEOUT", 0); timeout > 0 {
+		cfg.HTTPTimeout = timeout
 	}
 
-	if maxIdleConnsEnv := os.Getenv("HTTP_MAX_IDLE_CONNS"); maxIdleConnsEnv != "" {
-		if maxIdleConns, err := strconv.Atoi(maxIdleConnsEnv); err == nil {
-			cfg.HTTPMaxIdleConns = maxIdleConns
-		}
+	if maxIdleConnsEnv := env.GetInt("HTTP_MAX_IDLE_CONNS", 0); maxIdleConnsEnv > 0 {
+		cfg.HTTPMaxIdleConns = maxIdleConnsEnv
 	}
 
-	if insecureTLSEnv := os.Getenv("HTTP_INSECURE_TLS"); insecureTLSEnv != "" {
-		cfg.HTTPInsecureTLS = strings.EqualFold(insecureTLSEnv, "true") || insecureTLSEnv == "1"
-	}
+	cfg.HTTPInsecureTLS = env.GetBool("HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
 
-	if apiKeyEnv := strings.TrimSpace(os.Getenv("API_KEY")); apiKeyEnv != "" {
+	if apiKeyEnv := env.GetTrimmed("API_KEY", ""); apiKeyEnv != "" {
 		cfg.APIKey = apiKeyEnv
 	}
 
@@ -525,15 +478,15 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable)
 	isOnlyLocalMode := false
 	if cfg.Mode != "" {
-		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(cfg.Mode)) == "ONLY_LOCAL"
-	} else if modeEnv := strings.TrimSpace(os.Getenv("MODE")); modeEnv != "" {
-		isOnlyLocalMode = strings.ToUpper(strings.TrimSpace(modeEnv)) == "ONLY_LOCAL"
+		isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
+	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
+		isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
 	}
 
 	// Check if Redis address is explicitly set via environment variable
-	redisExplicitlySet := strings.TrimSpace(os.Getenv("REDIS")) != ""
+	redisExplicitlySet := env.GetTrimmed("REDIS", "") != ""
 
-	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
+	if redisEnabledEnv := env.GetTrimmed("REDIS_ENABLED", ""); redisEnabledEnv != "" {
 		// Explicitly set via environment variable
 		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	} else if isOnlyLocalMode {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/soulteary/cli-kit/flagutil"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -182,7 +183,7 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 	assert.Equal(t, 15, cfg.TaskInterval, "间隔应该匹配环境变量")
 }
 
-// TestReadPasswordFromFile tests readPasswordFromFile function
+// TestReadPasswordFromFile tests ReadPasswordFromFile function
 func TestReadPasswordFromFile(t *testing.T) {
 	// Create temporary file
 	tmpFile, err := os.CreateTemp("", "test-password-*.txt")
@@ -198,14 +199,14 @@ func TestReadPasswordFromFile(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 
 	// Test reading password
-	password, err := readPasswordFromFile(tmpFile.Name())
+	password, err := flagutil.ReadPasswordFromFile(tmpFile.Name())
 	require.NoError(t, err)
 	assert.Equal(t, "test-password-123", password, "密码应该被正确读取并去除空白字符")
 }
 
 // TestReadPasswordFromFile_NonExistent tests reading from non-existent file
 func TestReadPasswordFromFile_NonExistent(t *testing.T) {
-	_, err := readPasswordFromFile("/nonexistent/file/path.txt")
+	_, err := flagutil.ReadPasswordFromFile("/nonexistent/file/path.txt")
 	assert.Error(t, err, "读取不存在的文件应该返回错误")
 }
 
@@ -218,7 +219,7 @@ func TestReadPasswordFromFile_EmptyFile(t *testing.T) {
 	}()
 	require.NoError(t, tmpFile.Close())
 
-	password, err := readPasswordFromFile(tmpFile.Name())
+	password, err := flagutil.ReadPasswordFromFile(tmpFile.Name())
 	require.NoError(t, err)
 	assert.Empty(t, password, "空文件应该返回空字符串")
 }
