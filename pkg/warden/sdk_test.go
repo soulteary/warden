@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1653,6 +1654,385 @@ func TestOptions_Validate_RetryOptions(t *testing.T) {
 			err := opts.Validate()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Options.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestClient_Close tests Close method
+func TestClient_Close(t *testing.T) {
+	ch := make(chan struct{}, 1)
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithCacheInvalidationChannel(ch)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Close should not panic
+	client.Close()
+
+	// Close again should be safe
+	client.Close()
+}
+
+// TestClient_listenForCacheInvalidation tests cache invalidation listener
+func TestClient_listenForCacheInvalidation(t *testing.T) {
+	ch := make(chan struct{}, 1)
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithCacheInvalidationChannel(ch)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Set some cache first
+	users := []AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+	client.cache.Set(users)
+
+	// Send invalidation signal
+	ch <- struct{}{}
+
+	// Wait a bit for listener to process
+	time.Sleep(100 * time.Millisecond)
+
+	// Close client to stop listener
+	client.Close()
+
+	// Wait a bit more for cleanup
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify cache is cleared (indirectly by checking it's empty)
+	cached := client.cache.Get()
+	if cached != nil {
+		t.Error("Cache should be cleared after invalidation signal")
+	}
+}
+
+// TestClient_isRetryableError tests isRetryableError method
+func TestClient_isRetryableError(t *testing.T) {
+	retryOpts := DefaultRetryOptions()
+	retryOpts.MaxRetries = 1
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithRetry(retryOpts)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test network error (should be retryable)
+	if !client.isRetryableError(fmt.Errorf("network error"), 0) {
+		t.Error("Network error should be retryable")
+	}
+
+	// Test 4xx error (should not be retryable)
+	if client.isRetryableError(nil, http.StatusBadRequest) {
+		t.Error("4xx error should not be retryable")
+	}
+
+	// Test 5xx error (should be retryable)
+	if !client.isRetryableError(nil, http.StatusInternalServerError) {
+		t.Error("5xx error should be retryable")
+	}
+
+	// Test client without retry
+	optsNoRetry := DefaultOptions().WithBaseURL("http://localhost:8081")
+	optsNoRetry.Retry = nil
+	clientNoRetry, err := NewClient(optsNoRetry)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+	if clientNoRetry.isRetryableError(nil, http.StatusInternalServerError) {
+		t.Error("Should not retry when retry is disabled")
+	}
+}
+
+// TestClient_calculateRetryDelay tests calculateRetryDelay method
+func TestClient_calculateRetryDelay(t *testing.T) {
+	retryOpts := &RetryOptions{
+		RetryDelay:        100 * time.Millisecond,
+		BackoffMultiplier: 2.0,
+		MaxRetryDelay:     1 * time.Second,
+	}
+
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithRetry(retryOpts)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	// Test first attempt (should be 0)
+	delay := client.calculateRetryDelay(0)
+	if delay != 0 {
+		t.Errorf("Expected delay 0 for first attempt, got %v", delay)
+	}
+
+	// Test second attempt
+	delay = client.calculateRetryDelay(1)
+	expected := 100 * time.Millisecond * 2 // 100ms * 2.0 * 1
+	if delay != expected {
+		t.Errorf("Expected delay %v, got %v", expected, delay)
+	}
+
+	// Test delay exceeding max
+	delay = client.calculateRetryDelay(10)
+	if delay > retryOpts.MaxRetryDelay {
+		t.Errorf("Delay %v should not exceed max %v", delay, retryOpts.MaxRetryDelay)
+	}
+}
+
+// TestClient_checkResponseStatus_AllStatusCodes tests all status code handling
+func TestClient_checkResponseStatus_AllStatusCodes(t *testing.T) {
+	opts := DefaultOptions().WithBaseURL("http://localhost:8081")
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		errCode    string
+		statusCode int
+		wantErr    bool
+	}{
+		{
+			name:       "200 OK",
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			errCode:    "",
+		},
+		{
+			name:       "401 Unauthorized",
+			statusCode: http.StatusUnauthorized,
+			wantErr:    true,
+			errCode:    ErrCodeUnauthorized,
+		},
+		{
+			name:       "404 Not Found",
+			statusCode: http.StatusNotFound,
+			wantErr:    true,
+			errCode:    ErrCodeNotFound,
+		},
+		{
+			name:       "500 Internal Server Error",
+			statusCode: http.StatusInternalServerError,
+			wantErr:    true,
+			errCode:    ErrCodeServerError,
+		},
+		{
+			name:       "502 Bad Gateway",
+			statusCode: http.StatusBadGateway,
+			wantErr:    true,
+			errCode:    ErrCodeServerError,
+		},
+		{
+			name:       "503 Service Unavailable",
+			statusCode: http.StatusServiceUnavailable,
+			wantErr:    true,
+			errCode:    ErrCodeServerError,
+		},
+		{
+			name:       "400 Bad Request",
+			statusCode: http.StatusBadRequest,
+			wantErr:    true,
+			errCode:    ErrCodeRequestFailed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				if _, err := w.Write([]byte("test body")); err != nil {
+					t.Errorf("Failed to write response body: %v", err)
+				}
+			}))
+			defer server.Close()
+
+			req, err := http.NewRequest("GET", server.URL, http.NoBody)
+			require.NoError(t, err)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("Failed to make request: %v", err)
+			}
+			defer func() {
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					t.Errorf("Failed to close response body: %v", closeErr)
+				}
+			}()
+
+			err = client.checkResponseStatus(resp)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got nil")
+					return
+				}
+				sdkErr, ok := err.(*Error)
+				if !ok {
+					t.Errorf("Expected *Error, got %T", err)
+					return
+				}
+				if sdkErr.Code != tt.errCode {
+					t.Errorf("Expected error code %s, got %s", tt.errCode, sdkErr.Code)
+				}
+			} else if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
+		})
+	}
+}
+
+// TestClient_doRequestWithRetry_ContextCancellation tests retry with context cancellation
+func TestClient_doRequestWithRetry_ContextCancellation(t *testing.T) {
+	// Create a server that will hang
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Second) // Hang for a long time
+	}))
+	defer server.Close()
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithRetry(&RetryOptions{
+			MaxRetries:        3,
+			RetryDelay:        10 * time.Millisecond,
+			BackoffMultiplier: 1.0,
+		})
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req, err := http.NewRequest("GET", server.URL, http.NoBody)
+	require.NoError(t, err)
+	req = req.WithContext(ctx)
+
+	// Cancel context immediately in a goroutine
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err = client.doRequestWithRetry(ctx, req)
+	if err == nil {
+		t.Error("Expected error for cancelled context")
+	}
+}
+
+// TestClient_doRequestWithRetry_AllRetriesExhausted tests all retries exhausted
+func TestClient_doRequestWithRetry_AllRetriesExhausted(t *testing.T) {
+	attemptCount := 0
+	var mu sync.Mutex
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		attemptCount++
+		mu.Unlock()
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	retryOpts := &RetryOptions{
+		MaxRetries:           2,
+		RetryDelay:           10 * time.Millisecond,
+		BackoffMultiplier:    1.0,
+		RetryableStatusCodes: []int{http.StatusInternalServerError},
+	}
+
+	opts := DefaultOptions().
+		WithBaseURL(server.URL).
+		WithRetry(retryOpts)
+
+	client, err := NewClient(opts)
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequest("GET", server.URL, http.NoBody)
+	require.NoError(t, err)
+	req = req.WithContext(ctx)
+
+	resp, err := client.doRequestWithRetry(ctx, req)
+
+	// Should have attempted maxRetries + 1 times
+	mu.Lock()
+	count := attemptCount
+	mu.Unlock()
+
+	expectedAttempts := retryOpts.MaxRetries + 1
+	if count != expectedAttempts {
+		t.Errorf("Expected %d attempts, got %d", expectedAttempts, count)
+	}
+
+	// Should return last response for non-retryable final attempt
+	if err != nil {
+		t.Fatalf("Expected no error for final response, got: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Expected response after retries exhausted")
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("Failed to close response body: %v", err)
+		}
+	}()
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, resp.StatusCode)
+	}
+}
+
+// TestClient_addAuthHeaders tests addAuthHeaders method
+func TestClient_addAuthHeaders(t *testing.T) {
+	tests := []struct {
+		name   string
+		apiKey string
+	}{
+		{"with API key", "test-api-key"},
+		{"without API key", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := DefaultOptions().
+				WithBaseURL("http://localhost:8081").
+				WithAPIKey(tt.apiKey)
+
+			client, err := NewClient(opts)
+			if err != nil {
+				t.Fatalf("Failed to create client: %v", err)
+			}
+
+			req, err := http.NewRequest("GET", "http://localhost:8081/", http.NoBody)
+			require.NoError(t, err)
+			client.addAuthHeaders(req)
+
+			if tt.apiKey != "" {
+				if req.Header.Get("X-API-Key") != tt.apiKey {
+					t.Errorf("Expected X-API-Key header %s, got %s", tt.apiKey, req.Header.Get("X-API-Key"))
+				}
+				expectedAuth := "Bearer " + tt.apiKey
+				if req.Header.Get("Authorization") != expectedAuth {
+					t.Errorf("Expected Authorization header %s, got %s", expectedAuth, req.Header.Get("Authorization"))
+				}
+			} else if req.Header.Get("X-API-Key") != "" {
+				t.Error("Should not set X-API-Key header when API key is empty")
 			}
 		})
 	}

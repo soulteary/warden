@@ -85,7 +85,11 @@ func callJobFuncWithParams(jobFunc interface{}, params []interface{}) ([]reflect
 	for k, param := range params {
 		in[k] = reflect.ValueOf(param)
 	}
-	return f.Call(in), nil
+	results := f.Call(in)
+	if results == nil {
+		return []reflect.Value{}, nil
+	}
+	return results, nil
 }
 
 // for given function fn, get the name of function.

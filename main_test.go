@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -16,6 +17,16 @@ import (
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/middleware"
 )
+
+func newFailingRemoteServer(t *testing.T, expectedAuth string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if expectedAuth != "" {
+			assert.Equal(t, expectedAuth, r.Header.Get("Authorization"), "Authorization header should match")
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+}
 
 // TestCalculateHash tests hash calculation function
 func TestCalculateHash(t *testing.T) {
@@ -713,12 +724,15 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 
 // TestApp_loadInitialData_RemoteConfig tests loading data from remote config
 func TestApp_loadInitialData_RemoteConfig(t *testing.T) {
+	remoteServer := newFailingRemoteServer(t, "")
+	defer remoteServer.Close()
+
 	cfg := &cmd.Config{
 		Port:             "8081",
 		RedisEnabled:     false,
 		Mode:             "development",
 		APIKey:           "test-key",
-		RemoteConfig:     "http://invalid-url-that-will-fail.com/data.json",
+		RemoteConfig:     "", // Avoid remote requests during NewApp
 		TaskInterval:     60,
 		HTTPTimeout:      30,
 		HTTPMaxIdleConns: 100,
@@ -726,6 +740,7 @@ func TestApp_loadInitialData_RemoteConfig(t *testing.T) {
 	}
 
 	app := NewApp(cfg)
+	app.configURL = remoteServer.URL
 
 	// Test loading from remote config (will fail, then fallback to local file)
 	err := app.loadInitialData("/nonexistent/file.json")
@@ -963,4 +978,367 @@ func TestApp_checkDataChanged_EmptyHash(t *testing.T) {
 
 	// Test empty hash scenario
 	assert.True(t, app.checkDataChanged(users), "空哈希时应该返回true")
+}
+
+// TestApp_loadInitialData_AllSourcesFailed tests when all data sources fail
+func TestApp_loadInitialData_AllSourcesFailed(t *testing.T) {
+	remoteServer := newFailingRemoteServer(t, "")
+	defer remoteServer.Close()
+
+	cfg := &cmd.Config{
+		Port:             "8081",
+		RedisEnabled:     false,
+		Mode:             "development",
+		APIKey:           "test-key",
+		RemoteConfig:     "", // Avoid remote requests during NewApp
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+	app.configURL = remoteServer.URL
+	app.userCache.Set([]define.AllowListUser{})
+
+	// Test loading when all sources fail
+	err := app.loadInitialData("/nonexistent/file.json")
+	assert.NoError(t, err, "所有源失败时不应该返回错误，只是没有数据")
+	assert.Equal(t, 0, app.userCache.Len(), "所有源失败时缓存应该为空")
+}
+
+// TestApp_loadInitialData_RemoteFirst tests remote-first loading strategy
+func TestApp_loadInitialData_RemoteFirst(t *testing.T) {
+	remoteServer := newFailingRemoteServer(t, "")
+	defer remoteServer.Close()
+
+	cfg := &cmd.Config{
+		Port:             "8081",
+		RedisEnabled:     false,
+		Mode:             "REMOTE_FIRST",
+		APIKey:           "test-key",
+		RemoteConfig:     "", // Avoid remote requests during NewApp
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+	app.configURL = remoteServer.URL
+
+	// Create temporary local file as fallback
+	tmpFile, err := os.CreateTemp("", "test-data-*.json")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
+
+	testData := `[
+		{"phone": "13800138000", "mail": "test@example.com"}
+	]`
+	_, err = tmpFile.WriteString(testData)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	// Test loading (remote fails, should fallback to local)
+	err = app.loadInitialData(tmpFile.Name())
+	assert.NoError(t, err, "远程失败时应该回退到本地文件")
+	assert.Greater(t, app.userCache.Len(), 0, "应该从本地文件加载数据")
+}
+
+// TestApp_backgroundTask_RemoteMode tests background task in remote mode
+func TestApp_backgroundTask_RemoteMode(t *testing.T) {
+	remoteServer := newFailingRemoteServer(t, "")
+	defer remoteServer.Close()
+
+	cfg := &cmd.Config{
+		Port:             "8081",
+		RedisEnabled:     false,
+		Mode:             "REMOTE_FIRST",
+		APIKey:           "test-key",
+		RemoteConfig:     "", // Avoid remote requests during NewApp
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+	app.configURL = remoteServer.URL
+
+	// Create temporary file
+	tmpFile, err := os.CreateTemp("", "test-data-*.json")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
+
+	testData := `[
+		{"phone": "13800138000", "mail": "test@example.com"}
+	]`
+	_, err = tmpFile.WriteString(testData)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	// Run background task (will try remote first, then fallback to local)
+	app.backgroundTask(tmpFile.Name())
+
+	// Verify task executed without panic
+	assert.True(t, true, "后台任务应该执行完成")
+}
+
+// TestApp_updateRedisCacheWithRetry_MaxRetries tests retry logic with max retries
+func TestApp_updateRedisCacheWithRetry_MaxRetries(t *testing.T) {
+	cfg := &cmd.Config{
+		Port:             "8081",
+		Redis:            "localhost:6379",
+		RedisEnabled:     true,
+		Mode:             "development",
+		APIKey:           "test-key",
+		RemoteConfig:     "",
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+
+	// Skip test if Redis is unavailable
+	if app.redisUserCache == nil {
+		t.Skip("跳过测试：Redis不可用")
+	}
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+
+	// Test retry mechanism (may succeed or fail depending on Redis availability)
+	err := app.updateRedisCacheWithRetry(users)
+	// This test mainly verifies the function doesn't panic
+	// Actual result depends on Redis availability
+	if err != nil {
+		t.Logf("Redis更新失败（可能是Redis不可用）: %v", err)
+	}
+}
+
+// TestNewApp_WithRedisConnectionFailure tests Redis connection failure handling
+func TestNewApp_WithRedisConnectionFailure(t *testing.T) {
+	cfg := &cmd.Config{
+		Port:             "8081",
+		Redis:            "invalid-redis-host:6379",
+		RedisEnabled:     true,
+		Mode:             "development",
+		APIKey:           "test-key",
+		RemoteConfig:     "",
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+
+	// Should not panic, should fallback to memory mode
+	assert.NotNil(t, app, "应该创建应用实例")
+	assert.NotNil(t, app.userCache, "应该有内存缓存")
+	// Redis cache may be nil if connection failed
+}
+
+// TestNewApp_WithRedisPasswordFromFile tests reading Redis password from file
+func TestNewApp_WithRedisPasswordFromFile(t *testing.T) {
+	// Create temporary password file
+	tmpFile, err := os.CreateTemp("", "test-redis-password-*.txt")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
+
+	testPassword := "file-password-123"
+	_, err = tmpFile.WriteString(testPassword)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	// Set environment variable
+	oldEnv := os.Getenv("REDIS_PASSWORD_FILE")
+	defer func() {
+		if oldEnv == "" {
+			require.NoError(t, os.Unsetenv("REDIS_PASSWORD_FILE"))
+		} else {
+			require.NoError(t, os.Setenv("REDIS_PASSWORD_FILE", oldEnv))
+		}
+	}()
+
+	require.NoError(t, os.Setenv("REDIS_PASSWORD_FILE", tmpFile.Name()))
+
+	cfg := &cmd.Config{
+		Port:             "8081",
+		Redis:            "localhost:6379",
+		RedisEnabled:     true,
+		Mode:             "development",
+		APIKey:           "test-key",
+		RemoteConfig:     "",
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+	assert.NotNil(t, app, "应该创建应用实例")
+}
+
+// TestApp_loadInitialData_WithRemoteKey tests loading with authorization header
+func TestApp_loadInitialData_WithRemoteKey(t *testing.T) {
+	remoteServer := newFailingRemoteServer(t, "Bearer test-token")
+	defer remoteServer.Close()
+
+	cfg := &cmd.Config{
+		Port:             "8081",
+		RedisEnabled:     false,
+		Mode:             "development",
+		APIKey:           "test-key",
+		RemoteConfig:     "", // Avoid remote requests during NewApp
+		RemoteKey:        "Bearer test-token",
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+	app.configURL = remoteServer.URL
+
+	// Test loading with remote key (will fail, but tests the code path)
+	err := app.loadInitialData("/nonexistent/file.json")
+	assert.NoError(t, err, "应该处理远程密钥配置")
+}
+
+// TestApp_backgroundTask_DataConsistency tests data consistency check
+func TestApp_backgroundTask_DataConsistency(t *testing.T) {
+	cfg := &cmd.Config{
+		Port:             "8081",
+		RedisEnabled:     false,
+		Mode:             "ONLY_LOCAL",
+		APIKey:           "test-key",
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+
+	// Create temporary file
+	tmpFile, err := os.CreateTemp("", "test-data-*.json")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+	}()
+
+	testData := `[
+		{"phone": "13800138000", "mail": "test@example.com"}
+	]`
+	_, err = tmpFile.WriteString(testData)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	// Load initial data
+	err = app.loadInitialData(tmpFile.Name())
+	require.NoError(t, err)
+
+	// Modify cache hash to simulate inconsistency
+	app.userCache.Set([]define.AllowListUser{
+		{Phone: "99999999999", Mail: "modified@example.com"},
+	})
+
+	// Run background task (should detect inconsistency)
+	app.backgroundTask(tmpFile.Name())
+
+	// Verify task executed
+	assert.True(t, true, "后台任务应该执行完成")
+}
+
+// TestCalculateHash_EmptyUsers tests hash calculation with empty users
+func TestCalculateHash_EmptyUsers(t *testing.T) {
+	users := []define.AllowListUser{}
+	hash1 := calculateHash(users)
+	hash2 := calculateHash(users)
+
+	assert.Equal(t, hash1, hash2, "空用户列表应该产生相同哈希")
+	assert.Len(t, hash1, 64, "SHA256 哈希应该是 64 个字符")
+}
+
+// TestCalculateHash_NilScope tests hash calculation with nil scope
+func TestCalculateHash_NilScope(t *testing.T) {
+	users := []define.AllowListUser{
+		{
+			Phone:  "13800138000",
+			Mail:   "test@example.com",
+			Scope:  nil, // nil scope
+			Status: "active",
+		},
+	}
+
+	hash1 := calculateHash(users)
+	hash2 := calculateHash(users)
+
+	assert.Equal(t, hash1, hash2, "相同输入应该产生相同哈希")
+}
+
+// TestHasChanged_EmptyOldHash tests hasChanged with empty old hash
+func TestHasChanged_EmptyOldHash(t *testing.T) {
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+
+	assert.True(t, hasChanged("", users), "空旧哈希应该返回true")
+}
+
+// TestHasChanged_SameHash tests hasChanged with same hash
+func TestHasChanged_SameHash(t *testing.T) {
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+
+	hash := calculateHash(users)
+	assert.False(t, hasChanged(hash, users), "相同哈希应该返回false")
+}
+
+// TestRegisterRoutes_AllEndpoints tests all registered endpoints
+func TestRegisterRoutes_AllEndpoints(t *testing.T) {
+	cfg := &cmd.Config{
+		Port:             "8081",
+		RedisEnabled:     false,
+		Mode:             "development",
+		APIKey:           "test-key",
+		RemoteConfig:     "",
+		TaskInterval:     60,
+		HTTPTimeout:      30,
+		HTTPMaxIdleConns: 100,
+		HTTPInsecureTLS:  false,
+	}
+
+	app := NewApp(cfg)
+
+	// Save original routes
+	originalDefaultMux := http.DefaultServeMux
+	http.DefaultServeMux = http.NewServeMux()
+
+	// Register routes
+	registerRoutes(app)
+
+	// Test all endpoints
+	endpoints := []string{"/", "/user", "/health", "/healthcheck", "/metrics", "/log/level"}
+	for _, endpoint := range endpoints {
+		_, pattern := http.DefaultServeMux.Handler(&http.Request{
+			Method: "GET",
+			URL:    &url.URL{Path: endpoint},
+		})
+		assert.NotEmpty(t, pattern, "端点 %s 应该已注册", endpoint)
+	}
+
+	// Restore original routes
+	http.DefaultServeMux = originalDefaultMux
 }

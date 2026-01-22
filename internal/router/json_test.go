@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -387,4 +388,188 @@ func TestJSON_BackwardCompatibility(t *testing.T) {
 	require.NoError(t, err, "没有分页参数时应该直接返回数组格式")
 
 	assert.Len(t, result, 2, "应该返回所有数据")
+}
+
+// TestJSON_DifferentDataSizes tests different data size scenarios
+func TestJSON_DifferentDataSizes(t *testing.T) {
+	// Test small data (< SMALL_DATA_THRESHOLD)
+	t.Run("小数据", func(t *testing.T) {
+		smallData := make([]define.AllowListUser, 50) // Less than SMALL_DATA_THRESHOLD (100)
+		for i := range smallData {
+			smallData[i] = define.AllowListUser{
+				Phone: fmt.Sprintf("138001%05d", i),
+				Mail:  "test" + strconv.Itoa(i) + "@example.com",
+			}
+		}
+
+		userCache := cache.NewSafeUserCache()
+		userCache.Set(smallData)
+		handler := JSON(userCache)
+
+		req := httptest.NewRequest("GET", "/", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "小数据应该正常处理")
+		var result []define.AllowListUser
+		err := json.Unmarshal(w.Body.Bytes(), &result)
+		require.NoError(t, err)
+		assert.Len(t, result, 50, "应该返回所有数据")
+	})
+
+	// Test medium data (between SMALL_DATA_THRESHOLD and LARGE_DATA_THRESHOLD)
+	t.Run("中等数据", func(t *testing.T) {
+		mediumData := make([]define.AllowListUser, 500) // Between thresholds
+		for i := range mediumData {
+			mediumData[i] = define.AllowListUser{
+				Phone: fmt.Sprintf("138001%05d", i),
+				Mail:  "test" + strconv.Itoa(i) + "@example.com",
+			}
+		}
+
+		userCache := cache.NewSafeUserCache()
+		userCache.Set(mediumData)
+		handler := JSON(userCache)
+
+		req := httptest.NewRequest("GET", "/", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "中等数据应该正常处理")
+		var result []define.AllowListUser
+		err := json.Unmarshal(w.Body.Bytes(), &result)
+		require.NoError(t, err)
+		assert.Len(t, result, 500, "应该返回所有数据")
+	})
+
+	// Test large data (>= LARGE_DATA_THRESHOLD)
+	t.Run("大数据", func(t *testing.T) {
+		largeData := make([]define.AllowListUser, 20000) // >= LARGE_DATA_THRESHOLD (10000)
+		for i := range largeData {
+			largeData[i] = define.AllowListUser{
+				Phone: fmt.Sprintf("138001%05d", i),
+				Mail:  "test" + strconv.Itoa(i) + "@example.com",
+			}
+		}
+
+		userCache := cache.NewSafeUserCache()
+		userCache.Set(largeData)
+		handler := JSON(userCache)
+
+		req := httptest.NewRequest("GET", "/", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "大数据应该正常处理")
+		var result []define.AllowListUser
+		err := json.Unmarshal(w.Body.Bytes(), &result)
+		require.NoError(t, err)
+		assert.Len(t, result, 20000, "应该返回所有数据")
+	})
+}
+
+// TestJSON_Pagination_EdgeCases tests pagination edge cases
+func TestJSON_Pagination_EdgeCases(t *testing.T) {
+	testData := make([]define.AllowListUser, 5)
+	for i := range testData {
+		testData[i] = define.AllowListUser{
+			Phone: "1380013800" + strconv.Itoa(i),
+			Mail:  "test" + strconv.Itoa(i) + "@example.com",
+		}
+	}
+
+	userCache := cache.NewSafeUserCache()
+	userCache.Set(testData)
+	handler := JSON(userCache)
+
+	t.Run("page=0", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?page=0&page_size=2", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "page=0应该返回400")
+	})
+
+	t.Run("page_size=0", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?page=1&page_size=0", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "page_size=0应该返回400")
+	})
+
+	t.Run("page with special characters", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?page=1a&page_size=2", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "包含特殊字符的参数应该返回400")
+	})
+
+	t.Run("page_size with special characters", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/?page=1&page_size=2b", http.NoBody)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code, "包含特殊字符的参数应该返回400")
+	})
+}
+
+// TestJSON_Pagination_OnlyPage tests pagination with only page parameter
+func TestJSON_Pagination_OnlyPage(t *testing.T) {
+	testData := make([]define.AllowListUser, 10)
+	for i := range testData {
+		testData[i] = define.AllowListUser{
+			Phone: "1380013800" + strconv.Itoa(i),
+			Mail:  "test" + strconv.Itoa(i) + "@example.com",
+		}
+	}
+
+	userCache := cache.NewSafeUserCache()
+	userCache.Set(testData)
+	handler := JSON(userCache)
+
+	req := httptest.NewRequest("GET", "/?page=2", http.NoBody)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "只有page参数应该正常处理")
+	var result map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	require.NoError(t, err)
+	assert.Contains(t, result, "pagination", "应该返回分页格式")
+}
+
+// TestJSON_Pagination_OnlyPageSize tests pagination with only page_size parameter
+func TestJSON_Pagination_OnlyPageSize(t *testing.T) {
+	testData := make([]define.AllowListUser, 10)
+	for i := range testData {
+		testData[i] = define.AllowListUser{
+			Phone: "1380013800" + strconv.Itoa(i),
+			Mail:  "test" + strconv.Itoa(i) + "@example.com",
+		}
+	}
+
+	userCache := cache.NewSafeUserCache()
+	userCache.Set(testData)
+	handler := JSON(userCache)
+
+	req := httptest.NewRequest("GET", "/?page_size=5", http.NoBody)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "只有page_size参数应该正常处理")
+	var result map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	require.NoError(t, err)
+	assert.Contains(t, result, "pagination", "应该返回分页格式")
 }

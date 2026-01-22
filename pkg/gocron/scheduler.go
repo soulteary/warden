@@ -231,6 +231,15 @@ func (s *Scheduler) StartWithContext(ctx context.Context) chan bool {
 
 	go func() {
 		defer ticker.Stop()
+		defer func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// ignore close panic for already-closed channel
+					_ = r
+				}
+			}()
+			close(stopped)
+		}()
 		for {
 			select {
 			case <-ticker.C:
