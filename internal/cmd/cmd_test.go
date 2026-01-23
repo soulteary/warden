@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/soulteary/cli-kit/flagutil"
+	"github.com/soulteary/cli-kit/testutil"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,48 +15,20 @@ import (
 func TestGetArgs_DefaultValues(t *testing.T) {
 	// Save original state
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"PORT":     os.Getenv("PORT"),
-		"REDIS":    os.Getenv("REDIS"),
-		"CONFIG":   os.Getenv("CONFIG"),
-		"KEY":      os.Getenv("KEY"),
-		"INTERVAL": os.Getenv("INTERVAL"),
-		"MODE":     os.Getenv("MODE"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Clear environment variables
-	if err := os.Unsetenv("PORT"); err != nil {
-		t.Logf("清理环境变量失败: PORT")
-	}
-	if err := os.Unsetenv("REDIS"); err != nil {
-		t.Logf("清理环境变量失败: REDIS")
-	}
-	if err := os.Unsetenv("CONFIG"); err != nil {
-		t.Logf("清理环境变量失败: CONFIG")
-	}
-	if err := os.Unsetenv("KEY"); err != nil {
-		t.Logf("清理环境变量失败: KEY")
-	}
-	if err := os.Unsetenv("INTERVAL"); err != nil {
-		t.Logf("清理环境变量失败: INTERVAL")
-	}
-	if err := os.Unsetenv("MODE"); err != nil {
-		t.Logf("清理环境变量失败: MODE")
+	envVarsToClear := []string{"PORT", "REDIS", "CONFIG", "KEY", "INTERVAL", "MODE"}
+	for _, key := range envVarsToClear {
+		if err := envMgr.Unset(key); err != nil {
+			t.Logf("清理环境变量失败: %s", key)
+		}
 	}
 
 	os.Args = []string{"test"}
@@ -73,34 +46,19 @@ func TestGetArgs_DefaultValues(t *testing.T) {
 func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 	// Save original state
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"PORT":     os.Getenv("PORT"),
-		"REDIS":    os.Getenv("REDIS"),
-		"CONFIG":   os.Getenv("CONFIG"),
-		"KEY":      os.Getenv("KEY"),
-		"INTERVAL": os.Getenv("INTERVAL"),
-		"MODE":     os.Getenv("MODE"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Clear environment variables
-	for k := range oldEnv {
-		if err := os.Unsetenv(k); err != nil {
-			t.Logf("清理环境变量失败: %s", k)
+	envVarsToClear := []string{"PORT", "REDIS", "CONFIG", "KEY", "INTERVAL", "MODE"}
+	for _, key := range envVarsToClear {
+		if err := envMgr.Unset(key); err != nil {
+			t.Logf("清理环境变量失败: %s", key)
 		}
 	}
 
@@ -120,55 +78,25 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 func TestGetArgs_WithEnvVars(t *testing.T) {
 	// Save original state
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"PORT":     os.Getenv("PORT"),
-		"REDIS":    os.Getenv("REDIS"),
-		"CONFIG":   os.Getenv("CONFIG"),
-		"KEY":      os.Getenv("KEY"),
-		"INTERVAL": os.Getenv("INTERVAL"),
-		"MODE":     os.Getenv("MODE"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
-	// Clear environment variables
-	for k := range oldEnv {
-		if err := os.Unsetenv(k); err != nil {
-			t.Logf("清理环境变量失败: %s", k)
-		}
-	}
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
 
 	// Set environment variables
-	if err := os.Setenv("PORT", "8888"); err != nil {
-		t.Fatalf("设置环境变量失败: PORT")
+	envVars := map[string]string{
+		"PORT":     "8888",
+		"REDIS":    "192.168.1.1:6379",
+		"CONFIG":   "http://test.com/data.json",
+		"KEY":      "env-key",
+		"INTERVAL": "15",
+		"MODE":     "REMOTE_FIRST",
 	}
-	if err := os.Setenv("REDIS", "192.168.1.1:6379"); err != nil {
-		t.Fatalf("设置环境变量失败: REDIS")
-	}
-	if err := os.Setenv("CONFIG", "http://test.com/data.json"); err != nil {
-		t.Fatalf("设置环境变量失败: CONFIG")
-	}
-	if err := os.Setenv("KEY", "env-key"); err != nil {
-		t.Fatalf("设置环境变量失败: KEY")
-	}
-	if err := os.Setenv("INTERVAL", "15"); err != nil {
-		t.Fatalf("设置环境变量失败: INTERVAL")
-	}
-	if err := os.Setenv("MODE", "REMOTE_FIRST"); err != nil {
-		t.Fatalf("设置环境变量失败: MODE")
+	if err := envMgr.SetMultiple(envVars); err != nil {
+		t.Fatalf("设置环境变量失败: %v", err)
 	}
 
 	os.Args = []string{"test"}
@@ -227,42 +155,23 @@ func TestReadPasswordFromFile_EmptyFile(t *testing.T) {
 // TestGetArgs_RedisEnabled_OnlyLocal tests Redis enabled logic in ONLY_LOCAL mode
 func TestGetArgs_RedisEnabled_OnlyLocal(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"MODE":          os.Getenv("MODE"),
-		"REDIS":         os.Getenv("REDIS"),
-		"REDIS_ENABLED": os.Getenv("REDIS_ENABLED"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
-	// Clear environment
-	for k := range oldEnv {
-		if err := os.Unsetenv(k); err != nil {
-			t.Logf("清理环境变量失败: %s", k)
-		}
-	}
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
 
 	// Test ONLY_LOCAL mode without explicit Redis address
-	require.NoError(t, os.Setenv("MODE", "ONLY_LOCAL"))
+	require.NoError(t, envMgr.Set("MODE", "ONLY_LOCAL"))
+	require.NoError(t, envMgr.Unset("REDIS"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.False(t, cfg.RedisEnabled, "ONLY_LOCAL模式且未设置Redis地址时应该禁用Redis")
 
 	// Test ONLY_LOCAL mode with explicit Redis address
-	require.NoError(t, os.Setenv("REDIS", "localhost:6379"))
+	require.NoError(t, envMgr.Set("REDIS", "localhost:6379"))
 	cfg = GetArgs()
 	assert.True(t, cfg.RedisEnabled, "ONLY_LOCAL模式但设置了Redis地址时应该启用Redis")
 }
@@ -270,38 +179,27 @@ func TestGetArgs_RedisEnabled_OnlyLocal(t *testing.T) {
 // TestGetArgs_RedisEnabled_Explicit tests explicit Redis enabled flag
 func TestGetArgs_RedisEnabled_Explicit(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"REDIS_ENABLED": os.Getenv("REDIS_ENABLED"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Test with REDIS_ENABLED=true
-	require.NoError(t, os.Setenv("REDIS_ENABLED", "true"))
+	require.NoError(t, envMgr.Set("REDIS_ENABLED", "true"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.True(t, cfg.RedisEnabled, "REDIS_ENABLED=true时应该启用Redis")
 
 	// Test with REDIS_ENABLED=false
-	require.NoError(t, os.Setenv("REDIS_ENABLED", "false"))
+	require.NoError(t, envMgr.Set("REDIS_ENABLED", "false"))
 	cfg = GetArgs()
 	assert.False(t, cfg.RedisEnabled, "REDIS_ENABLED=false时应该禁用Redis")
 
 	// Test with REDIS_ENABLED=1
-	require.NoError(t, os.Setenv("REDIS_ENABLED", "1"))
+	require.NoError(t, envMgr.Set("REDIS_ENABLED", "1"))
 	cfg = GetArgs()
 	assert.True(t, cfg.RedisEnabled, "REDIS_ENABLED=1时应该启用Redis")
 }
@@ -309,32 +207,13 @@ func TestGetArgs_RedisEnabled_Explicit(t *testing.T) {
 // TestGetArgs_RedisPassword_FromFile tests reading Redis password from file
 func TestGetArgs_RedisPassword_FromFile(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"REDIS_PASSWORD":      os.Getenv("REDIS_PASSWORD"),
-		"REDIS_PASSWORD_FILE": os.Getenv("REDIS_PASSWORD_FILE"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
-	// Clear environment
-	for k := range oldEnv {
-		if err := os.Unsetenv(k); err != nil {
-			t.Logf("清理环境变量失败: %s", k)
-		}
-	}
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
 
 	// Create password file
 	tmpFile, err := os.CreateTemp("", "test-redis-password-*.txt")
@@ -349,7 +228,7 @@ func TestGetArgs_RedisPassword_FromFile(t *testing.T) {
 	}()
 
 	// Test reading from file
-	require.NoError(t, os.Setenv("REDIS_PASSWORD_FILE", tmpFile.Name()))
+	require.NoError(t, envMgr.Set("REDIS_PASSWORD_FILE", tmpFile.Name()))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.Equal(t, "file-password-123", cfg.RedisPassword, "应该从文件读取密码")
@@ -358,33 +237,22 @@ func TestGetArgs_RedisPassword_FromFile(t *testing.T) {
 // TestGetArgs_HTTPTimeout tests HTTP timeout configuration
 func TestGetArgs_HTTPTimeout(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"HTTP_TIMEOUT": os.Getenv("HTTP_TIMEOUT"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Test with integer seconds
-	require.NoError(t, os.Setenv("HTTP_TIMEOUT", "30"))
+	require.NoError(t, envMgr.Set("HTTP_TIMEOUT", "30"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.Equal(t, 30, cfg.HTTPTimeout, "应该正确解析整数秒数")
 
 	// Test with duration format
-	require.NoError(t, os.Setenv("HTTP_TIMEOUT", "45s"))
+	require.NoError(t, envMgr.Set("HTTP_TIMEOUT", "45s"))
 	cfg = GetArgs()
 	assert.Equal(t, 45, cfg.HTTPTimeout, "应该正确解析duration格式")
 }
@@ -392,26 +260,15 @@ func TestGetArgs_HTTPTimeout(t *testing.T) {
 // TestGetArgs_HTTPMaxIdleConns tests HTTP max idle connections
 func TestGetArgs_HTTPMaxIdleConns(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"HTTP_MAX_IDLE_CONNS": os.Getenv("HTTP_MAX_IDLE_CONNS"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
-	require.NoError(t, os.Setenv("HTTP_MAX_IDLE_CONNS", "200"))
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
+	require.NoError(t, envMgr.Set("HTTP_MAX_IDLE_CONNS", "200"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.Equal(t, 200, cfg.HTTPMaxIdleConns, "应该正确设置最大空闲连接数")
@@ -420,33 +277,22 @@ func TestGetArgs_HTTPMaxIdleConns(t *testing.T) {
 // TestGetArgs_HTTPInsecureTLS tests HTTP insecure TLS configuration
 func TestGetArgs_HTTPInsecureTLS(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"HTTP_INSECURE_TLS": os.Getenv("HTTP_INSECURE_TLS"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Test with true
-	require.NoError(t, os.Setenv("HTTP_INSECURE_TLS", "true"))
+	require.NoError(t, envMgr.Set("HTTP_INSECURE_TLS", "true"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.True(t, cfg.HTTPInsecureTLS, "HTTP_INSECURE_TLS=true时应该启用")
 
 	// Test with 1
-	require.NoError(t, os.Setenv("HTTP_INSECURE_TLS", "1"))
+	require.NoError(t, envMgr.Set("HTTP_INSECURE_TLS", "1"))
 	cfg = GetArgs()
 	assert.True(t, cfg.HTTPInsecureTLS, "HTTP_INSECURE_TLS=1时应该启用")
 }
@@ -454,26 +300,15 @@ func TestGetArgs_HTTPInsecureTLS(t *testing.T) {
 // TestGetArgs_APIKey tests API key configuration
 func TestGetArgs_APIKey(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"API_KEY": os.Getenv("API_KEY"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
-	require.NoError(t, os.Setenv("API_KEY", "test-api-key-123"))
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
+	require.NoError(t, envMgr.Set("API_KEY", "test-api-key-123"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.Equal(t, "test-api-key-123", cfg.APIKey, "应该正确设置API密钥")
@@ -482,27 +317,16 @@ func TestGetArgs_APIKey(t *testing.T) {
 // TestGetArgs_CommandLinePriority tests command-line arguments priority
 func TestGetArgs_CommandLinePriority(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"PORT": os.Getenv("PORT"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Set environment variable
-	require.NoError(t, os.Setenv("PORT", "8888"))
+	require.NoError(t, envMgr.Set("PORT", "8888"))
 	// Set command-line argument (should override env var)
 	os.Args = []string{"test", "--port", "9999"}
 
@@ -513,27 +337,16 @@ func TestGetArgs_CommandLinePriority(t *testing.T) {
 // TestGetArgs_InvalidPortEnv tests invalid port in environment variable
 func TestGetArgs_InvalidPortEnv(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"PORT": os.Getenv("PORT"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Set invalid port in environment
-	require.NoError(t, os.Setenv("PORT", "invalid"))
+	require.NoError(t, envMgr.Set("PORT", "invalid"))
 	os.Args = []string{"test"}
 
 	cfg := GetArgs()
@@ -544,27 +357,16 @@ func TestGetArgs_InvalidPortEnv(t *testing.T) {
 // TestGetArgs_InvalidIntervalEnv tests invalid interval in environment variable
 func TestGetArgs_InvalidIntervalEnv(t *testing.T) {
 	oldArgs := os.Args
-	oldEnv := map[string]string{
-		"INTERVAL": os.Getenv("INTERVAL"),
-	}
-
 	defer func() {
 		os.Args = oldArgs
-		for k, v := range oldEnv {
-			if v == "" {
-				if err := os.Unsetenv(k); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			} else {
-				if err := os.Setenv(k, v); err != nil {
-					t.Logf("恢复环境变量失败: %s", k)
-				}
-			}
-		}
 	}()
 
+	// Use EnvManager to manage environment variables
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
 	// Set invalid interval in environment
-	require.NoError(t, os.Setenv("INTERVAL", "invalid"))
+	require.NoError(t, envMgr.Set("INTERVAL", "invalid"))
 	os.Args = []string{"test"}
 
 	cfg := GetArgs()

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	// External packages
+	"github.com/soulteary/cli-kit/configutil"
 	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/cli-kit/flagutil"
 
@@ -92,16 +93,17 @@ func GetArgs() *Config {
 }
 
 // processPortFromFlags processes port configuration
-func processPortFromFlags(cfg *Config, fs *flag.FlagSet, portFlag int) {
-	if flagutil.HasFlag(fs, "port") {
-		cfg.Port = strconv.Itoa(portFlag)
-	} else if portEnv := env.GetInt("PORT", 0); portEnv > 0 {
-		cfg.Port = strconv.Itoa(portEnv)
+func processPortFromFlags(cfg *Config, fs *flag.FlagSet, _ int) {
+	// Use configutil to resolve with priority: CLI > ENV > default
+	// Note: portFlag parameter is kept for API compatibility but not used directly
+	// Default port is already set in cfg, so we use 0 as default here and only override if set
+	if portVal := configutil.ResolveIntAsString(fs, "port", "PORT", 0, false); portVal != "0" {
+		cfg.Port = portVal
 	}
 }
 
 // processRedisFromFlags processes Redis configuration
-func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswordFlag string, redisEnabledFlag bool) {
+func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, _, redisPasswordFlag string, redisEnabledFlag bool) {
 	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable for safety)
 	isOnlyLocalMode := false
 	if cfg.Mode != "" {
@@ -114,10 +116,10 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 	redisExplicitlySet := flagutil.HasFlag(fs, "redis") || env.GetTrimmed("REDIS", "") != ""
 
 	// Process Redis address first
-	if flagutil.HasFlag(fs, "redis") {
-		cfg.Redis = redisFlag
-	} else if redisEnv := env.GetTrimmed("REDIS", ""); redisEnv != "" {
-		cfg.Redis = redisEnv
+	// Use configutil to resolve with priority: CLI > ENV > default
+	// Default is already set in cfg, so we only override if explicitly set
+	if redisVal := configutil.ResolveString(fs, "redis", "REDIS", "", true); redisVal != "" {
+		cfg.Redis = redisVal
 	}
 
 	// Process Redis enabled state (priority: command-line argument > environment variable > default value)
@@ -161,43 +163,40 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, redisFlag, redisPasswo
 }
 
 // processRemoteConfigFromFlags processes remote configuration
-func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet, configFlag, keyFlag string) {
-	if flagutil.HasFlag(fs, "config") {
-		cfg.RemoteConfig = configFlag
-	} else if configEnv := env.GetTrimmed("CONFIG", ""); configEnv != "" {
-		cfg.RemoteConfig = configEnv
+func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet, _, _ string) {
+	// Use configutil to resolve with priority: CLI > ENV > default
+	// Default is already set in cfg, so we only override if explicitly set
+	if configVal := configutil.ResolveString(fs, "config", "CONFIG", "", true); configVal != "" {
+		cfg.RemoteConfig = configVal
 	}
 
-	if flagutil.HasFlag(fs, "key") {
-		cfg.RemoteKey = keyFlag
-	} else if keyEnv := env.GetTrimmed("KEY", ""); keyEnv != "" {
-		cfg.RemoteKey = keyEnv
+	if keyVal := configutil.ResolveString(fs, "key", "KEY", "", true); keyVal != "" {
+		cfg.RemoteKey = keyVal
 	}
 }
 
 // processTaskFromFlags processes task configuration
-func processTaskFromFlags(cfg *Config, fs *flag.FlagSet, intervalFlag int) {
-	if flagutil.HasFlag(fs, "interval") {
-		cfg.TaskInterval = intervalFlag
-	} else {
-		cfg.TaskInterval = env.GetInt("INTERVAL", cfg.TaskInterval)
-	}
+func processTaskFromFlags(cfg *Config, fs *flag.FlagSet, _ int) {
+	// Use configutil to resolve with priority: CLI > ENV > default
+	// Default is already set in cfg, so we use it as fallback
+	cfg.TaskInterval = configutil.ResolveInt(fs, "interval", "INTERVAL", cfg.TaskInterval, false)
 }
 
 // processModeFromFlags processes mode configuration
-func processModeFromFlags(cfg *Config, fs *flag.FlagSet, modeFlag string) {
-	if flagutil.HasFlag(fs, "mode") {
-		cfg.Mode = modeFlag
-	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
-		cfg.Mode = modeEnv
+func processModeFromFlags(cfg *Config, fs *flag.FlagSet, _ string) {
+	// Use configutil to resolve with priority: CLI > ENV > default
+	// Default is already set in cfg, so we only override if explicitly set
+	if modeVal := configutil.ResolveString(fs, "mode", "MODE", "", true); modeVal != "" {
+		cfg.Mode = modeVal
 	}
 }
 
 // processHTTPFromFlags processes HTTP configuration
-func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMaxIdleConnsFlag int, httpInsecureTLSFlag bool) {
+func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, _ int, _ bool) {
+	// HTTP_TIMEOUT: CLI flag has highest priority
 	if flagutil.HasFlag(fs, "http-timeout") {
 		cfg.HTTPTimeout = httpTimeoutFlag
-	} else {
+	} else if env.Has("HTTP_TIMEOUT") {
 		// Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
 		if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
 			cfg.HTTPTimeout = int(timeout.Seconds())
@@ -205,26 +204,21 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, httpMa
 			cfg.HTTPTimeout = timeout
 		}
 	}
+	// Note: Default is already set in cfg, so we don't need to set it here
 
-	if flagutil.HasFlag(fs, "http-max-idle-conns") {
-		cfg.HTTPMaxIdleConns = httpMaxIdleConnsFlag
-	} else {
-		cfg.HTTPMaxIdleConns = env.GetInt("HTTP_MAX_IDLE_CONNS", cfg.HTTPMaxIdleConns)
-	}
+	// Use configutil for http-max-idle-conns
+	cfg.HTTPMaxIdleConns = configutil.ResolveInt(fs, "http-max-idle-conns", "HTTP_MAX_IDLE_CONNS", cfg.HTTPMaxIdleConns, false)
 
-	if flagutil.HasFlag(fs, "http-insecure-tls") {
-		cfg.HTTPInsecureTLS = httpInsecureTLSFlag
-	} else {
-		cfg.HTTPInsecureTLS = env.GetBool("HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
-	}
+	// Use configutil for http-insecure-tls
+	cfg.HTTPInsecureTLS = configutil.ResolveBool(fs, "http-insecure-tls", "HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
 }
 
 // processAPIKeyFromFlags processes API Key configuration
-func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet, apiKeyFlag string) {
-	if flagutil.HasFlag(fs, "api-key") {
-		cfg.APIKey = apiKeyFlag
-	} else if apiKeyEnv := env.GetTrimmed("API_KEY", ""); apiKeyEnv != "" {
-		cfg.APIKey = apiKeyEnv
+func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet, _ string) {
+	// Use configutil to resolve with priority: CLI > ENV > default
+	// Default is empty string, so we only override if explicitly set
+	if apiKeyVal := configutil.ResolveString(fs, "api-key", "API_KEY", "", true); apiKeyVal != "" {
+		cfg.APIKey = apiKeyVal
 	}
 }
 
@@ -337,40 +331,42 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	}
 
 	// If command-line arguments are set, override configuration
-	if portVal := flagutil.GetInt(overrideFs, "port", 0); portVal > 0 {
-		cfg.Port = strconv.Itoa(portVal)
+	// Use configutil for simple fields with priority: CLI > ENV > default (from cfg)
+	if portVal := configutil.ResolveIntAsString(overrideFs, "port", "PORT", 0, false); portVal != "0" {
+		cfg.Port = portVal
 	}
-	if redisVal := flagutil.GetString(overrideFs, "redis", ""); redisVal != "" {
+	if redisVal := configutil.ResolveString(overrideFs, "redis", "REDIS", "", true); redisVal != "" {
 		cfg.Redis = redisVal
 	}
+	// Redis password: CLI flag (lowest priority for password, but still handled here)
 	if redisPasswordVal := flagutil.GetString(overrideFs, "redis-password", ""); redisPasswordVal != "" {
 		cfg.RedisPassword = redisPasswordVal
 	}
 	if flagutil.HasFlag(overrideFs, "redis-enabled") {
 		cfg.RedisEnabled = flagutil.GetBool(overrideFs, "redis-enabled", redisEnabledFlag)
 	}
-	if configVal := flagutil.GetString(overrideFs, "config", ""); configVal != "" {
+	if configVal := configutil.ResolveString(overrideFs, "config", "CONFIG", "", true); configVal != "" {
 		cfg.RemoteConfig = configVal
 	}
-	if keyVal := flagutil.GetString(overrideFs, "key", ""); keyVal != "" {
+	if keyVal := configutil.ResolveString(overrideFs, "key", "KEY", "", true); keyVal != "" {
 		cfg.RemoteKey = keyVal
 	}
-	if modeVal := flagutil.GetString(overrideFs, "mode", ""); modeVal != "" {
+	if modeVal := configutil.ResolveString(overrideFs, "mode", "MODE", "", true); modeVal != "" {
 		cfg.Mode = modeVal
 	}
-	if intervalVal := flagutil.GetInt(overrideFs, "interval", 0); intervalVal > 0 {
+	if intervalVal := configutil.ResolveInt(overrideFs, "interval", "INTERVAL", 0, false); intervalVal > 0 {
 		cfg.TaskInterval = intervalVal
 	}
-	if timeoutVal := flagutil.GetInt(overrideFs, "http-timeout", 0); timeoutVal > 0 {
+	if timeoutVal := configutil.ResolveInt(overrideFs, "http-timeout", "HTTP_TIMEOUT", 0, false); timeoutVal > 0 {
 		cfg.HTTPTimeout = timeoutVal
 	}
-	if maxIdleConnsVal := flagutil.GetInt(overrideFs, "http-max-idle-conns", 0); maxIdleConnsVal > 0 {
+	if maxIdleConnsVal := configutil.ResolveInt(overrideFs, "http-max-idle-conns", "HTTP_MAX_IDLE_CONNS", 0, false); maxIdleConnsVal > 0 {
 		cfg.HTTPMaxIdleConns = maxIdleConnsVal
 	}
 	if flagutil.HasFlag(overrideFs, "http-insecure-tls") {
-		cfg.HTTPInsecureTLS = flagutil.GetBool(overrideFs, "http-insecure-tls", httpInsecureTLSFlag)
+		cfg.HTTPInsecureTLS = configutil.ResolveBool(overrideFs, "http-insecure-tls", "HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
 	}
-	if apiKeyVal := flagutil.GetString(overrideFs, "api-key", ""); apiKeyVal != "" {
+	if apiKeyVal := configutil.ResolveString(overrideFs, "api-key", "API_KEY", "", true); apiKeyVal != "" {
 		cfg.APIKey = apiKeyVal
 	}
 
@@ -421,15 +417,19 @@ func LoadConfig(configFile string) (*Config, error) {
 func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	// Environment variables have higher priority than configuration file, but lower than command-line arguments
 	// Only process environment variables here, command-line arguments are processed in GetArgs
-	if portEnv := env.GetInt("PORT", 0); portEnv > 0 {
-		cfg.Port = strconv.Itoa(portEnv)
+	// Use configutil with empty FlagSet (no CLI flags) to only check ENV
+	emptyFs := flag.NewFlagSet("empty", flag.ContinueOnError)
+
+	if portEnv := configutil.ResolveIntAsString(emptyFs, "port", "PORT", 0, false); portEnv != "0" {
+		cfg.Port = portEnv
 	}
 
-	if redisEnv := env.GetTrimmed("REDIS", ""); redisEnv != "" {
+	if redisEnv := configutil.ResolveString(emptyFs, "redis", "REDIS", "", true); redisEnv != "" {
 		cfg.Redis = redisEnv
 	}
 
 	// Redis password priority: environment variable > password file > configuration file
+	// (Special logic preserved)
 	redisPasswordEnv := env.GetTrimmed("REDIS_PASSWORD", "")
 	redisPasswordFile := env.GetTrimmed("REDIS_PASSWORD_FILE", "")
 
@@ -441,36 +441,39 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 		}
 	}
 
-	if configEnv := env.GetTrimmed("CONFIG", ""); configEnv != "" {
+	if configEnv := configutil.ResolveString(emptyFs, "config", "CONFIG", "", true); configEnv != "" {
 		cfg.RemoteConfig = configEnv
 	}
 
-	if keyEnv := env.GetTrimmed("KEY", ""); keyEnv != "" {
+	if keyEnv := configutil.ResolveString(emptyFs, "key", "KEY", "", true); keyEnv != "" {
 		cfg.RemoteKey = keyEnv
 	}
 
-	if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
+	if modeEnv := configutil.ResolveString(emptyFs, "mode", "MODE", "", true); modeEnv != "" {
 		cfg.Mode = modeEnv
 	}
 
-	if intervalEnv := env.GetInt("INTERVAL", 0); intervalEnv > 0 {
+	if intervalEnv := configutil.ResolveInt(emptyFs, "interval", "INTERVAL", 0, false); intervalEnv > 0 {
 		cfg.TaskInterval = intervalEnv
 	}
 
-	// Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
-	if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
-		cfg.HTTPTimeout = int(timeout.Seconds())
-	} else if timeout := env.GetInt("HTTP_TIMEOUT", 0); timeout > 0 {
-		cfg.HTTPTimeout = timeout
+	// HTTP_TIMEOUT: Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
+	// (Special logic preserved)
+	if env.Has("HTTP_TIMEOUT") {
+		if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
+			cfg.HTTPTimeout = int(timeout.Seconds())
+		} else if timeout := env.GetInt("HTTP_TIMEOUT", 0); timeout > 0 {
+			cfg.HTTPTimeout = timeout
+		}
 	}
 
-	if maxIdleConnsEnv := env.GetInt("HTTP_MAX_IDLE_CONNS", 0); maxIdleConnsEnv > 0 {
+	if maxIdleConnsEnv := configutil.ResolveInt(emptyFs, "http-max-idle-conns", "HTTP_MAX_IDLE_CONNS", 0, false); maxIdleConnsEnv > 0 {
 		cfg.HTTPMaxIdleConns = maxIdleConnsEnv
 	}
 
-	cfg.HTTPInsecureTLS = env.GetBool("HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
+	cfg.HTTPInsecureTLS = configutil.ResolveBool(emptyFs, "http-insecure-tls", "HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
 
-	if apiKeyEnv := env.GetTrimmed("API_KEY", ""); apiKeyEnv != "" {
+	if apiKeyEnv := configutil.ResolveString(emptyFs, "api-key", "API_KEY", "", true); apiKeyEnv != "" {
 		cfg.APIKey = apiKeyEnv
 	}
 

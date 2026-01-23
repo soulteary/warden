@@ -3,39 +3,37 @@ package cmd
 import (
 	// Standard library
 	"fmt"
-	"strconv"
 	"strings"
+
+	// External packages
+	"github.com/soulteary/cli-kit/validator"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
-	"github.com/soulteary/warden/internal/validator"
+	wardenValidator "github.com/soulteary/warden/internal/validator"
 )
 
 // ValidateConfig validates configuration validity
 func ValidateConfig(cfg *Config) error {
 	var errors []string
 
-	// Validate port
-	if port, err := strconv.Atoi(cfg.Port); err != nil || port < 1 || port > 65535 {
+	// Validate port using cli-kit validator
+	if _, err := validator.ValidatePortString(cfg.Port); err != nil {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
 	}
 
-	// Validate Redis address format
+	// Validate Redis address format using cli-kit validator
 	if cfg.Redis != "" {
-		parts := strings.Split(cfg.Redis, ":")
-		if len(parts) != 2 {
-			errors = append(errors, fmt.Sprintf("Invalid Redis address format: %s (should be host:port)", cfg.Redis))
-		} else {
-			if port, err := strconv.Atoi(parts[1]); err != nil || port < 1 || port > 65535 {
-				errors = append(errors, fmt.Sprintf("Invalid Redis port: %s", parts[1]))
-			}
+		if _, _, err := validator.ValidateHostPort(cfg.Redis); err != nil {
+			errors = append(errors, fmt.Sprintf("Invalid Redis address format: %s (should be host:port): %v", cfg.Redis, err))
 		}
 	}
 
 	// Validate remote configuration URL (enhanced SSRF protection)
+	// Use warden's validator for backward compatibility (it may have project-specific rules)
 	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
-		if err := validator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
+		if err := wardenValidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
 			errors = append(errors, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
 		}
 	}
@@ -45,17 +43,17 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
 	}
 
-	// Validate mode
-	validModes := map[string]bool{
-		"DEFAULT":                          true,
-		"REMOTE_FIRST":                     true,
-		"ONLY_REMOTE":                      true,
-		"ONLY_LOCAL":                       true,
-		"LOCAL_FIRST":                      true,
-		"REMOTE_FIRST_ALLOW_REMOTE_FAILED": true,
-		"LOCAL_FIRST_ALLOW_REMOTE_FAILED":  true,
+	// Validate mode using cli-kit validator
+	validModes := []string{
+		"DEFAULT",
+		"REMOTE_FIRST",
+		"ONLY_REMOTE",
+		"ONLY_LOCAL",
+		"LOCAL_FIRST",
+		"REMOTE_FIRST_ALLOW_REMOTE_FAILED",
+		"LOCAL_FIRST_ALLOW_REMOTE_FAILED",
 	}
-	if !validModes[cfg.Mode] {
+	if err := validator.ValidateEnum(cfg.Mode, validModes, true); err != nil {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
 	}
 
