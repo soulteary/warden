@@ -166,6 +166,7 @@ func TestGetArgs_RedisEnabled_OnlyLocal(t *testing.T) {
 	// Test ONLY_LOCAL mode without explicit Redis address
 	require.NoError(t, envMgr.Set("MODE", "ONLY_LOCAL"))
 	require.NoError(t, envMgr.Unset("REDIS"))
+	require.NoError(t, envMgr.Unset("REDIS_ENABLED"))
 	os.Args = []string{"test"}
 	cfg := GetArgs()
 	assert.False(t, cfg.RedisEnabled, "ONLY_LOCAL模式且未设置Redis地址时应该禁用Redis")
