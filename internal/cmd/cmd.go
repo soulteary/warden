@@ -38,6 +38,94 @@ type Config struct {
 	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
 }
 
+// flagValues holds parsed flag values
+//
+//nolint:govet // fieldalignment: field order optimized for memory efficiency
+type flagValues struct {
+	// int fields (8 bytes each)
+	port             int
+	interval         int
+	httpTimeout      int
+	httpMaxIdleConns int
+	// string fields (16 bytes each)
+	configFile    string
+	redis         string
+	redisPassword string
+	config        string
+	key           string
+	mode          string
+	apiKey        string
+	// bool fields (1 byte each, but padded to 8 bytes)
+	redisEnabled    bool
+	httpInsecureTLS bool
+}
+
+// flagDefaults holds default values for flags
+//
+//nolint:govet // fieldalignment: field order optimized for memory efficiency
+type flagDefaults struct {
+	// int fields (8 bytes each)
+	port             int
+	interval         int
+	httpTimeout      int
+	httpMaxIdleConns int
+	// string fields (16 bytes each)
+	redis  string
+	config string
+	key    string
+	mode   string
+	// bool fields (1 byte each, but padded to 8 bytes)
+	redisEnabled    bool
+	httpInsecureTLS bool
+}
+
+// registerFlags registers all flags in a FlagSet and returns parsed values
+// If defaults is nil, uses zero values (for override scenarios)
+func registerFlags(fs *flag.FlagSet, defaults *flagDefaults) *flagValues {
+	vals := &flagValues{}
+
+	// Determine default values
+	portDef := 0
+	redisDef := ""
+	redisEnabledDef := true
+	configDef := ""
+	keyDef := ""
+	modeDef := ""
+	intervalDef := 0
+	httpTimeoutDef := 0
+	httpMaxIdleConnsDef := 0
+	httpInsecureTLSDef := false
+
+	if defaults != nil {
+		portDef = defaults.port
+		redisDef = defaults.redis
+		redisEnabledDef = defaults.redisEnabled
+		configDef = defaults.config
+		keyDef = defaults.key
+		modeDef = defaults.mode
+		intervalDef = defaults.interval
+		httpTimeoutDef = defaults.httpTimeout
+		httpMaxIdleConnsDef = defaults.httpMaxIdleConns
+		httpInsecureTLSDef = defaults.httpInsecureTLS
+	}
+
+	fs.StringVar(&vals.configFile, "config-file", "", "Configuration file path (supports YAML format)")
+	fs.IntVar(&vals.port, "port", portDef, "web port")
+	fs.StringVar(&vals.redis, "redis", redisDef, "redis host and port")
+	fs.StringVar(&vals.redisPassword, "redis-password", "", "redis password")
+	fs.BoolVar(&vals.redisEnabled, "redis-enabled", redisEnabledDef, "enable Redis (default: true)")
+	fs.StringVar(&vals.config, "config", configDef, "remote config url")
+	fs.StringVar(&vals.key, "key", keyDef, "remote config key")
+	fs.StringVar(&vals.mode, "mode", modeDef, "app mode")
+	fs.IntVar(&vals.interval, "interval", intervalDef, "task interval")
+	fs.IntVar(&vals.httpTimeout, "http-timeout", httpTimeoutDef, "HTTP request timeout in seconds")
+	fs.IntVar(&vals.httpMaxIdleConns, "http-max-idle-conns", httpMaxIdleConnsDef, "HTTP max idle connections")
+	fs.BoolVar(&vals.httpInsecureTLS, "http-insecure-tls", httpInsecureTLSDef, "skip TLS certificate verification (development only)")
+	fs.StringVar(&vals.apiKey, "api-key", "", "API key for authentication")
+
+	return vals
+}
+
 // GetArgs parses command-line arguments and environment variables, returns configuration struct
 // Priority: command-line arguments > environment variables > configuration file > default values
 // If -config-file parameter is provided, will attempt to load from configuration file
@@ -45,30 +133,8 @@ func GetArgs() *Config {
 	// Create FlagSet to parse command-line arguments
 	// Need to define all possible parameters to avoid "flag provided but not defined" error
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	var configFileFlag string
-	var portFlag int
-	var redisFlag, configFlag, keyFlag, modeFlag string
-	var intervalFlag int
-	var httpTimeoutFlag, httpMaxIdleConnsFlag int
-	var httpInsecureTLSFlag bool
-	var redisPasswordFlag string
-	var redisEnabledFlag bool
-	var apiKeyFlag string
-
-	fs.StringVar(&configFileFlag, "config-file", "", "Configuration file path (supports YAML format)")
-	// Define all parameters to avoid undefined parameter errors (but only used for parsing here, actual values processed later)
-	fs.IntVar(&portFlag, "port", 0, "web port")
-	fs.StringVar(&redisFlag, "redis", "", "redis host and port")
-	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	fs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
-	fs.StringVar(&configFlag, "config", "", "remote config url")
-	fs.StringVar(&keyFlag, "key", "", "remote config key")
-	fs.StringVar(&modeFlag, "mode", "", "app mode")
-	fs.IntVar(&intervalFlag, "interval", 0, "task interval")
-	fs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
-	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
-	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
-	fs.StringVar(&apiKeyFlag, "api-key", "", "API key for authentication")
+	// Use zero defaults for override scenario
+	flagVals := registerFlags(fs, nil)
 
 	// Parse once to get configuration file path
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -77,8 +143,8 @@ func GetArgs() *Config {
 	}
 
 	// If configuration file is specified, attempt to load from it
-	if configFileFlag != "" {
-		if newCfg, err := config.LoadFromFile(configFileFlag); err == nil {
+	if flagVals.configFile != "" {
+		if newCfg, err := config.LoadFromFile(flagVals.configFile); err == nil {
 			// Successfully loaded configuration file, convert to old format and apply command-line argument overrides
 			legacyCfg := newCfg.ToCmdConfig()
 			// Command-line arguments have highest priority, will override values in configuration file
@@ -93,9 +159,8 @@ func GetArgs() *Config {
 }
 
 // processPortFromFlags processes port configuration
-func processPortFromFlags(cfg *Config, fs *flag.FlagSet, _ int) {
+func processPortFromFlags(cfg *Config, fs *flag.FlagSet) {
 	// Use configutil to resolve with priority: CLI > ENV > default
-	// Note: portFlag parameter is kept for API compatibility but not used directly
 	// Default port is already set in cfg, so we use 0 as default here and only override if set
 	if portVal := configutil.ResolveIntAsString(fs, "port", "PORT", 0, false); portVal != "0" {
 		cfg.Port = portVal
@@ -103,7 +168,8 @@ func processPortFromFlags(cfg *Config, fs *flag.FlagSet, _ int) {
 }
 
 // processRedisFromFlags processes Redis configuration
-func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, _, redisPasswordFlag string, redisEnabledFlag bool) {
+// flagVals can be nil when only processing environment variables (e.g., in overrideFromEnvInternal)
+func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) {
 	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable for safety)
 	isOnlyLocalMode := false
 	if cfg.Mode != "" {
@@ -113,7 +179,7 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, _, redisPasswordFlag s
 	}
 
 	// Check if Redis address is explicitly set (command-line argument or environment variable)
-	redisExplicitlySet := flagutil.HasFlag(fs, "redis") || env.GetTrimmed("REDIS", "") != ""
+	redisExplicitlySet := (flagVals != nil && flagutil.HasFlag(fs, "redis")) || env.GetTrimmed("REDIS", "") != ""
 
 	// Process Redis address first
 	// Use configutil to resolve with priority: CLI > ENV > default
@@ -123,8 +189,8 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, _, redisPasswordFlag s
 	}
 
 	// Process Redis enabled state (priority: command-line argument > environment variable > default value)
-	if flagutil.HasFlag(fs, "redis-enabled") {
-		cfg.RedisEnabled = redisEnabledFlag
+	if flagVals != nil && flagutil.HasFlag(fs, "redis-enabled") {
+		cfg.RedisEnabled = flagVals.redisEnabled
 	} else if redisEnabledEnv := env.GetTrimmed("REDIS_ENABLED", ""); redisEnabledEnv != "" {
 		// Supports true/false/1/0
 		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
@@ -157,13 +223,13 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, _, redisPasswordFlag s
 		if password, err := flagutil.ReadPasswordFromFile(redisPasswordFile); err == nil {
 			cfg.RedisPassword = password
 		}
-	case flagutil.HasFlag(fs, "redis-password"):
-		cfg.RedisPassword = redisPasswordFlag
+	case flagVals != nil && flagutil.HasFlag(fs, "redis-password"):
+		cfg.RedisPassword = flagVals.redisPassword
 	}
 }
 
 // processRemoteConfigFromFlags processes remote configuration
-func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet, _, _ string) {
+func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet) {
 	// Use configutil to resolve with priority: CLI > ENV > default
 	// Default is already set in cfg, so we only override if explicitly set
 	if configVal := configutil.ResolveString(fs, "config", "CONFIG", "", true); configVal != "" {
@@ -176,14 +242,14 @@ func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet, _, _ string) {
 }
 
 // processTaskFromFlags processes task configuration
-func processTaskFromFlags(cfg *Config, fs *flag.FlagSet, _ int) {
+func processTaskFromFlags(cfg *Config, fs *flag.FlagSet) {
 	// Use configutil to resolve with priority: CLI > ENV > default
 	// Default is already set in cfg, so we use it as fallback
 	cfg.TaskInterval = configutil.ResolveInt(fs, "interval", "INTERVAL", cfg.TaskInterval, false)
 }
 
 // processModeFromFlags processes mode configuration
-func processModeFromFlags(cfg *Config, fs *flag.FlagSet, _ string) {
+func processModeFromFlags(cfg *Config, fs *flag.FlagSet) {
 	// Use configutil to resolve with priority: CLI > ENV > default
 	// Default is already set in cfg, so we only override if explicitly set
 	if modeVal := configutil.ResolveString(fs, "mode", "MODE", "", true); modeVal != "" {
@@ -192,10 +258,11 @@ func processModeFromFlags(cfg *Config, fs *flag.FlagSet, _ string) {
 }
 
 // processHTTPFromFlags processes HTTP configuration
-func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, _ int, _ bool) {
+// flagVals can be nil when only processing environment variables (e.g., in overrideFromEnvInternal)
+func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) {
 	// HTTP_TIMEOUT: CLI flag has highest priority
-	if flagutil.HasFlag(fs, "http-timeout") {
-		cfg.HTTPTimeout = httpTimeoutFlag
+	if flagVals != nil && flagutil.HasFlag(fs, "http-timeout") {
+		cfg.HTTPTimeout = flagVals.httpTimeout
 	} else if env.Has("HTTP_TIMEOUT") {
 		// Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
 		if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
@@ -214,7 +281,7 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, httpTimeoutFlag, _ int,
 }
 
 // processAPIKeyFromFlags processes API Key configuration
-func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet, _ string) {
+func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet) {
 	// Use configutil to resolve with priority: CLI > ENV > default
 	// Default is empty string, so we only override if explicitly set
 	if apiKeyVal := configutil.ResolveString(fs, "api-key", "API_KEY", "", true); apiKeyVal != "" {
@@ -240,27 +307,20 @@ func getArgsFromFlags() *Config {
 	// Create FlagSet to parse command-line arguments
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
-	var portFlag int
-	var redisFlag, configFlag, keyFlag, modeFlag string
-	var intervalFlag int
-	var httpTimeoutFlag, httpMaxIdleConnsFlag int
-	var httpInsecureTLSFlag bool
-	var redisPasswordFlag string
-	var redisEnabledFlag bool
-
-	fs.IntVar(&portFlag, "port", define.DEFAULT_PORT, "web port")
-	fs.StringVar(&redisFlag, "redis", define.DEFAULT_REDIS, "redis host and port")
-	fs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	fs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
-	fs.StringVar(&configFlag, "config", define.DEFAULT_REMOTE_CONFIG, "remote config url")
-	fs.StringVar(&keyFlag, "key", define.DEFAULT_REMOTE_KEY, "remote config key")
-	fs.StringVar(&modeFlag, "mode", define.DEFAULT_MODE, "app mode")
-	fs.IntVar(&intervalFlag, "interval", define.DEFAULT_TASK_INTERVAL, "task interval")
-	fs.IntVar(&httpTimeoutFlag, "http-timeout", define.DEFAULT_TIMEOUT, "HTTP request timeout in seconds")
-	fs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 100, "HTTP max idle connections")
-	fs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
-	var apiKeyFlag string
-	fs.StringVar(&apiKeyFlag, "api-key", "", "API key for authentication")
+	// Register flags with default values
+	defaults := &flagDefaults{
+		port:             define.DEFAULT_PORT,
+		redis:            define.DEFAULT_REDIS,
+		redisEnabled:     true,
+		config:           define.DEFAULT_REMOTE_CONFIG,
+		key:              define.DEFAULT_REMOTE_KEY,
+		mode:             define.DEFAULT_MODE,
+		interval:         define.DEFAULT_TASK_INTERVAL,
+		httpTimeout:      define.DEFAULT_TIMEOUT,
+		httpMaxIdleConns: 100,
+		httpInsecureTLS:  false,
+	}
+	flagVals := registerFlags(fs, defaults)
 
 	// Parse command-line arguments
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -270,13 +330,13 @@ func getArgsFromFlags() *Config {
 
 	// Process each configuration item
 	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
-	processModeFromFlags(cfg, fs, modeFlag)
-	processPortFromFlags(cfg, fs, portFlag)
-	processRedisFromFlags(cfg, fs, redisFlag, redisPasswordFlag, redisEnabledFlag)
-	processRemoteConfigFromFlags(cfg, fs, configFlag, keyFlag)
-	processTaskFromFlags(cfg, fs, intervalFlag)
-	processHTTPFromFlags(cfg, fs, httpTimeoutFlag, httpMaxIdleConnsFlag, httpInsecureTLSFlag)
-	processAPIKeyFromFlags(cfg, fs, apiKeyFlag)
+	processModeFromFlags(cfg, fs)
+	processPortFromFlags(cfg, fs)
+	processRedisFromFlags(cfg, fs, flagVals)
+	processRemoteConfigFromFlags(cfg, fs)
+	processTaskFromFlags(cfg, fs)
+	processHTTPFromFlags(cfg, fs, flagVals)
+	processAPIKeyFromFlags(cfg, fs)
 
 	return cfg
 }
@@ -303,93 +363,53 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 func overrideWithFlags(cfg *config.CmdConfigData) {
 	// Create new FlagSet to parse command-line arguments (avoid duplicate flag definitions)
 	overrideFs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	var portFlag int
-	var redisFlag, configFlag, keyFlag, modeFlag string
-	var intervalFlag int
-	var httpTimeoutFlag, httpMaxIdleConnsFlag int
-	var httpInsecureTLSFlag bool
-	var redisPasswordFlag string
-	var redisEnabledFlag bool
-	var apiKeyFlag string
-
-	overrideFs.IntVar(&portFlag, "port", 0, "web port")
-	overrideFs.StringVar(&redisFlag, "redis", "", "redis host and port")
-	overrideFs.StringVar(&redisPasswordFlag, "redis-password", "", "redis password")
-	overrideFs.BoolVar(&redisEnabledFlag, "redis-enabled", true, "enable Redis (default: true)")
-	overrideFs.StringVar(&configFlag, "config", "", "remote config url")
-	overrideFs.StringVar(&keyFlag, "key", "", "remote config key")
-	overrideFs.StringVar(&modeFlag, "mode", "", "app mode")
-	overrideFs.IntVar(&intervalFlag, "interval", 0, "task interval")
-	overrideFs.IntVar(&httpTimeoutFlag, "http-timeout", 0, "HTTP request timeout in seconds")
-	overrideFs.IntVar(&httpMaxIdleConnsFlag, "http-max-idle-conns", 0, "HTTP max idle connections")
-	overrideFs.BoolVar(&httpInsecureTLSFlag, "http-insecure-tls", false, "skip TLS certificate verification (development only)")
-	overrideFs.StringVar(&apiKeyFlag, "api-key", "", "API key for authentication")
+	// Use zero defaults for override scenario
+	flagVals := registerFlags(overrideFs, nil)
 
 	if err := overrideFs.Parse(os.Args[1:]); err != nil {
 		// Ignore parsing errors, continue using default values
 		_ = err // Explicitly ignore error
 	}
 
-	// If command-line arguments are set, override configuration
-	// Use configutil for simple fields with priority: CLI > ENV > default (from cfg)
-	if portVal := configutil.ResolveIntAsString(overrideFs, "port", "PORT", 0, false); portVal != "0" {
-		cfg.Port = portVal
-	}
-	if redisVal := configutil.ResolveString(overrideFs, "redis", "REDIS", "", true); redisVal != "" {
-		cfg.Redis = redisVal
-	}
-	// Redis password: CLI flag (lowest priority for password, but still handled here)
-	if redisPasswordVal := flagutil.GetString(overrideFs, "redis-password", ""); redisPasswordVal != "" {
-		cfg.RedisPassword = redisPasswordVal
-	}
-	if flagutil.HasFlag(overrideFs, "redis-enabled") {
-		cfg.RedisEnabled = flagutil.GetBool(overrideFs, "redis-enabled", redisEnabledFlag)
-	}
-	if configVal := configutil.ResolveString(overrideFs, "config", "CONFIG", "", true); configVal != "" {
-		cfg.RemoteConfig = configVal
-	}
-	if keyVal := configutil.ResolveString(overrideFs, "key", "KEY", "", true); keyVal != "" {
-		cfg.RemoteKey = keyVal
-	}
-	if modeVal := configutil.ResolveString(overrideFs, "mode", "MODE", "", true); modeVal != "" {
-		cfg.Mode = modeVal
-	}
-	if intervalVal := configutil.ResolveInt(overrideFs, "interval", "INTERVAL", 0, false); intervalVal > 0 {
-		cfg.TaskInterval = intervalVal
-	}
-	if timeoutVal := configutil.ResolveInt(overrideFs, "http-timeout", "HTTP_TIMEOUT", 0, false); timeoutVal > 0 {
-		cfg.HTTPTimeout = timeoutVal
-	}
-	if maxIdleConnsVal := configutil.ResolveInt(overrideFs, "http-max-idle-conns", "HTTP_MAX_IDLE_CONNS", 0, false); maxIdleConnsVal > 0 {
-		cfg.HTTPMaxIdleConns = maxIdleConnsVal
-	}
-	if flagutil.HasFlag(overrideFs, "http-insecure-tls") {
-		cfg.HTTPInsecureTLS = configutil.ResolveBool(overrideFs, "http-insecure-tls", "HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
-	}
-	if apiKeyVal := configutil.ResolveString(overrideFs, "api-key", "API_KEY", "", true); apiKeyVal != "" {
-		cfg.APIKey = apiKeyVal
+	// Convert CmdConfigData to Config for processing
+	tempCfg := &Config{
+		Port:             cfg.Port,
+		Redis:            cfg.Redis,
+		RedisPassword:    cfg.RedisPassword,
+		RedisEnabled:     cfg.RedisEnabled,
+		RemoteConfig:     cfg.RemoteConfig,
+		RemoteKey:        cfg.RemoteKey,
+		Mode:             cfg.Mode,
+		APIKey:           cfg.APIKey,
+		TaskInterval:     cfg.TaskInterval,
+		HTTPTimeout:      cfg.HTTPTimeout,
+		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
 	}
 
-	// If Mode is ONLY_LOCAL and RedisEnabled was not explicitly set via command-line, check Redis address
-	if !flagutil.HasFlag(overrideFs, "redis-enabled") {
-		isOnlyLocalMode := false
-		if cfg.Mode != "" {
-			isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
-		} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
-			isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
-		}
-		if isOnlyLocalMode {
-			// Check if Redis address is explicitly set (command-line argument or environment variable)
-			redisExplicitlySet := flagutil.HasFlag(overrideFs, "redis") || env.GetTrimmed("REDIS", "") != ""
-			if redisExplicitlySet {
-				// User explicitly set Redis address, enable Redis
-				cfg.RedisEnabled = true
-			} else {
-				// No explicit Redis address, disable Redis by default in ONLY_LOCAL mode
-				cfg.RedisEnabled = false
-			}
-		}
-	}
+	// Process each configuration item using unified processing functions
+	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
+	processModeFromFlags(tempCfg, overrideFs)
+	processPortFromFlags(tempCfg, overrideFs)
+	processRedisFromFlags(tempCfg, overrideFs, flagVals)
+	processRemoteConfigFromFlags(tempCfg, overrideFs)
+	processTaskFromFlags(tempCfg, overrideFs)
+	processHTTPFromFlags(tempCfg, overrideFs, flagVals)
+	processAPIKeyFromFlags(tempCfg, overrideFs)
+
+	// Copy back to CmdConfigData
+	cfg.Port = tempCfg.Port
+	cfg.Redis = tempCfg.Redis
+	cfg.RedisPassword = tempCfg.RedisPassword
+	cfg.RedisEnabled = tempCfg.RedisEnabled
+	cfg.RemoteConfig = tempCfg.RemoteConfig
+	cfg.RemoteKey = tempCfg.RemoteKey
+	cfg.Mode = tempCfg.Mode
+	cfg.APIKey = tempCfg.APIKey
+	cfg.TaskInterval = tempCfg.TaskInterval
+	cfg.HTTPTimeout = tempCfg.HTTPTimeout
+	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns
+	cfg.HTTPInsecureTLS = tempCfg.HTTPInsecureTLS
 }
 
 // LoadConfig loads configuration (new interface, supports configuration file)
@@ -420,87 +440,43 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	// Use configutil with empty FlagSet (no CLI flags) to only check ENV
 	emptyFs := flag.NewFlagSet("empty", flag.ContinueOnError)
 
-	if portEnv := configutil.ResolveIntAsString(emptyFs, "port", "PORT", 0, false); portEnv != "0" {
-		cfg.Port = portEnv
+	// Convert CmdConfigData to Config for processing
+	tempCfg := &Config{
+		Port:             cfg.Port,
+		Redis:            cfg.Redis,
+		RedisPassword:    cfg.RedisPassword,
+		RedisEnabled:     cfg.RedisEnabled,
+		RemoteConfig:     cfg.RemoteConfig,
+		RemoteKey:        cfg.RemoteKey,
+		Mode:             cfg.Mode,
+		APIKey:           cfg.APIKey,
+		TaskInterval:     cfg.TaskInterval,
+		HTTPTimeout:      cfg.HTTPTimeout,
+		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
 	}
 
-	if redisEnv := configutil.ResolveString(emptyFs, "redis", "REDIS", "", true); redisEnv != "" {
-		cfg.Redis = redisEnv
-	}
+	// Process each configuration item using unified processing functions
+	// Pass nil for flagVals since we're only processing environment variables
+	processModeFromFlags(tempCfg, emptyFs)
+	processPortFromFlags(tempCfg, emptyFs)
+	processRedisFromFlags(tempCfg, emptyFs, nil)
+	processRemoteConfigFromFlags(tempCfg, emptyFs)
+	processTaskFromFlags(tempCfg, emptyFs)
+	processHTTPFromFlags(tempCfg, emptyFs, nil)
+	processAPIKeyFromFlags(tempCfg, emptyFs)
 
-	// Redis password priority: environment variable > password file > configuration file
-	// (Special logic preserved)
-	redisPasswordEnv := env.GetTrimmed("REDIS_PASSWORD", "")
-	redisPasswordFile := env.GetTrimmed("REDIS_PASSWORD_FILE", "")
-
-	if redisPasswordEnv != "" {
-		cfg.RedisPassword = redisPasswordEnv
-	} else if redisPasswordFile != "" {
-		if password, err := flagutil.ReadPasswordFromFile(redisPasswordFile); err == nil {
-			cfg.RedisPassword = password
-		}
-	}
-
-	if configEnv := configutil.ResolveString(emptyFs, "config", "CONFIG", "", true); configEnv != "" {
-		cfg.RemoteConfig = configEnv
-	}
-
-	if keyEnv := configutil.ResolveString(emptyFs, "key", "KEY", "", true); keyEnv != "" {
-		cfg.RemoteKey = keyEnv
-	}
-
-	if modeEnv := configutil.ResolveString(emptyFs, "mode", "MODE", "", true); modeEnv != "" {
-		cfg.Mode = modeEnv
-	}
-
-	if intervalEnv := configutil.ResolveInt(emptyFs, "interval", "INTERVAL", 0, false); intervalEnv > 0 {
-		cfg.TaskInterval = intervalEnv
-	}
-
-	// HTTP_TIMEOUT: Supports two formats: integer seconds (e.g., "30") or duration format (e.g., "30s", "1m30s")
-	// (Special logic preserved)
-	if env.Has("HTTP_TIMEOUT") {
-		if timeout := env.GetDuration("HTTP_TIMEOUT", 0); timeout > 0 {
-			cfg.HTTPTimeout = int(timeout.Seconds())
-		} else if timeout := env.GetInt("HTTP_TIMEOUT", 0); timeout > 0 {
-			cfg.HTTPTimeout = timeout
-		}
-	}
-
-	if maxIdleConnsEnv := configutil.ResolveInt(emptyFs, "http-max-idle-conns", "HTTP_MAX_IDLE_CONNS", 0, false); maxIdleConnsEnv > 0 {
-		cfg.HTTPMaxIdleConns = maxIdleConnsEnv
-	}
-
-	cfg.HTTPInsecureTLS = configutil.ResolveBool(emptyFs, "http-insecure-tls", "HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
-
-	if apiKeyEnv := configutil.ResolveString(emptyFs, "api-key", "API_KEY", "", true); apiKeyEnv != "" {
-		cfg.APIKey = apiKeyEnv
-	}
-
-	// Redis enabled state
-	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable)
-	isOnlyLocalMode := false
-	if cfg.Mode != "" {
-		isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
-	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
-		isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
-	}
-
-	// Check if Redis address is explicitly set via environment variable
-	redisExplicitlySet := env.GetTrimmed("REDIS", "") != ""
-
-	if redisEnabledEnv := env.GetTrimmed("REDIS_ENABLED", ""); redisEnabledEnv != "" {
-		// Explicitly set via environment variable
-		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
-	} else if isOnlyLocalMode {
-		// In ONLY_LOCAL mode:
-		// - If Redis address is explicitly set, enable Redis (user intent to use Redis)
-		// - Otherwise, disable Redis by default
-		if redisExplicitlySet {
-			cfg.RedisEnabled = true
-		} else {
-			cfg.RedisEnabled = false
-		}
-	}
-	// Note: If not ONLY_LOCAL mode and REDIS_ENABLED is not set, keep the value from config file
+	// Copy back to CmdConfigData
+	cfg.Port = tempCfg.Port
+	cfg.Redis = tempCfg.Redis
+	cfg.RedisPassword = tempCfg.RedisPassword
+	cfg.RedisEnabled = tempCfg.RedisEnabled
+	cfg.RemoteConfig = tempCfg.RemoteConfig
+	cfg.RemoteKey = tempCfg.RemoteKey
+	cfg.Mode = tempCfg.Mode
+	cfg.APIKey = tempCfg.APIKey
+	cfg.TaskInterval = tempCfg.TaskInterval
+	cfg.HTTPTimeout = tempCfg.HTTPTimeout
+	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns
+	cfg.HTTPInsecureTLS = tempCfg.HTTPInsecureTLS
 }
