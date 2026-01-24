@@ -109,7 +109,7 @@ Warden 提供了 RESTful API，支持查询用户列表、分页和健康检查�
 curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
 # 健康检查
-curl "http://localhost:8081/healthz"
+curl "http://localhost:8081/health"
 ```
 
 完整 API 文档请参考 [API 文档](docs/zhCN/API.md) 或 [OpenAPI 规范](openapi.yaml)。

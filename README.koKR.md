@@ -109,7 +109,7 @@ Warden은 사용자 목록 쿼리, 페이지네이션 및 상태 확인을 위�
 curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
 # 상태 확인
-curl "http://localhost:8081/healthz"
+curl "http://localhost:8081/health"
 ```
 
 전체 API 문서는 [API 문서](docs/enUS/API.md) 또는 [OpenAPI 사양](openapi.yaml)을 참조하세요.

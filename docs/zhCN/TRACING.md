@@ -11,7 +11,35 @@ Warden 服务支持 OpenTelemetry 分布式追踪，用于监控和调试服务�
 
 ## 配置
 
-### 环境变量
+Warden 支持两种方式配置 OpenTelemetry 追踪：
+
+1. **配置文件**（推荐用于生产环境）
+2. **环境变量**（方便用于开发环境）
+
+**优先级**：配置文件优先于环境变量。
+
+### 方式一：配置文件（YAML）
+
+创建配置文件（例如 `config.yaml`），并通过 `CONFIG_FILE` 环境变量指定：
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**使用方法**：
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**优势**：
+- 集中管理配置
+- 更适合生产环境
+- 支持在一个文件中配置所有选项
+
+### 方式二：环境变量
 
 ```bash
 # 启用 OpenTelemetry 追踪
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### 配置文件（YAML）
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**使用方法**：
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**优势**：
+- 快速设置，适合开发
+- 无需配置文件
+- 在容器化环境中易于覆盖
+
+### 配置优先级
+
+当两种方式同时使用时，配置文件优先：
+
+1. 如果设置了 `CONFIG_FILE` 且包含有效的追踪配置 → 使用文件配置
+2. 否则，如果设置了 `OTLP_ENABLED=true` 且 `OTLP_ENDPOINT` 有值 → 使用环境变量
+3. 否则 → 追踪功能被禁用
 
 ## 核心 Span
 

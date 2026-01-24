@@ -109,7 +109,7 @@ Warden fournit une API RESTful pour interroger les listes d'utilisateurs, la pag
 curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
 # Vérification de santé
-curl "http://localhost:8081/healthz"
+curl "http://localhost:8081/health"
 ```
 
 Pour la documentation API complète, consultez la [Documentation API](docs/enUS/API.md) ou la [Spécification OpenAPI](openapi.yaml).

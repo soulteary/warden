@@ -109,7 +109,7 @@ Warden bietet eine RESTful-API zum Abfragen von Benutzerlisten, Paginierung und 
 curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
 # Gesundheitsprüfung
-curl "http://localhost:8081/healthz"
+curl "http://localhost:8081/health"
 ```
 
 Vollständige API-Dokumentation finden Sie in der [API-Dokumentation](docs/enUS/API.md) oder der [OpenAPI-Spezifikation](openapi.yaml).

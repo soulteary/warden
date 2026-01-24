@@ -11,7 +11,35 @@ Warden 서비스는 서비스 간 호출 체인을 모니터링하고 디버깅�
 
 ## 구성
 
-### 환경 변수
+Warden은 OpenTelemetry 추적을 구성하는 두 가지 방법을 지원합니다:
+
+1. **구성 파일** (프로덕션에 권장)
+2. **환경 변수** (개발에 편리)
+
+**우선순위**: 구성 파일이 환경 변수보다 우선합니다.
+
+### 방법 1: 구성 파일 (YAML)
+
+구성 파일(예: `config.yaml`)을 만들고 `CONFIG_FILE` 환경 변수로 지정합니다:
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**사용 방법**:
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**장점**:
+- 중앙 집중식 구성 관리
+- 프로덕션 환경에 더 적합
+- 하나의 파일에서 모든 구성 옵션 지원
+
+### 방법 2: 환경 변수
 
 ```bash
 # OpenTelemetry 추적 활성화
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### 구성 파일 (YAML)
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**사용 방법**:
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**장점**:
+- 개발을 위한 빠른 설정
+- 구성 파일 불필요
+- 컨테이너화된 환경에서 쉽게 재정의 가능
+
+### 구성 우선순위
+
+두 방법이 모두 사용되는 경우 구성 파일이 우선합니다:
+
+1. `CONFIG_FILE`이 설정되고 유효한 추적 구성이 포함된 경우 → 파일 구성 사용
+2. 그렇지 않고 `OTLP_ENABLED=true`이고 `OTLP_ENDPOINT`가 설정된 경우 → 환경 변수 사용
+3. 그렇지 않은 경우 → 추적이 비활성화됨
 
 ## 핵심 Span
 

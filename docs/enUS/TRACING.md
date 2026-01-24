@@ -11,7 +11,35 @@ Warden service supports OpenTelemetry distributed tracing for monitoring and deb
 
 ## Configuration
 
-### Environment Variables
+Warden supports two methods for configuring OpenTelemetry tracing:
+
+1. **Configuration File** (recommended for production)
+2. **Environment Variables** (convenient for development)
+
+**Priority**: Configuration file takes precedence over environment variables.
+
+### Method 1: Configuration File (YAML)
+
+Create a configuration file (e.g., `config.yaml`) and specify it via the `CONFIG_FILE` environment variable:
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**Usage**:
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**Advantages**:
+- Centralized configuration management
+- Better for production environments
+- Supports all configuration options in one file
+
+### Method 2: Environment Variables
 
 ```bash
 # Enable OpenTelemetry tracing
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### Configuration File (YAML)
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**Usage**:
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**Advantages**:
+- Quick setup for development
+- No configuration file needed
+- Easy to override in containerized environments
+
+### Configuration Priority
+
+When both methods are used, the configuration file takes precedence:
+
+1. If `CONFIG_FILE` is set and contains valid tracing configuration → Use file configuration
+2. Otherwise, if `OTLP_ENABLED=true` and `OTLP_ENDPOINT` is set → Use environment variables
+3. Otherwise → Tracing is disabled
 
 ## Core Spans
 

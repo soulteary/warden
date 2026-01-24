@@ -11,7 +11,35 @@ Le service Warden prend en charge le traçage distribué OpenTelemetry pour surv
 
 ## Configuration
 
-### Variables d'environnement
+Warden prend en charge deux méthodes pour configurer le traçage OpenTelemetry :
+
+1. **Fichier de configuration** (recommandé pour la production)
+2. **Variables d'environnement** (pratique pour le développement)
+
+**Priorité** : Le fichier de configuration a la priorité sur les variables d'environnement.
+
+### Méthode 1 : Fichier de configuration (YAML)
+
+Créez un fichier de configuration (par exemple `config.yaml`) et spécifiez-le via la variable d'environnement `CONFIG_FILE` :
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**Utilisation** :
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**Avantages** :
+- Gestion centralisée de la configuration
+- Mieux adapté aux environnements de production
+- Prend en charge toutes les options de configuration dans un seul fichier
+
+### Méthode 2 : Variables d'environnement
 
 ```bash
 # Activer le traçage OpenTelemetry
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### Fichier de configuration (YAML)
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**Utilisation** :
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**Avantages** :
+- Configuration rapide pour le développement
+- Aucun fichier de configuration nécessaire
+- Facile à remplacer dans les environnements conteneurisés
+
+### Priorité de configuration
+
+Lorsque les deux méthodes sont utilisées, le fichier de configuration a la priorité :
+
+1. Si `CONFIG_FILE` est défini et contient une configuration de traçage valide → Utiliser la configuration du fichier
+2. Sinon, si `OTLP_ENABLED=true` et `OTLP_ENDPOINT` est défini → Utiliser les variables d'environnement
+3. Sinon → Le traçage est désactivé
 
 ## Spans principaux
 

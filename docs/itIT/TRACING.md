@@ -11,7 +11,35 @@ Il servizio Warden supporta il tracciamento distribuito OpenTelemetry per monito
 
 ## Configurazione
 
-### Variabili d'ambiente
+Warden supporta due metodi per configurare il tracciamento OpenTelemetry:
+
+1. **File di configurazione** (consigliato per la produzione)
+2. **Variabili d'ambiente** (comodo per lo sviluppo)
+
+**Priorità**: Il file di configurazione ha la precedenza sulle variabili d'ambiente.
+
+### Metodo 1: File di configurazione (YAML)
+
+Crea un file di configurazione (ad esempio `config.yaml`) e specificarlo tramite la variabile d'ambiente `CONFIG_FILE`:
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**Utilizzo**:
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**Vantaggi**:
+- Gestione centralizzata della configurazione
+- Migliore per gli ambienti di produzione
+- Supporta tutte le opzioni di configurazione in un unico file
+
+### Metodo 2: Variabili d'ambiente
 
 ```bash
 # Abilita il tracciamento OpenTelemetry
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### File di configurazione (YAML)
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**Utilizzo**:
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**Vantaggi**:
+- Configurazione rapida per lo sviluppo
+- Nessun file di configurazione necessario
+- Facile da sovrascrivere negli ambienti containerizzati
+
+### Priorità di configurazione
+
+Quando vengono utilizzati entrambi i metodi, il file di configurazione ha la precedenza:
+
+1. Se `CONFIG_FILE` è impostato e contiene una configurazione di tracciamento valida → Utilizzare la configurazione del file
+2. Altrimenti, se `OTLP_ENABLED=true` e `OTLP_ENDPOINT` è impostato → Utilizzare le variabili d'ambiente
+3. Altrimenti → Il tracciamento è disabilitato
 
 ## Span principali
 

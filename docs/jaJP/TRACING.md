@@ -11,7 +11,35 @@ Warden サービスは、サービス間の呼び出しチェーンの監視と�
 
 ## 設定
 
-### 環境変数
+Warden は OpenTelemetry トレーシングを設定するために 2 つの方法をサポートしています：
+
+1. **設定ファイル**（本番環境に推奨）
+2. **環境変数**（開発環境に便利）
+
+**優先順位**: 設定ファイルが環境変数よりも優先されます。
+
+### 方法 1: 設定ファイル（YAML）
+
+設定ファイル（例：`config.yaml`）を作成し、`CONFIG_FILE` 環境変数で指定します：
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**使用方法**：
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**利点**：
+- 集中管理された設定管理
+- 本番環境により適している
+- 1 つのファイルですべての設定オプションをサポート
+
+### 方法 2: 環境変数
 
 ```bash
 # OpenTelemetry トレーシングを有効化
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### 設定ファイル（YAML）
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**使用方法**：
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**利点**：
+- 開発用の迅速なセットアップ
+- 設定ファイルが不要
+- コンテナ化環境で簡単に上書き可能
+
+### 設定の優先順位
+
+両方の方法が使用される場合、設定ファイルが優先されます：
+
+1. `CONFIG_FILE` が設定され、有効なトレーシング設定が含まれている場合 → ファイル設定を使用
+2. それ以外の場合、`OTLP_ENABLED=true` かつ `OTLP_ENDPOINT` が設定されている場合 → 環境変数を使用
+3. それ以外の場合 → トレーシングは無効
 
 ## コア Span
 

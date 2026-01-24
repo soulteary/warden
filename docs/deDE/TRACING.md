@@ -11,7 +11,35 @@ Der Warden-Dienst unterstützt OpenTelemetry Distributed Tracing zur Überwachun
 
 ## Konfiguration
 
-### Umgebungsvariablen
+Warden unterstützt zwei Methoden zur Konfiguration der OpenTelemetry-Verfolgung:
+
+1. **Konfigurationsdatei** (empfohlen für Produktion)
+2. **Umgebungsvariablen** (bequem für Entwicklung)
+
+**Priorität**: Die Konfigurationsdatei hat Vorrang vor Umgebungsvariablen.
+
+### Methode 1: Konfigurationsdatei (YAML)
+
+Erstellen Sie eine Konfigurationsdatei (z. B. `config.yaml`) und geben Sie sie über die Umgebungsvariable `CONFIG_FILE` an:
+
+```yaml
+tracing:
+  enabled: true
+  endpoint: "http://localhost:4318"
+```
+
+**Verwendung**:
+```bash
+export CONFIG_FILE=/path/to/config.yaml
+./warden
+```
+
+**Vorteile**:
+- Zentrale Konfigurationsverwaltung
+- Besser für Produktionsumgebungen
+- Unterstützt alle Konfigurationsoptionen in einer Datei
+
+### Methode 2: Umgebungsvariablen
 
 ```bash
 # OpenTelemetry-Verfolgung aktivieren
@@ -21,13 +49,25 @@ OTLP_ENABLED=true
 OTLP_ENDPOINT=http://localhost:4318
 ```
 
-### Konfigurationsdatei (YAML)
-
-```yaml
-tracing:
-  enabled: true
-  endpoint: "http://localhost:4318"
+**Verwendung**:
+```bash
+export OTLP_ENABLED=true
+export OTLP_ENDPOINT=http://localhost:4318
+./warden
 ```
+
+**Vorteile**:
+- Schnelle Einrichtung für Entwicklung
+- Keine Konfigurationsdatei erforderlich
+- Einfach in containerisierten Umgebungen zu überschreiben
+
+### Konfigurationspriorität
+
+Wenn beide Methoden verwendet werden, hat die Konfigurationsdatei Vorrang:
+
+1. Wenn `CONFIG_FILE` gesetzt ist und gültige Verfolgungskonfiguration enthält → Verwenden Sie Dateikonfiguration
+2. Andernfalls, wenn `OTLP_ENABLED=true` und `OTLP_ENDPOINT` gesetzt ist → Verwenden Sie Umgebungsvariablen
+3. Andernfalls → Verfolgung ist deaktiviert
 
 ## Kern-Spans
 
