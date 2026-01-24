@@ -15,11 +15,11 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	// Internal packages
+	"github.com/soulteary/tracing-kit"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
-	"github.com/soulteary/warden/internal/tracing"
 )
 
 // GetUserByIdentifier queries a single user by identifier

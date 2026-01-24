@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	common_tracing "github.com/soulteary/tracing-kit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
@@ -14,8 +15,8 @@ import (
 )
 
 func TestMiddleware_Success(t *testing.T) {
-	defer teardownTestTracer()
-	tp, exporter := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, exporter := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,8 +45,8 @@ func TestMiddleware_Success(t *testing.T) {
 }
 
 func TestMiddleware_DifferentStatusCodes(t *testing.T) {
-	defer teardownTestTracer()
-	tp, exporter := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, exporter := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	//nolint:govet // fieldalignment: test struct, field order optimized for readability
@@ -92,8 +93,8 @@ func TestMiddleware_DifferentStatusCodes(t *testing.T) {
 }
 
 func TestMiddleware_TraceContextExtraction(t *testing.T) {
-	defer teardownTestTracer()
-	tp, _ := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, _ := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -120,8 +121,8 @@ func TestMiddleware_TraceContextExtraction(t *testing.T) {
 }
 
 func TestMiddleware_TraceContextInjection(t *testing.T) {
-	defer teardownTestTracer()
-	tp, _ := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, _ := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -141,8 +142,8 @@ func TestMiddleware_TraceContextInjection(t *testing.T) {
 }
 
 func TestMiddleware_SpanAttributes(t *testing.T) {
-	defer teardownTestTracer()
-	tp, exporter := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, exporter := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -191,8 +192,8 @@ func TestMiddleware_SpanAttributes(t *testing.T) {
 }
 
 func TestMiddleware_EmptyPath(t *testing.T) {
-	defer teardownTestTracer()
-	tp, exporter := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, exporter := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -218,8 +219,8 @@ func TestMiddleware_EmptyPath(t *testing.T) {
 }
 
 func TestMiddleware_DifferentMethods(t *testing.T) {
-	defer teardownTestTracer()
-	tp, exporter := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, exporter := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
@@ -250,8 +251,8 @@ func TestMiddleware_DifferentMethods(t *testing.T) {
 }
 
 func TestMiddleware_ResponseSize(t *testing.T) {
-	defer teardownTestTracer()
-	tp, exporter := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, exporter := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	responseBody := "This is a test response"
@@ -362,8 +363,8 @@ func TestResponseWriter_WriteHeaderAfterWrite(t *testing.T) {
 }
 
 func TestMiddleware_ContextPropagation(t *testing.T) {
-	defer teardownTestTracer()
-	tp, _ := setupTestTracer(t)
+	defer common_tracing.TeardownTestTracer()
+	tp, _ := common_tracing.SetupTestTracer(t)
 	require.NotNil(t, tp)
 
 	var capturedSpan trace.Span

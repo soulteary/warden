@@ -23,6 +23,7 @@ import (
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Internal packages
+	"github.com/soulteary/tracing-kit"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/config"
@@ -33,7 +34,7 @@ import (
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/parser"
 	"github.com/soulteary/warden/internal/router"
-	"github.com/soulteary/warden/internal/tracing"
+	internal_tracing "github.com/soulteary/warden/internal/tracing"
 	"github.com/soulteary/warden/internal/version"
 	"github.com/soulteary/warden/pkg/gocron"
 )
@@ -496,7 +497,7 @@ func registerRoutes(app *App) {
 	// Tracing middleware (if enabled)
 	var tracingMiddleware func(http.Handler) http.Handler
 	if tracing.IsEnabled() {
-		tracingMiddleware = tracing.Middleware
+		tracingMiddleware = internal_tracing.Middleware
 	}
 
 	// Health check endpoint IP whitelist (read from environment variable)

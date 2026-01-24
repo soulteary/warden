@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	common_tracing "github.com/soulteary/tracing-kit"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -17,7 +18,7 @@ import (
 // Middleware creates an HTTP middleware for OpenTelemetry tracing
 func Middleware(next http.Handler) http.Handler {
 	propagator := otel.GetTextMapPropagator()
-	tracer := GetTracer()
+	tracer := common_tracing.GetTracer()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Extract trace context from request headers
