@@ -195,7 +195,7 @@ jobs:
       - name: 获取版本信息
         id: version
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +%FT%T%z)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
