@@ -109,7 +109,7 @@ Warden は、ユーザーリストのクエリ、ページネーション、ヘ�
 curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
 # ヘルスチェック
-curl "http://localhost:8081/healthz"
+curl "http://localhost:8081/health"
 ```
 
 完全な API ドキュメントについては、[API ドキュメント](docs/enUS/API.md)または[OpenAPI 仕様](openapi.yaml)を参照してください。

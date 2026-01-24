@@ -109,7 +109,7 @@ Warden fornisce un'API RESTful per interrogare elenchi di utenti, paginazione e 
 curl -H "X-API-Key: your-key" "http://localhost:8081/"
 
 # Controllo di salute
-curl "http://localhost:8081/healthz"
+curl "http://localhost:8081/health"
 ```
 
 Per la documentazione API completa, vedere la [Documentazione API](docs/enUS/API.md) o la [Specifica OpenAPI](openapi.yaml).

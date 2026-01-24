@@ -25,6 +25,7 @@ import (
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
+	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
@@ -32,6 +33,7 @@ import (
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/parser"
 	"github.com/soulteary/warden/internal/router"
+	"github.com/soulteary/warden/internal/tracing"
 	"github.com/soulteary/warden/internal/version"
 	"github.com/soulteary/warden/pkg/gocron"
 )
@@ -491,6 +493,12 @@ func registerRoutes(app *App) {
 	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(app.rateLimiter)
 	authMiddleware := middleware.AuthMiddleware(app.apiKey)
 
+	// Tracing middleware (if enabled)
+	var tracingMiddleware func(http.Handler) http.Handler
+	if tracing.IsEnabled() {
+		tracingMiddleware = tracing.Middleware
+	}
+
 	// Health check endpoint IP whitelist (read from environment variable)
 	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
 	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
@@ -501,8 +509,10 @@ func registerRoutes(app *App) {
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
-					middleware.OptionalAuthMiddleware(app.apiKey)(
-						middleware.MetricsMiddleware(metrics.Handler()),
+					wrapWithTracingIfEnabled(tracingMiddleware,
+						middleware.OptionalAuthMiddleware(app.apiKey)(
+							middleware.MetricsMiddleware(metrics.Handler()),
+						),
 					),
 				),
 			),
@@ -516,12 +526,14 @@ func registerRoutes(app *App) {
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
-					middleware.CompressMiddleware(
-						middleware.BodyLimitMiddleware(
-							middleware.MetricsMiddleware(
-								rateLimitMiddleware(
-									authMiddleware(
-										router.ProcessWithLogger(router.JSON(app.userCache)),
+					wrapWithTracingIfEnabled(tracingMiddleware,
+						middleware.CompressMiddleware(
+							middleware.BodyLimitMiddleware(
+								middleware.MetricsMiddleware(
+									rateLimitMiddleware(
+										authMiddleware(
+											router.ProcessWithLogger(router.JSON(app.userCache)),
+										),
 									),
 								),
 							),
@@ -539,12 +551,14 @@ func registerRoutes(app *App) {
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
-					middleware.CompressMiddleware(
-						middleware.BodyLimitMiddleware(
-							middleware.MetricsMiddleware(
-								rateLimitMiddleware(
-									authMiddleware(
-										router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
+					wrapWithTracingIfEnabled(tracingMiddleware,
+						middleware.CompressMiddleware(
+							middleware.BodyLimitMiddleware(
+								middleware.MetricsMiddleware(
+									rateLimitMiddleware(
+										authMiddleware(
+											router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
+										),
 									),
 								),
 							),
@@ -562,9 +576,11 @@ func registerRoutes(app *App) {
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
-					healthIPWhitelist(
-						middleware.MetricsMiddleware(
-							router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode, app.redisEnabled)),
+					wrapWithTracingIfEnabled(tracingMiddleware,
+						healthIPWhitelist(
+							middleware.MetricsMiddleware(
+								router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode, app.redisEnabled)),
+							),
 						),
 					),
 				),
@@ -580,9 +596,11 @@ func registerRoutes(app *App) {
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
-					middleware.MetricsMiddleware(
-						authMiddleware(
-							router.ProcessWithLogger(router.LogLevelHandler()),
+					wrapWithTracingIfEnabled(tracingMiddleware,
+						middleware.MetricsMiddleware(
+							authMiddleware(
+								router.ProcessWithLogger(router.LogLevelHandler()),
+							),
 						),
 					),
 				),
@@ -590,6 +608,14 @@ func registerRoutes(app *App) {
 		),
 	)
 	http.Handle("/log/level", logLevelHandler)
+}
+
+// wrapWithTracingIfEnabled wraps handler with tracing middleware if enabled
+func wrapWithTracingIfEnabled(tracingMiddleware func(http.Handler) http.Handler, handler http.Handler) http.Handler {
+	if tracingMiddleware != nil {
+		return tracingMiddleware(handler)
+	}
+	return handler
 }
 
 // startServer starts HTTP server
@@ -632,6 +658,45 @@ func main() {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
 	}
 
+	// Load config from file if config file is specified (for tracing config)
+	var tracingCfg *config.Config
+	if cfgFile := os.Getenv("CONFIG_FILE"); cfgFile != "" {
+		if loadedCfg, err := config.LoadFromFile(cfgFile); err == nil {
+			tracingCfg = loadedCfg
+		}
+	}
+
+	// Initialize OpenTelemetry tracing if enabled
+	var tracerProvider interface{ Shutdown(context.Context) error }
+	if tracingCfg != nil && tracingCfg.Tracing.Enabled && tracingCfg.Tracing.Endpoint != "" {
+		tp, err := tracing.InitTracer(
+			"warden",
+			version.Version,
+			tracingCfg.Tracing.Endpoint,
+		)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
+		} else {
+			tracerProvider = tp
+			log.Info().Msg("OpenTelemetry tracing initialized")
+		}
+	} else if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" && (otlpEnabled == "true" || otlpEnabled == "1") {
+		otlpEndpoint := os.Getenv("OTLP_ENDPOINT")
+		if otlpEndpoint != "" {
+			tp, err := tracing.InitTracer(
+				"warden",
+				version.Version,
+				otlpEndpoint,
+			)
+			if err != nil {
+				log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
+			} else {
+				tracerProvider = tp
+				log.Info().Msg("OpenTelemetry tracing initialized")
+			}
+		}
+	}
+
 	// Initialize application
 	app := NewApp(cfg)
 
@@ -640,7 +705,17 @@ func main() {
 
 	// Set up signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	defer func() {
+		stop()
+		// Shutdown tracer if initialized
+		if tracerProvider != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+				log.Warn().Err(err).Msg("Failed to shutdown tracer")
+			}
+		}
+	}()
 
 	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.app_version"), version.Version, version.BuildDate, version.Commit)
 

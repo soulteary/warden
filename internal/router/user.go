@@ -5,17 +5,21 @@ package router
 import (
 	// Standard library
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
+	"go.opentelemetry.io/otel/attribute"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/tracing"
 )
 
 // GetUserByIdentifier queries a single user by identifier
@@ -33,8 +37,13 @@ import (
 //   - func(http.ResponseWriter, *http.Request): HTTP request handler function
 func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Start span for user query
+		_, span := tracing.StartSpan(r.Context(), "warden.get_user")
+		defer span.End()
+
 		// Validate request method, only allow GET
 		if r.Method != http.MethodGet {
+			tracing.RecordError(span, errors.New("method not allowed"))
 			hlog.FromRequest(r).Warn().
 				Str("method", r.Method).
 				Msg(i18n.T(r, "log.unsupported_method"))
@@ -47,8 +56,16 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		mail := strings.TrimSpace(r.URL.Query().Get("mail"))
 		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
 
+		// Set span attributes
+		span.SetAttributes(
+			attribute.String("warden.query.phone", logger.SanitizePhone(phone)),
+			attribute.String("warden.query.mail", logger.SanitizeEmail(mail)),
+			attribute.String("warden.query.user_id", userID),
+		)
+
 		// Validate at least one identifier is provided
 		if phone == "" && mail == "" && userID == "" {
+			tracing.RecordError(span, fmt.Errorf("missing identifier"))
 			hlog.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.missing_query_params"))
 			http.Error(w, i18n.T(r, "error.missing_identifier"), http.StatusBadRequest)
@@ -67,6 +84,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			identifierCount++
 		}
 		if identifierCount > 1 {
+			tracing.RecordError(span, fmt.Errorf("multiple identifiers provided"))
 			hlog.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.multiple_query_params"))
 			http.Error(w, i18n.T(r, "error.multiple_identifiers"), http.StatusBadRequest)
@@ -88,6 +106,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 
 		// If user not found, return 404
 		if !found {
+			span.SetAttributes(attribute.Bool("warden.user.found", false))
 			hlog.FromRequest(r).Info().
 				Str("phone", logger.SanitizePhone(phone)).
 				Str("mail", logger.SanitizeEmail(mail)).
@@ -97,11 +116,18 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			return
 		}
 
+		// Set span attributes for found user
+		span.SetAttributes(
+			attribute.Bool("warden.user.found", true),
+			attribute.String("warden.user.id", user.UserID),
+		)
+
 		// Return user information
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
 		if err := json.NewEncoder(w).Encode(user); err != nil {
+			tracing.RecordError(span, err)
 			hlog.FromRequest(r).Error().
 				Err(err).
 				Msg(i18n.T(r, "error.json_encode_failed"))

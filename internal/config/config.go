@@ -31,6 +31,7 @@ type Config struct {
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
 	App       AppConfig       `yaml:"app"`
 	Task      TaskConfig      `yaml:"task"`
+	Tracing   TracingConfig   `yaml:"tracing"`
 }
 
 // ServerConfig server configuration
@@ -88,6 +89,12 @@ type TaskConfig struct {
 type AppConfig struct {
 	Mode   string `yaml:"mode"`
 	APIKey string `yaml:"api_key"` // API Key for authentication (sensitive information, recommend using environment variables)
+}
+
+// TracingConfig OpenTelemetry tracing configuration
+type TracingConfig struct {
+	Endpoint string `yaml:"endpoint"` // OTLP endpoint (e.g., "http://localhost:4318")
+	Enabled  bool   `yaml:"enabled"`
 }
 
 // LoadFromFile loads configuration from configuration file
@@ -236,6 +243,18 @@ func applyAppDefaults(cfg *Config) {
 	// API Key defaults to empty, needs to be set via environment variable or configuration file
 }
 
+// applyTracingDefaults applies tracing default values
+func applyTracingDefaults(cfg *Config) {
+	// Tracing defaults to disabled
+	if !cfg.Tracing.Enabled {
+		cfg.Tracing.Enabled = false
+	}
+	// Endpoint defaults to empty
+	if cfg.Tracing.Endpoint == "" {
+		cfg.Tracing.Endpoint = ""
+	}
+}
+
 // applyDefaults applies default values
 func applyDefaults(cfg *Config) {
 	applyServerDefaults(cfg)
@@ -246,6 +265,7 @@ func applyDefaults(cfg *Config) {
 	applyRemoteDefaults(cfg)
 	applyTaskDefaults(cfg)
 	applyAppDefaults(cfg)
+	applyTracingDefaults(cfg)
 }
 
 // overrideFromEnv overrides configuration from environment variables
@@ -299,6 +319,14 @@ func overrideFromEnv(cfg *Config) {
 	// App
 	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
 		cfg.App.APIKey = apiKey
+	}
+
+	// Tracing
+	if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" {
+		cfg.Tracing.Enabled = strings.EqualFold(otlpEnabled, "true") || otlpEnabled == "1"
+	}
+	if otlpEndpoint := os.Getenv("OTLP_ENDPOINT"); otlpEndpoint != "" {
+		cfg.Tracing.Endpoint = otlpEndpoint
 	}
 }
 
