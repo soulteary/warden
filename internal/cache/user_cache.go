@@ -4,14 +4,13 @@ package cache
 
 import (
 	// Standard library
-	"crypto/sha256"
-	"encoding/hex"
 	"sort"
 	"strings"
 	"sync"
 
 	// External packages
 	"github.com/soulteary/cli-kit/validator"
+	secure "github.com/soulteary/secure-kit"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
@@ -164,9 +163,7 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 // Uses map and order list to avoid creating temporary slices
 func calculateHashInternal(users map[string]define.AllowListUser, order []string) string {
 	if len(users) == 0 {
-		h := sha256.New()
-		h.Write([]byte("empty"))
-		return hex.EncodeToString(h.Sum(nil))
+		return secure.GetSHA256Hash("empty")
 	}
 
 	// Create sorted user list for hash calculation
@@ -186,12 +183,12 @@ func calculateHashInternal(users map[string]define.AllowListUser, order []string
 	})
 
 	// Calculate hash (includes all fields to ensure accurate data change detection)
-	h := sha256.New()
+	var sb strings.Builder
 	for _, user := range sortedUsers {
 		scopeStr := strings.Join(user.Scope, ",")
-		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
+		sb.WriteString(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n")
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return secure.GetSHA256Hash(sb.String())
 }
 
 // Len gets user count (thread-safe)

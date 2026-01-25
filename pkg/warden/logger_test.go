@@ -10,11 +10,11 @@ func TestSanitizeString(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"", ""},
-		{"abc", "***"},
-		{"abcd", "***"},
-		{"abcde", "ab*de"},
-		{"12345678", "12****78"},
+		{"", "***"},             // secure-kit returns "***" for empty
+		{"abc", "***"},          // too short
+		{"abcd", "***"},         // too short
+		{"abcde", "ab***de"},    // secure-kit uses fixed 3 asterisks
+		{"12345678", "12***78"}, // secure-kit uses fixed 3 asterisks
 	}
 
 	for _, tt := range tests {

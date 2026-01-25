@@ -3,35 +3,25 @@ package warden
 import (
 	"net/url"
 	"strings"
+
+	secure "github.com/soulteary/secure-kit"
 )
 
 // sanitizeString sanitizes sensitive information
 // Performs partial sanitization on strings that may contain sensitive information
+// Uses secure-kit's MaskString for consistent masking behavior
 func sanitizeString(s string) string {
-	if s == "" {
-		return s
-	}
-
-	// If string is short, only show first and last characters
-	if len(s) <= 4 {
-		return "***"
-	}
-
-	// Show first 2 characters and last 2 characters, replace middle with *
-	prefix := s[:2]
-	suffix := s[len(s)-2:]
-	masked := strings.Repeat("*", len(s)-4)
-	return prefix + masked + suffix
+	return secure.MaskString(s, 2)
 }
 
 // sanitizePhone sanitizes phone number
 func sanitizePhone(phone string) string {
-	return sanitizeString(phone)
+	return secure.MaskString(phone, 2)
 }
 
 // sanitizeEmail sanitizes email address
 func sanitizeEmail(email string) string {
-	return sanitizeString(email)
+	return secure.MaskString(email, 2)
 }
 
 // sanitizeURL sanitizes URL by masking sensitive query parameters (phone, mail, email)
@@ -53,7 +43,7 @@ func sanitizeURL(u *url.URL) string {
 			if keyLower == param {
 				sanitizedValues := make([]string, len(values))
 				for i, v := range values {
-					sanitizedValues[i] = sanitizeString(v)
+					sanitizedValues[i] = secure.MaskString(v, 2)
 				}
 				query[key] = sanitizedValues
 				break

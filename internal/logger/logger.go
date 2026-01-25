@@ -10,6 +10,7 @@ import (
 
 	// Third-party libraries
 	"github.com/rs/zerolog"
+	secure "github.com/soulteary/secure-kit"
 )
 
 var globalLevel zerolog.Level = zerolog.InfoLevel
@@ -47,21 +48,9 @@ func SetLevel(level zerolog.Level) {
 
 // SanitizeString sanitizes sensitive information
 // Performs partial sanitization on strings that may contain sensitive information
+// Uses secure-kit's MaskString for consistent masking behavior
 func SanitizeString(s string) string {
-	if s == "" {
-		return s
-	}
-
-	// If string is short, only show first and last characters
-	if len(s) <= 4 {
-		return "***"
-	}
-
-	// Show first 2 characters and last 2 characters, replace middle with *
-	prefix := s[:2]
-	suffix := s[len(s)-2:]
-	masked := strings.Repeat("*", len(s)-4)
-	return prefix + masked + suffix
+	return secure.MaskString(s, 2)
 }
 
 // SanitizeHeader sanitizes HTTP header information
@@ -78,12 +67,12 @@ func SanitizeHeader(header string) string {
 
 // SanitizePhone sanitizes phone number
 func SanitizePhone(phone string) string {
-	return SanitizeString(phone)
+	return secure.MaskString(phone, 2)
 }
 
 // SanitizeEmail sanitizes email address
 func SanitizeEmail(email string) string {
-	return SanitizeString(email)
+	return secure.MaskString(email, 2)
 }
 
 // SanitizeURL sanitizes URL by masking sensitive query parameters (phone, mail, email)
@@ -105,7 +94,7 @@ func SanitizeURL(u *url.URL) string {
 			if keyLower == param {
 				sanitizedValues := make([]string, len(values))
 				for i, v := range values {
-					sanitizedValues[i] = SanitizeString(v)
+					sanitizedValues[i] = secure.MaskString(v, 2)
 				}
 				query[key] = sanitizedValues
 				break

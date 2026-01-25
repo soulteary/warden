@@ -5,8 +5,6 @@ package main
 import (
 	// Standard library
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	stderrors "errors"
 	"fmt"
 	"net/http"
@@ -21,6 +19,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	rediskitclient "github.com/soulteary/redis-kit/client"
+	secure "github.com/soulteary/secure-kit"
 
 	// Middleware kit
 	middlewarekit "github.com/soulteary/middleware-kit"
@@ -305,9 +304,7 @@ func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
 func calculateHash(users []define.AllowListUser) string {
 	// Optimization: empty data directly returns fixed hash
 	if len(users) == 0 {
-		h := sha256.New()
-		h.Write([]byte("empty"))
-		return hex.EncodeToString(h.Sum(nil))
+		return secure.GetSHA256Hash("empty")
 	}
 
 	// Sort first to ensure same data produces same hash
@@ -326,12 +323,12 @@ func calculateHash(users []define.AllowListUser) string {
 	})
 
 	// Calculate hash (includes all fields to ensure accurate data change detection, consistent with cache.calculateHashInternal)
-	h := sha256.New()
+	var sb strings.Builder
 	for _, user := range sorted {
 		scopeStr := strings.Join(user.Scope, ",")
-		h.Write([]byte(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n"))
+		sb.WriteString(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n")
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return secure.GetSHA256Hash(sb.String())
 }
 
 // checkDataChanged checks if data has changed

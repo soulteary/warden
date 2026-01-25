@@ -1,9 +1,9 @@
 package define
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"strings"
+
+	secure "github.com/soulteary/secure-kit"
 )
 
 // AllowListUser represents user information in the allow list.
@@ -36,8 +36,7 @@ func (u *AllowListUser) Normalize() {
 			identifier = strings.TrimSpace(strings.ToLower(u.Mail))
 		}
 		if identifier != "" {
-			h := sha256.Sum256([]byte(identifier))
-			u.UserID = hex.EncodeToString(h[:])[:16] // Take first 16 characters
+			u.UserID = secure.GetSHA256Hash(identifier)[:16] // Take first 16 characters
 		}
 	}
 
