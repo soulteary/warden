@@ -4,11 +4,14 @@ package di
 
 import (
 	// Standard library
+	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
+	health "github.com/soulteary/health-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Middleware kit
@@ -18,7 +21,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
-	"github.com/soulteary/warden/internal/errors"
+	internalerrors "github.com/soulteary/warden/internal/errors"
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/router"
 )
@@ -45,7 +48,7 @@ func NewDependencies(cfg *cmd.Config) (*Dependencies, error) {
 
 	// 1. Initialize Redis client
 	if err := deps.initRedis(); err != nil {
-		return nil, errors.ErrRedisConnection.WithError(err)
+		return nil, internalerrors.ErrRedisConnection.WithError(err)
 	}
 
 	// 2. Initialize cache
@@ -80,7 +83,7 @@ func (d *Dependencies) initRedis() error {
 	var err error
 	d.RedisClient, err = rediskitclient.NewClient(redisCfg)
 	if err != nil {
-		return errors.ErrRedisConnection.WithError(err)
+		return internalerrors.ErrRedisConnection.WithError(err)
 	}
 
 	return nil
@@ -135,8 +138,9 @@ func (d *Dependencies) initHandlers() {
 	)
 
 	// Health check handler
+	healthAggregator := d.createHealthAggregator()
 	d.HealthHandler = middleware.MetricsMiddleware(
-		router.ProcessWithLogger(router.HealthCheck(d.RedisClient, d.UserCache, d.Config.Mode, d.Config.RedisEnabled)),
+		health.Handler(healthAggregator),
 	)
 
 	// Log level control handler
@@ -155,6 +159,46 @@ func (d *Dependencies) initHTTPServer() {
 		IdleTimeout:       define.IDLE_TIMEOUT,
 		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
 	}
+}
+
+// createHealthAggregator creates a health check aggregator with all dependencies
+func (d *Dependencies) createHealthAggregator() *health.Aggregator {
+	isProduction := d.Config.Mode == "production" || d.Config.Mode == "prod"
+
+	healthConfig := health.DefaultConfig().
+		WithServiceName("warden").
+		WithTimeout(5 * time.Second).
+		WithDetails(!isProduction).
+		WithChecks(!isProduction)
+
+	aggregator := health.NewAggregator(healthConfig)
+
+	// Redis health check
+	switch {
+	case !d.Config.RedisEnabled:
+		aggregator.AddChecker(health.NewDisabledChecker("redis").
+			WithMessage("Redis is disabled"))
+	case d.RedisClient != nil:
+		aggregator.AddChecker(health.NewRedisChecker(d.RedisClient))
+	default:
+		// Redis enabled but client is nil (connection failed)
+		aggregator.AddChecker(health.NewCustomChecker("redis", func(_ context.Context) error {
+			return errors.New("client not initialized")
+		}))
+	}
+
+	// Data loading check
+	aggregator.AddChecker(health.NewCustomChecker("data", func(_ context.Context) error {
+		if d.UserCache == nil {
+			return errors.New("cache not initialized")
+		}
+		if d.UserCache.Len() == 0 {
+			return errors.New("no data loaded yet")
+		}
+		return nil
+	}))
+
+	return aggregator
 }
 
 // Cleanup cleans up resources

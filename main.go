@@ -5,7 +5,7 @@ package main
 import (
 	// Standard library
 	"context"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,6 +18,7 @@ import (
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
+	health "github.com/soulteary/health-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 	secure "github.com/soulteary/secure-kit"
 
@@ -171,7 +172,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 		}
 		// Check if file exists
 		_, err := os.Stat(rulesFile)
-		if stderrors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, os.ErrNotExist) {
 			app.log.Warn().
 				Str("data_file", rulesFile).
 				Str("example_file", "data.example.json").
@@ -237,7 +238,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 	_, localFileErr := os.Stat(rulesFile)
 	hasRemoteConfig := app.configURL != "" && app.configURL != define.DEFAULT_REMOTE_CONFIG
 
-	if stderrors.Is(localFileErr, os.ErrNotExist) && !hasRemoteConfig {
+	if errors.Is(localFileErr, os.ErrNotExist) && !hasRemoteConfig {
 		// Local file does not exist and no remote address configured, provide friendly prompt
 		app.log.Warn().
 			Str("data_file", rulesFile).
@@ -549,9 +550,7 @@ func registerRoutes(app *App) {
 	}
 
 	// Health check endpoint IP whitelist (read from environment variable)
-	// Keep using internal middleware for IP whitelist as it has specific i18n integration
 	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
-	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
 
 	// Register Prometheus metrics endpoint (optional authentication)
 	// i18n middleware placed at outermost layer to ensure all requests can detect language
@@ -621,16 +620,16 @@ func registerRoutes(app *App) {
 	http.Handle("/user", userHandler)
 
 	// Register health check endpoint (IP whitelist protection, limits information leakage)
+	// Setup health checker using health-kit
+	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.appMode, app.redisEnabled, healthWhitelist)
 	// i18n middleware placed at outermost layer to ensure all requests can detect language
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						healthIPWhitelist(
-							middleware.MetricsMiddleware(
-								router.ProcessWithLogger(router.HealthCheck(app.redisClient, app.userCache, app.appMode, app.redisEnabled)),
-							),
+						middleware.MetricsMiddleware(
+							health.Handler(healthAggregator),
 						),
 					),
 				),
@@ -658,6 +657,63 @@ func registerRoutes(app *App) {
 		),
 	)
 	http.Handle("/log/level", logLevelHandler)
+}
+
+// setupHealthChecker creates a health check aggregator with all dependencies
+func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
+	isProduction := appMode == "production" || appMode == "prod"
+	isOnlyLocalMode := strings.ToUpper(strings.TrimSpace(appMode)) == "ONLY_LOCAL"
+
+	// Parse IP whitelist
+	var ipList []string
+	if ipWhitelist != "" {
+		for _, ip := range strings.Split(ipWhitelist, ",") {
+			ip = strings.TrimSpace(ip)
+			if ip != "" {
+				ipList = append(ipList, ip)
+			}
+		}
+	}
+
+	healthConfig := health.DefaultConfig().
+		WithServiceName("warden").
+		WithTimeout(5 * time.Second).
+		WithIPWhitelist(ipList).
+		WithDetails(!isProduction).
+		WithChecks(!isProduction)
+
+	aggregator := health.NewAggregator(healthConfig)
+
+	// Redis health check
+	switch {
+	case !redisEnabled:
+		aggregator.AddChecker(health.NewDisabledChecker("redis").
+			WithMessage("Redis is disabled"))
+	case redisClient != nil:
+		aggregator.AddChecker(health.NewRedisChecker(redisClient))
+	default:
+		// Redis enabled but client is nil (connection failed)
+		aggregator.AddChecker(health.NewCustomChecker("redis", func(_ context.Context) error {
+			return errors.New("client not initialized")
+		}))
+	}
+
+	// Data loading check
+	aggregator.AddChecker(health.NewCustomChecker("data", func(_ context.Context) error {
+		if userCache == nil {
+			return errors.New("cache not initialized")
+		}
+		if userCache.Len() == 0 {
+			// In ONLY_LOCAL mode, empty data is acceptable warning
+			if isOnlyLocalMode {
+				return nil // Return ok for ONLY_LOCAL mode
+			}
+			return errors.New("no data loaded yet")
+		}
+		return nil
+	}))
+
+	return aggregator
 }
 
 // wrapWithTracingIfEnabled wraps handler with tracing middleware if enabled
