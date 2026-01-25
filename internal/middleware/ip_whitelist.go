@@ -11,6 +11,7 @@ import (
 
 	// Third-party libraries
 	"github.com/rs/zerolog/hlog"
+	middlewarekit "github.com/soulteary/middleware-kit"
 )
 
 // IPWhitelistMiddleware creates IP whitelist middleware
@@ -39,7 +40,7 @@ func IPWhitelistMiddleware(whitelist string) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientIP := getClientIP(r)
+			clientIP := middlewarekit.GetClientIP(r, nil)
 
 			// Check if IP is in whitelist
 			if !isIPAllowed(clientIP, allowedIPs, allowedNetworks) {

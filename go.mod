@@ -11,6 +11,7 @@ require (
 	github.com/soulteary/cli-kit v1.0.0
 	github.com/soulteary/http-kit v1.0.0
 	github.com/soulteary/metrics-kit v1.0.0
+	github.com/soulteary/middleware-kit v1.0.0
 	github.com/soulteary/redis-kit v1.0.0
 	github.com/soulteary/tracing-kit v1.0.0
 	github.com/stretchr/testify v1.11.1

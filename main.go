@@ -22,6 +22,9 @@ import (
 	"github.com/rs/zerolog"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
+	// Middleware kit
+	middlewarekit "github.com/soulteary/middleware-kit"
+
 	// Internal packages
 	"github.com/soulteary/tracing-kit"
 	"github.com/soulteary/warden/internal/cache"
@@ -43,18 +46,18 @@ const rulesFile = "./data.json"
 
 // App application struct that encapsulates all application state
 type App struct {
-	userCache           *cache.SafeUserCache    // 8 bytes pointer
-	redisUserCache      *cache.RedisUserCache   // 8 bytes pointer
-	redisClient         *redis.Client           // 8 bytes pointer
-	rateLimiter         *middleware.RateLimiter // 8 bytes pointer
-	log                 zerolog.Logger          // 24 bytes (interface)
-	port                string                  // 16 bytes
-	configURL           string                  // 16 bytes
-	authorizationHeader string                  // 16 bytes
-	appMode             string                  // 16 bytes
-	apiKey              string                  // 16 bytes
-	taskInterval        uint64                  // 8 bytes
-	redisEnabled        bool                    // 1 byte (padding to 8 bytes)
+	userCache           *cache.SafeUserCache       // 8 bytes pointer
+	redisUserCache      *cache.RedisUserCache      // 8 bytes pointer
+	redisClient         *redis.Client              // 8 bytes pointer
+	rateLimiter         *middlewarekit.RateLimiter // 8 bytes pointer
+	log                 zerolog.Logger             // 24 bytes (interface)
+	port                string                     // 16 bytes
+	configURL           string                     // 16 bytes
+	authorizationHeader string                     // 16 bytes
+	appMode             string                     // 16 bytes
+	apiKey              string                     // 16 bytes
+	taskInterval        uint64                     // 8 bytes
+	redisEnabled        bool                       // 1 byte (padding to 8 bytes)
 }
 
 // NewApp creates a new application instance
@@ -134,8 +137,14 @@ func NewApp(cfg *cmd.Config) *App {
 		app.taskInterval = uint64(define.DEFAULT_TASK_INTERVAL)
 	}
 
-	// Initialize rate limiter (encapsulated in App to avoid global variables)
-	app.rateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
+	// Initialize rate limiter (using middleware-kit)
+	app.rateLimiter = middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
+		Rate:            define.DEFAULT_RATE_LIMIT,
+		Window:          define.DEFAULT_RATE_LIMIT_WINDOW,
+		MaxVisitors:     define.MAX_VISITORS_MAP_SIZE,
+		MaxWhitelist:    define.MAX_WHITELIST_SIZE,
+		CleanupInterval: define.RATE_LIMIT_CLEANUP_INTERVAL,
+	})
 
 	return app
 }
@@ -487,12 +496,54 @@ func (app *App) backgroundTask(rulesFile string) {
 
 // registerRoutes registers all HTTP routes
 func registerRoutes(app *App) {
-	// Create base middleware
+	// Create trusted proxy config (from environment variable)
+	trustedProxies := strings.Split(os.Getenv("TRUSTED_PROXY_IPS"), ",")
+	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
+
+	// Create base middleware (using middleware-kit)
 	i18nMiddleware := middleware.I18nMiddleware()
-	securityHeadersMiddleware := middleware.SecurityHeadersMiddleware
 	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.appMode)
-	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(app.rateLimiter)
-	authMiddleware := middleware.AuthMiddleware(app.apiKey)
+
+	// Security headers middleware (using middleware-kit with strict config)
+	securityCfg := middlewarekit.StrictSecurityHeadersConfig()
+	securityHeadersMiddleware := middlewarekit.SecurityHeadersStd(securityCfg)
+
+	// Rate limit middleware (using middleware-kit)
+	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
+		Limiter:            app.rateLimiter,
+		TrustedProxyConfig: trustedProxyConfig,
+		Logger:             &app.log,
+		OnLimitReached: func(key string) {
+			metrics.RateLimitHits.WithLabelValues(key).Inc()
+		},
+	})
+
+	// Auth middleware (using middleware-kit with constant-time comparison)
+	authMiddleware := middlewarekit.APIKeyAuthStd(middlewarekit.APIKeyConfig{
+		APIKey:             app.apiKey,
+		AuthScheme:         "Bearer",
+		TrustedProxyConfig: trustedProxyConfig,
+		Logger:             &app.log,
+	})
+
+	// Optional auth middleware for metrics endpoint
+	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(middlewarekit.APIKeyConfig{
+		APIKey:             app.apiKey,
+		AuthScheme:         "Bearer",
+		AllowEmptyKey:      true, // Allow access when no API key configured
+		TrustedProxyConfig: trustedProxyConfig,
+		Logger:             &app.log,
+	})
+
+	// Compress middleware (using middleware-kit)
+	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
+
+	// Body limit middleware (using middleware-kit)
+	bodyLimitMiddleware := middlewarekit.BodyLimitStd(middlewarekit.BodyLimitConfig{
+		MaxSize:            define.MAX_REQUEST_BODY_SIZE,
+		TrustedProxyConfig: trustedProxyConfig,
+		Logger:             &app.log,
+	})
 
 	// Tracing middleware (if enabled)
 	var tracingMiddleware func(http.Handler) http.Handler
@@ -501,6 +552,7 @@ func registerRoutes(app *App) {
 	}
 
 	// Health check endpoint IP whitelist (read from environment variable)
+	// Keep using internal middleware for IP whitelist as it has specific i18n integration
 	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
 	healthIPWhitelist := middleware.IPWhitelistMiddleware(healthWhitelist)
 
@@ -511,7 +563,7 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.OptionalAuthMiddleware(app.apiKey)(
+						optionalAuthMiddleware(
 							middleware.MetricsMiddleware(metrics.Handler()),
 						),
 					),
@@ -528,8 +580,8 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.CompressMiddleware(
-							middleware.BodyLimitMiddleware(
+						compressMiddleware(
+							bodyLimitMiddleware(
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
@@ -553,8 +605,8 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.CompressMiddleware(
-							middleware.BodyLimitMiddleware(
+						compressMiddleware(
+							bodyLimitMiddleware(
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
@@ -632,7 +684,7 @@ func startServer(port string) *http.Server {
 }
 
 // shutdownServer gracefully shuts down the server
-func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimiter, log *zerolog.Logger) {
+func shutdownServer(srv *http.Server, rateLimiter *middlewarekit.RateLimiter, log *zerolog.Logger) {
 	// Stop rate limiter
 	if rateLimiter != nil {
 		rateLimiter.Stop()
