@@ -169,12 +169,12 @@ func TestSanitizeString(t *testing.T) {
 		{
 			name:     "空字符串",
 			input:    "",
-			expected: "",
+			expected: "***", // secure-kit returns "***" for empty strings
 		},
 		{
 			name:     "短字符串（<=4字符）",
 			input:    "test",
-			expected: "***",
+			expected: "***", // secure-kit returns "***" for short strings
 		},
 		{
 			name:     "短字符串（3字符）",
@@ -184,12 +184,12 @@ func TestSanitizeString(t *testing.T) {
 		{
 			name:     "正常字符串",
 			input:    "password123",
-			expected: "pa*******23",
+			expected: "pa***23", // secure-kit uses fixed 3 asterisks (more secure, doesn't leak length)
 		},
 		{
 			name:     "长字符串",
 			input:    "very-long-secret-key-that-needs-masking",
-			expected: "ve***********************************ng", // 实际长度：43字符，前2后2，中间39个*
+			expected: "ve***ng", // secure-kit uses fixed 3 asterisks
 		},
 	}
 
@@ -281,13 +281,13 @@ func TestGetLogger_WithEnvLevel(t *testing.T) {
 }
 
 func TestSanitizeString_EdgeCases(t *testing.T) {
-	// Test edge cases
-	assert.Equal(t, "", SanitizeString(""))
-	assert.Equal(t, "***", SanitizeString("a"))
-	assert.Equal(t, "***", SanitizeString("ab"))
-	assert.Equal(t, "***", SanitizeString("abc"))
-	assert.Equal(t, "***", SanitizeString("abcd"))
-	assert.Equal(t, "ab**ef", SanitizeString("abcdef"))
+	// Test edge cases - secure-kit uses fixed 3 asterisks for all masked content
+	assert.Equal(t, "***", SanitizeString(""))     // secure-kit returns "***" for empty
+	assert.Equal(t, "***", SanitizeString("a"))    // too short
+	assert.Equal(t, "***", SanitizeString("ab"))   // too short
+	assert.Equal(t, "***", SanitizeString("abc"))  // too short
+	assert.Equal(t, "***", SanitizeString("abcd")) // too short
+	assert.Equal(t, "ab***ef", SanitizeString("abcdef"))
 }
 
 func TestSanitizeHeader_EdgeCases(t *testing.T) {
@@ -309,7 +309,7 @@ func TestSanitizePhone(t *testing.T) {
 		{
 			name:     "空字符串",
 			input:    "",
-			expected: "",
+			expected: "***", // secure-kit returns "***" for empty
 		},
 		{
 			name:     "短手机号",
@@ -319,12 +319,12 @@ func TestSanitizePhone(t *testing.T) {
 		{
 			name:     "正常手机号",
 			input:    "13800138000",
-			expected: "13*******00", // 11位：前2后2，中间7个*
+			expected: "13***00", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "国际手机号",
 			input:    "+8613800138000",
-			expected: "+8**********00",
+			expected: "+8***00", // secure-kit uses fixed 3 asterisks
 		},
 	}
 
@@ -345,7 +345,7 @@ func TestSanitizeEmail(t *testing.T) {
 		{
 			name:     "空字符串",
 			input:    "",
-			expected: "",
+			expected: "***", // secure-kit returns "***" for empty
 		},
 		{
 			name:     "短邮箱",
@@ -355,12 +355,12 @@ func TestSanitizeEmail(t *testing.T) {
 		{
 			name:     "正常邮箱",
 			input:    "test@example.com",
-			expected: "te************om", // 16位：前2后2，中间12个*
+			expected: "te***om", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "长邮箱",
 			input:    "verylongemailaddress@example.com",
-			expected: "ve****************************om", // 34位：前2后2，中间30个*
+			expected: "ve***om", // secure-kit uses fixed 3 asterisks
 		},
 	}
 
@@ -386,37 +386,37 @@ func TestSanitizeURL(t *testing.T) {
 		{
 			name:     "单个phone参数",
 			input:    "https://example.com/user?phone=13800138000",
-			expected: "phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+			expected: "phone=13%2A%2A%2A00", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "单个mail参数",
 			input:    "https://example.com/user?mail=test@example.com",
-			expected: "mail=te%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2Aom", // URL编码后的脱敏值
+			expected: "mail=te%2A%2A%2Aom", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "单个email参数",
 			input:    "https://example.com/user?email=user@example.com",
-			expected: "email=us%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2A%2Aom", // URL编码后的脱敏值
+			expected: "email=us%2A%2A%2Aom", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "多个敏感参数",
 			input:    "https://example.com/user?phone=13800138000&mail=test@example.com",
-			expected: "phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+			expected: "phone=13%2A%2A%2A00", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "敏感参数和非敏感参数混合",
 			input:    "https://example.com/user?phone=13800138000&page=1&page_size=10",
-			expected: "phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+			expected: "phone=13%2A%2A%2A00", // secure-kit uses fixed 3 asterisks
 		},
 		{
 			name:     "空值参数",
 			input:    "https://example.com/user?phone=",
-			expected: "phone=",
+			expected: "phone=%2A%2A%2A", // secure-kit returns "***" for empty
 		},
 		{
 			name:     "大小写混合参数名",
 			input:    "https://example.com/user?Phone=13800138000&MAIL=test@example.com",
-			expected: "Phone=13%2A%2A%2A%2A%2A%2A%2A00", // URL编码后的脱敏值
+			expected: "Phone=13%2A%2A%2A00", // secure-kit uses fixed 3 asterisks
 		},
 	}
 

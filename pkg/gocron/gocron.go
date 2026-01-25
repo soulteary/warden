@@ -30,13 +30,13 @@
 package gocron
 
 import (
-	"crypto/sha256"
-	"fmt"
 	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	secure "github.com/soulteary/secure-kit"
 )
 
 // Locker provides a method to lock jobs from running
@@ -98,9 +98,7 @@ func getFunctionName(fn interface{}) string {
 }
 
 func getFunctionKey(funcName string) string {
-	h := sha256.New()
-	h.Write([]byte(funcName))
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return secure.GetSHA256Hash(funcName)
 }
 
 // Jobs returns the list of Jobs from the defaultScheduler
