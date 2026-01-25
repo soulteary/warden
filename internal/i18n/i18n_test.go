@@ -53,16 +53,16 @@ func TestNormalizeLanguage(t *testing.T) {
 
 func TestTranslateFallbacks(t *testing.T) {
 	key := "error.redis_connection_failed"
-	if got := translate(LangEN, key); got != "Redis connection failed" {
+	if got := TWithLang(LangEN, key); got != "Redis connection failed" {
 		t.Fatalf("expected English translation, got %q", got)
 	}
 
-	if got := translate(Language("es"), key); got != "Redis connection failed" {
+	if got := TWithLang(Language("es"), key); got != "Redis connection failed" {
 		t.Fatalf("expected English fallback translation, got %q", got)
 	}
 
 	unknownKey := "unknown.key"
-	if got := translate(LangEN, unknownKey); got != unknownKey {
+	if got := TWithLang(LangEN, unknownKey); got != unknownKey {
 		t.Fatalf("expected key fallback, got %q", got)
 	}
 }
@@ -89,9 +89,14 @@ func TestTranslateHelpers(t *testing.T) {
 	}
 }
 
-func TestGetLanguageFromContextValueWithNonLanguage(t *testing.T) {
-	ctx := context.WithValue(context.Background(), languageKey, "en")
-	if got := GetLanguageFromContextValue(ctx); got != LangEN {
-		t.Fatalf("expected LangEN when context value is non-Language, got %s", got)
+func TestGetLanguageFromContextValueWithEmptyContext(t *testing.T) {
+	// Test with empty context returns default language
+	if got := GetLanguageFromContextValue(context.Background()); got != LangEN {
+		t.Fatalf("expected LangEN when context has no language, got %s", got)
+	}
+
+	// Test with context.TODO returns default language
+	if got := GetLanguageFromContextValue(context.TODO()); got != LangEN {
+		t.Fatalf("expected LangEN when context is TODO, got %s", got)
 	}
 }
