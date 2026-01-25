@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	middlewarekit "github.com/soulteary/middleware-kit"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
-	"github.com/soulteary/warden/internal/middleware"
 )
 
 func newFailingRemoteServer(t *testing.T, expectedAuth string) *httptest.Server {
@@ -253,8 +253,11 @@ func TestStartServer(t *testing.T) {
 // TestShutdownServer tests server shutdown
 func TestShutdownServer(t *testing.T) {
 	t.Helper()
-	// Create a simple rate limiter
-	rateLimiter := middleware.NewRateLimiter(100, time.Second)
+	// Create a simple rate limiter (using middleware-kit)
+	rateLimiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
+		Rate:   100,
+		Window: time.Second,
+	})
 
 	// Create a test server
 	srv := &http.Server{
@@ -886,7 +889,10 @@ func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 
 // TestShutdownServer_ShutdownError tests error handling during server shutdown
 func TestShutdownServer_ShutdownError(t *testing.T) {
-	rateLimiter := middleware.NewRateLimiter(100, time.Second)
+	rateLimiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
+		Rate:   100,
+		Window: time.Second,
+	})
 
 	// Create an already closed server
 	srv := &http.Server{

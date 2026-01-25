@@ -11,6 +11,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
+	// Middleware kit
+	middlewarekit "github.com/soulteary/middleware-kit"
+
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
@@ -26,7 +29,7 @@ type Dependencies struct {
 	RedisClient     *redis.Client
 	UserCache       *cache.SafeUserCache
 	RedisUserCache  *cache.RedisUserCache
-	RateLimiter     *middleware.RateLimiter
+	RateLimiter     *middlewarekit.RateLimiter
 	HTTPServer      *http.Server
 	MainHandler     http.Handler
 	HealthHandler   http.Handler
@@ -96,17 +99,33 @@ func (d *Dependencies) initCache() {
 
 // initRateLimiter initializes rate limiter
 func (d *Dependencies) initRateLimiter() {
-	d.RateLimiter = middleware.NewRateLimiter(define.DEFAULT_RATE_LIMIT, define.DEFAULT_RATE_LIMIT_WINDOW)
+	d.RateLimiter = middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
+		Rate:            define.DEFAULT_RATE_LIMIT,
+		Window:          define.DEFAULT_RATE_LIMIT_WINDOW,
+		MaxVisitors:     define.MAX_VISITORS_MAP_SIZE,
+		MaxWhitelist:    define.MAX_WHITELIST_SIZE,
+		CleanupInterval: define.RATE_LIMIT_CLEANUP_INTERVAL,
+	})
 }
 
 // initHandlers initializes HTTP handlers
 func (d *Dependencies) initHandlers() {
-	// Create rate limiting middleware
-	rateLimitMiddleware := middleware.RateLimitMiddlewareWithLimiter(d.RateLimiter)
+	// Create rate limiting middleware (using middleware-kit)
+	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
+		Limiter: d.RateLimiter,
+	})
+
+	// Compress middleware (using middleware-kit)
+	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
+
+	// Body limit middleware (using middleware-kit)
+	bodyLimitMiddleware := middlewarekit.BodyLimitStd(middlewarekit.BodyLimitConfig{
+		MaxSize: define.MAX_REQUEST_BODY_SIZE,
+	})
 
 	// Main data interface handler
-	d.MainHandler = middleware.CompressMiddleware(
-		middleware.BodyLimitMiddleware(
+	d.MainHandler = compressMiddleware(
+		bodyLimitMiddleware(
 			middleware.MetricsMiddleware(
 				rateLimitMiddleware(
 					router.ProcessWithLogger(router.JSON(d.UserCache)),
