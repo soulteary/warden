@@ -3,95 +3,142 @@
 package metrics
 
 import (
-	// Standard library
 	"net/http"
+	"time"
 
-	// Third-party libraries
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metricskit "github.com/soulteary/metrics-kit"
 )
 
 var (
+	// Registry is the Prometheus registry for Warden metrics
+	Registry *metricskit.Registry
+
+	// Cache holds cache-related metrics
+	Cache *metricskit.CacheMetrics
+
+	// RateLimit holds rate limiting metrics
+	RateLimit *metricskit.RateLimitMetrics
+
 	// HTTPRequestTotal records total number of HTTP requests
-	HTTPRequestTotal = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "http_requests_total",
-			Help: "Total number of HTTP requests",
-		},
-		[]string{"method", "endpoint", "status"},
-	)
+	HTTPRequestTotal *prometheus.CounterVec
 
 	// HTTPRequestDuration records HTTP request latency
-	HTTPRequestDuration = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "http_request_duration_seconds",
-			Help:    "HTTP request duration in seconds",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"method", "endpoint"},
-	)
+	HTTPRequestDuration *prometheus.HistogramVec
 
-	// CacheSize records number of users in cache
-	CacheSize = promauto.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "cache_size",
-			Help: "Number of users in cache",
-		},
-	)
+	// CacheSize records number of users in cache (alias to Cache.Size)
+	CacheSize prometheus.Gauge
+
+	// CacheHits records number of cache hits (alias to Cache.Hits)
+	CacheHits prometheus.Counter
+
+	// CacheMisses records number of cache misses (alias to Cache.Misses)
+	CacheMisses prometheus.Counter
 
 	// BackgroundTaskTotal records total number of background tasks executed
-	BackgroundTaskTotal = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "background_task_total",
-			Help: "Total number of background tasks executed",
-		},
-	)
+	BackgroundTaskTotal prometheus.Counter
 
 	// BackgroundTaskDuration records background task execution time
-	BackgroundTaskDuration = promauto.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "background_task_duration_seconds",
-			Help:    "Background task duration in seconds",
-			Buckets: prometheus.DefBuckets,
-		},
-	)
+	BackgroundTaskDuration prometheus.Histogram
 
 	// BackgroundTaskErrors records number of background task errors
-	BackgroundTaskErrors = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "background_task_errors_total",
-			Help: "Total number of background task errors",
-		},
-	)
+	BackgroundTaskErrors prometheus.Counter
 
-	// CacheHits records number of cache hits
-	CacheHits = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "cache_hits_total",
-			Help: "Total number of cache hits",
-		},
-	)
-
-	// CacheMisses records number of cache misses
-	CacheMisses = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "cache_misses_total",
-			Help: "Total number of cache misses",
-		},
-	)
-
-	// RateLimitHits records number of rate limit hits
-	RateLimitHits = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "rate_limit_hits_total",
-			Help: "Total number of rate limit hits",
-		},
-		[]string{"ip"},
-	)
+	// RateLimitHits records number of rate limit hits (legacy, uses ip label)
+	RateLimitHits *prometheus.CounterVec
 )
+
+func init() {
+	Init()
+}
+
+// Init initializes all Warden metrics using metrics-kit
+func Init() {
+	Registry = metricskit.NewRegistry("warden")
+	cm := metricskit.NewCommonMetrics(Registry)
+
+	// Cache metrics with "user" subsystem for user cache
+	Cache = cm.NewCacheMetrics("user")
+
+	// Rate limit metrics
+	RateLimit = cm.NewRateLimitMetrics()
+
+	// HTTP metrics using builder pattern (keep endpoint label for backward compatibility)
+	HTTPRequestTotal = Registry.Counter("http_requests_total").
+		Help("Total number of HTTP requests").
+		Labels("method", "endpoint", "status").
+		BuildVec()
+
+	HTTPRequestDuration = Registry.Histogram("http_request_duration_seconds").
+		Help("HTTP request duration in seconds").
+		Labels("method", "endpoint").
+		Buckets(metricskit.HTTPDurationBuckets()).
+		BuildVec()
+
+	// Setup cache variable aliases for backward compatibility
+	CacheSize = Cache.Size
+	CacheHits = Cache.Hits
+	CacheMisses = Cache.Misses
+
+	// Background task metrics (create manually to avoid conflict with CommonMetrics)
+	BackgroundTaskTotal = Registry.Counter("background_task_total").
+		Help("Total number of background tasks executed").
+		Build()
+
+	BackgroundTaskDuration = Registry.Histogram("background_task_duration_seconds").
+		Help("Background task duration in seconds").
+		Buckets(metricskit.DefaultBuckets()).
+		Build()
+
+	BackgroundTaskErrors = Registry.Counter("background_task_errors_total").
+		Help("Total number of background task errors").
+		Build()
+
+	// Rate limit legacy alias (uses ip label instead of scope for backward compatibility)
+	RateLimitHits = Registry.Counter("rate_limit_hits_legacy_total").
+		Help("Total number of rate limit hits (legacy, by IP)").
+		Labels("ip").
+		BuildVec()
+}
 
 // Handler returns Prometheus metrics endpoint handler
 func Handler() http.Handler {
-	return promhttp.Handler()
+	return metricskit.HandlerFor(Registry)
+}
+
+// RecordHTTPRequest records an HTTP request
+func RecordHTTPRequest(method, endpoint, status string, duration time.Duration) {
+	HTTPRequestTotal.WithLabelValues(method, endpoint, status).Inc()
+	HTTPRequestDuration.WithLabelValues(method, endpoint).Observe(duration.Seconds())
+}
+
+// RecordCacheHit records a cache hit
+func RecordCacheHit() {
+	Cache.RecordHit()
+}
+
+// RecordCacheMiss records a cache miss
+func RecordCacheMiss() {
+	Cache.RecordMiss()
+}
+
+// SetCacheSize sets the current cache size
+func SetCacheSize(size float64) {
+	Cache.SetSize(size)
+}
+
+// RecordBackgroundTask records a background task execution
+func RecordBackgroundTask(duration time.Duration, success bool) {
+	BackgroundTaskTotal.Inc()
+	BackgroundTaskDuration.Observe(duration.Seconds())
+	if !success {
+		BackgroundTaskErrors.Inc()
+	}
+}
+
+// RecordRateLimitHit records a rate limit hit by IP (legacy)
+func RecordRateLimitHit(ip string) {
+	RateLimitHits.WithLabelValues(ip).Inc()
+	// Also record in the new metrics with "ip" scope
+	RateLimit.RecordHit("ip")
 }
