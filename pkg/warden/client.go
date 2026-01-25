@@ -10,13 +10,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	httpkit "github.com/soulteary/http-kit"
 )
 
 // Client is the Warden API client.
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Client struct {
-	httpClient               *http.Client
+	httpClient               *httpkit.Client
 	baseURL                  string
 	apiKey                   string
 	cache                    *Cache
@@ -38,12 +40,18 @@ func NewClient(opts *Options) (*Client, error) {
 		return nil, err
 	}
 
-	// Create HTTP client with custom transport if provided
-	httpClient := &http.Client{
+	// Create HTTP client using http-kit
+	clientOpts := &httpkit.Options{
+		BaseURL: opts.BaseURL,
 		Timeout: opts.Timeout,
 	}
 	if opts.Transport != nil {
-		httpClient.Transport = opts.Transport
+		clientOpts.Transport = opts.Transport
+	}
+
+	httpClient, err := httpkit.NewClient(clientOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
 
 	// Set default retry options if not provided
@@ -119,6 +127,9 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
 
+	// Inject trace context into headers
+	c.httpClient.InjectTraceContext(ctx, req)
+
 	// Add API key header if configured
 	c.addAuthHeaders(req)
 
@@ -180,6 +191,9 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
+
+	// Inject trace context into headers
+	c.httpClient.InjectTraceContext(ctx, req)
 
 	// Add API key header if configured
 	c.addAuthHeaders(req)
@@ -318,6 +332,9 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
+
+	// Inject trace context into headers
+	c.httpClient.InjectTraceContext(ctx, req)
 
 	// Add API key header if configured
 	c.addAuthHeaders(req)

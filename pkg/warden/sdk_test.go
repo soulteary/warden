@@ -1321,7 +1321,7 @@ func TestClient_WithCustomTransport(t *testing.T) {
 	}
 
 	// Verify transport is used
-	if client.httpClient.Transport != customTransport {
+	if client.httpClient.GetHTTPClient().Transport != customTransport {
 		t.Error("Custom transport was not set")
 	}
 }
