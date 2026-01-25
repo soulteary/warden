@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	// Internal packages
+	"github.com/soulteary/warden/internal/auditlog"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
@@ -80,7 +81,9 @@ func LogLevelHandler() http.HandlerFunc {
 			oldLevel := zerolog.GlobalLevel()
 			logger.SetLevel(level)
 
-			// Record security event: log level was modified
+			// Record security event: log level was modified via audit-kit
+			auditlog.LogConfigChange(r.Context(), "log_level", oldLevel.String(), level.String(), r.RemoteAddr, r.UserAgent())
+
 			log.Info().
 				Str("old_level", oldLevel.String()).
 				Str("new_level", level.String()).

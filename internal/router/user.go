@@ -16,6 +16,7 @@ import (
 
 	// Internal packages
 	"github.com/soulteary/tracing-kit"
+	"github.com/soulteary/warden/internal/auditlog"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
@@ -112,6 +113,19 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 				Str("mail", logger.SanitizeEmail(mail)).
 				Str("user_id", userID).
 				Msg(i18n.T(r, "log.user_not_found"))
+
+			// Audit log: user query failed
+			identifier := phone
+			identifierType := "phone"
+			if mail != "" {
+				identifier = mail
+				identifierType = "mail"
+			} else if userID != "" {
+				identifier = userID
+				identifierType = "user_id"
+			}
+			auditlog.LogUserQuery(r.Context(), "", identifier, identifierType, r.RemoteAddr, false, "user_not_found")
+
 			http.Error(w, i18n.T(r, "http.user_not_found"), http.StatusNotFound)
 			return
 		}
@@ -140,5 +154,17 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			Str("phone", logger.SanitizePhone(user.Phone)).
 			Str("mail", logger.SanitizeEmail(user.Mail)).
 			Msg(i18n.T(r, "log.user_query_success"))
+
+		// Audit log: user query success
+		identifier := phone
+		identifierType := "phone"
+		if mail != "" {
+			identifier = mail
+			identifierType = "mail"
+		} else if userID != "" {
+			identifier = userID
+			identifierType = "user_id"
+		}
+		auditlog.LogUserQuery(r.Context(), user.UserID, identifier, identifierType, r.RemoteAddr, true, "")
 	}
 }
