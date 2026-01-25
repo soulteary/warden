@@ -11,7 +11,6 @@ import (
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
-	wardenValidator "github.com/soulteary/warden/internal/validator"
 )
 
 // ValidateConfig validates configuration validity
@@ -30,10 +29,9 @@ func ValidateConfig(cfg *Config) error {
 		}
 	}
 
-	// Validate remote configuration URL (enhanced SSRF protection)
-	// Use warden's validator for backward compatibility (it may have project-specific rules)
+	// Validate remote configuration URL (enhanced SSRF protection using cli-kit/validator)
 	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
-		if err := wardenValidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
+		if err := validator.ValidateURL(cfg.RemoteConfig, nil); err != nil {
 			errors = append(errors, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
 		}
 	}

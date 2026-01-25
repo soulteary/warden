@@ -8,7 +8,7 @@ require (
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/rs/zerolog v1.34.0
 	github.com/sirupsen/logrus v1.9.4
-	github.com/soulteary/cli-kit v1.0.0
+	github.com/soulteary/cli-kit v1.2.0
 	github.com/soulteary/http-kit v1.0.0
 	github.com/soulteary/metrics-kit v1.0.0
 	github.com/soulteary/middleware-kit v1.0.0

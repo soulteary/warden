@@ -10,10 +10,12 @@ import (
 	"strings"
 	"sync"
 
+	// External packages
+	"github.com/soulteary/cli-kit/validator"
+
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
-	"github.com/soulteary/warden/internal/validator"
 )
 
 var log = logger.GetLogger()
@@ -96,19 +98,27 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 		// Normalize user data (set default values, generate user_id)
 		user.Normalize()
 
-		// Validate user data
-		if err := validator.ValidateUser(user.Phone, user.Mail); err != nil {
+		// Validate user data using cli-kit validator
+		phoneOpts := &validator.PhoneOptions{AllowEmpty: true}
+		emailOpts := &validator.EmailOptions{AllowEmpty: true}
+
+		if err := validator.ValidatePhone(user.Phone, phoneOpts); err != nil {
 			invalidCount++
-			// Safely get validation error field
-			field := "unknown"
-			if ve, ok := err.(*validator.ValidationError); ok {
-				field = ve.Field
-			}
 			log.Warn().
 				Err(err).
 				Str("phone", user.Phone).
 				Str("mail", user.Mail).
-				Str("field", field).
+				Str("field", "phone").
+				Msg("Skipping invalid user data")
+			continue
+		}
+		if err := validator.ValidateEmail(user.Mail, emailOpts); err != nil {
+			invalidCount++
+			log.Warn().
+				Err(err).
+				Str("phone", user.Phone).
+				Str("mail", user.Mail).
+				Str("field", "email").
 				Msg("Skipping invalid user data")
 			continue
 		}
