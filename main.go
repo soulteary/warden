@@ -19,6 +19,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	health "github.com/soulteary/health-kit"
+	loggerkit "github.com/soulteary/logger-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 	secure "github.com/soulteary/secure-kit"
 
@@ -639,8 +640,9 @@ func registerRoutes(app *App) {
 	http.Handle("/health", healthHandler)
 	http.Handle("/healthcheck", healthHandler)
 
-	// Register log level control endpoint (requires authentication)
+	// Register log level control endpoint using logger-kit (requires authentication)
 	// i18n middleware placed at outermost layer to ensure all requests can detect language
+	lkLog := logger.GetLoggerKit()
 	logLevelHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -648,7 +650,9 @@ func registerRoutes(app *App) {
 					wrapWithTracingIfEnabled(tracingMiddleware,
 						middleware.MetricsMiddleware(
 							authMiddleware(
-								router.ProcessWithLogger(router.LogLevelHandler()),
+								loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
+									Logger: lkLog,
+								}),
 							),
 						),
 					),

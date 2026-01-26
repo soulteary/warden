@@ -32,7 +32,8 @@ func TestLogger_Output(t *testing.T) {
 
 func TestLogger_Levels(t *testing.T) {
 	var buf bytes.Buffer
-	logger := zerolog.New(&buf).With().Timestamp().Logger()
+	// Set level to InfoLevel explicitly to filter out debug messages
+	logger := zerolog.New(&buf).With().Timestamp().Logger().Level(zerolog.InfoLevel)
 
 	// Test different log levels
 	logger.Debug().Msg("debug message")
@@ -42,7 +43,7 @@ func TestLogger_Levels(t *testing.T) {
 
 	output := buf.String()
 
-	// Since default level is InfoLevel, Debug messages should not appear
+	// Since level is set to InfoLevel, Debug messages should not appear
 	assert.NotContains(t, output, "debug message", "Debug消息不应该出现在输出中")
 	assert.Contains(t, output, "info message", "Info消息应该出现在输出中")
 	assert.Contains(t, output, "warn message", "Warn消息应该出现在输出中")
