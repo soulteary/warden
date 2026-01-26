@@ -91,6 +91,8 @@ github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/soulteary/audit-kit v1.0.0 h1:YT+KoL4+UjHsLUy9+YhpSL3voxf326Rk36h2DTKzCUY=
 github.com/soulteary/audit-kit v1.0.0/go.mod h1:yPvw+42wEhUFQvGaJGilEwS90L8zdBtawuec1OGlPx4=
+github.com/soulteary/cache-kit v1.0.0 h1:jM9WiIyYA9oBKb9Z/jfIte/MobKpNz+Ad5eKLhkafTU=
+github.com/soulteary/cache-kit v1.0.0/go.mod h1:Yoi34IrfgOYiuU5Km+CNSApllvAGsHkK4VVvysXix9M=
 github.com/soulteary/cli-kit v1.2.0 h1:Nv7uQ6t8PfnNdbpog7m82FTMjGo5bCRL4ptrx7oT4mc=
 github.com/soulteary/cli-kit v1.2.0/go.mod h1:Z32KzEtl9FEFtKAsGhekTzPMUcg7Js7YvJzIyT/8Urk=
 github.com/soulteary/health-kit v1.0.0 h1:wBsEwuvrOsTIfHYbkSubzqn8dKEyN7E6b2OgJGaHnV4=
