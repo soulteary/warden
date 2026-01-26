@@ -1,49 +1,66 @@
 // Package logger provides logging functionality.
-// Implements structured logging based on zerolog, supports log level control and sensitive information sanitization.
+// This package now delegates to logger-kit for logging functionality,
+// while keeping the utility functions for backward compatibility.
 package logger
 
 import (
 	// Standard library
 	"net/url"
-	"os"
 	"strings"
 
 	// Third-party libraries
 	"github.com/rs/zerolog"
+	loggerkit "github.com/soulteary/logger-kit"
 	secure "github.com/soulteary/secure-kit"
 )
 
-var globalLevel zerolog.Level = zerolog.InfoLevel
+// log is the global logger-kit instance
+var log *loggerkit.Logger
 
 func init() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-
-	// Read log level from environment variable
-	if levelStr := os.Getenv("LOG_LEVEL"); levelStr != "" {
-		level, err := zerolog.ParseLevel(strings.ToLower(levelStr))
-		if err == nil {
-			globalLevel = level
-		}
-	}
-
-	zerolog.SetGlobalLevel(globalLevel)
+	// Initialize logger using logger-kit
+	log = loggerkit.New(loggerkit.Config{
+		Level:          loggerkit.ParseLevelFromEnv("LOG_LEVEL", loggerkit.InfoLevel),
+		Format:         loggerkit.FormatJSON,
+		ServiceName:    "warden",
+		ServiceVersion: "0.7.0",
+	})
 }
 
-// GetLogger gets logger instance
+// GetLogger gets zerolog.Logger instance for backward compatibility
 func GetLogger() zerolog.Logger {
-	logger := zerolog.New(os.Stderr).
-		With().
-		Timestamp().
-		Logger().
-		Level(globalLevel)
+	return log.Zerolog()
+}
 
-	return logger
+// GetLoggerKit gets the logger-kit Logger instance
+func GetLoggerKit() *loggerkit.Logger {
+	return log
 }
 
 // SetLevel sets log level (for runtime adjustment)
 func SetLevel(level zerolog.Level) {
-	globalLevel = level
+	// Set zerolog global level for backward compatibility
 	zerolog.SetGlobalLevel(level)
+
+	// Convert zerolog.Level to loggerkit.Level
+	var lkLevel loggerkit.Level
+	switch level {
+	case zerolog.DebugLevel:
+		lkLevel = loggerkit.DebugLevel
+	case zerolog.InfoLevel:
+		lkLevel = loggerkit.InfoLevel
+	case zerolog.WarnLevel:
+		lkLevel = loggerkit.WarnLevel
+	case zerolog.ErrorLevel:
+		lkLevel = loggerkit.ErrorLevel
+	case zerolog.FatalLevel:
+		lkLevel = loggerkit.FatalLevel
+	case zerolog.TraceLevel:
+		lkLevel = loggerkit.TraceLevel
+	default:
+		lkLevel = loggerkit.InfoLevel
+	}
+	log.SetLevel(lkLevel)
 }
 
 // SanitizeString sanitizes sensitive information

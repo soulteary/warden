@@ -5,11 +5,11 @@ package router
 import (
 	// Standard library
 	"net/http"
-	"time"
 
 	// Third-party libraries
 	"github.com/justinas/alice"
 	"github.com/rs/zerolog/hlog"
+	loggerkit "github.com/soulteary/logger-kit"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/logger"
@@ -46,7 +46,7 @@ func ProcessWithLogger(handler func(http.ResponseWriter, *http.Request)) http.Ha
 	return c.Then(http.HandlerFunc(handler))
 }
 
-// AccessLogMiddleware creates access log middleware
+// AccessLogMiddleware creates access log middleware using logger-kit
 //
 // This middleware can be used at the outermost layer to ensure all requests (including authentication failures) are logged.
 // Returns a middleware function that can wrap any http.Handler.
@@ -54,31 +54,11 @@ func ProcessWithLogger(handler func(http.ResponseWriter, *http.Request)) http.Ha
 // Returns:
 //   - func(http.Handler) http.Handler: HTTP middleware function
 func AccessLogMiddleware() func(http.Handler) http.Handler {
-	logInstance := logger.GetLogger()
-	return func(next http.Handler) http.Handler {
-		c := alice.New()
-		c = c.Append(hlog.NewHandler(logInstance))
-
-		// First add field handlers to ensure these fields are available in access logs
-		c = c.Append(hlog.RemoteAddrHandler("ip"))
-		c = c.Append(hlog.UserAgentHandler("user_agent"))
-		c = c.Append(hlog.RefererHandler("referer"))
-		c = c.Append(hlog.RequestIDHandler("req_id", "Request-Id"))
-
-		// Then add access log handler
-		c = c.Append(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
-			// Access logs use default language as this is system logging
-			// Sanitize URL to mask sensitive query parameters (phone, mail, email)
-			sanitizedURL := logger.SanitizeURL(r.URL)
-			hlog.FromRequest(r).Info().
-				Str("method", r.Method).
-				Str("url", sanitizedURL).
-				Int("status", status).
-				Int("size", size).
-				Dur("duration", duration).
-				Msg("HTTP request")
-		}))
-
-		return c.Then(next)
-	}
+	lkLog := logger.GetLoggerKit()
+	return loggerkit.Middleware(loggerkit.MiddlewareConfig{
+		Logger:           lkLog,
+		SkipPaths:        []string{"/healthz", "/metrics"},
+		IncludeRequestID: true,
+		IncludeLatency:   true,
+	})
 }

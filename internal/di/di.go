@@ -12,6 +12,7 @@ import (
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
 	health "github.com/soulteary/health-kit"
+	loggerkit "github.com/soulteary/logger-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Middleware kit
@@ -145,7 +146,7 @@ func (d *Dependencies) initHandlers() {
 
 	// Log level control handler
 	d.LogLevelHandler = middleware.MetricsMiddleware(
-		router.ProcessWithLogger(router.LogLevelHandler()),
+		router.ProcessWithLogger(loggerkit.LevelHandlerFunc(loggerkit.DefaultLevelHandlerConfig())),
 	)
 }
 
