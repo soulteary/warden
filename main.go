@@ -28,6 +28,7 @@ import (
 
 	// Internal packages
 	"github.com/soulteary/tracing-kit"
+	version "github.com/soulteary/version-kit"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/config"
@@ -39,7 +40,6 @@ import (
 	"github.com/soulteary/warden/internal/parser"
 	"github.com/soulteary/warden/internal/router"
 	internal_tracing "github.com/soulteary/warden/internal/tracing"
-	"github.com/soulteary/warden/internal/version"
 	"github.com/soulteary/warden/pkg/gocron"
 )
 
