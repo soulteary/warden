@@ -68,6 +68,7 @@
   "log.redis_cache_failed_continue": "Échec de la mise à jour du cache Redis, continuation avec le cache mémoire",
   "log.data_modified_during_update": "Données modifiées pendant la mise à jour, saut de la mise à jour Redis",
   "log.background_update": "Mise à jour des données en arrière-plan",
+  "log.background_load_failed": "Échec du chargement des données par la tâche en arrière-plan",
   "log.forced_shutdown": "Arrêt forcé",
   "log.config_validation_failed_exit": "Échec de la validation de la configuration, arrêt",
   "log.app_version": "Version de l'application : %s, Heure de construction : %s, Version du code : %s",

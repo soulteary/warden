@@ -21,6 +21,9 @@ func normalizeAllowListUser(users []define.AllowListUser) []define.AllowListUser
 }
 
 // allowListUserKey returns the dedup key for merge strategy; use Phone, fallback to Mail.
+// Signature must match parser-kit KeyFunc[T](T)(string,bool), so value receiver is required.
+//
+//nolint:gocritic // hugeParam: cannot use *T, parser-kit KeyFunc is func(T)(string,bool)
 func allowListUserKey(u define.AllowListUser) (string, bool) {
 	k := strings.TrimSpace(u.Phone)
 	if k == "" {

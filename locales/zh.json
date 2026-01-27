@@ -84,6 +84,7 @@
   "log.redis_cache_failed_continue": "更新 Redis 缓存失败，继续使用内存缓存",
   "log.data_modified_during_update": "数据在更新过程中被修改，跳过 Redis 更新",
   "log.background_update": "后台更新数据 📦",
+  "log.background_load_failed": "后台任务加载数据失败",
   "log.forced_shutdown": "程序强制关闭",
   "log.config_validation_failed_exit": "配置验证失败，程序退出",
   "log.app_version": "程序版本：%s, 构建时间：%s, 代码版本：%s",

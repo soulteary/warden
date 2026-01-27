@@ -84,6 +84,7 @@
   "log.redis_cache_failed_continue": "Failed to update Redis cache, continuing with memory cache",
   "log.data_modified_during_update": "Data modified during update, skipping Redis update",
   "log.background_update": "Background data update",
+  "log.background_load_failed": "Background task failed to load data",
   "log.forced_shutdown": "Forced shutdown",
   "log.config_validation_failed_exit": "Configuration validation failed, exiting",
   "log.app_version": "Application version: %s, Build time: %s, Code version: %s",

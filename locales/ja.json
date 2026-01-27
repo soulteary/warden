@@ -68,6 +68,7 @@
   "log.redis_cache_failed_continue": "Redisキャッシュの更新に失敗しました。メモリキャッシュを続行します",
   "log.data_modified_during_update": "更新中にデータが変更されました。Redis更新をスキップします",
   "log.background_update": "バックグラウンドデータ更新",
+  "log.background_load_failed": "バックグラウンドタスクのデータ読み込みに失敗しました",
   "log.forced_shutdown": "強制シャットダウン",
   "log.config_validation_failed_exit": "設定の検証に失敗しました。終了します",
   "log.app_version": "アプリケーションバージョン：%s、ビルド時刻：%s、コードバージョン：%s",

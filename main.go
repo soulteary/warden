@@ -432,10 +432,15 @@ func (app *App) backgroundTask(rulesFile string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
 	defer cancel()
+	var err error
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
-		newUsers, _ = app.rulesLoader.FromFile(ctx, rulesFile)
+		newUsers, err = app.rulesLoader.FromFile(ctx, rulesFile)
 	} else {
-		newUsers, _ = app.rulesLoader.Load(ctx, rulesFile, app.configURL, app.authorizationHeader)
+		newUsers, err = app.rulesLoader.Load(ctx, rulesFile, app.configURL, app.authorizationHeader)
+	}
+	if err != nil {
+		app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
+		return
 	}
 
 	// Check if data has changed

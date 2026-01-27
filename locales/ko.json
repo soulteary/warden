@@ -68,6 +68,7 @@
   "log.redis_cache_failed_continue": "Redis 캐시 업데이트 실패, 메모리 캐시 계속",
   "log.data_modified_during_update": "업데이트 중 데이터 수정됨, Redis 업데이트 건너뛰기",
   "log.background_update": "백그라운드 데이터 업데이트",
+  "log.background_load_failed": "백그라운드 작업 데이터 로드 실패",
   "log.forced_shutdown": "강제 종료",
   "log.config_validation_failed_exit": "구성 유효성 검사 실패, 종료",
   "log.app_version": "애플리케이션 버전: %s, 빌드 시간: %s, 코드 버전: %s",
