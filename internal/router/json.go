@@ -11,13 +11,11 @@ import (
 	"strconv"
 	"sync"
 
-	// Third-party libraries
-	"github.com/rs/zerolog/hlog"
-
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/metrics"
 )
 
@@ -150,7 +148,7 @@ func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}
 	defer putBuffer(buf)
 
 	if err := json.NewEncoder(buf).Encode(data); err != nil {
-		hlog.FromRequest(r).Error().
+		logger.FromRequest(r).Error().
 			Err(err).
 			Msg(i18n.T(r, "error.json_encode_failed"))
 		http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
@@ -158,7 +156,7 @@ func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}
 	}
 
 	if _, err := w.Write(buf.Bytes()); err != nil {
-		hlog.FromRequest(r).Error().
+		logger.FromRequest(r).Error().
 			Err(err).
 			Msg(i18n.T(r, "error.write_response_failed"))
 		return err
@@ -189,7 +187,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Validate request method, only allow GET
 		if r.Method != http.MethodGet {
-			hlog.FromRequest(r).Warn().
+			logger.FromRequest(r).Warn().
 				Str("method", r.Method).
 				Msg(i18n.T(r, "log.unsupported_method"))
 			http.Error(w, i18n.T(r, "http.method_not_allowed"), http.StatusMethodNotAllowed)
@@ -199,7 +197,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 		// Parse pagination parameters (enhanced input validation)
 		page, pageSize, hasPagination, err := parsePaginationParams(r)
 		if err != nil {
-			hlog.FromRequest(r).Warn().
+			logger.FromRequest(r).Warn().
 				Err(err).
 				Msg(i18n.T(r, "log.pagination_validation_failed"))
 			http.Error(w, i18n.T(r, "http.invalid_pagination_parameters"), http.StatusBadRequest)
@@ -219,7 +217,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			switch {
 			case len(userData) < define.SMALL_DATA_THRESHOLD:
 				if err := json.NewEncoder(w).Encode(userData); err != nil {
-					hlog.FromRequest(r).Error().
+					logger.FromRequest(r).Error().
 						Err(err).
 						Msg(i18n.T(r, "error.json_encode_failed"))
 					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
@@ -230,14 +228,14 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 				buf := getBuffer()
 				defer putBuffer(buf)
 				if err := json.NewEncoder(buf).Encode(userData); err != nil {
-					hlog.FromRequest(r).Error().
+					logger.FromRequest(r).Error().
 						Err(err).
 						Msg(i18n.T(r, "error.json_encode_failed"))
 					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 				if _, err := w.Write(buf.Bytes()); err != nil {
-					hlog.FromRequest(r).Error().
+					logger.FromRequest(r).Error().
 						Err(err).
 						Msg(i18n.T(r, "error.write_response_failed"))
 					return
@@ -246,14 +244,14 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 				// Large data: use streaming JSON encoding to reduce memory usage
 				encoder := json.NewEncoder(w)
 				if err := encoder.Encode(userData); err != nil {
-					hlog.FromRequest(r).Error().
+					logger.FromRequest(r).Error().
 						Err(err).
 						Msg(i18n.T(r, "error.stream_encode_failed"))
 					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 			}
-			hlog.FromRequest(r).Info().Msg(i18n.T(r, "log.request_data_api"))
+			logger.FromRequest(r).Info().Msg(i18n.T(r, "log.request_data_api"))
 			return
 		}
 
@@ -265,7 +263,7 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
-		hlog.FromRequest(r).Info().
+		logger.FromRequest(r).Info().
 			Int("page", page).
 			Int("page_size", pageSize).
 			Int("total", total).

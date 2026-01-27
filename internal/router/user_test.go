@@ -6,16 +6,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/rs/zerolog"
+	loggerkit "github.com/soulteary/logger-kit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	logger.SetLevel(loggerkit.InfoLevel)
 }
 
 // TestGetUserByIdentifier_ByPhone tests querying user by phone number

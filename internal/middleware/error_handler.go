@@ -8,11 +8,9 @@ import (
 	"net/http"
 	"os"
 
-	// Third-party libraries
-	"github.com/rs/zerolog/hlog"
-
 	// Internal packages
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // ErrorResponse error response structure
@@ -74,7 +72,7 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 				Error: getGenericErrorMessage(rw.request, rw.statusCode),
 			}
 			// Record detailed error to log
-			hlog.FromRequest(rw.request).Error().
+			logger.FromRequest(rw.request).Error().
 				Int("status_code", rw.statusCode).
 				Str("original_error", errResp.Error).
 				Str("original_message", errResp.Message).
@@ -87,7 +85,7 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 			}
 		} else {
 			// If not JSON format, also record original response
-			hlog.FromRequest(rw.request).Error().
+			logger.FromRequest(rw.request).Error().
 				Int("status_code", rw.statusCode).
 				Str("original_response", string(b)).
 				Msg(i18n.T(rw.request, "error.error_response_hidden"))
@@ -137,7 +135,7 @@ func SafeError(w http.ResponseWriter, r *http.Request, statusCode int, err error
 	isProduction := appMode == "production" || appMode == "prod"
 
 	// Record detailed error to log
-	hlog.FromRequest(r).Error().
+	logger.FromRequest(r).Error().
 		Int("status_code", statusCode).
 		Err(err).
 		Str("detail", detailMessage).
@@ -164,7 +162,7 @@ func SafeError(w http.ResponseWriter, r *http.Request, statusCode int, err error
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		hlog.FromRequest(r).Error().
+		logger.FromRequest(r).Error().
 			Err(err).
 			Msg(i18n.T(r, "error.encode_error_response_failed"))
 	}

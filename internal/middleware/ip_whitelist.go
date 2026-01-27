@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/rs/zerolog/hlog"
 	middlewarekit "github.com/soulteary/middleware-kit"
 
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // IPWhitelistMiddleware creates IP whitelist middleware.
@@ -35,7 +35,7 @@ func IPWhitelistMiddleware(whitelist string) func(http.Handler) http.Handler {
 		TrustedProxyConfig: trustedCfg,
 		OnDenied: func(w http.ResponseWriter, r *http.Request) {
 			clientIP := middlewarekit.GetClientIP(r, trustedCfg)
-			hlog.FromRequest(r).Warn().
+			logger.FromRequest(r).Warn().
 				Str("ip", clientIP).
 				Str("path", r.URL.Path).
 				Msg("IP not in whitelist, access denied")

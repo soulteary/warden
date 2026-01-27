@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	// Third-party libraries
-	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/otel/attribute"
 
 	// Internal packages
@@ -45,7 +44,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		// Validate request method, only allow GET
 		if r.Method != http.MethodGet {
 			tracing.RecordError(span, errors.New("method not allowed"))
-			hlog.FromRequest(r).Warn().
+			logger.FromRequest(r).Warn().
 				Str("method", r.Method).
 				Msg(i18n.T(r, "log.unsupported_method"))
 			http.Error(w, i18n.T(r, "http.method_not_allowed"), http.StatusMethodNotAllowed)
@@ -67,7 +66,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		// Validate at least one identifier is provided
 		if phone == "" && mail == "" && userID == "" {
 			tracing.RecordError(span, fmt.Errorf("missing identifier"))
-			hlog.FromRequest(r).Warn().
+			logger.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.missing_query_params"))
 			http.Error(w, i18n.T(r, "error.missing_identifier"), http.StatusBadRequest)
 			return
@@ -86,7 +85,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		}
 		if identifierCount > 1 {
 			tracing.RecordError(span, fmt.Errorf("multiple identifiers provided"))
-			hlog.FromRequest(r).Warn().
+			logger.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.multiple_query_params"))
 			http.Error(w, i18n.T(r, "error.multiple_identifiers"), http.StatusBadRequest)
 			return
@@ -108,7 +107,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 		// If user not found, return 404
 		if !found {
 			span.SetAttributes(attribute.Bool("warden.user.found", false))
-			hlog.FromRequest(r).Info().
+			logger.FromRequest(r).Info().
 				Str("phone", logger.SanitizePhone(phone)).
 				Str("mail", logger.SanitizeEmail(mail)).
 				Str("user_id", userID).
@@ -142,14 +141,14 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 
 		if err := json.NewEncoder(w).Encode(user); err != nil {
 			tracing.RecordError(span, err)
-			hlog.FromRequest(r).Error().
+			logger.FromRequest(r).Error().
 				Err(err).
 				Msg(i18n.T(r, "error.json_encode_failed"))
 			http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 			return
 		}
 
-		hlog.FromRequest(r).Info().
+		logger.FromRequest(r).Info().
 			Str("user_id", user.UserID).
 			Str("phone", logger.SanitizePhone(user.Phone)).
 			Str("mail", logger.SanitizeEmail(user.Mail)).

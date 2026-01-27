@@ -4,11 +4,12 @@ package router
 
 import (
 	// Standard library
+	"crypto/rand"
+	"fmt"
 	"net/http"
+	"time"
 
 	// Third-party libraries
-	"github.com/justinas/alice"
-	"github.com/rs/zerolog/hlog"
 	loggerkit "github.com/soulteary/logger-kit"
 
 	// Internal packages
@@ -16,35 +17,33 @@ import (
 	"github.com/soulteary/warden/internal/logger"
 )
 
-// ProcessWithLogger adds logging middleware to HTTP handlers
-//
-// This function uses alice middleware chain to add the following features to handlers:
-// - Remote address logging: records client IP address
-// - User agent logging: records client User-Agent
-// - Referer logging: records HTTP Referer header
-// - Request ID generation: generates unique ID for each request (read from Request-Id header or auto-generated)
-//
-// Note: Access logs are handled uniformly by the outer AccessLogMiddleware to avoid duplicate logging.
-//
-// Parameters:
-//   - handler: HTTP request handler function
-//
-// Returns:
-//   - http.Handler: wrapped HTTP handler with logging functionality
+// ProcessWithLogger injects logger-kit logger and request ID into request context.
+// Does not perform access logging; that is done by the outer AccessLogMiddleware.
+// Uses X-Request-ID header (read or generated) to match logger-kit middleware behavior.
 func ProcessWithLogger(handler func(http.ResponseWriter, *http.Request)) http.Handler {
-	logInstance := logger.GetLogger()
-	c := alice.New()
-	c = c.Append(hlog.NewHandler(logInstance))
+	lk := logger.GetLoggerKit()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rid := r.Header.Get("X-Request-ID")
+		if rid == "" {
+			rid = generateRequestID()
+			r.Header.Set("X-Request-ID", rid)
+		}
+		ctx := r.Context()
+		ctx = loggerkit.ContextWithRequestID(ctx, rid)
+		ctx = loggerkit.ContextWithLogger(ctx, lk)
+		r = r.WithContext(ctx)
+		handler(w, r)
+	})
+}
 
-	// Add field handlers to ensure these fields are available in access logs
-	c = c.Append(hlog.RemoteAddrHandler("ip"))
-	c = c.Append(hlog.UserAgentHandler("user_agent"))
-	c = c.Append(hlog.RefererHandler("referer"))
-	c = c.Append(hlog.RequestIDHandler("req_id", "Request-Id"))
-
-	// Note: Access log handler has been moved to outer AccessLogMiddleware to avoid duplicate logging
-
-	return c.Then(http.HandlerFunc(handler))
+func generateRequestID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%12x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // AccessLogMiddleware creates access log middleware using logger-kit

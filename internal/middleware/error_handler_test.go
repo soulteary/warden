@@ -7,16 +7,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rs/zerolog"
+	loggerkit "github.com/soulteary/logger-kit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	// Internal packages
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/logger"
 )
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	logger.SetLevel(loggerkit.InfoLevel)
 }
 
 // TestErrorHandlerMiddleware_ProductionMode tests error handling in production mode

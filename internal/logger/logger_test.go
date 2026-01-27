@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	loggerkit "github.com/soulteary/logger-kit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -142,22 +143,21 @@ func TestLogger_Stderr(t *testing.T) {
 
 func TestSetLevel(t *testing.T) {
 	// Save original level
-	originalLevel := zerolog.GlobalLevel()
-	defer zerolog.SetGlobalLevel(originalLevel)
+	orig := GetLoggerKit().GetLevel()
+	defer SetLevel(orig)
 
-	// Test setting different levels
-	levels := []zerolog.Level{
-		zerolog.DebugLevel,
-		zerolog.InfoLevel,
-		zerolog.WarnLevel,
-		zerolog.ErrorLevel,
-		zerolog.FatalLevel,
-		zerolog.PanicLevel,
+	levels := []loggerkit.Level{
+		loggerkit.DebugLevel,
+		loggerkit.InfoLevel,
+		loggerkit.WarnLevel,
+		loggerkit.ErrorLevel,
+		loggerkit.FatalLevel,
+		loggerkit.PanicLevel,
 	}
 
 	for _, level := range levels {
 		SetLevel(level)
-		assert.Equal(t, level, zerolog.GlobalLevel(), "级别应该被正确设置")
+		assert.Equal(t, level, GetLoggerKit().GetLevel(), "级别应该被正确设置")
 	}
 }
 

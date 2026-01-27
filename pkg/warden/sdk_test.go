@@ -1136,14 +1136,12 @@ func TestError_AllErrorCodes(t *testing.T) {
 	}
 }
 
-// ========== Additional tests: LogrusAdapter ==========
+// ========== Additional tests: LoggerKitAdapter ==========
 
-func TestLogrusAdapter(t *testing.T) {
-	// This test requires logrus, if available in the project
-	// To avoid adding dependencies, we can test the nil logger case
-	adapter := NewLogrusAdapter(nil)
+func TestLoggerKitAdapter(t *testing.T) {
+	adapter := NewLoggerKitAdapter(nil)
 	if adapter == nil {
-		t.Error("NewLogrusAdapter() should not return nil even with nil logger")
+		t.Error("NewLoggerKitAdapter() should not return nil even with nil logger")
 	}
 
 	// Test all methods don't panic

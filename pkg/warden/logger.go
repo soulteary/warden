@@ -72,7 +72,7 @@ func sanitizeURLString(urlStr string) string {
 
 // Logger defines the interface for logging operations.
 // This allows the SDK to work with different logging libraries
-// (e.g., zerolog, logrus, standard log).
+// (e.g., logger-kit, zerolog, standard log). Use NewLoggerKitAdapter for logger-kit.
 type Logger interface {
 	Debug(msg string)
 	Debugf(format string, args ...interface{})

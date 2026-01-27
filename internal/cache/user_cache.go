@@ -17,7 +17,7 @@ import (
 	"github.com/soulteary/warden/internal/logger"
 )
 
-var log = logger.GetLogger()
+var log = logger.GetLoggerKit()
 
 // Index names for multi-index cache
 const (

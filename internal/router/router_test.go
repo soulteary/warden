@@ -58,7 +58,7 @@ func TestProcessWithLogger_RequestID(t *testing.T) {
 	wrappedHandler := ProcessWithLogger(handler)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
-	req.Header.Set("Request-Id", "test-request-id-123")
+	req.Header.Set("X-Request-ID", "test-request-id-123")
 	w := httptest.NewRecorder()
 
 	wrappedHandler.ServeHTTP(w, req)

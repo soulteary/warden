@@ -5,6 +5,7 @@ package logger
 
 import (
 	// Standard library
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -17,6 +18,11 @@ import (
 // log is the global logger-kit instance
 var log *loggerkit.Logger
 
+// zerologInstance is kept in sync with log.Zerolog() so ZerologPtr() can return
+// *zerolog.Logger without requiring logger-kit to expose ZerologPtr().
+var zerologInstance zerolog.Logger
+var zerologPtr *zerolog.Logger
+
 func init() {
 	// Initialize logger using logger-kit
 	log = loggerkit.New(loggerkit.Config{
@@ -25,42 +31,41 @@ func init() {
 		ServiceName:    "warden",
 		ServiceVersion: "0.7.0",
 	})
+	zerologInstance = log.Zerolog()
+	zerologPtr = &zerologInstance
 }
 
-// GetLogger gets zerolog.Logger instance for backward compatibility
+// GetLogger returns zerolog.Logger for backward compatibility with code that
+// requires zerolog (e.g. middleware-kit Config). Prefer GetLoggerKit or
+// ZerologPtr for new code.
 func GetLogger() zerolog.Logger {
 	return log.Zerolog()
 }
 
-// GetLoggerKit gets the logger-kit Logger instance
+// GetLoggerKit gets the logger-kit Logger instance.
 func GetLoggerKit() *loggerkit.Logger {
 	return log
 }
 
-// SetLevel sets log level (for runtime adjustment)
-func SetLevel(level zerolog.Level) {
-	// Set zerolog global level for backward compatibility
-	zerolog.SetGlobalLevel(level)
+// ZerologPtr returns a pointer to the underlying zerolog.Logger for use when
+// filling middleware-kit Config.Logger (e.g. RateLimit, APIKey, BodyLimit).
+// Implemented via log.Zerolog() so warden works with published logger-kit
+// that may not expose ZerologPtr().
+func ZerologPtr() *zerolog.Logger {
+	zerologInstance = log.Zerolog()
+	return zerologPtr
+}
 
-	// Convert zerolog.Level to loggerkit.Level
-	var lkLevel loggerkit.Level
-	switch level {
-	case zerolog.DebugLevel:
-		lkLevel = loggerkit.DebugLevel
-	case zerolog.InfoLevel:
-		lkLevel = loggerkit.InfoLevel
-	case zerolog.WarnLevel:
-		lkLevel = loggerkit.WarnLevel
-	case zerolog.ErrorLevel:
-		lkLevel = loggerkit.ErrorLevel
-	case zerolog.FatalLevel:
-		lkLevel = loggerkit.FatalLevel
-	case zerolog.TraceLevel:
-		lkLevel = loggerkit.TraceLevel
-	default:
-		lkLevel = loggerkit.InfoLevel
-	}
-	log.SetLevel(lkLevel)
+// FromRequest returns the request-scoped logger from the request context,
+// or the default logger if not set. Use this instead of zerolog/hlog in
+// handlers and middleware.
+func FromRequest(r *http.Request) *loggerkit.Logger {
+	return loggerkit.LoggerFromRequest(r)
+}
+
+// SetLevel sets log level at runtime (logger-kit only).
+func SetLevel(level loggerkit.Level) {
+	log.SetLevel(level)
 }
 
 // SanitizeString sanitizes sensitive information

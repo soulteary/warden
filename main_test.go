@@ -276,8 +276,8 @@ func TestShutdownServer(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test shutdown (shutdownServer will call rateLimiter.Stop(), so no need for defer)
-	log := logger.GetLogger()
-	shutdownServer(srv, rateLimiter, &log)
+	log := logger.GetLoggerKit()
+	shutdownServer(srv, rateLimiter, log)
 
 	// Verify rate limiter has stopped
 	// Note: This only verifies the function doesn't panic, actual state checking requires more complex tests
@@ -879,11 +879,11 @@ func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log := logger.GetLogger()
+	log := logger.GetLoggerKit()
 
 	// Test nil rateLimiter
 	assert.NotPanics(t, func() {
-		shutdownServer(srv, nil, &log)
+		shutdownServer(srv, nil, log)
 	})
 }
 
@@ -907,11 +907,11 @@ func TestShutdownServer_ShutdownError(t *testing.T) {
 		t.Logf("关闭服务器时出错: %v", err)
 	}
 
-	log := logger.GetLogger()
+	log := logger.GetLoggerKit()
 
 	// Closing again should not panic
 	assert.NotPanics(t, func() {
-		shutdownServer(srv, rateLimiter, &log)
+		shutdownServer(srv, rateLimiter, log)
 	})
 }
 

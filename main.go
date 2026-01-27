@@ -17,7 +17,6 @@ import (
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog"
 	health "github.com/soulteary/health-kit"
 	loggerkit "github.com/soulteary/logger-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
@@ -52,7 +51,7 @@ type App struct {
 	redisClient         *redis.Client              // 8 bytes pointer
 	rateLimiter         *middlewarekit.RateLimiter // 8 bytes pointer
 	rulesLoader         *loader.RulesLoader        // rules loader (parser-kit)
-	log                 zerolog.Logger             // 24 bytes (interface)
+	log                 *loggerkit.Logger          // logger-kit instance
 	port                string                     // 16 bytes
 	configURL           string                     // 16 bytes
 	authorizationHeader string                     // 16 bytes
@@ -73,7 +72,7 @@ func NewApp(cfg *cmd.Config) *App {
 		taskInterval: uint64(cfg.TaskInterval),
 		apiKey:       cfg.APIKey,
 		redisEnabled: cfg.RedisEnabled,
-		log:          logger.GetLogger(),
+		log:          logger.GetLoggerKit(),
 	}
 
 	if cfg.HTTPInsecureTLS {
@@ -503,7 +502,7 @@ func registerRoutes(app *App) {
 	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
 		Limiter:            app.rateLimiter,
 		TrustedProxyConfig: trustedProxyConfig,
-		Logger:             &app.log,
+		Logger:             logger.ZerologPtr(),
 		SkipPaths:          define.SkipPathsHealthAndMetrics,
 		OnLimitReached: func(key string) {
 			metrics.RateLimitHits.WithLabelValues(key).Inc()
@@ -515,7 +514,7 @@ func registerRoutes(app *App) {
 	authBaseCfg.APIKey = app.apiKey
 	authBaseCfg.AuthScheme = "Bearer"
 	authBaseCfg.TrustedProxyConfig = trustedProxyConfig
-	authBaseCfg.Logger = &app.log
+	authBaseCfg.Logger = logger.ZerologPtr()
 	authMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
 
 	// Optional auth for metrics: same as base but allow empty key when no API key configured
@@ -530,7 +529,7 @@ func registerRoutes(app *App) {
 	bodyLimitCfg := middlewarekit.DefaultBodyLimitConfig()
 	bodyLimitCfg.MaxSize = define.MAX_REQUEST_BODY_SIZE
 	bodyLimitCfg.TrustedProxyConfig = trustedProxyConfig
-	bodyLimitCfg.Logger = &app.log
+	bodyLimitCfg.Logger = logger.ZerologPtr()
 	bodyLimitMiddleware := middlewarekit.BodyLimitStd(bodyLimitCfg)
 
 	// Tracing middleware (if enabled)
@@ -730,7 +729,7 @@ func startServer(port string) *http.Server {
 }
 
 // shutdownServer gracefully shuts down the server
-func shutdownServer(srv *http.Server, rateLimiter *middlewarekit.RateLimiter, log *zerolog.Logger) {
+func shutdownServer(srv *http.Server, rateLimiter *middlewarekit.RateLimiter, log *loggerkit.Logger) {
 	// Stop rate limiter
 	if rateLimiter != nil {
 		rateLimiter.Stop()
@@ -745,7 +744,7 @@ func shutdownServer(srv *http.Server, rateLimiter *middlewarekit.RateLimiter, lo
 }
 
 func main() {
-	log := logger.GetLogger()
+	log := logger.GetLoggerKit()
 
 	// Parse configuration
 	cfg := cmd.GetArgs()
@@ -858,7 +857,7 @@ func main() {
 	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.shutting_down"))
 
 	// Graceful shutdown
-	shutdownServer(srv, app.rateLimiter, &app.log)
+	shutdownServer(srv, app.rateLimiter, app.log)
 
 	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.goodbye"))
 }

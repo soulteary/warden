@@ -6,13 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
+	loggerkit "github.com/soulteary/logger-kit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/soulteary/warden/internal/logger"
 )
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	logger.SetLevel(loggerkit.InfoLevel)
 }
 
 // TestMetricsMiddleware_RecordsMetrics tests metrics recording
