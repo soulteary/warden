@@ -23,7 +23,7 @@ warden/
 │   ├── cmd/               # 命令行参数解析
 │   ├── define/            # 常量定义和数据结构
 │   ├── logger/            # 日志初始化
-│   ├── parser/            # 数据解析器（本地/远程）
+│   ├── loader/             # 数据加载器（基于 parser-kit）
 │   ├── router/            # HTTP 路由处理
 │   └── version/           # 版本信息
 └── pkg/
@@ -57,7 +57,7 @@ go run main.go
 
 1. **核心业务逻辑**: 在 `internal/` 目录下
 2. **路由处理**: 在 `internal/router/` 目录
-3. **数据解析逻辑**: 在 `internal/parser/` 目录
+3. **数据加载逻辑**: 在 `internal/loader/` 目录（基于 parser-kit）
 4. **公共包**: 在 `pkg/` 目录
 
 ### 开发流程

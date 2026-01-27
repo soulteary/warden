@@ -56,7 +56,7 @@ This document defines the code style and best practices for the Warden project. 
 // ✅ Correct
 package cache
 package router
-package parser
+package loader
 
 // ❌ Wrong
 package Cache

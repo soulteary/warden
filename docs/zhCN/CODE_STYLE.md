@@ -56,7 +56,7 @@
 // ✅ 正确
 package cache
 package router
-package parser
+package loader
 
 // ❌ 错误
 package Cache

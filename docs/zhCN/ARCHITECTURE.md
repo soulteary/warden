@@ -27,7 +27,7 @@ graph TB
         subgraph "业务层"
             UserCache[内存缓存<br/>SafeUserCache]
             RedisCache[Redis 缓存<br/>RedisUserCache]
-            Parser[数据解析器]
+            Loader[数据加载器]
             Scheduler[定时调度器<br/>gocron]
         end
 
@@ -56,11 +56,11 @@ graph TB
     Router --> UserCache
     UserCache -->|读取| RedisCache
     RedisCache --> Redis
-    Scheduler -->|定时触发| Parser
-    Parser -->|读取| LocalFile
-    Parser -->|请求| RemoteAPI
-    Parser -->|更新| UserCache
-    Parser -->|更新| RedisCache
+    Scheduler -->|定时触发| Loader
+    Loader -->|读取| LocalFile
+    Loader -->|请求| RemoteAPI
+    Loader -->|更新| UserCache
+    Loader -->|更新| RedisCache
     Scheduler -->|获取锁| RedisLock
     RedisLock --> Redis
     Router --> Logger
@@ -75,7 +75,7 @@ graph TB
    - 速率限制保护
    - 请求指标收集
 
-2. **数据解析器**: 支持从本地文件和远程 API 解析用户数据
+2. **数据加载器**（parser-kit）: 支持从本地文件与远程 API 加载用户数据
    - 本地文件解析（JSON 格式）
    - 远程 API 调用（支持认证）
    - 多种数据合并策略
@@ -137,7 +137,7 @@ sequenceDiagram
 sequenceDiagram
     participant Scheduler as 定时调度器
     participant Lock as 分布式锁
-    participant Parser as 数据解析器
+    participant Loader as 数据加载器
     participant Remote as 远程 API
     participant Local as 本地文件
     participant Memory as 内存缓存
@@ -146,22 +146,22 @@ sequenceDiagram
     Scheduler->>Lock: 1. 尝试获取分布式锁
     alt 获取锁成功
         Lock-->>Scheduler: 锁获取成功
-        Scheduler->>Parser: 2. 触发数据更新
-        Parser->>Remote: 请求远程 API
+        Scheduler->>Loader: 2. 触发数据更新
+        Loader->>Remote: 请求远程 API
         alt 远程 API 成功
-            Remote-->>Parser: 返回数据
+            Remote-->>Loader: 返回数据
         else 远程 API 失败
-            Parser->>Local: 回退到本地文件
-            Local-->>Parser: 返回数据
+            Loader->>Local: 回退到本地文件
+            Local-->>Loader: 返回数据
         end
-        Parser->>Parser: 3. 应用合并策略
-        Parser->>Parser: 4. 计算数据哈希
+        Loader->>Loader: 3. 应用合并策略
+        Loader->>Loader: 4. 计算数据哈希
         alt 数据有变化
-            Parser->>Memory: 5. 更新内存缓存
-            Parser->>Redis: 6. 更新 Redis 缓存
-            Redis-->>Parser: 更新成功
+            Loader->>Memory: 5. 更新内存缓存
+            Loader->>Redis: 6. 更新 Redis 缓存
+            Redis-->>Loader: 更新成功
         else 数据无变化
-            Parser->>Parser: 跳过更新
+            Loader->>Loader: 跳过更新
         end
         Scheduler->>Lock: 7. 释放锁
     else 获取锁失败

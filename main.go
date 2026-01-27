@@ -35,9 +35,9 @@ import (
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/metrics"
 	"github.com/soulteary/warden/internal/middleware"
-	"github.com/soulteary/warden/internal/parser"
 	"github.com/soulteary/warden/internal/router"
 	internal_tracing "github.com/soulteary/warden/internal/tracing"
 	"github.com/soulteary/warden/pkg/gocron"
@@ -51,6 +51,7 @@ type App struct {
 	redisUserCache      *cache.RedisUserCache      // 8 bytes pointer
 	redisClient         *redis.Client              // 8 bytes pointer
 	rateLimiter         *middlewarekit.RateLimiter // 8 bytes pointer
+	rulesLoader         *loader.RulesLoader        // rules loader (parser-kit)
 	log                 zerolog.Logger             // 24 bytes (interface)
 	port                string                     // 16 bytes
 	configURL           string                     // 16 bytes
@@ -75,8 +76,6 @@ func NewApp(cfg *cmd.Config) *App {
 		log:          logger.GetLogger(),
 	}
 
-	// Initialize HTTP client (using configuration)
-	parser.InitHTTPClient(cfg.HTTPTimeout, cfg.HTTPMaxIdleConns, cfg.HTTPInsecureTLS)
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))
 		// In production environment, force TLS verification
@@ -123,11 +122,21 @@ func NewApp(cfg *cmd.Config) *App {
 		app.redisUserCache = nil
 	}
 
+	// Rules loader (parser-kit, replaces internal parser)
+	rulesLoader, err := loader.NewRulesLoader(cfg, app.appMode)
+	if err != nil {
+		app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
+	} else {
+		app.rulesLoader = rulesLoader
+	}
+
 	app.log.Debug().Str("mode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.current_mode"))
 
 	// Load initial data (multi-level fallback)
-	if err := app.loadInitialData(rulesFile); err != nil {
-		app.log.Warn().Err(fmt.Errorf("加载初始数据失败: %w", err)).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
+	if app.rulesLoader != nil {
+		if err := app.loadInitialData(rulesFile); err != nil {
+			app.log.Warn().Err(fmt.Errorf("加载初始数据失败: %w", err)).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
+		}
 	}
 
 	// Initialize cache size metrics
@@ -150,20 +159,21 @@ func NewApp(cfg *cmd.Config) *App {
 	return app
 }
 
-// loadInitialData loads data with multi-level fallback
+// loadInitialData loads data with multi-level fallback (Redis → parser-kit Load/FromFile).
 func (app *App) loadInitialData(rulesFile string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
+	defer cancel()
+
 	// ONLY_LOCAL mode: only use local file, no remote requests
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
-	// Use strings.ToUpper for case-insensitive comparison
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
-		localUsers := parser.FromFile(rulesFile)
-		if len(localUsers) > 0 {
+		localUsers, err := app.rulesLoader.FromFile(ctx, rulesFile)
+		if err == nil && len(localUsers) > 0 {
 			app.log.Info().
 				Int("count", len(localUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
 			app.userCache.Set(localUsers)
-			// Also update Redis cache (if Redis is available)
 			if app.redisUserCache != nil {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
 					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -171,17 +181,14 @@ func (app *App) loadInitialData(rulesFile string) error {
 			}
 			return nil
 		}
-		// Check if file exists
-		_, err := os.Stat(rulesFile)
-		if errors.Is(err, os.ErrNotExist) {
+		_, statErr := os.Stat(rulesFile)
+		if errors.Is(statErr, os.ErrNotExist) {
 			app.log.Warn().
 				Str("data_file", rulesFile).
 				Str("example_file", "data.example.json").
 				Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found"))
-			app.log.Info().
-				Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
-			app.log.Info().
-				Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
+			app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
+			app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
 		}
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_load_failed"))
 		return nil
@@ -190,26 +197,23 @@ func (app *App) loadInitialData(rulesFile string) error {
 	// 1. Try to load from Redis cache (if Redis is available)
 	if app.redisUserCache != nil {
 		if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
-			metrics.CacheHits.Inc() // Record cache hit
+			metrics.CacheHits.Inc()
 			app.log.Info().
 				Int("count", len(cachedUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
 			app.userCache.Set(cachedUsers)
 			return nil
 		}
-		metrics.CacheMisses.Inc() // Record cache miss
+		metrics.CacheMisses.Inc()
 	}
 
-	// 2. Try to load from remote API
-	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
-	defer cancel()
-	users := parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
-	if len(users) > 0 {
+	// 2. Try to load from parser-kit (remote + local by mode)
+	users, err := app.rulesLoader.Load(ctx, rulesFile, app.configURL, app.authorizationHeader)
+	if err == nil && len(users) > 0 {
 		app.log.Info().
 			Int("count", len(users)).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
 		app.userCache.Set(users)
-		// Also update Redis cache (if Redis is available)
 		if app.redisUserCache != nil {
 			if err := app.redisUserCache.Set(users); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -218,27 +222,9 @@ func (app *App) loadInitialData(rulesFile string) error {
 		return nil
 	}
 
-	// 3. Try to load from local file
-	localUsers := parser.FromFile(rulesFile)
-	if len(localUsers) > 0 {
-		app.log.Info().
-			Int("count", len(localUsers)).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
-		app.userCache.Set(localUsers)
-		// Also update Redis cache (if Redis is available)
-		if app.redisUserCache != nil {
-			if err := app.redisUserCache.Set(localUsers); err != nil {
-				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
-			}
-		}
-		return nil
-	}
-
-	// 4. All failed, check if user needs to be notified
-	// Check if local file exists
+	// 3. All failed: notify user
 	_, localFileErr := os.Stat(rulesFile)
 	hasRemoteConfig := app.configURL != "" && app.configURL != define.DEFAULT_REMOTE_CONFIG
-
 	if errors.Is(localFileErr, os.ErrNotExist) && !hasRemoteConfig {
 		// Local file does not exist and no remote address configured, provide friendly prompt
 		app.log.Warn().
@@ -441,14 +427,15 @@ func (app *App) backgroundTask(rulesFile string) {
 	start := time.Now()
 	var newUsers []define.AllowListUser
 
-	// ONLY_LOCAL mode: only use local file, no remote requests
-	// Use case-insensitive comparison and trim spaces
+	if app.rulesLoader == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
+	defer cancel()
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
-		newUsers = parser.FromFile(rulesFile)
+		newUsers, _ = app.rulesLoader.FromFile(ctx, rulesFile)
 	} else {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
-		defer cancel()
-		newUsers = parser.GetRules(ctx, rulesFile, app.configURL, app.authorizationHeader, app.appMode)
+		newUsers, _ = app.rulesLoader.Load(ctx, rulesFile, app.configURL, app.authorizationHeader)
 	}
 
 	// Check if data has changed

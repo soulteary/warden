@@ -17,6 +17,7 @@ require (
 	github.com/soulteary/logger-kit v1.0.0
 	github.com/soulteary/metrics-kit v1.0.0
 	github.com/soulteary/middleware-kit v1.0.0
+	github.com/soulteary/parser-kit v1.0.0
 	github.com/soulteary/redis-kit v1.0.0
 	github.com/soulteary/secure-kit v1.0.0
 	github.com/soulteary/tracing-kit v1.0.0
@@ -75,3 +76,5 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+replace github.com/soulteary/parser-kit => ../kits/parser-kit

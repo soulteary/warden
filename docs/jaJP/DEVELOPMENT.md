@@ -23,7 +23,7 @@ warden/
 │   ├── cmd/               # Command line argument parsing
 │   ├── define/            # Constant definitions and data structures
 │   ├── logger/            # Logging initialization
-│   ├── parser/            # Data parser (local/remote)
+│   ├── loader/             # Data loader (parser-kit)
 │   ├── router/            # HTTP route handling
 │   └── version/           # Version information
 └── pkg/
@@ -57,7 +57,7 @@ go run main.go
 
 1. **Core Business Logic**: In the `internal/` directory
 2. **Route Handling**: In the `internal/router/` directory
-3. **Data Parsing Logic**: In the `internal/parser/` directory
+3. **Data Loading Logic**: In the `internal/loader/` directory (parser-kit)
 4. **Public Packages**: In the `pkg/` directory
 
 ### Development Workflow

@@ -27,7 +27,7 @@ graph TB
         subgraph "Business Layer"
             UserCache[Memory Cache<br/>SafeUserCache]
             RedisCache[Redis Cache<br/>RedisUserCache]
-            Parser[Data Parser]
+            Loader[Data Loader]
             Scheduler[Scheduler<br/>gocron]
         end
 
@@ -56,11 +56,11 @@ graph TB
     Router --> UserCache
     UserCache -->|Read| RedisCache
     RedisCache --> Redis
-    Scheduler -->|Scheduled Trigger| Parser
-    Parser -->|Read| LocalFile
-    Parser -->|Request| RemoteAPI
-    Parser -->|Update| UserCache
-    Parser -->|Update| RedisCache
+    Scheduler -->|Scheduled Trigger| Loader
+    Loader -->|Read| LocalFile
+    Loader -->|Request| RemoteAPI
+    Loader -->|Update| UserCache
+    Loader -->|Update| RedisCache
     Scheduler -->|Acquire Lock| RedisLock
     RedisLock --> Redis
     Router --> Logger
@@ -75,7 +75,7 @@ graph TB
    - Rate limiting protection
    - Request metrics collection
 
-2. **Data Parser**: Supports parsing user data from local files and remote APIs
+2. **Data Loader** (parser-kit): Loads user data from local files and remote APIs
    - Local file parsing (JSON format)
    - Remote API calls (with authentication support)
    - Multiple data merging strategies
@@ -137,7 +137,7 @@ sequenceDiagram
 sequenceDiagram
     participant Scheduler as Scheduler
     participant Lock as Distributed Lock
-    participant Parser as Data Parser
+    participant Loader as Data Loader
     participant Remote as Remote API
     participant Local as Local File
     participant Memory as Memory Cache
@@ -146,22 +146,22 @@ sequenceDiagram
     Scheduler->>Lock: 1. Try to acquire distributed lock
     alt Lock acquired successfully
         Lock-->>Scheduler: Lock acquired
-        Scheduler->>Parser: 2. Trigger data update
-        Parser->>Remote: Request remote API
+        Scheduler->>Loader: 2. Trigger data update
+        Loader->>Remote: Request remote API
         alt Remote API success
-            Remote-->>Parser: Return data
+            Remote-->>Loader: Return data
         else Remote API failure
-            Parser->>Local: Fallback to local file
-            Local-->>Parser: Return data
+            Loader->>Local: Fallback to local file
+            Local-->>Loader: Return data
         end
-        Parser->>Parser: 3. Apply merge strategy
-        Parser->>Parser: 4. Calculate data hash
+        Loader->>Loader: 3. Apply merge strategy
+        Loader->>Loader: 4. Calculate data hash
         alt Data changed
-            Parser->>Memory: 5. Update memory cache
-            Parser->>Redis: 6. Update Redis cache
-            Redis-->>Parser: Update successful
+            Loader->>Memory: 5. Update memory cache
+            Loader->>Redis: 6. Update Redis cache
+            Redis-->>Loader: Update successful
         else Data unchanged
-            Parser->>Parser: Skip update
+            Loader->>Loader: Skip update
         end
         Scheduler->>Lock: 7. Release lock
     else Lock acquisition failed
