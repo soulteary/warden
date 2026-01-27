@@ -183,6 +183,45 @@ func TestGetUserByIdentifier_WithSpaces(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code, "Should be able to handle parameters with spaces")
 }
 
+// TestGetUserByIdentifier_Contract_StargateFields asserts that GET /user response JSON
+// contains the fields required by Stargate/forwardauth-kit (user_id, mail, phone, status, scope, role).
+func TestGetUserByIdentifier_Contract_StargateFields(t *testing.T) {
+	testUsers := []define.AllowListUser{
+		{
+			Phone:  "13800138000",
+			Mail:   "contract@example.com",
+			UserID: "contract-user-1",
+			Status: "active",
+			Scope:  []string{"read", "write"},
+			Role:   "admin",
+		},
+	}
+
+	userCache := cache.NewSafeUserCache()
+	userCache.Set(testUsers)
+
+	handler := GetUserByIdentifier(userCache)
+	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+	var user define.AllowListUser
+	err := json.NewDecoder(w.Body).Decode(&user)
+	require.NoError(t, err)
+
+	// Stargate expects user_id, mail, phone, status, scope, role (per CLAUDE / forwardauth UserInfo)
+	assert.Equal(t, "contract-user-1", user.UserID, "user_id required by Stargate")
+	assert.Equal(t, "contract@example.com", user.Mail, "mail required by Stargate")
+	assert.Equal(t, "13800138000", user.Phone, "phone required by Stargate")
+	assert.Equal(t, "active", user.Status, "status required by Stargate")
+	assert.Equal(t, []string{"read", "write"}, user.Scope, "scope required by Stargate")
+	assert.Equal(t, "admin", user.Role, "role required by Stargate")
+}
+
 // TestGetUserByIdentifier_JSONEncodingError tests JSON encoding error handling
 func TestGetUserByIdentifier_JSONEncodingError(t *testing.T) {
 	// This test is difficult to simulate because json.NewEncoder usually doesn't fail
