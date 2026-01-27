@@ -68,7 +68,7 @@ func BuildSources(rulesFile, configURL, auth, appMode string) []parserkit.Source
 		sources = []parserkit.Source{{
 			Type:     parserkit.SourceTypeFile,
 			Priority: 0,
-			Config: parserkit.SourceConfig{FilePath: rulesFile},
+			Config:   parserkit.SourceConfig{FilePath: rulesFile},
 		}}
 	case "ONLY_REMOTE":
 		if configURL != "" {

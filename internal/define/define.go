@@ -6,6 +6,7 @@ package define
 
 import (
 	// Standard library
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,30 @@ const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/data.json"
 
 // DEFAULT_REMOTE_KEY default remote configuration key
 const DEFAULT_REMOTE_KEY = ""
+
+// HTTP path constants. Used for route registration, rate-limit skip paths, and access-log skip paths.
+const (
+	PATH_HEALTH      = "/health"
+	PATH_HEALTHCHECK = "/healthcheck"
+	PATH_METRICS     = "/metrics"
+)
+
+// SkipPathsHealthAndMetrics is the path list to skip for rate limiting and access logging.
+// Reduces log noise and keeps health/metrics probes from consuming rate limit.
+var SkipPathsHealthAndMetrics = []string{PATH_HEALTH, PATH_HEALTHCHECK, PATH_METRICS}
+
+// ParseTrustedProxyIPs parses comma-separated string (e.g. TRUSTED_PROXY_IPS env), trims each element, drops empty.
+// Used by main and ip_whitelist so env parsing is explicit and consistent.
+func ParseTrustedProxyIPs(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
 
 const (
 	// DEFAULT_TASK_INTERVAL default task interval (seconds)

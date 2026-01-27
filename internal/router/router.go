@@ -12,6 +12,7 @@ import (
 	loggerkit "github.com/soulteary/logger-kit"
 
 	// Internal packages
+	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -57,7 +58,7 @@ func AccessLogMiddleware() func(http.Handler) http.Handler {
 	lkLog := logger.GetLoggerKit()
 	return loggerkit.Middleware(loggerkit.MiddlewareConfig{
 		Logger:           lkLog,
-		SkipPaths:        []string{"/healthz", "/metrics"},
+		SkipPaths:        define.SkipPathsHealthAndMetrics,
 		IncludeRequestID: true,
 		IncludeLatency:   true,
 	})

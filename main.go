@@ -34,8 +34,8 @@ import (
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
-	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/loader"
+	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/metrics"
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/router"
@@ -147,14 +147,14 @@ func NewApp(cfg *cmd.Config) *App {
 		app.taskInterval = uint64(define.DEFAULT_TASK_INTERVAL)
 	}
 
-	// Initialize rate limiter (using middleware-kit)
-	app.rateLimiter = middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
-		Rate:            define.DEFAULT_RATE_LIMIT,
-		Window:          define.DEFAULT_RATE_LIMIT_WINDOW,
-		MaxVisitors:     define.MAX_VISITORS_MAP_SIZE,
-		MaxWhitelist:    define.MAX_WHITELIST_SIZE,
-		CleanupInterval: define.RATE_LIMIT_CLEANUP_INTERVAL,
-	})
+	// Initialize rate limiter (using middleware-kit DefaultRateLimiterConfig + overrides)
+	rateLimitCfg := middlewarekit.DefaultRateLimiterConfig()
+	rateLimitCfg.Rate = define.DEFAULT_RATE_LIMIT
+	rateLimitCfg.Window = define.DEFAULT_RATE_LIMIT_WINDOW
+	rateLimitCfg.MaxVisitors = define.MAX_VISITORS_MAP_SIZE
+	rateLimitCfg.MaxWhitelist = define.MAX_WHITELIST_SIZE
+	rateLimitCfg.CleanupInterval = define.RATE_LIMIT_CLEANUP_INTERVAL
+	app.rateLimiter = middlewarekit.NewRateLimiter(rateLimitCfg)
 
 	return app
 }
@@ -487,8 +487,8 @@ func (app *App) backgroundTask(rulesFile string) {
 
 // registerRoutes registers all HTTP routes
 func registerRoutes(app *App) {
-	// Create trusted proxy config (from environment variable)
-	trustedProxies := strings.Split(os.Getenv("TRUSTED_PROXY_IPS"), ",")
+	// Create trusted proxy config (from TRUSTED_PROXY_IPS env, parsed via define.ParseTrustedProxyIPs)
+	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
 
 	// Create base middleware (using middleware-kit)
@@ -499,42 +499,39 @@ func registerRoutes(app *App) {
 	securityCfg := middlewarekit.StrictSecurityHeadersConfig()
 	securityHeadersMiddleware := middlewarekit.SecurityHeadersStd(securityCfg)
 
-	// Rate limit middleware (using middleware-kit)
+	// Rate limit middleware (using middleware-kit, skip health/metrics paths)
 	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
 		Limiter:            app.rateLimiter,
 		TrustedProxyConfig: trustedProxyConfig,
 		Logger:             &app.log,
+		SkipPaths:          define.SkipPathsHealthAndMetrics,
 		OnLimitReached: func(key string) {
 			metrics.RateLimitHits.WithLabelValues(key).Inc()
 		},
 	})
 
-	// Auth middleware (using middleware-kit with constant-time comparison)
-	authMiddleware := middlewarekit.APIKeyAuthStd(middlewarekit.APIKeyConfig{
-		APIKey:             app.apiKey,
-		AuthScheme:         "Bearer",
-		TrustedProxyConfig: trustedProxyConfig,
-		Logger:             &app.log,
-	})
+	// Auth middleware (using middleware-kit DefaultAPIKeyConfig + overrides)
+	authBaseCfg := middlewarekit.DefaultAPIKeyConfig()
+	authBaseCfg.APIKey = app.apiKey
+	authBaseCfg.AuthScheme = "Bearer"
+	authBaseCfg.TrustedProxyConfig = trustedProxyConfig
+	authBaseCfg.Logger = &app.log
+	authMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
 
-	// Optional auth middleware for metrics endpoint
-	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(middlewarekit.APIKeyConfig{
-		APIKey:             app.apiKey,
-		AuthScheme:         "Bearer",
-		AllowEmptyKey:      true, // Allow access when no API key configured
-		TrustedProxyConfig: trustedProxyConfig,
-		Logger:             &app.log,
-	})
+	// Optional auth for metrics: same as base but allow empty key when no API key configured
+	optionalAuthCfg := authBaseCfg
+	optionalAuthCfg.AllowEmptyKey = true
+	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(optionalAuthCfg)
 
 	// Compress middleware (using middleware-kit)
 	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
 
-	// Body limit middleware (using middleware-kit)
-	bodyLimitMiddleware := middlewarekit.BodyLimitStd(middlewarekit.BodyLimitConfig{
-		MaxSize:            define.MAX_REQUEST_BODY_SIZE,
-		TrustedProxyConfig: trustedProxyConfig,
-		Logger:             &app.log,
-	})
+	// Body limit middleware (using middleware-kit DefaultBodyLimitConfig + overrides)
+	bodyLimitCfg := middlewarekit.DefaultBodyLimitConfig()
+	bodyLimitCfg.MaxSize = define.MAX_REQUEST_BODY_SIZE
+	bodyLimitCfg.TrustedProxyConfig = trustedProxyConfig
+	bodyLimitCfg.Logger = &app.log
+	bodyLimitMiddleware := middlewarekit.BodyLimitStd(bodyLimitCfg)
 
 	// Tracing middleware (if enabled)
 	var tracingMiddleware func(http.Handler) http.Handler
@@ -560,7 +557,7 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle("/metrics", metricsHandler)
+	http.Handle(define.PATH_METRICS, metricsHandler)
 
 	// Register main data interface (requires authentication)
 	// i18n middleware placed at outermost layer to ensure all requests can detect language
@@ -622,15 +619,15 @@ func registerRoutes(app *App) {
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
 						middleware.MetricsMiddleware(
-							health.Handler(healthAggregator),
+							middlewarekit.NoCacheHeadersStd()(health.Handler(healthAggregator)),
 						),
 					),
 				),
 			),
 		),
 	)
-	http.Handle("/health", healthHandler)
-	http.Handle("/healthcheck", healthHandler)
+	http.Handle(define.PATH_HEALTH, healthHandler)
+	http.Handle(define.PATH_HEALTHCHECK, healthHandler)
 
 	// Register log level control endpoint using logger-kit (requires authentication)
 	// i18n middleware placed at outermost layer to ensure all requests can detect language

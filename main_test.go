@@ -253,11 +253,11 @@ func TestStartServer(t *testing.T) {
 // TestShutdownServer tests server shutdown
 func TestShutdownServer(t *testing.T) {
 	t.Helper()
-	// Create a simple rate limiter (using middleware-kit)
-	rateLimiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
-		Rate:   100,
-		Window: time.Second,
-	})
+	// Create a simple rate limiter (using middleware-kit DefaultRateLimiterConfig + overrides)
+	cfg := middlewarekit.DefaultRateLimiterConfig()
+	cfg.Rate = 100
+	cfg.Window = time.Second
+	rateLimiter := middlewarekit.NewRateLimiter(cfg)
 
 	// Create a test server
 	srv := &http.Server{
@@ -889,10 +889,10 @@ func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 
 // TestShutdownServer_ShutdownError tests error handling during server shutdown
 func TestShutdownServer_ShutdownError(t *testing.T) {
-	rateLimiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
-		Rate:   100,
-		Window: time.Second,
-	})
+	cfg := middlewarekit.DefaultRateLimiterConfig()
+	cfg.Rate = 100
+	cfg.Window = time.Second
+	rateLimiter := middlewarekit.NewRateLimiter(cfg)
 
 	// Create an already closed server
 	srv := &http.Server{

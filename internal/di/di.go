@@ -101,31 +101,32 @@ func (d *Dependencies) initCache() {
 	d.UserCache = cache.NewSafeUserCache()
 }
 
-// initRateLimiter initializes rate limiter
+// initRateLimiter initializes rate limiter (using middleware-kit DefaultRateLimiterConfig + overrides)
 func (d *Dependencies) initRateLimiter() {
-	d.RateLimiter = middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
-		Rate:            define.DEFAULT_RATE_LIMIT,
-		Window:          define.DEFAULT_RATE_LIMIT_WINDOW,
-		MaxVisitors:     define.MAX_VISITORS_MAP_SIZE,
-		MaxWhitelist:    define.MAX_WHITELIST_SIZE,
-		CleanupInterval: define.RATE_LIMIT_CLEANUP_INTERVAL,
-	})
+	cfg := middlewarekit.DefaultRateLimiterConfig()
+	cfg.Rate = define.DEFAULT_RATE_LIMIT
+	cfg.Window = define.DEFAULT_RATE_LIMIT_WINDOW
+	cfg.MaxVisitors = define.MAX_VISITORS_MAP_SIZE
+	cfg.MaxWhitelist = define.MAX_WHITELIST_SIZE
+	cfg.CleanupInterval = define.RATE_LIMIT_CLEANUP_INTERVAL
+	d.RateLimiter = middlewarekit.NewRateLimiter(cfg)
 }
 
 // initHandlers initializes HTTP handlers
 func (d *Dependencies) initHandlers() {
-	// Create rate limiting middleware (using middleware-kit)
+	// Create rate limiting middleware (using middleware-kit, skip health/metrics paths)
 	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
-		Limiter: d.RateLimiter,
+		Limiter:   d.RateLimiter,
+		SkipPaths: define.SkipPathsHealthAndMetrics,
 	})
 
 	// Compress middleware (using middleware-kit)
 	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
 
-	// Body limit middleware (using middleware-kit)
-	bodyLimitMiddleware := middlewarekit.BodyLimitStd(middlewarekit.BodyLimitConfig{
-		MaxSize: define.MAX_REQUEST_BODY_SIZE,
-	})
+	// Body limit middleware (using middleware-kit DefaultBodyLimitConfig + override)
+	bodyLimitCfg := middlewarekit.DefaultBodyLimitConfig()
+	bodyLimitCfg.MaxSize = define.MAX_REQUEST_BODY_SIZE
+	bodyLimitMiddleware := middlewarekit.BodyLimitStd(bodyLimitCfg)
 
 	// Main data interface handler
 	d.MainHandler = compressMiddleware(
@@ -138,10 +139,14 @@ func (d *Dependencies) initHandlers() {
 		),
 	)
 
-	// Health check handler
+	// Health check handler (SecurityHeaders + NoCache aligned with main's health chain)
 	healthAggregator := d.createHealthAggregator()
-	d.HealthHandler = middleware.MetricsMiddleware(
-		health.Handler(healthAggregator),
+	securityHeaders := middlewarekit.SecurityHeadersStd(middlewarekit.StrictSecurityHeadersConfig())
+	noCache := middlewarekit.NoCacheHeadersStd()
+	d.HealthHandler = securityHeaders(
+		noCache(
+			middleware.MetricsMiddleware(health.Handler(healthAggregator)),
+		),
 	)
 
 	// Log level control handler
