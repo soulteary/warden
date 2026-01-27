@@ -447,8 +447,8 @@ func TestTaskAtFuture(t *testing.T) {
 		t.Fatalf("调度任务失败: %v", err)
 	}
 
-	// Check first run
-	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Add(time.Minute).Minute(), 0, 0, loc)
+	// Check first run（使用 nextMinuteTime 的小时/分，避免 08:59→09:00 时把期望算成 08:00）
+	expectedStartTime := time.Date(now.Year(), now.Month(), now.Day(), nextMinuteTime.Hour(), nextMinuteTime.Minute(), 0, 0, loc)
 	nextRun := dayJob.NextScheduledTime()
 	assert.Equal(t, expectedStartTime, nextRun)
 
