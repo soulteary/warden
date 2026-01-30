@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine3.22 AS Builder
+FROM golang:1.25-alpine3.22 AS builder
 RUN apk add git bash gcc musl-dev upx
 WORKDIR /app
 ENV GO111MODULE=on
@@ -20,7 +20,7 @@ ARG TARGETARCH=amd64
 RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
     GO111MODULE=on GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build \
     -ldflags "-w -s -X github.com/soulteary/version-kit.Version=$VERSION -X github.com/soulteary/version-kit.Commit=$COMMIT -X github.com/soulteary/version-kit.BuildDate=$BUILD_DATE" \
-    -o warden main.go
+    -o warden .
 # upx 压缩（如果失败则跳过，确保多平台构建兼容性）
 RUN if command -v upx > /dev/null 2>&1; then \
       upx -9 -o warden.minify warden 2>/dev/null && mv warden.minify warden || true; \
@@ -28,7 +28,7 @@ RUN if command -v upx > /dev/null 2>&1; then \
 
 
 FROM alpine:3.22
-COPY --from=Builder /app/warden /bin/warden
+COPY --from=builder /app/warden /bin/warden
 RUN apk add --no-cache curl
 WORKDIR /app
 CMD ["warden"]
