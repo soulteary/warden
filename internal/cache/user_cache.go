@@ -32,6 +32,8 @@ const (
 
 // primaryKeyForUser returns the dedup/primary key: phone if non-empty, else normalized mail.
 // Matches loader's allowListUserKey so cache and merge strategy stay consistent.
+//
+//nolint:gocritic // hugeParam: signature must match cache-kit PrimaryKeyFunc[T](T)(string)
 func primaryKeyForUser(u define.AllowListUser) string {
 	k := strings.TrimSpace(u.Phone)
 	if k == "" {

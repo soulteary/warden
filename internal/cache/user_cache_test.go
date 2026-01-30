@@ -149,3 +149,102 @@ func TestHashUserList(t *testing.T) {
 	emptyHash := HashUserList(nil)
 	assert.NotEmpty(t, emptyHash, "empty list should return fixed hash")
 }
+
+func TestSafeUserCache_GetByUserID(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com", UserID: "uid-1"},
+		{Phone: "13900139000", Mail: "test2@example.com", UserID: "uid-2"},
+	}
+	cache.Set(users)
+
+	user, exists := cache.GetByUserID("uid-1")
+	assert.True(t, exists, "应该通过 UserID 找到用户")
+	assert.Equal(t, "13800138000", user.Phone)
+	assert.Equal(t, "test@example.com", user.Mail)
+
+	_, exists = cache.GetByUserID("uid-notexist")
+	assert.False(t, exists, "不存在的 UserID 应返回 false")
+}
+
+func TestSafeUserCache_Iterate(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "a@example.com"},
+		{Phone: "13900139000", Mail: "b@example.com"},
+	}
+	cache.Set(users)
+
+	var count int
+	cache.Iterate(func(u define.AllowListUser) bool {
+		count++
+		return true
+	})
+	assert.Equal(t, 2, count, "应迭代 2 个用户")
+
+	count = 0
+	cache.Iterate(func(u define.AllowListUser) bool {
+		count++
+		return false
+	})
+	assert.Equal(t, 1, count, "返回 false 时应提前停止迭代")
+}
+
+func TestSafeUserCache_GetReadOnly(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+	cache.Set(users)
+
+	ro := cache.GetReadOnly()
+	require.Len(t, ro, 1)
+	assert.Equal(t, "13800138000", ro[0].Phone)
+}
+
+func TestSafeUserCache_GetHash(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+	cache.Set(users)
+
+	h := cache.GetHash()
+	assert.NotEmpty(t, h, "有数据时 hash 不应为空")
+	assert.Len(t, h, 64, "SHA256 哈希应为 64 字符")
+
+	cache.Set([]define.AllowListUser{})
+	h2 := cache.GetHash()
+	assert.NotEmpty(t, h2, "空列表也有 hash 值")
+}
+
+func TestSafeUserCache_InvalidPhoneSkipped(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "valid@example.com"},
+		{Phone: "invalid-phone", Mail: "a@example.com"},
+		{Phone: "", Mail: "b@example.com"},
+	}
+	cache.Set(users)
+
+	result := cache.Get()
+	assert.GreaterOrEqual(t, len(result), 1, "无效手机号用户应被跳过或保留有效项")
+}
+
+func TestSafeUserCache_InvalidEmailSkipped(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "valid@example.com"},
+		{Phone: "13900139000", Mail: "not-an-email"},
+	}
+	cache.Set(users)
+
+	result := cache.Get()
+	assert.GreaterOrEqual(t, len(result), 1, "无效邮箱用户应被跳过或保留有效项")
+}

@@ -50,3 +50,16 @@ func TestSanitizeURLNil(t *testing.T) {
 		t.Fatalf("sanitizeURL(nil) = %q, want empty string", got)
 	}
 }
+
+func TestNoOpLogger_AllMethods(t *testing.T) {
+	var l NoOpLogger
+	// All methods must not panic
+	l.Debug("msg")
+	l.Debugf("format %s", "arg")
+	l.Info("msg")
+	l.Infof("format %s", "arg")
+	l.Warn("msg")
+	l.Warnf("format %s", "arg")
+	l.Error("msg")
+	l.Errorf("format %s", "arg")
+}

@@ -275,5 +275,8 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 func WriteJSONError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		// Response already committed; log only
+		logger.GetLoggerKit().Debug().Err(err).Str("message", message).Msg("failed to encode JSON error response")
+	}
 }

@@ -379,3 +379,68 @@ func TestApplyDefaults_AllSections(t *testing.T) {
 	assert.NotZero(t, cfg.Task.Interval)
 	assert.NotEmpty(t, cfg.App.Mode)
 }
+
+// TestOverrideFromEnv_HTTPMaxIdleConns tests parseInt via overrideFromEnv
+func TestOverrideFromEnv_HTTPMaxIdleConns(t *testing.T) {
+	original := os.Getenv("HTTP_MAX_IDLE_CONNS")
+	defer func() {
+		if original != "" {
+			require.NoError(t, os.Setenv("HTTP_MAX_IDLE_CONNS", original))
+		} else {
+			require.NoError(t, os.Unsetenv("HTTP_MAX_IDLE_CONNS"))
+		}
+	}()
+
+	require.NoError(t, os.Setenv("HTTP_MAX_IDLE_CONNS", "200"))
+	cfg := &Config{}
+	overrideFromEnv(cfg)
+	assert.Equal(t, 200, cfg.HTTP.MaxIdleConns)
+}
+
+// TestOverrideFromEnv_AllVars tests more overrideFromEnv branches
+func TestOverrideFromEnv_AllVars(t *testing.T) {
+	envVars := map[string]string{
+		"PORT": "9000", "REDIS": "redis:6379", "CONFIG": "http://cfg/", "KEY": "key1",
+		"MODE": "production", "HTTP_TIMEOUT": "60s", "HTTP_INSECURE_TLS": "true",
+		"API_KEY": "api-key", "DATA_FILE": "/data.json", "OTLP_ENABLED": "1", "OTLP_ENDPOINT": "http://otel:4318",
+	}
+	for k, v := range envVars {
+		require.NoError(t, os.Setenv(k, v))
+	}
+	defer func() {
+		for k := range envVars {
+			require.NoError(t, os.Unsetenv(k))
+		}
+	}()
+
+	cfg := &Config{}
+	overrideFromEnv(cfg)
+	assert.Equal(t, "9000", cfg.Server.Port)
+	assert.Equal(t, "redis:6379", cfg.Redis.Addr)
+	assert.Equal(t, "http://cfg/", cfg.Remote.URL)
+	assert.Equal(t, "key1", cfg.Remote.Key)
+	assert.Equal(t, "production", cfg.App.Mode)
+	assert.Equal(t, "api-key", cfg.App.APIKey)
+	assert.Equal(t, "/data.json", cfg.App.DataFile)
+	assert.True(t, cfg.Tracing.Enabled)
+	assert.Equal(t, "http://otel:4318", cfg.Tracing.Endpoint)
+}
+
+// TestToLegacyConfig tests conversion to LegacyConfig
+func TestToLegacyConfig(t *testing.T) {
+	cfg := &Config{
+		Server: ServerConfig{Port: "8081"},
+		Redis:  RedisConfig{Addr: "localhost:6379", Password: "pwd"},
+		Remote: RemoteConfig{URL: "http://r/", Key: "k", Mode: "development"},
+		Task:   TaskConfig{Interval: 60 * time.Second},
+		App:    AppConfig{Mode: "development", APIKey: "key"},
+	}
+	legacy := cfg.ToLegacyConfig()
+	require.NotNil(t, legacy)
+	assert.Equal(t, "8081", legacy.Port)
+	assert.Equal(t, "localhost:6379", legacy.Redis)
+	assert.Equal(t, "http://r/", legacy.RemoteConfig)
+	assert.Equal(t, "k", legacy.RemoteKey)
+	assert.Equal(t, 60, legacy.TaskInterval)
+	assert.Equal(t, "development", legacy.Mode)
+}

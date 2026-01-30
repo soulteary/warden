@@ -79,7 +79,7 @@ func GetLookup(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.R
 		if !found {
 			span.SetAttributes(attribute.Bool("warden.lookup.found", false))
 			logger.FromRequest(r).Info().Str("identifier", logger.SanitizeEmail(identifier)).Msg(i18n.T(r, "log.user_not_found"))
-			sanitized := identifier
+			var sanitized string
 			if strings.Contains(identifier, "@") {
 				sanitized = logger.SanitizeEmail(identifier)
 			} else {
@@ -120,7 +120,7 @@ func GetLookup(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.R
 			Str("user_id", user.UserID).
 			Str("channel_hint", channelHint).
 			Msg(i18n.T(r, "log.user_query_success"))
-		sanitized := identifier
+		var sanitized string
 		if strings.Contains(identifier, "@") {
 			sanitized = logger.SanitizeEmail(identifier)
 		} else {
