@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	middlewarekit "github.com/soulteary/middleware-kit"
+	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
@@ -67,8 +68,8 @@ func TestCalculateHash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hash1 := calculateHash(tt.users)
-			hash2 := calculateHash(tt.users)
+			hash1 := cache.HashUserList(tt.users)
+			hash2 := cache.HashUserList(tt.users)
 
 			if tt.wantSame {
 				assert.Equal(t, hash1, hash2, "相同输入应该产生相同哈希")
@@ -90,8 +91,8 @@ func TestCalculateHash_DifferentData(t *testing.T) {
 		{Phone: "13800138000", Mail: "test2@example.com"},
 	}
 
-	hash1 := calculateHash(users1)
-	hash2 := calculateHash(users2)
+	hash1 := cache.HashUserList(users1)
+	hash2 := cache.HashUserList(users2)
 
 	assert.NotEqual(t, hash1, hash2, "不同数据应该产生不同哈希")
 }
@@ -102,7 +103,7 @@ func TestHasChanged(t *testing.T) {
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	oldHash := calculateHash(users)
+	oldHash := cache.HashUserList(users)
 
 	// Same data should return false
 	assert.False(t, hasChanged(oldHash, users), "相同数据应该返回 false")
@@ -928,8 +929,8 @@ func TestCalculateHash_WithAllFields(t *testing.T) {
 		},
 	}
 
-	hash1 := calculateHash(users)
-	hash2 := calculateHash(users)
+	hash1 := cache.HashUserList(users)
+	hash2 := cache.HashUserList(users)
 
 	assert.Equal(t, hash1, hash2, "相同输入应该产生相同哈希")
 	assert.Len(t, hash1, 64, "SHA256 哈希应该是 64 个字符")
@@ -953,8 +954,8 @@ func TestCalculateHash_WithScope(t *testing.T) {
 		},
 	}
 
-	hash1 := calculateHash(users1)
-	hash2 := calculateHash(users2)
+	hash1 := cache.HashUserList(users1)
+	hash2 := cache.HashUserList(users2)
 
 	assert.NotEqual(t, hash1, hash2, "不同Scope应该产生不同哈希")
 }
@@ -1269,8 +1270,8 @@ func TestApp_backgroundTask_DataConsistency(t *testing.T) {
 // TestCalculateHash_EmptyUsers tests hash calculation with empty users
 func TestCalculateHash_EmptyUsers(t *testing.T) {
 	users := []define.AllowListUser{}
-	hash1 := calculateHash(users)
-	hash2 := calculateHash(users)
+	hash1 := cache.HashUserList(users)
+	hash2 := cache.HashUserList(users)
 
 	assert.Equal(t, hash1, hash2, "空用户列表应该产生相同哈希")
 	assert.Len(t, hash1, 64, "SHA256 哈希应该是 64 个字符")
@@ -1287,8 +1288,8 @@ func TestCalculateHash_NilScope(t *testing.T) {
 		},
 	}
 
-	hash1 := calculateHash(users)
-	hash2 := calculateHash(users)
+	hash1 := cache.HashUserList(users)
+	hash2 := cache.HashUserList(users)
 
 	assert.Equal(t, hash1, hash2, "相同输入应该产生相同哈希")
 }
@@ -1308,7 +1309,7 @@ func TestHasChanged_SameHash(t *testing.T) {
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	hash := calculateHash(users)
+	hash := cache.HashUserList(users)
 	assert.False(t, hasChanged(hash, users), "相同哈希应该返回false")
 }
 

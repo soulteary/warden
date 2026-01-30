@@ -16,16 +16,19 @@
 8. **IP 白名单**: 支持为健康检查端点配置 IP 白名单
 9. **配置文件验证**: 防止路径遍历攻击
 10. **JSON 大小限制**: 限制 JSON 响应体大小，防止内存耗尽攻击
+11. **用户查询参数长度限制**: `phone`/`mail`/`user_id` 单参数不超过 512 字节，防止 DoS 与日志/缓存膨胀
+12. **审计日志 PII 脱敏**: 写入审计的 identifier 对 phone/mail 脱敏存储，避免审计存储泄露导致 PII 暴露
 
 ## 安全最佳实践
 
 ### 1. 生产环境配置
 
-**必须配置项**:
-- 必须设置 `API_KEY` 环境变量
-- 设置 `MODE=production` 启用生产模式
-- 配置 `TRUSTED_PROXY_IPS` 以正确获取客户端 IP
-- 使用 `HEALTH_CHECK_IP_WHITELIST` 限制健康检查访问
+**必须配置项**（缺一不可）:
+- **必须**设置 `API_KEY` 环境变量。未配置时主数据接口会返回 401，但 `/metrics` 在未配置 API Key 时会放行，生产环境务必配置以避免指标泄露。
+- **必须**设置 `MODE=production` 启用生产模式
+- **必须**配置 `TRUSTED_PROXY_IPS` 以正确获取客户端 IP
+- **必须**使用 `HEALTH_CHECK_IP_WHITELIST` 限制健康检查访问（或通过网络/反向代理限制 `/health`、`/healthcheck`）
+- **必须**对 `/metrics` 做访问控制：配置 API Key 后 Prometheus 拉取时需带相同 Key，或仅在反向代理/网络层限制该路径，不对外网暴露
 
 **配置示例**:
 ```bash
@@ -97,10 +100,10 @@ app:
 - `GET /log/level` - 获取日志级别
 - `POST /log/level` - 设置日志级别
 
-**不需要认证的端点**:
-- `GET /health` - 健康检查（可通过 IP 白名单限制）
-- `GET /healthcheck` - 健康检查（可通过 IP 白名单限制）
-- `GET /metrics` - Prometheus 指标
+**不需要认证的端点**（生产环境必须通过其他手段保护）:
+- `GET /health` - 健康检查（**必须**配置 `HEALTH_CHECK_IP_WHITELIST` 或网络隔离）
+- `GET /healthcheck` - 健康检查（同上）
+- `GET /metrics` - Prometheus 指标（**必须**配置 API Key 使拉取时带 Key，或反向代理/网络限制，不对外网暴露）
 
 **认证方式**:
 1. **X-API-Key 请求头**:

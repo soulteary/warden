@@ -24,6 +24,7 @@
   "error.user_not_found": "Utilisateur non trouvé",
   "error.missing_identifier": "Requête incorrecte : identifiant manquant (phone, mail ou user_id)",
   "error.multiple_identifiers": "Requête incorrecte : un seul identifiant autorisé (phone, mail ou user_id)",
+  "error.invalid_identifier": "Identifiant invalide : paramètre trop long ou invalide",
   "error.invalid_pagination": "Paramètres de pagination invalides",
   "error.rate_limit_exceeded": "Limite de débit dépassée",
   "error.auth_failed": "Échec de l'authentification : clé API invalide",

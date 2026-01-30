@@ -92,7 +92,7 @@ Warden 支持通过命令行参数、环境变量和配置文件进行配置。�
 | 端口 | `PORT` | HTTP 服务器端口（默认：8081） | 否 |
 | API 密钥 | `API_KEY` | API 认证密钥（生产环境推荐） | 推荐 |
 | Redis | `REDIS` | Redis 地址，用于缓存和分布式锁（如：`localhost:6379`） | 可选 |
-| 数据文件 | - | 本地数据文件路径（默认：`data.json`） | 是* |
+| 数据文件 | `DATA_FILE` | 本地数据文件路径（默认：`./data.json`，支持 `--data-file`） | 是* |
 | 远程配置 | `CONFIG` | 用于获取数据的远程 API URL | 可选 |
 
 \* 如果不使用远程 API，则必需

@@ -4,6 +4,7 @@ package cache
 
 import (
 	// Standard library
+	"errors"
 	"sort"
 	"strings"
 
@@ -19,12 +20,27 @@ import (
 
 var log = logger.GetLoggerKit()
 
+// errBothIdentifierEmpty is returned when user has neither phone nor mail.
+var errBothIdentifierEmpty = errors.New("at least one of phone or mail required")
+
 // Index names for multi-index cache
 const (
 	IndexPhone  = "phone"
 	IndexMail   = "mail"
 	IndexUserID = "user_id"
 )
+
+// primaryKeyForUser returns the dedup/primary key: phone if non-empty, else normalized mail.
+// Matches loader's allowListUserKey so cache and merge strategy stay consistent.
+//
+//nolint:gocritic // hugeParam: signature must match cache-kit PrimaryKeyFunc[T](T)(string)
+func primaryKeyForUser(u define.AllowListUser) string {
+	k := strings.TrimSpace(u.Phone)
+	if k == "" {
+		k = strings.ToLower(strings.TrimSpace(u.Mail))
+	}
+	return k
+}
 
 // SafeUserCache provides thread-safe user cache using cache-kit MultiIndexCache
 // Maintains multiple indexes to support fast queries by phone, mail, user_id
@@ -34,11 +50,9 @@ type SafeUserCache struct {
 
 // NewSafeUserCache creates a new thread-safe user cache
 func NewSafeUserCache() *SafeUserCache {
-	// Create config with primary key function (phone)
+	// Primary key: phone if non-empty, else normalized mail (supports email-only users)
 	config := cache.DefaultConfig[define.AllowListUser]().
-		WithPrimaryKey(func(u define.AllowListUser) string {
-			return u.Phone
-		}).
+		WithPrimaryKey(primaryKeyForUser).
 		WithValidateFunc(validateUser).
 		WithNormalizeFunc(normalizeUser).
 		WithHashFunc(hashUsers)
@@ -58,10 +72,17 @@ func NewSafeUserCache() *SafeUserCache {
 	}
 }
 
-// validateUser validates user data using cli-kit validator
+// validateUser validates user data using cli-kit validator.
+// At least one of phone or mail must be non-empty (email-only users are supported).
 //
 //nolint:gocritic // hugeParam: function signature must match cache.ValidateFunc interface
 func validateUser(user define.AllowListUser) error {
+	phoneTrim := strings.TrimSpace(user.Phone)
+	mailTrim := strings.TrimSpace(user.Mail)
+	if phoneTrim == "" && mailTrim == "" {
+		log.Warn().Msg("Skipping user with both phone and mail empty")
+		return errBothIdentifierEmpty
+	}
 	phoneOpts := &validator.PhoneOptions{AllowEmpty: true}
 	emailOpts := &validator.EmailOptions{AllowEmpty: true}
 
@@ -94,29 +115,33 @@ func normalizeUser(user define.AllowListUser) define.AllowListUser {
 	return user
 }
 
-// hashUsers calculates hash value of user data for change detection
-func hashUsers(users []define.AllowListUser) string {
+// HashUserList computes SHA256 hash of user list for change detection.
+// Sorts by primary key (phone or mail), normalizes each user, then hashes.
+// Used by SafeUserCache internally and by main for backgroundTask comparison.
+func HashUserList(users []define.AllowListUser) string {
 	if len(users) == 0 {
 		return secure.GetSHA256Hash("empty")
 	}
-
-	// Sort user list to ensure same data produces same hash
-	sortedUsers := make([]define.AllowListUser, len(users))
-	copy(sortedUsers, users)
-	sort.Slice(sortedUsers, func(i, j int) bool {
-		if sortedUsers[i].Phone != sortedUsers[j].Phone {
-			return sortedUsers[i].Phone < sortedUsers[j].Phone
-		}
-		return sortedUsers[i].Mail < sortedUsers[j].Mail
+	sorted := make([]define.AllowListUser, len(users))
+	copy(sorted, users)
+	for i := range sorted {
+		sorted[i].Normalize()
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		ki, kj := primaryKeyForUser(sorted[i]), primaryKeyForUser(sorted[j])
+		return ki < kj
 	})
-
-	// Calculate hash (includes all fields to ensure accurate data change detection)
 	var sb strings.Builder
-	for _, user := range sortedUsers {
+	for _, user := range sorted {
 		scopeStr := strings.Join(user.Scope, ",")
 		sb.WriteString(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n")
 	}
 	return secure.GetSHA256Hash(sb.String())
+}
+
+// hashUsers calculates hash value of user data for change detection (cache-kit callback)
+func hashUsers(users []define.AllowListUser) string {
+	return HashUserList(users)
 }
 
 // Get gets a copy of user list (thread-safe)
@@ -128,12 +153,12 @@ func (c *SafeUserCache) Get() []define.AllowListUser {
 
 // Set sets user list (thread-safe)
 // Accepts slice format, internally converts to map for storage
-// Preserves input order
+// Preserves input order. Keeps users with at least one of phone or mail (email-only users supported).
 func (c *SafeUserCache) Set(users []define.AllowListUser) {
-	// Filter out users with empty phone
+	// Filter out users with both phone and mail empty
 	validUsers := make([]define.AllowListUser, 0, len(users))
 	for _, user := range users {
-		if user.Phone != "" {
+		if primaryKeyForUser(user) != "" {
 			validUsers = append(validUsers, user)
 		}
 	}
@@ -169,13 +194,14 @@ func (c *SafeUserCache) Len() int {
 
 // GetByPhone gets user by phone number (thread-safe, O(1) lookup)
 func (c *SafeUserCache) GetByPhone(phone string) (define.AllowListUser, bool) {
-	// Phone is the primary key, so we use Get directly
-	return c.cache.Get(phone)
+	// Primary key is trimmed phone (when user has phone), so normalize lookup
+	return c.cache.Get(strings.TrimSpace(phone))
 }
 
 // GetByMail gets user by email (thread-safe, O(1) lookup)
 func (c *SafeUserCache) GetByMail(mail string) (define.AllowListUser, bool) {
-	return c.cache.GetByIndex(IndexMail, mail)
+	// Index uses normalized mail (lowercase, trimmed)
+	return c.cache.GetByIndex(IndexMail, strings.ToLower(strings.TrimSpace(mail)))
 }
 
 // GetByUserID gets user by user ID (thread-safe, O(1) lookup)

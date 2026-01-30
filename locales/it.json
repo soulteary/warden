@@ -24,6 +24,7 @@
   "error.user_not_found": "Utente non trovato",
   "error.missing_identifier": "Richiesta errata: identificatore mancante (phone, mail o user_id)",
   "error.multiple_identifiers": "Richiesta errata: è consentito un solo identificatore (phone, mail o user_id)",
+  "error.invalid_identifier": "Identificatore non valido: parametro troppo lungo o non valido",
   "error.invalid_pagination": "Parametri di paginazione non validi",
   "error.rate_limit_exceeded": "Limite di velocità superato",
   "error.auth_failed": "Autenticazione fallita: chiave API non valida",

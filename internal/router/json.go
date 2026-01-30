@@ -270,3 +270,13 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			Msg(i18n.T(r, "log.request_data_api"))
 	}
 }
+
+// WriteJSONError writes a JSON error response { "error": message } with the given status code.
+func WriteJSONError(w http.ResponseWriter, code int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		// Response already committed; log only
+		logger.GetLoggerKit().Debug().Err(err).Str("message", message).Msg("failed to encode JSON error response")
+	}
+}

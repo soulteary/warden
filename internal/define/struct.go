@@ -11,10 +11,12 @@ import (
 // This struct is used to store user's basic information, including phone number, email address, user ID, status, etc.
 // This information is used to verify and authorize user access.
 //
+// At least one of Phone or Mail must be non-empty. Email-only users are supported (Phone may be empty).
+//
 //nolint:govet // fieldalignment: field order is affected by JSON serialization tags, optimization may break API compatibility
 type AllowListUser struct {
-	Phone  string   `json:"phone"`   // User phone number
-	Mail   string   `json:"mail"`    // User email address
+	Phone  string   `json:"phone"`   // User phone number (optional if Mail is set)
+	Mail   string   `json:"mail"`    // User email address (optional if Phone is set)
 	UserID string   `json:"user_id"` // User unique identifier (optional, auto-generated if not provided)
 	Status string   `json:"status"`  // User status (e.g., "active", "inactive", "suspended")
 	Scope  []string `json:"scope"`   // User permission scope (optional)

@@ -87,8 +87,9 @@ type TaskConfig struct {
 
 // AppConfig application configuration
 type AppConfig struct {
-	Mode   string `yaml:"mode"`
-	APIKey string `yaml:"api_key"` // API Key for authentication (sensitive information, recommend using environment variables)
+	Mode     string `yaml:"mode"`
+	APIKey   string `yaml:"api_key"`   // API Key for authentication (sensitive information, recommend using environment variables)
+	DataFile string `yaml:"data_file"` // Local user data file path
 }
 
 // TracingConfig OpenTelemetry tracing configuration
@@ -240,6 +241,9 @@ func applyAppDefaults(cfg *Config) {
 	if cfg.App.Mode == "" {
 		cfg.App.Mode = define.DEFAULT_MODE
 	}
+	if cfg.App.DataFile == "" {
+		cfg.App.DataFile = define.DEFAULT_DATA_FILE
+	}
 	// API Key defaults to empty, needs to be set via environment variable or configuration file
 }
 
@@ -319,6 +323,9 @@ func overrideFromEnv(cfg *Config) {
 	// App
 	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
 		cfg.App.APIKey = apiKey
+	}
+	if dataFile := os.Getenv("DATA_FILE"); dataFile != "" {
+		cfg.App.DataFile = dataFile
 	}
 
 	// Tracing
@@ -473,6 +480,7 @@ type CmdConfigData struct {
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
 	APIKey           string // 16 bytes
+	DataFile         string // 16 bytes - local user data file path
 	TaskInterval     int    // 8 bytes
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
@@ -501,6 +509,10 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		redisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
 	}
 
+	dataFile := strings.TrimSpace(c.App.DataFile)
+	if dataFile == "" {
+		dataFile = define.DEFAULT_DATA_FILE
+	}
 	return &CmdConfigData{
 		Port:             c.Server.Port,
 		Redis:            c.Redis.Addr,
@@ -510,6 +522,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		RemoteKey:        c.Remote.Key,
 		TaskInterval:     int(c.Task.Interval.Seconds()),
 		Mode:             mode,
+		DataFile:         dataFile,
 		HTTPTimeout:      int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns: c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:  c.HTTP.InsecureTLS,

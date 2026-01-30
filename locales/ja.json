@@ -24,6 +24,7 @@
   "error.user_not_found": "ユーザーが見つかりません",
   "error.missing_identifier": "不正なリクエスト：識別子が不足しています（phone、mail、またはuser_id）",
   "error.multiple_identifiers": "不正なリクエスト：識別子は1つだけ許可されています（phone、mail、またはuser_id）",
+  "error.invalid_identifier": "無効な識別子：パラメータが長すぎるか無効です",
   "error.invalid_pagination": "ページネーションパラメータが無効です",
   "error.rate_limit_exceeded": "レート制限を超えました",
   "error.auth_failed": "認証に失敗しました：無効なAPIキー",

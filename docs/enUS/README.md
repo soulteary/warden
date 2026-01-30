@@ -10,7 +10,6 @@ Welcome to the Warden AllowList user data service documentation.
 
 ### Core Documents
 
-- **[README.md](../../README.md)** - Project overview and quick start guide
 - **[README.md](../../README.md)** - Project overview and quick start guide (English)
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture and design decisions
 

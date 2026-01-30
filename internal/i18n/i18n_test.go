@@ -100,3 +100,14 @@ func TestGetLanguageFromContextValueWithEmptyContext(t *testing.T) {
 		t.Fatalf("expected LangEN when context is TODO, got %s", got)
 	}
 }
+
+func TestGetBundle(t *testing.T) {
+	b := GetBundle()
+	if b == nil {
+		t.Fatal("GetBundle() should not return nil")
+	}
+	// Bundle is used by TWithLang; verify it returns translation
+	if got := b.GetTranslation(LangEN, "error.redis_connection_failed"); got != "Redis connection failed" {
+		t.Fatalf("GetBundle().GetTranslation = %q, want Redis connection failed", got)
+	}
+}
