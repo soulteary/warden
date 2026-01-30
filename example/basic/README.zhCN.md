@@ -34,12 +34,12 @@
 
 ```bash
 # 在项目根目录执行（默认禁用 Redis）
-go run main.go \
+go run . \
   --port 8081 \
   --mode ONLY_LOCAL
 
 # 或者设置 Redis 地址（会自动启用 Redis，无需额外设置 --redis-enabled）
-go run main.go \
+go run . \
   --port 8081 \
   --redis localhost:6379 \
   --mode ONLY_LOCAL
@@ -218,7 +218,7 @@ A: 修改 `data.json` 文件后，服务会在下次定时任务执行时自动�
 A: 通过环境变量设置：
 ```bash
 export API_KEY=your-secret-api-key-here
-go run main.go --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
+go run . --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
 ```
 
 ## 📚 下一步

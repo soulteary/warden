@@ -110,7 +110,7 @@ docker-compose up -d
 - [Warden Main Documentation](../README.md) - Complete project documentation
 - [API Documentation](../openapi.yaml) - OpenAPI specification
 - [Configuration Example](../config.example.yaml) - Configuration file reference
-- [Code Style Guide](../docs/CODE_STYLE.en.md) - Development standards
+- [Code Style Guide](../docs/enUS/CODE_STYLE.md) - Development standards
 
 ## 💡 Tips
 

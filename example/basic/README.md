@@ -34,12 +34,12 @@ Create a `data.json` file:
 
 ```bash
 # Execute in project root directory (Redis disabled by default)
-go run main.go \
+go run . \
   --port 8081 \
   --mode ONLY_LOCAL
 
 # Or set Redis address (Redis will be enabled automatically, no need for --redis-enabled)
-go run main.go \
+go run . \
   --port 8081 \
   --redis localhost:6379 \
   --mode ONLY_LOCAL
@@ -218,7 +218,7 @@ A: After modifying the `data.json` file, the service will automatically load it 
 A: Set via environment variable:
 ```bash
 export API_KEY=your-secret-api-key-here
-go run main.go --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
+go run . --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
 ```
 
 ## 📚 Next Steps

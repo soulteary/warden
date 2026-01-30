@@ -23,7 +23,7 @@
 
 **命令行参数**:
 ```bash
-go run main.go --mode DEFAULT
+go run . --mode DEFAULT
 ```
 
 **环境变量**:
@@ -48,7 +48,7 @@ app:
 
 **命令行参数**：
 ```bash
-go run main.go --data-file /path/to/data.json
+go run . --data-file /path/to/data.json
 ```
 
 **环境变量**：
@@ -158,7 +158,7 @@ app:
 ## 命令行参数
 
 ```bash
-go run main.go \
+go run . \
   --port 8081 \                    # Web 服务端口 (默认: 8081)
   --redis localhost:6379 \         # Redis 地址 (默认: localhost:6379)
   --redis-password "password" \    # Redis 密码（可选，建议使用环境变量）

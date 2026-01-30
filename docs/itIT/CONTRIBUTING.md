@@ -52,7 +52,7 @@ go mod download
 go test ./...
 
 # 5. Avvia il servizio locale (assicurati che Redis sia in esecuzione)
-go run main.go
+go run .
 ```
 
 ## 📝 Standard del Codice

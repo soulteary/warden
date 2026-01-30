@@ -317,24 +317,24 @@ REDIS_ENABLED=true|false|1|0  # 启用/禁用 Redis（默认: true，但在 ONLY
 
 ```bash
 # 命令行
-go run main.go --redis-enabled=false
+go run . --redis-enabled=false
 
 # 环境变量
 export REDIS_ENABLED=false
-go run main.go
+go run .
 ```
 
 ### 启用 Redis（默认）
 
 ```bash
-go run main.go --redis localhost:6379
+go run . --redis localhost:6379
 ```
 
 ### Redis 连接失败时自动 fallback
 
 ```bash
 # Redis 不可用，但应用仍能启动
-go run main.go --redis invalid-host:6379
+go run . --redis invalid-host:6379
 # 会记录警告，但继续使用内存缓存
 ```
 

@@ -51,7 +51,7 @@ go mod download
 go test ./...
 
 # 5. 로컬 서비스 시작 (Redis가 실행 중인지 확인)
-go run main.go
+go run .
 ```
 
 ## 📝 코드 표준

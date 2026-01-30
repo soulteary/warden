@@ -50,7 +50,7 @@ go mod download
 go test ./...
 
 # 5. Start local service (ensure Redis is running)
-go run main.go
+go run .
 ```
 
 ## 📝 Code Standards

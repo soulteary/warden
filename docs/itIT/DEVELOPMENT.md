@@ -48,7 +48,7 @@ go mod download
 ### 3. Run development server
 
 ```bash
-go run main.go
+go run .
 ```
 
 ## Adding New Features
@@ -174,7 +174,7 @@ Max Latency:     226.09ms
 
 ```bash
 export LOG_LEVEL=debug
-go run main.go
+go run .
 ```
 
 Or set dynamically via API:
@@ -190,7 +190,7 @@ curl -X POST http://localhost:8081/log/level \
 
 ```bash
 # Use Delve debugger
-dlv debug main.go
+dlv debug .
 ```
 
 ## Building
@@ -198,20 +198,20 @@ dlv debug main.go
 ### Local Build
 
 ```bash
-go build -o warden main.go
+go build -o warden .
 ```
 
 ### Cross Compilation
 
 ```bash
 # Linux
-GOOS=linux GOARCH=amd64 go build -o warden-linux-amd64 main.go
+GOOS=linux GOARCH=amd64 go build -o warden-linux-amd64 .
 
 # macOS
-GOOS=darwin GOARCH=amd64 go build -o warden-darwin-amd64 main.go
+GOOS=darwin GOARCH=amd64 go build -o warden-darwin-amd64 .
 
 # Windows
-GOOS=windows GOARCH=amd64 go build -o warden-windows-amd64.exe main.go
+GOOS=windows GOARCH=amd64 go build -o warden-windows-amd64.exe .
 ```
 
 ## Docker Development

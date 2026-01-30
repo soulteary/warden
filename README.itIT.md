@@ -80,7 +80,7 @@ Crea un file `data.json` (fare riferimento a `data.example.json`):
 
 3. **Eseguire il servizio**
 ```bash
-go run main.go --api-key your-api-key-here
+go run . --api-key your-api-key-here
 ```
 
 ## ⚙️ Configurazione Essenziale

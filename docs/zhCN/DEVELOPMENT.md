@@ -9,25 +9,37 @@
 ```
 warden/
 ├── main.go                 # 程序入口
+├── main_routes.go         # 路由注册与健康检查配置
+├── main_test.go           # 包测试
 ├── data.example.json      # 本地数据文件示例
+├── config.example.yaml     # 应用配置文件示例
 ├── go.mod                 # Go 模块定义
 ├── docker-compose.yml     # Docker Compose 配置
 ├── docker/
 │   └── Dockerfile         # Docker 镜像构建文件
-├── example/               # 快速开始示例
+├── example/                # 快速开始示例
 │   ├── README.md          # 示例说明文档
 │   ├── basic/             # 简单示例（仅本地文件）
-│   └── advanced/          # 复杂示例（完整功能）
+│   └── advanced/          # 高级示例（完整功能）
 ├── internal/
-│   ├── cache/             # Redis 缓存和锁实现
-│   ├── cmd/               # 命令行参数解析
-│   ├── define/            # 常量定义和数据结构
+│   ├── auditlog/          # 审计日志
+│   ├── cache/             # 用户缓存（内存 + Redis）与分布式锁
+│   ├── cmd/               # 命令行与配置解析
+│   ├── config/            # YAML 配置文件加载
+│   ├── define/            # 常量与数据结构
+│   ├── di/                # 依赖注入（服务器、处理器、健康检查）
+│   ├── errors/            # 错误类型与 i18n
+│   ├── i18n/              # 国际化
+│   ├── loader/            # 数据加载器（parser-kit，多数据源）
 │   ├── logger/            # 日志初始化
-│   ├── loader/             # 数据加载器（基于 parser-kit）
-│   ├── router/            # HTTP 路由处理
-│   └── version/           # 版本信息
+│   ├── metrics/           # Prometheus 指标
+│   ├── middleware/        # HTTP 中间件（i18n、错误处理、指标、IP 白名单）
+│   ├── router/            # HTTP 路由（用户列表、查询、健康、指标、日志级别）
+│   ├── tracing/           # OpenTelemetry 追踪
+│   └── validator/         # URL 与输入校验
 └── pkg/
-    └── gocron/            # 定时任务调度器
+    ├── gocron/            # 定时任务调度器
+    └── warden/            # Go SDK（客户端、缓存、类型）
 ```
 
 ## 开发环境设置
@@ -48,7 +60,7 @@ go mod download
 ### 3. 运行开发服务器
 
 ```bash
-go run main.go
+go run .
 ```
 
 ## 添加新功能
@@ -174,7 +186,7 @@ Transfer/sec:   38.96MB
 
 ```bash
 export LOG_LEVEL=debug
-go run main.go
+go run .
 ```
 
 或通过 API 动态设置：
@@ -189,29 +201,31 @@ curl -X POST http://localhost:8081/log/level \
 ### 使用调试器
 
 ```bash
-# 使用 Delve 调试器
-dlv debug main.go
+# 使用 Delve 调试器（需编译整个包）
+dlv debug .
 ```
 
 ## 构建
 
+请编译整个 `main` 包，使 `main.go` 与 `main_routes.go` 等一起参与编译。
+
 ### 本地构建
 
 ```bash
-go build -o warden main.go
+go build -o warden .
 ```
 
 ### 交叉编译
 
 ```bash
 # Linux
-GOOS=linux GOARCH=amd64 go build -o warden-linux-amd64 main.go
+GOOS=linux GOARCH=amd64 go build -o warden-linux-amd64 .
 
 # macOS
-GOOS=darwin GOARCH=amd64 go build -o warden-darwin-amd64 main.go
+GOOS=darwin GOARCH=amd64 go build -o warden-darwin-amd64 .
 
 # Windows
-GOOS=windows GOARCH=amd64 go build -o warden-windows-amd64.exe main.go
+GOOS=windows GOARCH=amd64 go build -o warden-windows-amd64.exe .
 ```
 
 ## Docker 开发

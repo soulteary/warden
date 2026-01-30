@@ -50,7 +50,7 @@ go mod download
 go test ./...
 
 # 5. 启动本地服务（确保 Redis 正在运行）
-go run main.go
+go run .
 ```
 
 ## 📝 代码规范

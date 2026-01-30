@@ -80,7 +80,12 @@ Create a `data.json` file (refer to `data.example.json`):
 
 3. **Run the service**
 ```bash
-go run main.go --api-key your-api-key-here
+# Run directly
+go run . --api-key your-api-key-here
+
+# Or build then run
+go build -o warden .
+./warden --api-key your-api-key-here
 ```
 
 ## ⚙️ Essential Configuration
@@ -92,7 +97,7 @@ Warden supports configuration via command line arguments, environment variables,
 | Port | `PORT` | HTTP server port (default: 8081) | No |
 | API Key | `API_KEY` | API authentication key (recommended for production) | Recommended |
 | Redis | `REDIS` | Redis address for caching and distributed locks (e.g., `localhost:6379`) | Optional |
-| Data File | - | Local data file path (default: `data.json`) | Yes* |
+| Data File | `DATA_FILE` | Local data file path (default: `./data.json`) | Yes* |
 | Remote Config | `CONFIG` | Remote API URL for data fetching | Optional |
 
 \* Required if not using remote API

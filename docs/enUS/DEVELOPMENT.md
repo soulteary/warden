@@ -9,25 +9,37 @@ This document provides a development guide for Warden project developers, includ
 ```
 warden/
 ├── main.go                 # Program entry point
+├── main_routes.go         # Route registration and health setup
+├── main_test.go           # Package tests
 ├── data.example.json      # Local data file example
+├── config.example.yaml     # Application config file example
 ├── go.mod                 # Go module definition
 ├── docker-compose.yml     # Docker Compose configuration
 ├── docker/
 │   └── Dockerfile         # Docker image build file
-├── example/               # Quick start examples
+├── example/                # Quick start examples
 │   ├── README.md          # Example documentation
 │   ├── basic/             # Simple example (local file only)
-│   └── advanced/          # Advanced example (full features)
+│   └── advanced/           # Advanced example (full features)
 ├── internal/
-│   ├── cache/             # Redis cache and lock implementation
-│   ├── cmd/               # Command line argument parsing
-│   ├── define/            # Constant definitions and data structures
+│   ├── auditlog/          # Audit logging
+│   ├── cache/             # User cache (memory + Redis) and distributed lock
+│   ├── cmd/               # Command line and config parsing
+│   ├── config/            # YAML config file loading
+│   ├── define/            # Constants and data structures
+│   ├── di/                # Dependency injection (server, handlers, health)
+│   ├── errors/            # Error types and i18n
+│   ├── i18n/              # Internationalization
+│   ├── loader/            # Data loader (parser-kit, multi-source)
 │   ├── logger/            # Logging initialization
-│   ├── loader/             # Data loader (parser-kit)
-│   ├── router/            # HTTP route handling
-│   └── version/           # Version information
+│   ├── metrics/           # Prometheus metrics
+│   ├── middleware/        # HTTP middleware (i18n, error, metrics, ip whitelist)
+│   ├── router/            # HTTP routes (user list, lookup, health, metrics, log level)
+│   ├── tracing/           # OpenTelemetry tracing
+│   └── validator/         # URL and input validation
 └── pkg/
-    └── gocron/            # Scheduled task scheduler
+    ├── gocron/            # Scheduled task scheduler
+    └── warden/            # Go SDK (client, cache, types)
 ```
 
 ## Development Environment Setup
@@ -48,7 +60,7 @@ go mod download
 ### 3. Run development server
 
 ```bash
-go run main.go
+go run .
 ```
 
 ## Adding New Features
@@ -174,7 +186,7 @@ Max Latency:     226.09ms
 
 ```bash
 export LOG_LEVEL=debug
-go run main.go
+go run .
 ```
 
 Or set dynamically via API:
@@ -189,29 +201,31 @@ curl -X POST http://localhost:8081/log/level \
 ### Using Debugger
 
 ```bash
-# Use Delve debugger
-dlv debug main.go
+# Use Delve debugger (build the whole package)
+dlv debug .
 ```
 
 ## Building
 
+Build the entire `main` package so that `main.go` and `main_routes.go` (and other files in the package) are compiled together.
+
 ### Local Build
 
 ```bash
-go build -o warden main.go
+go build -o warden .
 ```
 
 ### Cross Compilation
 
 ```bash
 # Linux
-GOOS=linux GOARCH=amd64 go build -o warden-linux-amd64 main.go
+GOOS=linux GOARCH=amd64 go build -o warden-linux-amd64 .
 
 # macOS
-GOOS=darwin GOARCH=amd64 go build -o warden-darwin-amd64 main.go
+GOOS=darwin GOARCH=amd64 go build -o warden-darwin-amd64 .
 
 # Windows
-GOOS=windows GOARCH=amd64 go build -o warden-windows-amd64.exe main.go
+GOOS=windows GOARCH=amd64 go build -o warden-windows-amd64.exe .
 ```
 
 ## Docker Development

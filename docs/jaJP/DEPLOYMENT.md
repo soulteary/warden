@@ -154,7 +154,7 @@ For a complete example, please refer to the `data.example.json` file.
 ### 4. Run the service
 
 ```bash
-go run main.go
+go run .
 ```
 
 ## Production Environment Deployment Recommendations

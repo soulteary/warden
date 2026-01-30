@@ -51,7 +51,7 @@ go mod download
 go test ./...
 
 # 5. ローカルサービスを起動（Redis が実行されていることを確認）
-go run main.go
+go run .
 ```
 
 ## 📝 コード規約

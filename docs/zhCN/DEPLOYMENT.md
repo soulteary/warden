@@ -154,7 +154,7 @@ go mod download
 ### 4. 运行服务
 
 ```bash
-go run main.go
+go run .
 ```
 
 ## 生产环境部署建议

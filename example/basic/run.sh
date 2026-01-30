@@ -44,7 +44,7 @@ cd "$(dirname "$0")/../.."
 
 # 运行服务
 echo "📦 启动 Warden 服务..."
-go run main.go \
+go run . \
   --port 8081 \
   --redis localhost:6379 \
   --mode ONLY_LOCAL

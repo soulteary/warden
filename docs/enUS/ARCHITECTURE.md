@@ -317,24 +317,24 @@ Command line arguments > Environment variables > Configuration file > Default va
 
 ```bash
 # Command line
-go run main.go --redis-enabled=false
+go run . --redis-enabled=false
 
 # Environment variable
 export REDIS_ENABLED=false
-go run main.go
+go run .
 ```
 
 ### Enable Redis (Default)
 
 ```bash
-go run main.go --redis localhost:6379
+go run . --redis localhost:6379
 ```
 
 ### Automatic Fallback When Redis Connection Fails
 
 ```bash
 # Redis unavailable, but application can still start
-go run main.go --redis invalid-host:6379
+go run . --redis invalid-host:6379
 # Will log warning, but continue using memory cache
 ```
 

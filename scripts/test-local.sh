@@ -156,16 +156,16 @@ if ! curl -s "$BASE_URL/health" > /dev/null 2>&1; then
     echo ""
     echo -e "${YELLOW}方式 1: 使用环境变量 ${NC}"
     if [ "$REDIS_AVAILABLE" = true ]; then
-        echo -e "  ${GREEN}PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
+        echo -e "  ${GREEN}PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run .${NC}"
     else
-        echo -e "  ${GREEN}PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
+        echo -e "  ${GREEN}PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run .${NC}"
     fi
     echo ""
     echo -e "${YELLOW}方式 2: 使用命令行参数 ${NC}"
     if [ "$REDIS_AVAILABLE" = true ]; then
-        echo -e "  ${GREEN}API_KEY=$API_KEY go run main.go -port 8081 -redis $REDIS_URL -mode ONLY_LOCAL${NC}"
+        echo -e "  ${GREEN}API_KEY=$API_KEY go run . -port 8081 -redis $REDIS_URL -mode ONLY_LOCAL${NC}"
     else
-        echo -e "  ${GREEN}API_KEY=$API_KEY go run main.go -port 8081 -redis-enabled=false -mode ONLY_LOCAL${NC}"
+        echo -e "  ${GREEN}API_KEY=$API_KEY go run . -port 8081 -redis-enabled=false -mode ONLY_LOCAL${NC}"
     fi
     echo ""
     echo -e "或使用 Docker Compose:"
@@ -197,10 +197,10 @@ elif [ "$test_auth_code" = "401" ]; then
     echo -e "  ${YELLOW}注意: 如果服务正在运行，请先停止它（Ctrl+C 或 kill 进程）${NC}"
     if [ "$REDIS_AVAILABLE" = true ]; then
         echo -e "  启动命令:"
-        echo -e "    ${GREEN}PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
+        echo -e "    ${GREEN}PORT=8081 REDIS=$REDIS_URL MODE=ONLY_LOCAL API_KEY=$API_KEY go run .${NC}"
     else
         echo -e "  启动命令:"
-        echo -e "    ${GREEN}PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run main.go${NC}"
+        echo -e "    ${GREEN}PORT=8081 REDIS_ENABLED=false MODE=ONLY_LOCAL API_KEY=$API_KEY go run .${NC}"
     fi
     echo ""
     echo -e "方案 2: 使用服务当前的 API_KEY 运行测试"
@@ -213,8 +213,8 @@ elif [ "$test_auth_code" = "401" ]; then
     echo -e "  请使用方案 1 或方案 2 设置 API_KEY"
     echo ""
     echo -e "${YELLOW}提示: 可以通过以下方式查看服务进程使用的环境变量（如果服务是通过命令行启动的）:${NC}"
-    echo -e "  ${GREEN}ps aux | grep 'go run main.go' | grep -v grep${NC}"
-    echo -e "  ${GREEN}ps eww -o command $(pgrep -f 'go run main.go' | head -1) 2>/dev/null | grep -o 'API_KEY=[^ ]*' || echo '无法获取 API_KEY'${NC}"
+    echo -e "  ${GREEN}ps aux | grep 'go run .' | grep -v grep${NC}"
+    echo -e "  ${GREEN}ps eww -o command $(pgrep -f 'go run .' | head -1) 2>/dev/null | grep -o 'API_KEY=[^ ]*' || echo '无法获取 API_KEY'${NC}"
     echo ""
     exit 1
 else

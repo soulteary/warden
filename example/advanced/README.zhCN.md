@@ -106,7 +106,7 @@ Mock API 将在 `http://localhost:8080/api/users` 提供服务。
 
 ```bash
 # 在项目根目录
-go run main.go \
+go run . \
   --port 8081 \
   --redis localhost:6379 \
   --config http://localhost:8080/api/users \

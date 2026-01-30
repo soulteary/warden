@@ -80,7 +80,7 @@ go mod download
 
 3. **서비스 실행**
 ```bash
-go run main.go --api-key your-api-key-here
+go run . --api-key your-api-key-here
 ```
 
 ## ⚙️ 필수 구성

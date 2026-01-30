@@ -23,7 +23,7 @@ You can set the running mode in the following ways:
 
 **Command Line Arguments**:
 ```bash
-go run main.go --mode DEFAULT
+go run . --mode DEFAULT
 ```
 
 **Environment Variables**:
@@ -138,7 +138,7 @@ Refer to example file: [config.example.yaml](../config.example.yaml)
 ## Command Line Arguments
 
 ```bash
-go run main.go \
+go run . \
   --port 8081 \                    # Web service port (default: 8081)
   --redis localhost:6379 \         # Redis address (default: localhost:6379)
   --redis-password "password" \    # Redis password (optional, recommend using environment variables)

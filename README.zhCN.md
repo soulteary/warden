@@ -80,7 +80,12 @@ go mod download
 
 3. **运行服务**
 ```bash
-go run main.go --api-key your-api-key-here
+# 直接运行
+go run . --api-key your-api-key-here
+
+# 或先构建再运行
+go build -o warden .
+./warden --api-key your-api-key-here
 ```
 
 ## ⚙️ 核心配置
