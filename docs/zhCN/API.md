@@ -125,8 +125,8 @@ X-API-Key: your-secret-api-key
 ```
 
 **字段说明**：
-- `phone`: 用户手机号
-- `mail`: 用户邮箱地址
+- `phone`: 用户手机号（与 `mail` 二选一或同时提供；支持仅邮箱用户时可为空）
+- `mail`: 用户邮箱地址（与 `phone` 二选一或同时提供）
 - `user_id`: 用户唯一标识符（如果未提供会自动生成）
 - `status`: 用户状态，可能的值：
   - `"active"`: 活跃状态，用户可以正常登录和访问系统
@@ -158,6 +158,36 @@ X-API-Key: your-secret-api-key
 **错误响应（多个参数）**
 - **状态码**: `400 Bad Request`
 - **响应体**: `Bad Request: only one identifier allowed (phone, mail, or user_id)`
+
+### 用户查询（Stargate/Herald 集成）v1
+
+`GET /v1/lookup` 根据单一 `identifier` 查询用户，返回 `user_id`、`destination`（email/phone）、`status`、`channel_hint`，便于 Stargate 选择 Herald 的 sms/email 通道。
+
+**请求**
+```http
+GET /v1/lookup?identifier=admin@example.com
+X-API-Key: your-secret-api-key
+```
+
+**查询参数**：
+- `identifier`（必填）：手机号、邮箱或 user_id。含 `@` 按邮箱查，否则先按手机再按 user_id。
+
+**响应（200）**
+```json
+{
+    "user_id": "a1b2c3d4e5f6g7h8",
+    "destination": {
+        "email": "admin@example.com",
+        "phone": "13800138000"
+    },
+    "status": "active",
+    "channel_hint": "sms"
+}
+```
+
+- `channel_hint`: `"sms"` 或 `"email"`，表示推荐用于 OTP 的通道（有手机则 sms，否则 email）。
+
+**版本化路径**：`/v1/users`、`/v1/user`、`/v1/health` 与 `/`、`/user`、`/health` 行为相同。
 
 ### 健康检查
 

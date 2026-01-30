@@ -93,15 +93,59 @@ func TestSafeUserCache_Deduplication(t *testing.T) {
 func TestSafeUserCache_EmptyPhone(t *testing.T) {
 	cache := NewSafeUserCache()
 
-	// Set users containing empty phone number
+	// Set users: one email-only, one with phone (email-only users are supported)
 	users := []define.AllowListUser{
 		{Phone: "", Mail: "test@example.com"},
 		{Phone: "13800138000", Mail: "test2@example.com"},
 	}
 	cache.Set(users)
 
-	// Users with empty phone number should be ignored
+	// Both should be kept: at least one of phone or mail required
 	result := cache.Get()
-	assert.Equal(t, 1, len(result), "空手机号的用户应该被忽略")
+	assert.Equal(t, 2, len(result), "应保留邮箱用户和手机用户")
+
+	// Email-only user should be findable by mail
+	user, exists := cache.GetByMail("test@example.com")
+	require.True(t, exists)
+	assert.Equal(t, "test@example.com", user.Mail)
+	assert.Empty(t, user.Phone)
+
+	// Phone user unchanged
+	user, exists = cache.GetByPhone("13800138000")
+	require.True(t, exists)
+	assert.Equal(t, "13800138000", user.Phone)
+}
+
+func TestSafeUserCache_BothIdentifierEmpty(t *testing.T) {
+	cache := NewSafeUserCache()
+
+	// User with both phone and mail empty should be skipped
+	users := []define.AllowListUser{
+		{Phone: "", Mail: ""},
+		{Phone: "13800138000", Mail: "test@example.com"},
+	}
+	cache.Set(users)
+
+	result := cache.Get()
+	assert.Equal(t, 1, len(result), "phone 和 mail 都空的用户应被忽略")
 	assert.Equal(t, "13800138000", result[0].Phone)
+}
+
+func TestHashUserList(t *testing.T) {
+	users := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "a@example.com"},
+		{Phone: "", Mail: "b@example.com"},
+	}
+
+	h1 := HashUserList(users)
+	h2 := HashUserList(users)
+	assert.Equal(t, h1, h2, "same input should produce same hash")
+
+	// Different order should produce same hash (sort by primary key)
+	usersReversed := []define.AllowListUser{users[1], users[0]}
+	h3 := HashUserList(usersReversed)
+	assert.Equal(t, h1, h3, "different order should produce same hash after sort")
+
+	emptyHash := HashUserList(nil)
+	assert.NotEmpty(t, emptyHash, "empty list should return fixed hash")
 }

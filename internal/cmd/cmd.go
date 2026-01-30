@@ -32,6 +32,7 @@ type Config struct {
 	RemoteKey        string // 16 bytes
 	Mode             string // 16 bytes
 	APIKey           string // 16 bytes
+	DataFile         string // 16 bytes - local user data file path
 	TaskInterval     int    // 8 bytes
 	HTTPTimeout      int    // 8 bytes
 	HTTPMaxIdleConns int    // 8 bytes
@@ -55,6 +56,7 @@ type flagValues struct {
 	key           string
 	mode          string
 	apiKey        string
+	dataFile      string
 	// bool fields (1 byte each, but padded to 8 bytes)
 	redisEnabled    bool
 	httpInsecureTLS bool
@@ -70,10 +72,11 @@ type flagDefaults struct {
 	httpTimeout      int
 	httpMaxIdleConns int
 	// string fields (16 bytes each)
-	redis  string
-	config string
-	key    string
-	mode   string
+	redis    string
+	config   string
+	key      string
+	mode     string
+	dataFile string
 	// bool fields (1 byte each, but padded to 8 bytes)
 	redisEnabled    bool
 	httpInsecureTLS bool
@@ -91,6 +94,7 @@ func registerFlags(fs *flag.FlagSet, defaults *flagDefaults) *flagValues {
 	configDef := ""
 	keyDef := ""
 	modeDef := ""
+	dataFileDef := ""
 	intervalDef := 0
 	httpTimeoutDef := 0
 	httpMaxIdleConnsDef := 0
@@ -103,6 +107,7 @@ func registerFlags(fs *flag.FlagSet, defaults *flagDefaults) *flagValues {
 		configDef = defaults.config
 		keyDef = defaults.key
 		modeDef = defaults.mode
+		dataFileDef = defaults.dataFile
 		intervalDef = defaults.interval
 		httpTimeoutDef = defaults.httpTimeout
 		httpMaxIdleConnsDef = defaults.httpMaxIdleConns
@@ -122,6 +127,7 @@ func registerFlags(fs *flag.FlagSet, defaults *flagDefaults) *flagValues {
 	fs.IntVar(&vals.httpMaxIdleConns, "http-max-idle-conns", httpMaxIdleConnsDef, "HTTP max idle connections")
 	fs.BoolVar(&vals.httpInsecureTLS, "http-insecure-tls", httpInsecureTLSDef, "skip TLS certificate verification (development only)")
 	fs.StringVar(&vals.apiKey, "api-key", "", "API key for authentication")
+	fs.StringVar(&vals.dataFile, "data-file", dataFileDef, "local user data file path")
 
 	return vals
 }
@@ -289,6 +295,15 @@ func processAPIKeyFromFlags(cfg *Config, fs *flag.FlagSet) {
 	}
 }
 
+// processDataFileFromFlags processes local data file path configuration
+func processDataFileFromFlags(cfg *Config, fs *flag.FlagSet) {
+	// Use configutil to resolve with priority: CLI > ENV > default
+	cfg.DataFile = configutil.ResolveString(fs, "data-file", "DATA_FILE", define.DEFAULT_DATA_FILE, true)
+	if cfg.DataFile == "" {
+		cfg.DataFile = define.DEFAULT_DATA_FILE
+	}
+}
+
 // getArgsFromFlags loads configuration from command-line arguments and environment variables (original logic)
 func getArgsFromFlags() *Config {
 	cfg := &Config{
@@ -299,6 +314,7 @@ func getArgsFromFlags() *Config {
 		RemoteKey:        define.DEFAULT_REMOTE_KEY,
 		TaskInterval:     define.DEFAULT_TASK_INTERVAL,
 		Mode:             define.DEFAULT_MODE,
+		DataFile:         define.DEFAULT_DATA_FILE,
 		HTTPTimeout:      define.DEFAULT_TIMEOUT,
 		HTTPMaxIdleConns: 100,
 		HTTPInsecureTLS:  false,
@@ -315,6 +331,7 @@ func getArgsFromFlags() *Config {
 		config:           define.DEFAULT_REMOTE_CONFIG,
 		key:              define.DEFAULT_REMOTE_KEY,
 		mode:             define.DEFAULT_MODE,
+		dataFile:         define.DEFAULT_DATA_FILE,
 		interval:         define.DEFAULT_TASK_INTERVAL,
 		httpTimeout:      define.DEFAULT_TIMEOUT,
 		httpMaxIdleConns: 100,
@@ -337,6 +354,7 @@ func getArgsFromFlags() *Config {
 	processTaskFromFlags(cfg, fs)
 	processHTTPFromFlags(cfg, fs, flagVals)
 	processAPIKeyFromFlags(cfg, fs)
+	processDataFileFromFlags(cfg, fs)
 
 	return cfg
 }
@@ -352,6 +370,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		RemoteKey:        cfg.RemoteKey,
 		TaskInterval:     cfg.TaskInterval,
 		Mode:             cfg.Mode,
+		DataFile:         cfg.DataFile,
 		HTTPTimeout:      cfg.HTTPTimeout,
 		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
 		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
@@ -381,6 +400,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 		RemoteKey:        cfg.RemoteKey,
 		Mode:             cfg.Mode,
 		APIKey:           cfg.APIKey,
+		DataFile:         cfg.DataFile,
 		TaskInterval:     cfg.TaskInterval,
 		HTTPTimeout:      cfg.HTTPTimeout,
 		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
@@ -396,6 +416,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	processTaskFromFlags(tempCfg, overrideFs)
 	processHTTPFromFlags(tempCfg, overrideFs, flagVals)
 	processAPIKeyFromFlags(tempCfg, overrideFs)
+	processDataFileFromFlags(tempCfg, overrideFs)
 
 	// Copy back to CmdConfigData
 	cfg.Port = tempCfg.Port
@@ -406,6 +427,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	cfg.RemoteKey = tempCfg.RemoteKey
 	cfg.Mode = tempCfg.Mode
 	cfg.APIKey = tempCfg.APIKey
+	cfg.DataFile = tempCfg.DataFile
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns
@@ -450,6 +472,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 		RemoteKey:        cfg.RemoteKey,
 		Mode:             cfg.Mode,
 		APIKey:           cfg.APIKey,
+		DataFile:         cfg.DataFile,
 		TaskInterval:     cfg.TaskInterval,
 		HTTPTimeout:      cfg.HTTPTimeout,
 		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
@@ -465,6 +488,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	processTaskFromFlags(tempCfg, emptyFs)
 	processHTTPFromFlags(tempCfg, emptyFs, nil)
 	processAPIKeyFromFlags(tempCfg, emptyFs)
+	processDataFileFromFlags(tempCfg, emptyFs)
 
 	// Copy back to CmdConfigData
 	cfg.Port = tempCfg.Port
@@ -475,6 +499,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.RemoteKey = tempCfg.RemoteKey
 	cfg.Mode = tempCfg.Mode
 	cfg.APIKey = tempCfg.APIKey
+	cfg.DataFile = tempCfg.DataFile
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns

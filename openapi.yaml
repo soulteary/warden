@@ -312,6 +312,130 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /v1/users:
+    get:
+      tags:
+        - users
+      summary: 获取用户列表（v1）
+      description: 与 GET / 相同，版本化路径
+      operationId: getUsersV1
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/AllowListUser'
+                  - $ref: '#/components/schemas/PaginatedUsers'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/user:
+    get:
+      tags:
+        - users
+      summary: 查询单个用户（v1）
+      description: 与 GET /user 相同，版本化路径
+      operationId: getUserByIdentifierV1
+      parameters:
+        - name: phone
+          in: query
+          schema:
+            type: string
+        - name: mail
+          in: query
+          schema:
+            type: string
+            format: email
+        - name: user_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllowListUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: 用户未找到
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/lookup:
+    get:
+      tags:
+        - users
+      summary: 用户查询（Stargate/Herald 集成）
+      description: |
+        根据单一 identifier 查询用户，返回 user_id、destination（email/phone）、status、channel_hint，
+        便于 Stargate 选择 Herald 的 sms/email 通道。
+        identifier 自动识别：含 @ 按邮箱查，否则先按手机再按 user_id。
+      operationId: getLookup
+      parameters:
+        - name: identifier
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 手机号、邮箱或 user_id
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResponse'
+        '400':
+          description: 缺少 identifier 或参数无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 用户未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/health:
+    get:
+      tags:
+        - health
+      summary: 健康检查（v1）
+      description: 与 GET /health 相同
+      operationId: healthCheckV1
+      responses:
+        '200':
+          description: 服务健康
+        '503':
+          description: 服务不可用
+
   /metrics:
     get:
       tags:
@@ -338,18 +462,16 @@ components:
   schemas:
     AllowListUser:
       type: object
-      required:
-        - phone
-        - mail
+      description: 至少提供 phone 或 mail 之一；支持仅邮箱用户（phone 可为空）
       properties:
         phone:
           type: string
-          description: 用户手机号
+          description: 用户手机号（与 mail 二选一或同时提供；支持仅邮箱用户时为空）
           example: "13800138000"
         mail:
           type: string
           format: email
-          description: 用户邮箱
+          description: 用户邮箱（与 phone 二选一或同时提供）
           example: "admin@example.com"
         user_id:
           type: string
@@ -374,6 +496,30 @@ components:
           type: string
           description: 用户角色（可选）
           example: "admin"
+
+    LookupResponse:
+      type: object
+      description: GET /v1/lookup 响应（Stargate/Herald 集成）
+      properties:
+        user_id:
+          type: string
+          description: 用户唯一标识
+        destination:
+          type: object
+          properties:
+            email:
+              type: string
+              description: 邮箱（可选）
+            phone:
+              type: string
+              description: 手机号（可选）
+        status:
+          type: string
+          description: 用户状态
+        channel_hint:
+          type: string
+          enum: ["sms", "email"]
+          description: OTP 推荐通道
 
     PaginatedUsers:
       type: object

@@ -111,6 +111,31 @@ func TestGetArgs_WithEnvVars(t *testing.T) {
 	assert.Equal(t, 15, cfg.TaskInterval, "间隔应该匹配环境变量")
 }
 
+// TestGetArgs_DataFile tests DATA_FILE env and --data-file flag
+func TestGetArgs_DataFile(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+
+	// Default: DataFile should be DEFAULT_DATA_FILE
+	os.Args = []string{"test"}
+	cfg := GetArgs()
+	assert.Equal(t, define.DEFAULT_DATA_FILE, cfg.DataFile, "default data file path")
+
+	// Env DATA_FILE
+	require.NoError(t, envMgr.Set("DATA_FILE", "/custom/data.json"))
+	os.Args = []string{"test"}
+	cfg = GetArgs()
+	assert.Equal(t, "/custom/data.json", cfg.DataFile, "DATA_FILE env should set DataFile")
+
+	// Flag --data-file overrides
+	os.Args = []string{"test", "--data-file", "/flag/data.json"}
+	cfg = GetArgs()
+	assert.Equal(t, "/flag/data.json", cfg.DataFile, "--data-file should set DataFile")
+}
+
 // TestReadPasswordFromFile tests ReadPasswordFromFile function
 func TestReadPasswordFromFile(t *testing.T) {
 	// Create temporary file

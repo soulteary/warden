@@ -24,6 +24,7 @@
   "error.user_not_found": "User not found",
   "error.missing_identifier": "Bad Request: missing identifier (phone, mail, or user_id)",
   "error.multiple_identifiers": "Bad Request: only one identifier allowed (phone, mail, or user_id)",
+  "error.invalid_identifier": "Invalid identifier: parameter too long or invalid",
   "error.invalid_pagination": "Invalid pagination parameters",
   "error.rate_limit_exceeded": "Rate limit exceeded",
   "error.auth_failed": "Authentication failed: invalid API Key",

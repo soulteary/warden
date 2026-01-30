@@ -10,17 +10,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
-	health "github.com/soulteary/health-kit"
 	loggerkit "github.com/soulteary/logger-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
-	secure "github.com/soulteary/secure-kit"
 
 	// Middleware kit
 	middlewarekit "github.com/soulteary/middleware-kit"
@@ -36,13 +33,8 @@ import (
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/metrics"
-	"github.com/soulteary/warden/internal/middleware"
-	"github.com/soulteary/warden/internal/router"
-	internal_tracing "github.com/soulteary/warden/internal/tracing"
 	"github.com/soulteary/warden/pkg/gocron"
 )
-
-const rulesFile = "./data.json"
 
 // App application struct that encapsulates all application state
 type App struct {
@@ -57,6 +49,7 @@ type App struct {
 	authorizationHeader string                     // 16 bytes
 	appMode             string                     // 16 bytes
 	apiKey              string                     // 16 bytes
+	dataFile            string                     // 16 bytes - local user data file path
 	taskInterval        uint64                     // 8 bytes
 	redisEnabled        bool                       // 1 byte (padding to 8 bytes)
 }
@@ -68,6 +61,7 @@ func NewApp(cfg *cmd.Config) *App {
 		configURL:           cfg.RemoteConfig,
 		authorizationHeader: cfg.RemoteKey,
 		appMode:             cfg.Mode,
+		dataFile:            cfg.DataFile,
 		// #nosec G115 -- conversion is safe, TaskInterval is positive
 		taskInterval: uint64(cfg.TaskInterval),
 		apiKey:       cfg.APIKey,
@@ -133,8 +127,8 @@ func NewApp(cfg *cmd.Config) *App {
 
 	// Load initial data (multi-level fallback)
 	if app.rulesLoader != nil {
-		if err := app.loadInitialData(rulesFile); err != nil {
-			app.log.Warn().Err(fmt.Errorf("加载初始数据失败: %w", err)).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
+		if err := app.loadInitialData(cfg.DataFile); err != nil {
+			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
 		}
 	}
 
@@ -261,61 +255,8 @@ func (app *App) loadInitialData(rulesFile string) error {
 //   - This function prioritizes using cached hash values to avoid redundant calculations
 //   - If cached hash value is provided, performance can be significantly improved
 func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
-	// Calculate hash value of new data
-	newHash := calculateHash(newUsers)
+	newHash := cache.HashUserList(newUsers)
 	return oldHash != newHash
-}
-
-// calculateHash calculates SHA256 hash value of user list
-//
-// This function is used to detect if user data has changed by calculating hash values to compare data content.
-// Implementation details:
-// - Sorts data (by Phone and Mail) to ensure same data produces same hash
-// - Uses SHA256 algorithm to calculate hash value
-// - Returns fixed hash value for empty data to optimize performance
-// - Includes all fields (Phone, Mail, UserID, Status, Scope, Role) to ensure accurate data change detection
-//
-// Parameters:
-//   - users: user list to calculate hash for
-//
-// Returns:
-//   - string: hexadecimal encoded SHA256 hash value
-//
-// Side effects:
-//   - Creates a copy of input data for sorting, does not modify original data
-//   - For large datasets, sorting operation may have performance overhead
-//
-// Optimizations:
-//   - Empty data directly returns fixed hash to avoid unnecessary calculations
-//   - Uses data copy for sorting to keep original data unchanged
-func calculateHash(users []define.AllowListUser) string {
-	// Optimization: empty data directly returns fixed hash
-	if len(users) == 0 {
-		return secure.GetSHA256Hash("empty")
-	}
-
-	// Sort first to ensure same data produces same hash
-	// Optimization: if data volume is large, can consider in-place sorting, but uses copy to keep data unchanged
-	sorted := make([]define.AllowListUser, len(users))
-	copy(sorted, users)
-	// Normalize user data to ensure consistency (generate user_id, set default values, etc.)
-	for i := range sorted {
-		sorted[i].Normalize()
-	}
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Phone != sorted[j].Phone {
-			return sorted[i].Phone < sorted[j].Phone
-		}
-		return sorted[i].Mail < sorted[j].Mail
-	})
-
-	// Calculate hash (includes all fields to ensure accurate data change detection, consistent with cache.calculateHashInternal)
-	var sb strings.Builder
-	for _, user := range sorted {
-		scopeStr := strings.Join(user.Scope, ",")
-		sb.WriteString(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n")
-	}
-	return secure.GetSHA256Hash(sb.String())
 }
 
 // checkDataChanged checks if data has changed
@@ -453,7 +394,7 @@ func (app *App) backgroundTask(rulesFile string) {
 
 	// Verify data consistency (optimistic locking strategy)
 	currentHash := app.userCache.GetHash()
-	newHash := calculateHash(newUsers)
+	newHash := cache.HashUserList(newUsers)
 	if currentHash != "" && currentHash == newHash {
 		// Data consistent, update Redis cache (if Redis is available)
 		if app.redisUserCache != nil {
@@ -482,238 +423,6 @@ func (app *App) backgroundTask(rulesFile string) {
 		Int("count", len(newUsers)).
 		Float64("duration", duration).
 		Msg(i18n.TWithLang(i18n.LangZH, "log.background_update"))
-}
-
-// registerRoutes registers all HTTP routes
-func registerRoutes(app *App) {
-	// Create trusted proxy config (from TRUSTED_PROXY_IPS env, parsed via define.ParseTrustedProxyIPs)
-	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
-	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
-
-	// Create base middleware (using middleware-kit)
-	i18nMiddleware := middleware.I18nMiddleware()
-	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.appMode)
-
-	// Security headers middleware (using middleware-kit with strict config)
-	securityCfg := middlewarekit.StrictSecurityHeadersConfig()
-	securityHeadersMiddleware := middlewarekit.SecurityHeadersStd(securityCfg)
-
-	// Rate limit middleware (using middleware-kit, skip health/metrics paths)
-	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
-		Limiter:            app.rateLimiter,
-		TrustedProxyConfig: trustedProxyConfig,
-		Logger:             logger.ZerologPtr(),
-		SkipPaths:          define.SkipPathsHealthAndMetrics,
-		OnLimitReached: func(key string) {
-			metrics.RateLimitHits.WithLabelValues(key).Inc()
-		},
-	})
-
-	// Auth middleware (using middleware-kit DefaultAPIKeyConfig + overrides)
-	authBaseCfg := middlewarekit.DefaultAPIKeyConfig()
-	authBaseCfg.APIKey = app.apiKey
-	authBaseCfg.AuthScheme = "Bearer"
-	authBaseCfg.TrustedProxyConfig = trustedProxyConfig
-	authBaseCfg.Logger = logger.ZerologPtr()
-	authMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
-
-	// Optional auth for metrics: same as base but allow empty key when no API key configured
-	optionalAuthCfg := authBaseCfg
-	optionalAuthCfg.AllowEmptyKey = true
-	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(optionalAuthCfg)
-
-	// Compress middleware (using middleware-kit)
-	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
-
-	// Body limit middleware (using middleware-kit DefaultBodyLimitConfig + overrides)
-	bodyLimitCfg := middlewarekit.DefaultBodyLimitConfig()
-	bodyLimitCfg.MaxSize = define.MAX_REQUEST_BODY_SIZE
-	bodyLimitCfg.TrustedProxyConfig = trustedProxyConfig
-	bodyLimitCfg.Logger = logger.ZerologPtr()
-	bodyLimitMiddleware := middlewarekit.BodyLimitStd(bodyLimitCfg)
-
-	// Tracing middleware (if enabled)
-	var tracingMiddleware func(http.Handler) http.Handler
-	if tracing.IsEnabled() {
-		tracingMiddleware = internal_tracing.Middleware
-	}
-
-	// Health check endpoint IP whitelist (read from environment variable)
-	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
-
-	// Register Prometheus metrics endpoint (optional authentication)
-	// i18n middleware placed at outermost layer to ensure all requests can detect language
-	metricsHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						optionalAuthMiddleware(
-							middleware.MetricsMiddleware(metrics.Handler()),
-						),
-					),
-				),
-			),
-		),
-	)
-	http.Handle(define.PATH_METRICS, metricsHandler)
-
-	// Register main data interface (requires authentication)
-	// i18n middleware placed at outermost layer to ensure all requests can detect language
-	mainHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						compressMiddleware(
-							bodyLimitMiddleware(
-								middleware.MetricsMiddleware(
-									rateLimitMiddleware(
-										authMiddleware(
-											router.ProcessWithLogger(router.JSON(app.userCache)),
-										),
-									),
-								),
-							),
-						),
-					),
-				),
-			),
-		),
-	)
-	http.Handle("/", mainHandler)
-
-	// Register user query interface (requires authentication)
-	// i18n middleware placed at outermost layer to ensure all requests can detect language
-	userHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						compressMiddleware(
-							bodyLimitMiddleware(
-								middleware.MetricsMiddleware(
-									rateLimitMiddleware(
-										authMiddleware(
-											router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
-										),
-									),
-								),
-							),
-						),
-					),
-				),
-			),
-		),
-	)
-	http.Handle("/user", userHandler)
-
-	// Register health check endpoint (IP whitelist protection, limits information leakage)
-	// Setup health checker using health-kit
-	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.appMode, app.redisEnabled, healthWhitelist)
-	// i18n middleware placed at outermost layer to ensure all requests can detect language
-	healthHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.MetricsMiddleware(
-							middlewarekit.NoCacheHeadersStd()(health.Handler(healthAggregator)),
-						),
-					),
-				),
-			),
-		),
-	)
-	http.Handle(define.PATH_HEALTH, healthHandler)
-	http.Handle(define.PATH_HEALTHCHECK, healthHandler)
-
-	// Register log level control endpoint using logger-kit (requires authentication)
-	// i18n middleware placed at outermost layer to ensure all requests can detect language
-	lkLog := logger.GetLoggerKit()
-	logLevelHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.MetricsMiddleware(
-							authMiddleware(
-								loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
-									Logger: lkLog,
-								}),
-							),
-						),
-					),
-				),
-			),
-		),
-	)
-	http.Handle("/log/level", logLevelHandler)
-}
-
-// setupHealthChecker creates a health check aggregator with all dependencies
-func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
-	isProduction := appMode == "production" || appMode == "prod"
-	isOnlyLocalMode := strings.ToUpper(strings.TrimSpace(appMode)) == "ONLY_LOCAL"
-
-	// Parse IP whitelist
-	var ipList []string
-	if ipWhitelist != "" {
-		for _, ip := range strings.Split(ipWhitelist, ",") {
-			ip = strings.TrimSpace(ip)
-			if ip != "" {
-				ipList = append(ipList, ip)
-			}
-		}
-	}
-
-	healthConfig := health.DefaultConfig().
-		WithServiceName("warden").
-		WithTimeout(5 * time.Second).
-		WithIPWhitelist(ipList).
-		WithDetails(!isProduction).
-		WithChecks(!isProduction)
-
-	aggregator := health.NewAggregator(healthConfig)
-
-	// Redis health check
-	switch {
-	case !redisEnabled:
-		aggregator.AddChecker(health.NewDisabledChecker("redis").
-			WithMessage("Redis is disabled"))
-	case redisClient != nil:
-		aggregator.AddChecker(health.NewRedisChecker(redisClient))
-	default:
-		// Redis enabled but client is nil (connection failed)
-		aggregator.AddChecker(health.NewCustomChecker("redis", func(_ context.Context) error {
-			return errors.New("client not initialized")
-		}))
-	}
-
-	// Data loading check
-	aggregator.AddChecker(health.NewCustomChecker("data", func(_ context.Context) error {
-		if userCache == nil {
-			return errors.New("cache not initialized")
-		}
-		if userCache.Len() == 0 {
-			// In ONLY_LOCAL mode, empty data is acceptable warning
-			if isOnlyLocalMode {
-				return nil // Return ok for ONLY_LOCAL mode
-			}
-			return errors.New("no data loaded yet")
-		}
-		return nil
-	}))
-
-	return aggregator
-}
-
-// wrapWithTracingIfEnabled wraps handler with tracing middleware if enabled
-func wrapWithTracingIfEnabled(tracingMiddleware func(http.Handler) http.Handler, handler http.Handler) http.Handler {
-	if tracingMiddleware != nil {
-		return tracingMiddleware(handler)
-	}
-	return handler
 }
 
 // startServer starts HTTP server
@@ -827,7 +536,7 @@ func main() {
 		scheduler.Clear()
 		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_closed"))
 	}()
-	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, rulesFile); err != nil {
+	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, app.dataFile); err != nil {
 		// Clean up resources before exiting (defer executes on function return, but log.Fatal exits immediately)
 		// So need to manually clean up
 		close(schedulerStopped)

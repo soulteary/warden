@@ -24,6 +24,7 @@
   "error.user_not_found": "用户未找到",
   "error.missing_identifier": "缺少查询参数，需要提供 phone、mail 或 user_id 之一",
   "error.multiple_identifiers": "只能提供一个查询参数（phone、mail 或 user_id）",
+  "error.invalid_identifier": "无效的查询参数：长度超限或格式无效",
   "error.invalid_pagination": "分页参数验证失败",
   "error.rate_limit_exceeded": "请求过于频繁，请稍后重试",
   "error.auth_failed": "认证失败：无效的 API Key",

@@ -22,6 +22,9 @@ const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/data.json"
 // DEFAULT_REMOTE_KEY default remote configuration key
 const DEFAULT_REMOTE_KEY = ""
 
+// DEFAULT_DATA_FILE default local user data file path
+const DEFAULT_DATA_FILE = "./data.json"
+
 // HTTP path constants. Used for route registration, rate-limit skip paths, and access-log skip paths.
 const (
 	PATH_HEALTH      = "/health"
@@ -63,6 +66,8 @@ const (
 	DEFAULT_PAGE_SIZE = 100
 	// MAX_PAGE_SIZE maximum page size
 	MAX_PAGE_SIZE = 1000
+	// MAX_IDENTIFIER_LENGTH maximum length for user query params (phone/mail/user_id), prevents DoS and log/cache bloat
+	MAX_IDENTIFIER_LENGTH = 512
 
 	// MAX_HEADER_BYTES maximum request header size (1MB)
 	MAX_HEADER_BYTES = 1 << 20

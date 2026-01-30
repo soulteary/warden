@@ -16,16 +16,19 @@ This document explains Warden's security features, security configuration, and b
 8. **IP Whitelist**: Supports configuring IP whitelist for health check endpoints
 9. **Configuration File Validation**: Prevents path traversal attacks
 10. **JSON Size Limits**: Limits JSON response body size to prevent memory exhaustion attacks
+11. **User Query Parameter Length Limit**: Single parameter (`phone`/`mail`/`user_id`) must not exceed 512 bytes to prevent DoS and log/cache bloat
+12. **Audit Log PII Sanitization**: Identifier written to audit is sanitized for phone/mail to avoid PII exposure if audit storage is compromised
 
 ## Security Best Practices
 
 ### 1. Production Environment Configuration
 
-**Required Configuration**:
-- Must set `API_KEY` environment variable
-- Set `MODE=production` to enable production mode
-- Configure `TRUSTED_PROXY_IPS` to correctly obtain client IP
-- Use `HEALTH_CHECK_IP_WHITELIST` to restrict health check access
+**Required Configuration** (all of the following):
+- **Must** set `API_KEY` environment variable. When unset, main data endpoints return 401, but `/metrics` allows unauthenticated access; production must set API Key to avoid metrics leakage.
+- **Must** set `MODE=production` to enable production mode
+- **Must** configure `TRUSTED_PROXY_IPS` to correctly obtain client IP
+- **Must** use `HEALTH_CHECK_IP_WHITELIST` to restrict health check access (or restrict `/health`, `/healthcheck` via network/reverse proxy)
+- **Must** restrict `/metrics` access: either set API Key so Prometheus uses it, or restrict the path at reverse proxy/network and do not expose it publicly
 
 **Configuration Example**:
 ```bash
@@ -97,10 +100,10 @@ Some API endpoints require API Key authentication:
 - `GET /log/level` - Get log level
 - `POST /log/level` - Set log level
 
-**Endpoints Not Requiring Authentication**:
-- `GET /health` - Health check (can be restricted via IP whitelist)
-- `GET /healthcheck` - Health check (can be restricted via IP whitelist)
-- `GET /metrics` - Prometheus metrics
+**Endpoints Not Requiring Authentication** (must be protected by other means in production):
+- `GET /health` - Health check (**must** configure `HEALTH_CHECK_IP_WHITELIST` or network isolation)
+- `GET /healthcheck` - Health check (same as above)
+- `GET /metrics` - Prometheus metrics (**must** set API Key for scrape or restrict via reverse proxy/network; do not expose publicly)
 
 **Authentication Methods**:
 1. **X-API-Key Header**:

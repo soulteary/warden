@@ -24,6 +24,7 @@
   "error.user_not_found": "Benutzer nicht gefunden",
   "error.missing_identifier": "Ungültige Anfrage: Identifikator fehlt (phone, mail oder user_id)",
   "error.multiple_identifiers": "Ungültige Anfrage: nur ein Identifikator erlaubt (phone, mail oder user_id)",
+  "error.invalid_identifier": "Ungültiger Identifikator: Parameter zu lang oder ungültig",
   "error.invalid_pagination": "Ungültige Paginierungsparameter",
   "error.rate_limit_exceeded": "Rate-Limit überschritten",
   "error.auth_failed": "Authentifizierung fehlgeschlagen: ungültiger API-Schlüssel",

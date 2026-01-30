@@ -42,9 +42,29 @@ app:
 
 ## 配置文件格式
 
-### 本地用户数据文件 (`data.json`)
+### 本地用户数据文件路径（DATA_FILE）
 
-本地用户数据文件 `data.json` 格式（可参考 `data.example.json`）：
+本地用户数据文件路径可通过以下方式配置，默认值为 `./data.json`：
+
+**命令行参数**：
+```bash
+go run main.go --data-file /path/to/data.json
+```
+
+**环境变量**：
+```bash
+export DATA_FILE=/path/to/data.json
+```
+
+**配置文件**（YAML）：
+```yaml
+app:
+  data_file: "/path/to/data.json"
+```
+
+### 本地用户数据文件格式
+
+本地用户数据文件（默认 `data.json`）格式（可参考 `data.example.json`）：
 
 **最小格式**（仅必需字段）：
 ```json
@@ -78,8 +98,8 @@ app:
 ```
 
 **字段说明**：
-- `phone`（必需）：用户手机号
-- `mail`（必需）：用户邮箱地址
+- `phone`（与 mail 二选一或同时提供）：用户手机号；支持仅邮箱用户（phone 可为空）
+- `mail`（与 phone 二选一或同时提供）：用户邮箱地址；支持仅邮箱用户（mail 可为空）
 - `user_id`（可选）：用户唯一标识符，如果未提供则基于 phone 或 mail 自动生成
 - `status`（可选）：用户状态，默认为 "active"
 - `scope`（可选）：用户权限范围数组，默认为空数组

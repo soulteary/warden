@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	loggerkit "github.com/soulteary/logger-kit"
@@ -126,6 +127,21 @@ func TestGetUserByIdentifier_MultipleIdentifiers(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code, "Should return 400 (only one identifier should be provided)")
 }
 
+// TestGetUserByIdentifier_IdentifierTooLong tests that identifier over MAX_IDENTIFIER_LENGTH returns 400
+func TestGetUserByIdentifier_IdentifierTooLong(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	handler := GetUserByIdentifier(userCache)
+
+	longPhone := strings.Repeat("1", define.MAX_IDENTIFIER_LENGTH+1)
+
+	req := httptest.NewRequest("GET", "/user?phone="+longPhone, http.NoBody)
+	w := httptest.NewRecorder()
+
+	handler(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code, "Should return 400 when identifier exceeds max length")
+}
+
 // TestGetUserByIdentifier_UserNotFound tests user not found
 func TestGetUserByIdentifier_UserNotFound(t *testing.T) {
 	testUsers := []define.AllowListUser{
@@ -243,4 +259,19 @@ func TestGetUserByIdentifier_JSONEncodingError(t *testing.T) {
 
 	// Should succeed under normal circumstances
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestSanitizeIdentifierForAudit tests that PII is masked in audit identifier
+func TestSanitizeIdentifierForAudit(t *testing.T) {
+	// phone: should be masked (not equal to original)
+	assert.NotEqual(t, "13800138000", sanitizeIdentifierForAudit("13800138000", "phone"))
+	assert.Contains(t, sanitizeIdentifierForAudit("13800138000", "phone"), "*")
+
+	// mail: should be masked
+	assert.NotEqual(t, "user@example.com", sanitizeIdentifierForAudit("user@example.com", "mail"))
+	assert.Contains(t, sanitizeIdentifierForAudit("user@example.com", "mail"), "*")
+
+	// user_id: returned as-is (internal id)
+	assert.Equal(t, "user-123", sanitizeIdentifierForAudit("user-123", "user_id"))
+	assert.Equal(t, "user-123", sanitizeIdentifierForAudit("user-123", ""))
 }

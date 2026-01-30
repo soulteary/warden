@@ -47,7 +47,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			logger.FromRequest(r).Warn().
 				Str("method", r.Method).
 				Msg(i18n.T(r, "log.unsupported_method"))
-			http.Error(w, i18n.T(r, "http.method_not_allowed"), http.StatusMethodNotAllowed)
+			WriteJSONError(w, http.StatusMethodNotAllowed, i18n.T(r, "http.method_not_allowed"))
 			return
 		}
 
@@ -68,7 +68,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			tracing.RecordError(span, fmt.Errorf("missing identifier"))
 			logger.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.missing_query_params"))
-			http.Error(w, i18n.T(r, "error.missing_identifier"), http.StatusBadRequest)
+			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.missing_identifier"))
 			return
 		}
 
@@ -87,7 +87,17 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			tracing.RecordError(span, fmt.Errorf("multiple identifiers provided"))
 			logger.FromRequest(r).Warn().
 				Msg(i18n.T(r, "log.multiple_query_params"))
-			http.Error(w, i18n.T(r, "error.multiple_identifiers"), http.StatusBadRequest)
+			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.multiple_identifiers"))
+			return
+		}
+
+		// Security: limit identifier length to prevent DoS and log/cache bloat
+		if (phone != "" && len(phone) > define.MAX_IDENTIFIER_LENGTH) ||
+			(mail != "" && len(mail) > define.MAX_IDENTIFIER_LENGTH) ||
+			(userID != "" && len(userID) > define.MAX_IDENTIFIER_LENGTH) {
+			tracing.RecordError(span, fmt.Errorf("identifier too long"))
+			logger.FromRequest(r).Warn().Msg(i18n.T(r, "error.invalid_identifier"))
+			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.invalid_identifier"))
 			return
 		}
 
@@ -113,7 +123,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 				Str("user_id", userID).
 				Msg(i18n.T(r, "log.user_not_found"))
 
-			// Audit log: user query failed
+			// Audit log: user query failed (identifier sanitized to avoid PII in audit storage)
 			identifier := phone
 			identifierType := "phone"
 			if mail != "" {
@@ -123,9 +133,9 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 				identifier = userID
 				identifierType = "user_id"
 			}
-			auditlog.LogUserQuery(r.Context(), "", identifier, identifierType, r.RemoteAddr, false, "user_not_found")
+			auditlog.LogUserQuery(r.Context(), "", sanitizeIdentifierForAudit(identifier, identifierType), identifierType, r.RemoteAddr, false, "user_not_found")
 
-			http.Error(w, i18n.T(r, "http.user_not_found"), http.StatusNotFound)
+			WriteJSONError(w, http.StatusNotFound, i18n.T(r, "http.user_not_found"))
 			return
 		}
 
@@ -144,7 +154,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			logger.FromRequest(r).Error().
 				Err(err).
 				Msg(i18n.T(r, "error.json_encode_failed"))
-			http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
+			WriteJSONError(w, http.StatusInternalServerError, i18n.T(r, "http.internal_server_error"))
 			return
 		}
 
@@ -154,7 +164,7 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			Str("mail", logger.SanitizeEmail(user.Mail)).
 			Msg(i18n.T(r, "log.user_query_success"))
 
-		// Audit log: user query success
+		// Audit log: user query success (identifier sanitized to avoid PII in audit storage)
 		identifier := phone
 		identifierType := "phone"
 		if mail != "" {
@@ -164,6 +174,19 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			identifier = userID
 			identifierType = "user_id"
 		}
-		auditlog.LogUserQuery(r.Context(), user.UserID, identifier, identifierType, r.RemoteAddr, true, "")
+		auditlog.LogUserQuery(r.Context(), user.UserID, sanitizeIdentifierForAudit(identifier, identifierType), identifierType, r.RemoteAddr, true, "")
+	}
+}
+
+// sanitizeIdentifierForAudit returns a sanitized identifier for audit log storage to avoid storing plain PII.
+// phone and mail are masked; user_id is returned as-is (internal id, not direct PII).
+func sanitizeIdentifierForAudit(identifier, identifierType string) string {
+	switch identifierType {
+	case "phone":
+		return logger.SanitizePhone(identifier)
+	case "mail":
+		return logger.SanitizeEmail(identifier)
+	default:
+		return identifier
 	}
 }
