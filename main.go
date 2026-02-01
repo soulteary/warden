@@ -15,6 +15,8 @@ import (
 	"time"
 
 	// Third-party libraries
+	"github.com/pterm/pterm"
+	"github.com/pterm/pterm/putils"
 	"github.com/redis/go-redis/v9"
 	loggerkit "github.com/soulteary/logger-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
@@ -452,7 +454,22 @@ func shutdownServer(srv *http.Server, rateLimiter *middlewarekit.RateLimiter, lo
 	}
 }
 
+// showBanner displays the startup banner with version
+func showBanner() {
+	pterm.DefaultBox.Println(
+		putils.CenterText(
+			"Warden\n" +
+				"Allowlist & Authorization Service\n" +
+				"Version: " + version.Version,
+		),
+	)
+	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log
+}
+
 func main() {
+	// Display startup banner
+	showBanner()
+
 	log := logger.GetLoggerKit()
 
 	// Parse configuration
