@@ -5,12 +5,13 @@ package warden
 //
 //nolint:govet // fieldalignment: field order is affected by JSON serialization tags, optimization may break API compatibility
 type AllowListUser struct {
-	Phone  string   `json:"phone"`   // User phone number
-	Mail   string   `json:"mail"`    // User email address
-	UserID string   `json:"user_id"` // User unique identifier (optional, auto-generated if not provided)
-	Status string   `json:"status"`  // User status (e.g., "active", "inactive", "suspended")
-	Scope  []string `json:"scope"`   // User permission scope (optional)
-	Role   string   `json:"role"`    // User role (optional)
+	Phone          string   `json:"phone"`                     // User phone number
+	Mail           string   `json:"mail"`                      // User email address
+	UserID         string   `json:"user_id"`                   // User unique identifier (optional, auto-generated if not provided)
+	Status         string   `json:"status"`                    // User status (e.g., "active", "inactive", "suspended")
+	Scope          []string `json:"scope"`                     // User permission scope (optional)
+	Role           string   `json:"role"`                      // User role (optional)
+	DingtalkUserID string   `json:"dingtalk_userid,omitempty"` // DingTalk user ID for work notification (optional)
 }
 
 // IsActive checks if the user status is active.

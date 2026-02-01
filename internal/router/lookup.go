@@ -21,10 +21,11 @@ import (
 
 // LookupResponse is the response body for GET /v1/lookup (Stargate/Herald integration).
 type LookupResponse struct {
-	UserID      string      `json:"user_id"`
-	Destination Destination `json:"destination"`
-	Status      string      `json:"status"`
-	ChannelHint string      `json:"channel_hint,omitempty"` // "sms" or "email" for OTP
+	UserID         string      `json:"user_id"`
+	Destination    Destination `json:"destination"`
+	Status         string      `json:"status"`
+	ChannelHint    string      `json:"channel_hint,omitempty"`    // "sms" or "email" for OTP
+	DingtalkUserID string      `json:"dingtalk_userid,omitempty"` // DingTalk user ID for work notification (optional)
 }
 
 // Destination holds email and phone for OTP delivery.
@@ -98,9 +99,10 @@ func GetLookup(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.R
 		}
 
 		resp := LookupResponse{
-			UserID:      user.UserID,
-			Status:      user.Status,
-			ChannelHint: channelHint,
+			UserID:         user.UserID,
+			Status:         user.Status,
+			ChannelHint:    channelHint,
+			DingtalkUserID: strings.TrimSpace(user.DingtalkUserID),
 			Destination: Destination{
 				Email: strings.TrimSpace(user.Mail),
 				Phone: strings.TrimSpace(user.Phone),
