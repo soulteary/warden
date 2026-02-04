@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -38,10 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -73,10 +73,10 @@ jobs:
       REDIS_ENABLED: "true"
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
 
@@ -104,7 +104,7 @@ jobs:
         run: go tool cover -html=coverage.out -o coverage.html
 
       - name: 上传覆盖率报告
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: coverage.html
@@ -127,37 +127,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: 设置 Go 环境（临时使用 1.24 以匹配 golangci-lint）
-        uses: actions/setup-go@v5
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
         with:
-          # 临时使用 Go 1.24，因为当前 golangci-lint 是用 Go 1.24 构建的
-          # 当 golangci-lint 更新到支持 Go 1.25 的版本后，可以改回 ${{ env.GO_VERSION }}
-          go-version: '1.24'
-
-      - name: 临时修改 go.mod 以匹配 golangci-lint 的 Go 版本
-        run: |
-          # 备份原始 go.mod
-          cp go.mod go.mod.backup
-          # 临时将 Go 版本改为 1.24
-          sed -i 's/^go 1\.25$/go 1.24/' go.mod
+          go-version: ${{ env.GO_VERSION }}
 
       - name: 下载依赖
         run: go mod download
 
       - name: 运行 golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m
           only-new-issues: false
 
-      - name: 恢复 go.mod
-        if: always()
-        run: |
-          # 恢复原始 go.mod
-          mv go.mod.backup go.mod
 
   # 依赖项安全扫描
   security-scan:
@@ -165,10 +151,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -187,7 +173,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -204,7 +190,7 @@ jobs:
           echo "最近版本: $VERSION / $COMMIT"
 
       - name: 构建 Docker 镜像
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
@@ -233,10 +219,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
 
