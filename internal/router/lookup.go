@@ -25,6 +25,7 @@ type LookupResponse struct {
 	Destination    Destination `json:"destination"`
 	Status         string      `json:"status"`
 	ChannelHint    string      `json:"channel_hint,omitempty"`    // "sms" or "email" for OTP
+	Name           string      `json:"name,omitempty"`            // User display name (optional)
 	DingtalkUserID string      `json:"dingtalk_userid,omitempty"` // DingTalk user ID for work notification (optional)
 }
 
@@ -102,6 +103,7 @@ func GetLookup(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.R
 			UserID:         user.UserID,
 			Status:         user.Status,
 			ChannelHint:    channelHint,
+			Name:           strings.TrimSpace(user.Name),
 			DingtalkUserID: strings.TrimSpace(user.DingtalkUserID),
 			Destination: Destination{
 				Email: strings.TrimSpace(user.Mail),

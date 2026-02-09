@@ -33,10 +33,14 @@
 | 远程 | URL | `remote.url` | `CONFIG` | `http://localhost:8080/data.json` |
 | 远程 | 认证 Key | `remote.key` | `KEY` | 空 |
 | 远程 | 模式 | `remote.mode` / `app.mode` | `MODE` | `DEFAULT` |
+| 远程 | 解密启用 | `remote.decrypt_enabled` | `REMOTE_DECRYPT_ENABLED` | `false` |
+| 远程 | RSA 私钥文件 | `remote.rsa_private_key_file` | `REMOTE_RSA_PRIVATE_KEY_FILE` | 空（推荐用文件，避免 env 泄露） |
 | 任务 | 间隔 | `task.interval` | `INTERVAL` | `5`（秒） |
 | 应用 | 模式 | `app.mode` | `MODE` | `DEFAULT` |
 | 应用 | API Key | `app.api_key` | `API_KEY` | 空 |
 | 应用 | 本地数据文件 | `app.data_file` | `DATA_FILE` | `./data.json` |
+| 应用 | 本地数据目录 | `app.data_dir` | `DATA_DIR` | 空（与 data_file 可同时使用，合并目录下所有 \*.json） |
+| 应用 | 响应字段白名单 | `app.response_fields` | `RESPONSE_FIELDS` | 空（空=返回全部字段；逗号分隔如 `phone,mail,user_id,status,name`） |
 | 追踪 | 启用 | `tracing.enabled` | `OTLP_ENABLED` | `false` |
 | 追踪 | OTLP 端点 | `tracing.endpoint` | `OTLP_ENDPOINT` | 空 |
 | 其他 | 配置文件路径 | — | `CONFIG_FILE` | 空（用于仅通过环境变量指定 YAML 时加载 tracing 等） |
@@ -68,6 +72,8 @@
 | 任务间隔 | `TaskInterval >= 1`（秒） |
 | 模式 | 须为枚举之一：`DEFAULT`、`REMOTE_FIRST`、`ONLY_REMOTE`、`ONLY_LOCAL`、`LOCAL_FIRST`、`REMOTE_FIRST_ALLOW_REMOTE_FAILED`、`LOCAL_FIRST_ALLOW_REMOTE_FAILED` |
 | 生产 + TLS | `app.mode` 为 `production`/`prod` 时禁止 `http.insecure_tls: true`（config 层校验） |
+| DATA_DIR | 非空时须存在且为目录 |
+| 远程解密 | `REMOTE_DECRYPT_ENABLED=true` 时须配置 `REMOTE_RSA_PRIVATE_KEY_FILE` 且文件存在可读 |
 
 ## 运行模式 (MODE)
 
@@ -169,6 +175,35 @@ app:
 - `status`（可选）：用户状态，默认为 "active"
 - `scope`（可选）：用户权限范围数组，默认为空数组
 - `role`（可选）：用户角色，默认为空字符串
+- `name`（可选）：用户显示名称，会出现在 API 响应及 `/v1/lookup` 中
+
+### 本地用户数据目录（DATA_DIR）
+
+除单文件 `DATA_FILE` 外，可配置 `DATA_DIR` 指定一个目录，程序会将该目录下所有 `*.json` 文件（按文件名排序）与单文件一起参与加载与合并。
+
+**与 DATA_FILE 同时存在时的行为**：
+- 数据源顺序由运行模式（MODE）决定：REMOTE_FIRST 时为先远程（若配置）、再目录内文件（按文件名排序）、再单文件；LOCAL_FIRST 时为先目录内文件与单文件、再远程。
+- 同一用户（按 phone/mail 去重）在多文件中出现时，按上述优先级合并，高优先级覆盖低优先级。
+
+**配置方式**：
+- 环境变量：`export DATA_DIR=/path/to/data/dir`
+- YAML：`app.data_dir: "/path/to/data/dir"`
+
+### API 响应字段白名单（RESPONSE_FIELDS）
+
+未配置时，`GET /` 与 `GET /user` 返回用户对象的全部字段。配置后仅返回白名单中的字段（适用于减少泄露或统一出口格式）。
+
+- 环境变量：`export RESPONSE_FIELDS=phone,mail,user_id,status,scope,role,name`
+- YAML：`app.response_fields: ["phone","mail","user_id","status","scope","role","name"]`
+- Stargate 所需字段建议包含：`user_id`、`mail`/`phone`、`status`、`scope`、`role`。
+
+### 远程响应 RSA 解密
+
+当远程 API 返回加密 body 时，可启用 RSA 解密后再解析 JSON。
+
+- **配置**：`REMOTE_DECRYPT_ENABLED=true`，`REMOTE_RSA_PRIVATE_KEY_FILE=/path/to/private.pem`（推荐使用文件，避免私钥写入环境变量）。
+- **约定**：远程响应需设置 `Content-Type: application/x-warden-encrypted`，body 为 Base64 编码的混合密文：前 256 字节为 RSA(2048) 加密的 AES 密钥+IV，其后为 AES-CTR 密文；解密后为 JSON 数组格式，与本地 `data.json` 结构一致。
+- 启用解密时，远程拉取与解密在 Warden 内完成，再与本地文件源按 MODE 合并。
 
 ### 应用配置文件 (`config.yaml`)
 
@@ -208,6 +243,8 @@ remote:
   url: "http://localhost:8080/data.json"
   key: ""
   mode: "DEFAULT"
+  decrypt_enabled: false       # 远程响应 RSA 解密
+  rsa_private_key_file: ""    # PEM 私钥文件路径
 
 task:
   interval: 5s
@@ -216,6 +253,8 @@ app:
   mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
   api_key: ""      # 建议使用环境变量 API_KEY
   data_file: "./data.json"
+  data_dir: ""     # 可选：用户数据目录，合并该目录下所有 *.json
+  response_fields: []  # 可选：API 响应字段白名单，空则返回全部
 
 tracing:
   enabled: false
@@ -268,6 +307,10 @@ export KEY="Bearer token"
 export INTERVAL=5                      # 定时任务间隔（秒）；仅在不使用配置文件时生效（使用 YAML 时 task.interval 来自文件，INTERVAL 不参与覆盖）
 export MODE=DEFAULT
 export DATA_FILE=./data.json          # 本地用户数据文件路径
+export DATA_DIR=                      # 可选：用户数据目录，合并该目录下所有 *.json（可与 DATA_FILE 同时使用）
+export RESPONSE_FIELDS=               # 可选：API 响应字段白名单，逗号分隔，如 phone,mail,user_id,status,name；空=全部
+export REMOTE_DECRYPT_ENABLED=false   # 可选：是否对远程响应做 RSA 解密
+export REMOTE_RSA_PRIVATE_KEY_FILE=   # 可选：RSA 私钥 PEM 文件路径（推荐用文件，避免 env 泄露）
 export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 duration，如 30s、1m30s）
 export HTTP_MAX_IDLE_CONNS=100         # HTTP 最大空闲连接数
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）

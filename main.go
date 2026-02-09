@@ -57,6 +57,8 @@ type App struct {
 	appMode              string
 	apiKey               string
 	dataFile             string
+	dataDir              string
+	responseFields       []string
 	taskInterval         uint64
 	redisEnabled         bool
 	hmacKeys             map[string]string
@@ -67,16 +69,25 @@ type App struct {
 	tlsRequireClientCert bool
 }
 
+// taskIntervalU64 converts task interval to uint64, clamping negative values to 0 to avoid overflow.
+func taskIntervalU64(sec int) uint64 {
+	if sec <= 0 {
+		return 0
+	}
+	return uint64(sec)
+}
+
 // NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
 	app := &App{
-		port:                cfg.Port,
-		configURL:           cfg.RemoteConfig,
-		authorizationHeader: cfg.RemoteKey,
-		appMode:             cfg.Mode,
-		dataFile:            cfg.DataFile,
-		// #nosec G115 -- conversion is safe, TaskInterval is positive
-		taskInterval:         uint64(cfg.TaskInterval),
+		port:                 cfg.Port,
+		configURL:            cfg.RemoteConfig,
+		authorizationHeader:  cfg.RemoteKey,
+		appMode:              cfg.Mode,
+		dataFile:             cfg.DataFile,
+		dataDir:              cfg.DataDir,
+		responseFields:       cfg.ResponseFields,
+		taskInterval:         taskIntervalU64(cfg.TaskInterval),
 		apiKey:               cfg.APIKey,
 		redisEnabled:         cfg.RedisEnabled,
 		log:                  logger.GetLoggerKit(),
@@ -153,7 +164,7 @@ func NewApp(cfg *cmd.Config) *App {
 
 	// Load initial data (multi-level fallback)
 	if app.rulesLoader != nil {
-		if err := app.loadInitialData(cfg.DataFile); err != nil {
+		if err := app.loadInitialData(cfg.DataFile, cfg.DataDir); err != nil {
 			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
 		}
 	}
@@ -178,16 +189,15 @@ func NewApp(cfg *cmd.Config) *App {
 	return app
 }
 
-// loadInitialData loads data with multi-level fallback (Redis → parser-kit Load/FromFile).
-func (app *App) loadInitialData(rulesFile string) error {
+// loadInitialData loads data with multi-level fallback (Redis → parser-kit Load).
+func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
 	defer cancel()
 
-	// ONLY_LOCAL mode: only use local file, no remote requests
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
-		localUsers, err := app.rulesLoader.FromFile(ctx, rulesFile)
+		localUsers, err := app.rulesLoader.Load(ctx, rulesFile, dataDir, "", "")
 		if err == nil && len(localUsers) > 0 {
 			app.log.Info().
 				Int("count", len(localUsers)).
@@ -200,14 +210,16 @@ func (app *App) loadInitialData(rulesFile string) error {
 			}
 			return nil
 		}
-		_, statErr := os.Stat(rulesFile)
-		if errors.Is(statErr, os.ErrNotExist) {
-			app.log.Warn().
-				Str("data_file", rulesFile).
-				Str("example_file", "data.example.json").
-				Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found"))
-			app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
-			app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
+		if dataDir == "" {
+			_, statErr := os.Stat(rulesFile)
+			if errors.Is(statErr, os.ErrNotExist) {
+				app.log.Warn().
+					Str("data_file", rulesFile).
+					Str("example_file", "data.example.json").
+					Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found"))
+				app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
+				app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
+			}
 		}
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_load_failed"))
 		return nil
@@ -227,7 +239,7 @@ func (app *App) loadInitialData(rulesFile string) error {
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
-	users, err := app.rulesLoader.Load(ctx, rulesFile, app.configURL, app.authorizationHeader)
+	users, err := app.rulesLoader.Load(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	if err == nil && len(users) > 0 {
 		app.log.Info().
 			Int("count", len(users)).
@@ -379,8 +391,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 //   - Performs data comparison outside lock to reduce lock holding time
 //   - Uses hash values to quickly detect data changes
 //   - Returns directly when data unchanged, skipping update operations
-func (app *App) backgroundTask(rulesFile string) {
-	// Add error recovery mechanism to prevent panic from crashing entire program
+func (app *App) backgroundTask(rulesFile, dataDir string) {
 	defer func() {
 		if r := recover(); r != nil {
 			metrics.BackgroundTaskErrors.Inc()
@@ -400,9 +411,9 @@ func (app *App) backgroundTask(rulesFile string) {
 	defer cancel()
 	var err error
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
-		newUsers, err = app.rulesLoader.FromFile(ctx, rulesFile)
+		newUsers, err = app.rulesLoader.Load(ctx, rulesFile, dataDir, "", "")
 	} else {
-		newUsers, err = app.rulesLoader.Load(ctx, rulesFile, app.configURL, app.authorizationHeader)
+		newUsers, err = app.rulesLoader.Load(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	}
 	if err != nil {
 		app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
@@ -616,7 +627,7 @@ func main() {
 		scheduler.Clear()
 		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_closed"))
 	}()
-	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, app.dataFile); err != nil {
+	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, app.dataFile, app.dataDir); err != nil {
 		// Clean up resources before exiting (defer executes on function return, but log.Fatal exits immediately)
 		// So need to manually clean up
 		close(schedulerStopped)

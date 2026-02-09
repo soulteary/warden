@@ -27,7 +27,7 @@ func TestJSON_Handler(t *testing.T) {
 	userCache.Set(testData)
 
 	// Create handler
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	// Create test request
 	req := httptest.NewRequest("GET", "/", http.NoBody)
@@ -55,7 +55,7 @@ func TestJSON_EmptyData(t *testing.T) {
 	emptyData := []define.AllowListUser{}
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(emptyData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -80,7 +80,7 @@ func TestJSON_SingleRecord(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(singleData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -105,7 +105,7 @@ func TestJSON_Unicode(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(unicodeData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -130,7 +130,7 @@ func TestJSON_ContentType(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -149,7 +149,7 @@ func TestJSON_StatusCode(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -169,7 +169,7 @@ func TestJSON_MultipleRecords(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(multipleData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -191,7 +191,7 @@ func TestJSON_DataModification(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(originalData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	// Modify original data (should not affect data in cache)
 	originalData[0].Mail = "modified@example.com"
@@ -217,7 +217,7 @@ func TestJSON_MethodNotAllowed(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	// Test disallowed methods
 	disallowedMethods := []string{"POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
@@ -247,7 +247,7 @@ func TestJSON_Pagination(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	t.Run("第一页", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/?page=1&page_size=3", http.NoBody)
@@ -373,7 +373,7 @@ func TestJSON_BackwardCompatibility(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -404,7 +404,7 @@ func TestJSON_DifferentDataSizes(t *testing.T) {
 
 		userCache := cache.NewSafeUserCache()
 		userCache.Set(smallData)
-		handler := JSON(userCache)
+		handler := JSON(userCache, nil)
 
 		req := httptest.NewRequest("GET", "/", http.NoBody)
 		w := httptest.NewRecorder()
@@ -430,7 +430,7 @@ func TestJSON_DifferentDataSizes(t *testing.T) {
 
 		userCache := cache.NewSafeUserCache()
 		userCache.Set(mediumData)
-		handler := JSON(userCache)
+		handler := JSON(userCache, nil)
 
 		req := httptest.NewRequest("GET", "/", http.NoBody)
 		w := httptest.NewRecorder()
@@ -456,7 +456,7 @@ func TestJSON_DifferentDataSizes(t *testing.T) {
 
 		userCache := cache.NewSafeUserCache()
 		userCache.Set(largeData)
-		handler := JSON(userCache)
+		handler := JSON(userCache, nil)
 
 		req := httptest.NewRequest("GET", "/", http.NoBody)
 		w := httptest.NewRecorder()
@@ -483,7 +483,7 @@ func TestJSON_Pagination_EdgeCases(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	t.Run("page=0", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/?page=0&page_size=2", http.NoBody)
@@ -534,7 +534,7 @@ func TestJSON_Pagination_OnlyPage(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/?page=2", http.NoBody)
 	w := httptest.NewRecorder()
@@ -560,7 +560,7 @@ func TestJSON_Pagination_OnlyPageSize(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/?page_size=5", http.NoBody)
 	w := httptest.NewRecorder()

@@ -132,9 +132,9 @@ func HashUserList(users []define.AllowListUser) string {
 		return ki < kj
 	})
 	var sb strings.Builder
-	for _, user := range sorted {
-		scopeStr := strings.Join(user.Scope, ",")
-		sb.WriteString(user.Phone + ":" + user.Mail + ":" + user.UserID + ":" + user.Status + ":" + scopeStr + ":" + user.Role + "\n")
+	for i := range sorted {
+		scopeStr := strings.Join(sorted[i].Scope, ",")
+		sb.WriteString(sorted[i].Phone + ":" + sorted[i].Mail + ":" + sorted[i].UserID + ":" + sorted[i].Status + ":" + scopeStr + ":" + sorted[i].Role + "\n")
 	}
 	return secure.GetSHA256Hash(sb.String())
 }
@@ -157,9 +157,9 @@ func (c *SafeUserCache) Get() []define.AllowListUser {
 func (c *SafeUserCache) Set(users []define.AllowListUser) {
 	// Filter out users with both phone and mail empty
 	validUsers := make([]define.AllowListUser, 0, len(users))
-	for _, user := range users {
-		if primaryKeyForUser(user) != "" {
-			validUsers = append(validUsers, user)
+	for i := range users {
+		if primaryKeyForUser(users[i]) != "" {
+			validUsers = append(validUsers, users[i])
 		}
 	}
 

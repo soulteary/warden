@@ -94,3 +94,33 @@ func TestValidateConfig_InvalidTaskInterval(t *testing.T) {
 	assert.Error(t, err, "无效任务间隔应该返回错误")
 	assert.Contains(t, err.Error(), "任务间隔")
 }
+
+func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotSet(t *testing.T) {
+	cfg := &Config{
+		Port:                    "8081",
+		Redis:                   "localhost:6379",
+		TaskInterval:            5,
+		Mode:                    "DEFAULT",
+		RemoteDecryptEnabled:    true,
+		RemoteRSAPrivateKeyFile: "", // 未设置
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "启用远程解密但未配置私钥文件应返回错误")
+	assert.Contains(t, err.Error(), "REMOTE_RSA_PRIVATE_KEY_FILE")
+}
+
+func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotExist(t *testing.T) {
+	cfg := &Config{
+		Port:                    "8081",
+		Redis:                   "localhost:6379",
+		TaskInterval:            5,
+		Mode:                    "DEFAULT",
+		RemoteDecryptEnabled:    true,
+		RemoteRSAPrivateKeyFile: "/nonexistent/path/to/private.pem",
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "启用远程解密但私钥文件不存在应返回错误")
+	assert.Contains(t, err.Error(), "does not exist")
+}

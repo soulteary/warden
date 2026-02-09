@@ -4,12 +4,15 @@ package loader
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/soulteary/parser-kit"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/remote"
 )
 
 // normalizeAllowListUser normalizes each user in place (defaults, user_id) and returns the slice.
@@ -58,18 +61,58 @@ func BuildLoadOptions(cfg *cmd.Config, appMode string) *parserkit.LoadOptions {
 	return opts
 }
 
+// listJSONFiles returns sorted *.json paths under dir (non-recursive).
+func listJSONFiles(dir string) ([]string, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(matches)
+	return matches, nil
+}
+
 // BuildSources builds parser-kit sources for the given mode (priority order).
-func BuildSources(rulesFile, configURL, auth, appMode string) []parserkit.Source {
+// When dataDir is non-empty, all *.json files in that directory are added as file sources (sorted by name).
+func BuildSources(rulesFile, dataDir, configURL, auth, appMode string) []parserkit.Source {
 	mode := strings.ToUpper(strings.TrimSpace(appMode))
 	var sources []parserkit.Source
 
+	addDirFiles := func(priority int) int {
+		if dataDir == "" {
+			return priority
+		}
+		files, err := listJSONFiles(dataDir)
+		if err != nil || len(files) == 0 {
+			return priority
+		}
+		for i, p := range files {
+			sources = append(sources, parserkit.Source{
+				Type:     parserkit.SourceTypeFile,
+				Priority: priority + i,
+				Config:   parserkit.SourceConfig{FilePath: p},
+			})
+		}
+		return priority + len(files)
+	}
+
 	switch mode {
 	case "ONLY_LOCAL":
-		sources = []parserkit.Source{{
-			Type:     parserkit.SourceTypeFile,
-			Priority: 0,
-			Config:   parserkit.SourceConfig{FilePath: rulesFile},
-		}}
+		pri := 0
+		pri = addDirFiles(pri)
+		if rulesFile != "" {
+			sources = append(sources, parserkit.Source{
+				Type:     parserkit.SourceTypeFile,
+				Priority: pri,
+				Config:   parserkit.SourceConfig{FilePath: rulesFile},
+			})
+		}
+		if len(sources) == 0 && rulesFile != "" {
+			sources = []parserkit.Source{{
+				Type:     parserkit.SourceTypeFile,
+				Priority: 0,
+				Config:   parserkit.SourceConfig{FilePath: rulesFile},
+			}}
+		}
 	case "ONLY_REMOTE":
 		if configURL != "" {
 			sources = []parserkit.Source{{
@@ -82,28 +125,52 @@ func BuildSources(rulesFile, configURL, auth, appMode string) []parserkit.Source
 			}}
 		}
 	default:
-		// REMOTE_FIRST / LOCAL_FIRST / *_ALLOW_REMOTE_FAILED
+		pri := 0
 		if configURL != "" {
 			sources = append(sources, parserkit.Source{
 				Type:     parserkit.SourceTypeRemote,
-				Priority: 0,
+				Priority: pri,
 				Config: parserkit.SourceConfig{
 					RemoteURL:           configURL,
 					AuthorizationHeader: auth,
 				},
 			})
+			pri++
 		}
-		sources = append(sources, parserkit.Source{
-			Type:     parserkit.SourceTypeFile,
-			Priority: 1,
-			Config:   parserkit.SourceConfig{FilePath: rulesFile},
-		})
+		pri = addDirFiles(pri)
+		if rulesFile != "" {
+			sources = append(sources, parserkit.Source{
+				Type:     parserkit.SourceTypeFile,
+				Priority: pri,
+				Config:   parserkit.SourceConfig{FilePath: rulesFile},
+			})
+		}
 		if mode == "LOCAL_FIRST" || mode == "LOCAL_FIRST_ALLOW_REMOTE_FAILED" {
-			// swap so file is priority 0
-			if len(sources) == 2 {
-				sources[0], sources[1] = sources[1], sources[0]
-				sources[0].Priority = 0
-				sources[1].Priority = 1
+			// swap: local (dir + file) first, then remote
+			nLocal := 0
+			for _, s := range sources {
+				if s.Type == parserkit.SourceTypeFile {
+					nLocal++
+				}
+			}
+			if nLocal > 0 && len(sources) > nLocal {
+				local := make([]parserkit.Source, 0, nLocal)
+				remoteSources := make([]parserkit.Source, 0, len(sources)-nLocal)
+				for _, s := range sources {
+					if s.Type == parserkit.SourceTypeFile {
+						local = append(local, s)
+					} else {
+						remoteSources = append(remoteSources, s)
+					}
+				}
+				for i := range local {
+					local[i].Priority = i
+				}
+				for i := range remoteSources {
+					remoteSources[i].Priority = nLocal + i
+				}
+				local = append(local, remoteSources...)
+				sources = local
 			}
 		}
 	}
@@ -111,9 +178,15 @@ func BuildSources(rulesFile, configURL, auth, appMode string) []parserkit.Source
 }
 
 // RulesLoader wraps parser-kit DataLoader and exposes FromFile/Load by (rulesFile, configURL, auth).
+//
+//nolint:govet // fieldalignment: keep field order for readability; optional size win would reorder bools/pointer/strings
 type RulesLoader struct {
-	dl      parserkit.DataLoader[define.AllowListUser]
-	appMode string
+	remoteDecrypt       bool
+	httpInsecureTLS     bool
+	dl                  parserkit.DataLoader[define.AllowListUser]
+	httpTimeout         time.Duration
+	appMode             string
+	remoteRSAPrivateKey string
 }
 
 // NewRulesLoader creates a RulesLoader using cfg and appMode.
@@ -123,7 +196,24 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RulesLoader{dl: dl, appMode: appMode}, nil
+	timeout := time.Duration(define.DEFAULT_TIMEOUT) * time.Second
+	decrypt := false
+	keyPath := ""
+	if cfg != nil {
+		if cfg.HTTPTimeout > 0 {
+			timeout = time.Duration(cfg.HTTPTimeout) * time.Second
+		}
+		decrypt = cfg.RemoteDecryptEnabled && cfg.RemoteRSAPrivateKeyFile != ""
+		keyPath = cfg.RemoteRSAPrivateKeyFile
+	}
+	return &RulesLoader{
+		dl:                  dl,
+		appMode:             appMode,
+		remoteDecrypt:       decrypt,
+		remoteRSAPrivateKey: keyPath,
+		httpTimeout:         timeout,
+		httpInsecureTLS:     cfg != nil && cfg.HTTPInsecureTLS,
+	}, nil
 }
 
 // FromFile loads rules from a local file.
@@ -131,11 +221,66 @@ func (r *RulesLoader) FromFile(ctx context.Context, path string) ([]define.Allow
 	return r.dl.FromFile(ctx, path)
 }
 
-// Load loads rules from sources built from (rulesFile, configURL, auth) and r.appMode.
-func (r *RulesLoader) Load(ctx context.Context, rulesFile, configURL, auth string) ([]define.AllowListUser, error) {
-	sources := BuildSources(rulesFile, configURL, auth, r.appMode)
+// Load loads rules from sources built from (rulesFile, dataDir, configURL, auth) and r.appMode.
+// When remote decrypt is enabled, fetches remote with RSA decryption then merges with file sources.
+func (r *RulesLoader) Load(ctx context.Context, rulesFile, dataDir, configURL, auth string) ([]define.AllowListUser, error) {
+	mode := strings.ToUpper(strings.TrimSpace(r.appMode))
+	if r.remoteDecrypt && configURL != "" && r.remoteRSAPrivateKey != "" {
+		remoteUsers, err := remote.FetchDecryptedUsers(ctx, configURL, auth, true, r.remoteRSAPrivateKey, r.httpTimeout, r.httpInsecureTLS)
+		if err != nil {
+			return nil, fmt.Errorf("remote decrypt fetch: %w", err)
+		}
+		remoteUsers = normalizeAllowListUser(remoteUsers)
+		fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode)
+		if len(fileSources) == 0 {
+			return remoteUsers, nil
+		}
+		fileUsers, err := r.dl.Load(ctx, fileSources...)
+		if err != nil {
+			return remoteUsers, nil
+		}
+		return mergeByMode(remoteUsers, fileUsers, mode), nil
+	}
+	sources := BuildSources(rulesFile, dataDir, configURL, auth, r.appMode)
 	if len(sources) == 0 {
 		return nil, fmt.Errorf("no sources for mode %s", r.appMode)
 	}
 	return r.dl.Load(ctx, sources...)
+}
+
+// mergeByMode merges remoteUsers and fileUsers by mode (REMOTE_FIRST = remote wins, LOCAL_FIRST = file wins).
+func mergeByMode(remoteUsers, fileUsers []define.AllowListUser, mode string) []define.AllowListUser {
+	keyToUser := make(map[string]define.AllowListUser)
+	if mode == "LOCAL_FIRST" || mode == "LOCAL_FIRST_ALLOW_REMOTE_FAILED" {
+		for i := range remoteUsers {
+			k, ok := allowListUserKey(remoteUsers[i])
+			if ok {
+				keyToUser[k] = remoteUsers[i]
+			}
+		}
+		for i := range fileUsers {
+			k, ok := allowListUserKey(fileUsers[i])
+			if ok {
+				keyToUser[k] = fileUsers[i]
+			}
+		}
+	} else {
+		for i := range fileUsers {
+			k, ok := allowListUserKey(fileUsers[i])
+			if ok {
+				keyToUser[k] = fileUsers[i]
+			}
+		}
+		for i := range remoteUsers {
+			k, ok := allowListUserKey(remoteUsers[i])
+			if ok {
+				keyToUser[k] = remoteUsers[i]
+			}
+		}
+	}
+	out := make([]define.AllowListUser, 0, len(keyToUser))
+	for k := range keyToUser {
+		out = append(out, keyToUser[k])
+	}
+	return out
 }

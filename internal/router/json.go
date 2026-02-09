@@ -165,27 +165,10 @@ func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}
 	return nil
 }
 
-// JSON returns a JSON response handler for user data
-//
-// This function creates an HTTP handler that returns JSON data from the user cache.
-// Supports the following features:
-// - Pagination: implemented via page and page_size query parameters
-// - Backward compatibility: returns full array format when pagination parameters are not specified
-// - Performance optimization: selects different encoding strategies based on data size (direct encoding, buffer pool, streaming encoding)
-// - Input validation: strictly validates pagination parameters to prevent injection attacks
-//
-// Parameters:
-//   - userCache: user cache instance for retrieving user data
-//
-// Returns:
-//   - func(http.ResponseWriter, *http.Request): HTTP request handler function
-//
-// Side effects:
-//   - Records cache hit metrics
-//   - Records request logs
-func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Request) {
+// JSON returns a JSON response handler for user data.
+// If responseFields is non-empty, only those fields are included in the response (whitelist).
+func JSON(userCache *cache.SafeUserCache, responseFields []string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate request method, only allow GET
 		if r.Method != http.MethodGet {
 			logger.FromRequest(r).Warn().
 				Str("method", r.Method).
@@ -194,7 +177,6 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
-		// Parse pagination parameters (enhanced input validation)
 		page, pageSize, hasPagination, err := parsePaginationParams(r)
 		if err != nil {
 			logger.FromRequest(r).Warn().
@@ -204,49 +186,41 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
-		// Get all data (from memory cache, record as cache hit)
 		userData := userCache.Get()
-		metrics.CacheHits.Inc() // Memory cache hit
+		metrics.CacheHits.Inc()
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		// If pagination parameters are not explicitly specified, maintain backward compatibility and return array directly
+		useFieldFilter := len(responseFields) > 0
+
 		if !hasPagination {
-			// For small data, encode directly; for medium data, use bufferPool; for large data, use streaming encoding
+			var payload interface{} = userData
+			if useFieldFilter {
+				payload = UsersToMaps(userData, responseFields)
+			}
 			switch {
 			case len(userData) < define.SMALL_DATA_THRESHOLD:
-				if err := json.NewEncoder(w).Encode(userData); err != nil {
-					logger.FromRequest(r).Error().
-						Err(err).
-						Msg(i18n.T(r, "error.json_encode_failed"))
+				if err := json.NewEncoder(w).Encode(payload); err != nil {
+					logger.FromRequest(r).Error().Err(err).Msg(i18n.T(r, "error.json_encode_failed"))
 					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 			case len(userData) < define.LARGE_DATA_THRESHOLD:
-				// Medium data: use bufferPool for optimization
 				buf := getBuffer()
 				defer putBuffer(buf)
-				if err := json.NewEncoder(buf).Encode(userData); err != nil {
-					logger.FromRequest(r).Error().
-						Err(err).
-						Msg(i18n.T(r, "error.json_encode_failed"))
+				if err := json.NewEncoder(buf).Encode(payload); err != nil {
+					logger.FromRequest(r).Error().Err(err).Msg(i18n.T(r, "error.json_encode_failed"))
 					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
 				if _, err := w.Write(buf.Bytes()); err != nil {
-					logger.FromRequest(r).Error().
-						Err(err).
-						Msg(i18n.T(r, "error.write_response_failed"))
+					logger.FromRequest(r).Error().Err(err).Msg(i18n.T(r, "error.write_response_failed"))
 					return
 				}
 			default:
-				// Large data: use streaming JSON encoding to reduce memory usage
-				encoder := json.NewEncoder(w)
-				if err := encoder.Encode(userData); err != nil {
-					logger.FromRequest(r).Error().
-						Err(err).
-						Msg(i18n.T(r, "error.stream_encode_failed"))
+				if err := json.NewEncoder(w).Encode(payload); err != nil {
+					logger.FromRequest(r).Error().Err(err).Msg(i18n.T(r, "error.stream_encode_failed"))
 					http.Error(w, i18n.T(r, "http.internal_server_error"), http.StatusInternalServerError)
 					return
 				}
@@ -255,14 +229,19 @@ func JSON(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Reques
 			return
 		}
 
-		// If pagination parameters are specified, return paginated format
 		paginatedData, total, totalPages := paginate(userData, page, pageSize)
-		response := buildPaginatedResponse(paginatedData, page, pageSize, total, totalPages)
-
+		var response map[string]interface{}
+		if useFieldFilter {
+			response = map[string]interface{}{
+				"data":       UsersToMaps(paginatedData, responseFields),
+				"pagination": map[string]int{"page": page, "page_size": pageSize, "total": total, "total_pages": totalPages},
+			}
+		} else {
+			response = buildPaginatedResponse(paginatedData, page, pageSize, total, totalPages)
+		}
 		if err := encodeJSONResponse(w, r, response); err != nil {
 			return
 		}
-
 		logger.FromRequest(r).Info().
 			Int("page", page).
 			Int("page_size", pageSize).

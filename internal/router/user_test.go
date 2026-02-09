@@ -30,7 +30,7 @@ func TestGetUserByIdentifier_ByPhone(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
 	w := httptest.NewRecorder()
@@ -57,7 +57,7 @@ func TestGetUserByIdentifier_ByMail(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user?mail=test2@example.com", http.NoBody)
 	w := httptest.NewRecorder()
@@ -84,7 +84,7 @@ func TestGetUserByIdentifier_ByUserID(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user?user_id=user1", http.NoBody)
 	w := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func TestGetUserByIdentifier_ByUserID(t *testing.T) {
 // TestGetUserByIdentifier_MissingIdentifier tests missing identifier
 func TestGetUserByIdentifier_MissingIdentifier(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user", http.NoBody)
 	w := httptest.NewRecorder()
@@ -117,7 +117,7 @@ func TestGetUserByIdentifier_MissingIdentifier(t *testing.T) {
 // TestGetUserByIdentifier_MultipleIdentifiers tests providing multiple identifiers
 func TestGetUserByIdentifier_MultipleIdentifiers(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user?phone=13800138000&mail=test@example.com", http.NoBody)
 	w := httptest.NewRecorder()
@@ -130,7 +130,7 @@ func TestGetUserByIdentifier_MultipleIdentifiers(t *testing.T) {
 // TestGetUserByIdentifier_IdentifierTooLong tests that identifier over MAX_IDENTIFIER_LENGTH returns 400
 func TestGetUserByIdentifier_IdentifierTooLong(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	longPhone := strings.Repeat("1", define.MAX_IDENTIFIER_LENGTH+1)
 
@@ -151,7 +151,7 @@ func TestGetUserByIdentifier_UserNotFound(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user?phone=99999999999", http.NoBody)
 	w := httptest.NewRecorder()
@@ -164,7 +164,7 @@ func TestGetUserByIdentifier_UserNotFound(t *testing.T) {
 // TestGetUserByIdentifier_InvalidMethod tests invalid HTTP method
 func TestGetUserByIdentifier_InvalidMethod(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	methods := []string{"POST", "PUT", "DELETE", "PATCH"}
 
@@ -189,7 +189,7 @@ func TestGetUserByIdentifier_WithSpaces(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	// Test phone number with spaces (URL encoded space is %20)
 	req := httptest.NewRequest("GET", "/user?phone=%2013800138000%20", http.NoBody)
@@ -217,7 +217,7 @@ func TestGetUserByIdentifier_Contract_StargateFields(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
 	w := httptest.NewRecorder()
 
@@ -250,7 +250,7 @@ func TestGetUserByIdentifier_JSONEncodingError(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testUsers)
 
-	handler := GetUserByIdentifier(userCache)
+	handler := GetUserByIdentifier(userCache, nil)
 
 	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
 	w := httptest.NewRecorder()

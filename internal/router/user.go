@@ -22,20 +22,9 @@ import (
 	"github.com/soulteary/warden/internal/logger"
 )
 
-// GetUserByIdentifier queries a single user by identifier
-//
-// This function creates an HTTP handler for querying a single user by phone, mail, or user_id.
-// Supports the following query methods:
-// - GET /user?phone=<phone> - Query by phone number
-// - GET /user?mail=<mail> - Query by email
-// - GET /user?user_id=<user_id> - Query by user ID
-//
-// Parameters:
-//   - userCache: user cache instance for retrieving user data
-//
-// Returns:
-//   - func(http.ResponseWriter, *http.Request): HTTP request handler function
-func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Request) {
+// GetUserByIdentifier queries a single user by identifier.
+// If responseFields is non-empty, only those fields are included in the JSON response.
+func GetUserByIdentifier(userCache *cache.SafeUserCache, responseFields []string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Start span for user query
 		_, span := tracing.StartSpan(r.Context(), "warden.get_user")
@@ -145,11 +134,14 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache) func(http.ResponseWrite
 			attribute.String("warden.user.id", user.UserID),
 		)
 
-		// Return user information
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		if err := json.NewEncoder(w).Encode(user); err != nil {
+		var payload interface{} = user
+		if len(responseFields) > 0 {
+			payload = UserToMap(&user, responseFields)
+		}
+		if err := json.NewEncoder(w).Encode(payload); err != nil {
 			tracing.RecordError(span, err)
 			logger.FromRequest(r).Error().
 				Err(err).

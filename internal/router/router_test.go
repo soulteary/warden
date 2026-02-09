@@ -18,7 +18,7 @@ func TestProcessWithLogger(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	// Create test request
@@ -38,7 +38,7 @@ func TestProcessWithLogger_LoggingMiddleware(t *testing.T) {
 	testData := []define.AllowListUser{}
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	// Verify returned type is http.Handler
@@ -54,7 +54,7 @@ func TestProcessWithLogger_RequestID(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
@@ -74,7 +74,7 @@ func TestProcessWithLogger_UserAgent(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
@@ -94,7 +94,7 @@ func TestProcessWithLogger_Referer(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
@@ -114,7 +114,7 @@ func TestProcessWithLogger_RemoteAddr(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
@@ -134,7 +134,7 @@ func TestProcessWithLogger_DifferentMethods(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	// Test allowed method (GET)
@@ -170,7 +170,7 @@ func TestProcessWithLogger_Concurrent(t *testing.T) {
 
 	userCache := cache.NewSafeUserCache()
 	userCache.Set(testData)
-	handler := JSON(userCache)
+	handler := JSON(userCache, nil)
 	wrappedHandler := ProcessWithLogger(handler)
 
 	done := make(chan bool, 10)

@@ -97,7 +97,7 @@ func registerRoutes(app *App) {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.JSON(app.userCache)),
+											router.ProcessWithLogger(router.JSON(app.userCache, app.responseFields)),
 										),
 									),
 								),
@@ -109,6 +109,7 @@ func registerRoutes(app *App) {
 		),
 	)
 	http.Handle("/", mainHandler)
+	http.Handle(define.PATH_DATA_JSON, mainHandler) // 与 GET / 行为一致，便于作为 data.json API 消费
 
 	userHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
@@ -120,7 +121,7 @@ func registerRoutes(app *App) {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache)),
+											router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache, app.responseFields)),
 										),
 									),
 								),

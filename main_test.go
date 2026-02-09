@@ -315,7 +315,7 @@ func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
 	app := NewApp(cfg)
 
 	// Test loading data
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	assert.NoError(t, err)
 	assert.Greater(t, app.userCache.Len(), 0, "应该加载了数据")
 }
@@ -345,7 +345,7 @@ func TestApp_loadInitialData_EmptyFile(t *testing.T) {
 	app := NewApp(cfg)
 
 	// Test loading empty file
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	// Empty file should not cause error, just no data
 	assert.NoError(t, err)
 }
@@ -367,7 +367,7 @@ func TestApp_loadInitialData_NonExistentFile(t *testing.T) {
 	app := NewApp(cfg)
 
 	// Test loading non-existent file
-	err := app.loadInitialData("/nonexistent/file.json")
+	err := app.loadInitialData("/nonexistent/file.json", "")
 	// Non-existent file should not cause error, just no data
 	assert.NoError(t, err)
 }
@@ -402,13 +402,13 @@ func TestApp_backgroundTask_NoChange(t *testing.T) {
 	app := NewApp(cfg)
 
 	// Load data first
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	require.NoError(t, err)
 
 	initialLen := app.userCache.Len()
 
 	// Run background task (no data change)
-	app.backgroundTask(tmpFile.Name())
+	app.backgroundTask(tmpFile.Name(), "")
 
 	// Verify data hasn't changed
 	assert.Equal(t, initialLen, app.userCache.Len(), "数据未变化时长度应该相同")
@@ -444,7 +444,7 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 	app := NewApp(cfg)
 
 	// Load initial data first
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	require.NoError(t, err)
 
 	initialLen := app.userCache.Len()
@@ -458,7 +458,7 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run background task (with data change)
-	app.backgroundTask(tmpFile.Name())
+	app.backgroundTask(tmpFile.Name(), "")
 
 	// Verify data has been updated
 	assert.Greater(t, app.userCache.Len(), initialLen, "数据有变化时应该更新")
@@ -483,7 +483,7 @@ func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 	// Test panic recovery (by passing invalid file path that might trigger panic)
 	// Note: This only verifies the function doesn't crash due to panic
 	assert.NotPanics(t, func() {
-		app.backgroundTask("/invalid/path/that/might/cause/panic")
+		app.backgroundTask("/invalid/path/that/might/cause/panic", "")
 	}, "后台任务应该能够恢复 panic")
 }
 
@@ -718,7 +718,7 @@ func TestApp_loadInitialData_FromRedis(t *testing.T) {
 	app.userCache.Set([]define.AllowListUser{})
 
 	// Test loading from Redis
-	err = app.loadInitialData("/nonexistent/file.json")
+	err = app.loadInitialData("/nonexistent/file.json", "")
 	assert.NoError(t, err)
 	// If Redis has data, should load successfully
 	if app.userCache.Len() > 0 {
@@ -747,7 +747,7 @@ func TestApp_loadInitialData_RemoteConfig(t *testing.T) {
 	app.configURL = remoteServer.URL
 
 	// Test loading from remote config (will fail, then fallback to local file)
-	err := app.loadInitialData("/nonexistent/file.json")
+	err := app.loadInitialData("/nonexistent/file.json", "")
 	// Should not return error, just no data
 	assert.NoError(t, err)
 }
@@ -777,7 +777,7 @@ func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
 	app := NewApp(cfg)
 
 	// Test loading empty file
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	assert.NoError(t, err)
 }
 
@@ -818,7 +818,7 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 
 	// Run background task
-	app.backgroundTask(tmpFile.Name())
+	app.backgroundTask(tmpFile.Name(), "")
 
 	// Verify task executed (no panic)
 	assert.True(t, true)
@@ -855,7 +855,7 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 
 	// Load data first
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	require.NoError(t, err)
 
 	// Modify cache in another goroutine to simulate data inconsistency
@@ -867,7 +867,7 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 	}()
 
 	// Run background task
-	app.backgroundTask(tmpFile.Name())
+	app.backgroundTask(tmpFile.Name(), "")
 
 	// Verify task executed (no panic)
 	assert.True(t, true)
@@ -1009,7 +1009,7 @@ func TestApp_loadInitialData_AllSourcesFailed(t *testing.T) {
 	app.userCache.Set([]define.AllowListUser{})
 
 	// Test loading when all sources fail
-	err := app.loadInitialData("/nonexistent/file.json")
+	err := app.loadInitialData("/nonexistent/file.json", "")
 	assert.NoError(t, err, "所有源失败时不应该返回错误，只是没有数据")
 	assert.Equal(t, 0, app.userCache.Len(), "所有源失败时缓存应该为空")
 }
@@ -1049,7 +1049,7 @@ func TestApp_loadInitialData_RemoteFirst(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 
 	// Test loading (remote fails, should fallback to local)
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	assert.NoError(t, err, "远程失败时应该回退到本地文件")
 	assert.Greater(t, app.userCache.Len(), 0, "应该从本地文件加载数据")
 }
@@ -1089,7 +1089,7 @@ func TestApp_backgroundTask_RemoteMode(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 
 	// Run background task (will try remote first, then fallback to local)
-	app.backgroundTask(tmpFile.Name())
+	app.backgroundTask(tmpFile.Name(), "")
 
 	// Verify task executed without panic
 	assert.True(t, true, "后台任务应该执行完成")
@@ -1218,7 +1218,7 @@ func TestApp_loadInitialData_WithRemoteKey(t *testing.T) {
 	app.configURL = remoteServer.URL
 
 	// Test loading with remote key (will fail, but tests the code path)
-	err := app.loadInitialData("/nonexistent/file.json")
+	err := app.loadInitialData("/nonexistent/file.json", "")
 	assert.NoError(t, err, "应该处理远程密钥配置")
 }
 
@@ -1252,7 +1252,7 @@ func TestApp_backgroundTask_DataConsistency(t *testing.T) {
 	require.NoError(t, tmpFile.Close())
 
 	// Load initial data
-	err = app.loadInitialData(tmpFile.Name())
+	err = app.loadInitialData(tmpFile.Name(), "")
 	require.NoError(t, err)
 
 	// Modify cache hash to simulate inconsistency
@@ -1261,7 +1261,7 @@ func TestApp_backgroundTask_DataConsistency(t *testing.T) {
 	})
 
 	// Run background task (should detect inconsistency)
-	app.backgroundTask(tmpFile.Name())
+	app.backgroundTask(tmpFile.Name(), "")
 
 	// Verify task executed
 	assert.True(t, true, "后台任务应该执行完成")
@@ -1337,7 +1337,7 @@ func TestRegisterRoutes_AllEndpoints(t *testing.T) {
 	registerRoutes(app)
 
 	// Test all endpoints
-	endpoints := []string{"/", "/user", "/health", "/healthcheck", "/metrics", "/log/level"}
+	endpoints := []string{"/", "/data.json", "/user", "/health", "/healthcheck", "/metrics", "/log/level"}
 	for _, endpoint := range endpoints {
 		_, pattern := http.DefaultServeMux.Handler(&http.Request{
 			Method: "GET",
