@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -472,19 +473,25 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type CmdConfigData struct {
-	Port             string // 16 bytes
-	Redis            string // 16 bytes
-	RedisPassword    string // 16 bytes
-	RedisEnabled     bool   // 1 byte (padding to 8 bytes)
-	RemoteConfig     string // 16 bytes
-	RemoteKey        string // 16 bytes
-	Mode             string // 16 bytes
-	APIKey           string // 16 bytes
-	DataFile         string // 16 bytes - local user data file path
-	TaskInterval     int    // 8 bytes
-	HTTPTimeout      int    // 8 bytes
-	HTTPMaxIdleConns int    // 8 bytes
-	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
+	Port                 string // 16 bytes
+	Redis                string // 16 bytes
+	RedisPassword        string // 16 bytes
+	RedisEnabled         bool   // 1 byte (padding to 8 bytes)
+	RemoteConfig         string // 16 bytes
+	RemoteKey            string // 16 bytes
+	Mode                 string // 16 bytes
+	APIKey               string // 16 bytes
+	DataFile             string // 16 bytes - local user data file path
+	TaskInterval         int    // 8 bytes
+	HTTPTimeout          int    // 8 bytes
+	HTTPMaxIdleConns     int    // 8 bytes
+	HTTPInsecureTLS      bool   // 1 byte (padding to 8 bytes)
+	HMACKeys             string // WARDEN_HMAC_KEYS
+	HMACToleranceSec     int    // WARDEN_HMAC_TIMESTAMP_TOLERANCE
+	TLSCertFile          string // WARDEN_TLS_CERT
+	TLSKeyFile           string // WARDEN_TLS_KEY
+	TLSCAFile            string // WARDEN_TLS_CA
+	TLSRequireClientCert bool   // WARDEN_TLS_REQUIRE_CLIENT_CERT
 }
 
 // ToCmdConfig converts to cmd.Config format
@@ -513,19 +520,40 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 	if dataFile == "" {
 		dataFile = define.DEFAULT_DATA_FILE
 	}
+	// Service-to-service auth: from env only (no YAML fields yet)
+	hmacKeys := strings.TrimSpace(os.Getenv("WARDEN_HMAC_KEYS"))
+	hmacTolerance := 0
+	if v := strings.TrimSpace(os.Getenv("WARDEN_HMAC_TIMESTAMP_TOLERANCE")); v != "" {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			hmacTolerance = i
+		}
+	}
+	if hmacTolerance <= 0 && hmacKeys != "" {
+		hmacTolerance = 60
+	}
+	tlsRequire := false
+	if v := strings.TrimSpace(os.Getenv("WARDEN_TLS_REQUIRE_CLIENT_CERT")); v != "" {
+		tlsRequire = strings.EqualFold(v, "true") || v == "1"
+	}
 	return &CmdConfigData{
-		Port:             c.Server.Port,
-		Redis:            c.Redis.Addr,
-		RedisPassword:    redisPassword,
-		RedisEnabled:     redisEnabled,
-		RemoteConfig:     c.Remote.URL,
-		RemoteKey:        c.Remote.Key,
-		TaskInterval:     int(c.Task.Interval.Seconds()),
-		Mode:             mode,
-		DataFile:         dataFile,
-		HTTPTimeout:      int(c.HTTP.Timeout.Seconds()),
-		HTTPMaxIdleConns: c.HTTP.MaxIdleConns,
-		HTTPInsecureTLS:  c.HTTP.InsecureTLS,
-		APIKey:           c.App.APIKey,
+		Port:                 c.Server.Port,
+		Redis:                c.Redis.Addr,
+		RedisPassword:        redisPassword,
+		RedisEnabled:         redisEnabled,
+		RemoteConfig:         c.Remote.URL,
+		RemoteKey:            c.Remote.Key,
+		TaskInterval:         int(c.Task.Interval.Seconds()),
+		Mode:                 mode,
+		DataFile:             dataFile,
+		HTTPTimeout:          int(c.HTTP.Timeout.Seconds()),
+		HTTPMaxIdleConns:     c.HTTP.MaxIdleConns,
+		HTTPInsecureTLS:      c.HTTP.InsecureTLS,
+		APIKey:               c.App.APIKey,
+		HMACKeys:             hmacKeys,
+		HMACToleranceSec:     hmacTolerance,
+		TLSCertFile:          strings.TrimSpace(os.Getenv("WARDEN_TLS_CERT")),
+		TLSKeyFile:           strings.TrimSpace(os.Getenv("WARDEN_TLS_KEY")),
+		TLSCAFile:            strings.TrimSpace(os.Getenv("WARDEN_TLS_CA")),
+		TLSRequireClientCert: tlsRequire,
 	}
 }

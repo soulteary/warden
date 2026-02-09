@@ -24,19 +24,25 @@ import (
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Config struct {
-	Port             string // 16 bytes
-	Redis            string // 16 bytes
-	RedisPassword    string // 16 bytes
-	RedisEnabled     bool   // 1 byte (padding to 8 bytes)
-	RemoteConfig     string // 16 bytes
-	RemoteKey        string // 16 bytes
-	Mode             string // 16 bytes
-	APIKey           string // 16 bytes
-	DataFile         string // 16 bytes - local user data file path
-	TaskInterval     int    // 8 bytes
-	HTTPTimeout      int    // 8 bytes
-	HTTPMaxIdleConns int    // 8 bytes
-	HTTPInsecureTLS  bool   // 1 byte (padding to 8 bytes)
+	Port                 string // 16 bytes
+	Redis                string // 16 bytes
+	RedisPassword        string // 16 bytes
+	RedisEnabled         bool   // 1 byte (padding to 8 bytes)
+	RemoteConfig         string // 16 bytes
+	RemoteKey            string // 16 bytes
+	Mode                 string // 16 bytes
+	APIKey               string // 16 bytes
+	DataFile             string // 16 bytes - local user data file path
+	TaskInterval         int    // 8 bytes
+	HTTPTimeout          int    // 8 bytes
+	HTTPMaxIdleConns     int    // 8 bytes
+	HTTPInsecureTLS      bool   // 1 byte (padding to 8 bytes)
+	HMACKeys             string // JSON map key_id -> secret (env WARDEN_HMAC_KEYS)
+	HMACToleranceSec     int    // env WARDEN_HMAC_TIMESTAMP_TOLERANCE, default 60
+	TLSCertFile          string // env WARDEN_TLS_CERT
+	TLSKeyFile           string // env WARDEN_TLS_KEY
+	TLSCAFile            string // env WARDEN_TLS_CA (client CA for mTLS)
+	TLSRequireClientCert bool   // env WARDEN_TLS_REQUIRE_CLIENT_CERT
 }
 
 // flagValues holds parsed flag values
@@ -304,6 +310,34 @@ func processDataFileFromFlags(cfg *Config, fs *flag.FlagSet) {
 	}
 }
 
+// processServiceAuthFromEnv reads service-to-service auth config from env (no CLI flags).
+const (
+	defaultHMACToleranceSec = 60
+)
+
+func processServiceAuthFromEnv(cfg *Config) {
+	if v := env.GetTrimmed("WARDEN_HMAC_KEYS", ""); v != "" {
+		cfg.HMACKeys = v
+	}
+	if v := env.GetInt("WARDEN_HMAC_TIMESTAMP_TOLERANCE", 0); v > 0 {
+		cfg.HMACToleranceSec = v
+	} else if cfg.HMACToleranceSec <= 0 && cfg.HMACKeys != "" {
+		cfg.HMACToleranceSec = defaultHMACToleranceSec
+	}
+	if v := env.GetTrimmed("WARDEN_TLS_CERT", ""); v != "" {
+		cfg.TLSCertFile = v
+	}
+	if v := env.GetTrimmed("WARDEN_TLS_KEY", ""); v != "" {
+		cfg.TLSKeyFile = v
+	}
+	if v := env.GetTrimmed("WARDEN_TLS_CA", ""); v != "" {
+		cfg.TLSCAFile = v
+	}
+	if v := env.GetTrimmed("WARDEN_TLS_REQUIRE_CLIENT_CERT", ""); v != "" {
+		cfg.TLSRequireClientCert = strings.EqualFold(v, "true") || v == "1"
+	}
+}
+
 // getArgsFromFlags loads configuration from command-line arguments and environment variables (original logic)
 func getArgsFromFlags() *Config {
 	cfg := &Config{
@@ -355,6 +389,7 @@ func getArgsFromFlags() *Config {
 	processHTTPFromFlags(cfg, fs, flagVals)
 	processAPIKeyFromFlags(cfg, fs)
 	processDataFileFromFlags(cfg, fs)
+	processServiceAuthFromEnv(cfg)
 
 	return cfg
 }
@@ -362,19 +397,25 @@ func getArgsFromFlags() *Config {
 // convertToConfig converts internal configuration type to Config
 func convertToConfig(cfg *config.CmdConfigData) *Config {
 	return &Config{
-		Port:             cfg.Port,
-		Redis:            cfg.Redis,
-		RedisPassword:    cfg.RedisPassword,
-		RedisEnabled:     cfg.RedisEnabled,
-		RemoteConfig:     cfg.RemoteConfig,
-		RemoteKey:        cfg.RemoteKey,
-		TaskInterval:     cfg.TaskInterval,
-		Mode:             cfg.Mode,
-		DataFile:         cfg.DataFile,
-		HTTPTimeout:      cfg.HTTPTimeout,
-		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
-		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
-		APIKey:           cfg.APIKey,
+		Port:                 cfg.Port,
+		Redis:                cfg.Redis,
+		RedisPassword:        cfg.RedisPassword,
+		RedisEnabled:         cfg.RedisEnabled,
+		RemoteConfig:         cfg.RemoteConfig,
+		RemoteKey:            cfg.RemoteKey,
+		TaskInterval:         cfg.TaskInterval,
+		Mode:                 cfg.Mode,
+		DataFile:             cfg.DataFile,
+		HTTPTimeout:          cfg.HTTPTimeout,
+		HTTPMaxIdleConns:     cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:      cfg.HTTPInsecureTLS,
+		APIKey:               cfg.APIKey,
+		HMACKeys:             cfg.HMACKeys,
+		HMACToleranceSec:     cfg.HMACToleranceSec,
+		TLSCertFile:          cfg.TLSCertFile,
+		TLSKeyFile:           cfg.TLSKeyFile,
+		TLSCAFile:            cfg.TLSCAFile,
+		TLSRequireClientCert: cfg.TLSRequireClientCert,
 	}
 }
 
@@ -464,19 +505,25 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 
 	// Convert CmdConfigData to Config for processing
 	tempCfg := &Config{
-		Port:             cfg.Port,
-		Redis:            cfg.Redis,
-		RedisPassword:    cfg.RedisPassword,
-		RedisEnabled:     cfg.RedisEnabled,
-		RemoteConfig:     cfg.RemoteConfig,
-		RemoteKey:        cfg.RemoteKey,
-		Mode:             cfg.Mode,
-		APIKey:           cfg.APIKey,
-		DataFile:         cfg.DataFile,
-		TaskInterval:     cfg.TaskInterval,
-		HTTPTimeout:      cfg.HTTPTimeout,
-		HTTPMaxIdleConns: cfg.HTTPMaxIdleConns,
-		HTTPInsecureTLS:  cfg.HTTPInsecureTLS,
+		Port:                 cfg.Port,
+		Redis:                cfg.Redis,
+		RedisPassword:        cfg.RedisPassword,
+		RedisEnabled:         cfg.RedisEnabled,
+		RemoteConfig:         cfg.RemoteConfig,
+		RemoteKey:            cfg.RemoteKey,
+		Mode:                 cfg.Mode,
+		APIKey:               cfg.APIKey,
+		DataFile:             cfg.DataFile,
+		TaskInterval:         cfg.TaskInterval,
+		HTTPTimeout:          cfg.HTTPTimeout,
+		HTTPMaxIdleConns:     cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:      cfg.HTTPInsecureTLS,
+		HMACKeys:             cfg.HMACKeys,
+		HMACToleranceSec:     cfg.HMACToleranceSec,
+		TLSCertFile:          cfg.TLSCertFile,
+		TLSKeyFile:           cfg.TLSKeyFile,
+		TLSCAFile:            cfg.TLSCAFile,
+		TLSRequireClientCert: cfg.TLSRequireClientCert,
 	}
 
 	// Process each configuration item using unified processing functions
@@ -489,6 +536,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	processHTTPFromFlags(tempCfg, emptyFs, nil)
 	processAPIKeyFromFlags(tempCfg, emptyFs)
 	processDataFileFromFlags(tempCfg, emptyFs)
+	processServiceAuthFromEnv(tempCfg)
 
 	// Copy back to CmdConfigData
 	cfg.Port = tempCfg.Port
@@ -504,4 +552,10 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns
 	cfg.HTTPInsecureTLS = tempCfg.HTTPInsecureTLS
+	cfg.HMACKeys = tempCfg.HMACKeys
+	cfg.HMACToleranceSec = tempCfg.HMACToleranceSec
+	cfg.TLSCertFile = tempCfg.TLSCertFile
+	cfg.TLSKeyFile = tempCfg.TLSKeyFile
+	cfg.TLSCAFile = tempCfg.TLSCAFile
+	cfg.TLSRequireClientCert = tempCfg.TLSRequireClientCert
 }

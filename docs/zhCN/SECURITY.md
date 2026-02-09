@@ -210,11 +210,13 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
 
 ## 服务间鉴权（可选）
 
-如果选择与其他服务（如 Stargate）集成使用，可以进行服务间鉴权以确保安全性。Warden 支持以下两种鉴权方式：
+如果选择与其他服务（如 Stargate）集成使用，可以进行服务间鉴权以确保安全性。
+
+**当前实现**：Warden 支持三种服务间鉴权方式，优先级为 **mTLS > HMAC > API Key**。配置 mTLS 或 HMAC 后，通过验证的请求将不再校验 API Key；未配置或验证未通过时回退到 API Key。
 
 **注意**：如果 Warden 独立使用，服务间鉴权是可选的。
 
-### mTLS（推荐）
+### mTLS（已实现/推荐）
 
 使用双向 TLS 证书进行身份验证，提供更高的安全性。
 
@@ -249,7 +251,7 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
    - 配置客户端证书路径
    - 配置 CA 证书路径以验证 Warden 服务端证书
 
-### HMAC 签名
+### HMAC 签名（已实现）
 
 使用 HMAC-SHA256 签名验证请求，更易于部署。
 
@@ -306,9 +308,9 @@ req.Header.Set("X-Key-Id", "key-id-1")
 
 ### 配置优先级
 
-1. **mTLS**：如果配置了 TLS 证书，优先使用 mTLS
-2. **HMAC**：如果未配置 mTLS，则使用 HMAC 签名
-3. **API Key**：如果两者都未配置，则回退到 API Key 认证（不推荐用于服务间调用）
+1. **mTLS**：若配置了 `WARDEN_TLS_CERT` 与 `WARDEN_TLS_KEY`，且请求携带并验证通过客户端证书，则视为已鉴权
+2. **HMAC**：若未走 mTLS 且请求带有有效的 `X-Signature`/`X-Timestamp`/`X-Key-Id`，则视为已鉴权
+3. **API Key**：以上均未通过时，使用 API Key（`X-API-Key` 或 `Authorization: Bearer`）保护 `/`、`/user`、`/v1/lookup`、`/log/level` 等端点
 
 ### 安全建议
 

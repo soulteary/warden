@@ -41,4 +41,16 @@ task:
 app:
   mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
   api_key: ""  # API Key 用于认证（敏感信息，强烈建议使用环境变量 API_KEY）
+  data_file: "./data.json"  # 本地用户数据文件路径
 
+tracing:
+  enabled: false  # 是否启用 OpenTelemetry 追踪
+  endpoint: ""    # OTLP 端点（如 "http://localhost:4318"），enabled 为 true 时必填
+
+# 服务间鉴权（mTLS / HMAC）仅通过环境变量配置，不在此 YAML 中设置：
+#   WARDEN_HMAC_KEYS='{"key-id":"secret"}'  # HMAC 密钥（JSON）
+#   WARDEN_HMAC_TIMESTAMP_TOLERANCE=60      # 时间戳容差（秒）
+#   WARDEN_TLS_CERT=/path/to/warden.crt     # 服务端证书（与 KEY 同时设置则启用 TLS）
+#   WARDEN_TLS_KEY=/path/to/warden.key      # 服务端私钥
+#   WARDEN_TLS_CA=/path/to/ca.crt           # 客户端 CA（mTLS）
+#   WARDEN_TLS_REQUIRE_CLIENT_CERT=true     # 是否要求客户端证书

@@ -5,6 +5,9 @@ package main
 import (
 	// Standard library
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -38,22 +41,30 @@ import (
 	"github.com/soulteary/warden/pkg/gocron"
 )
 
-// App application struct that encapsulates all application state
+// App application struct that encapsulates all application state.
+//
+//nolint:govet // fieldalignment: keep field order for readability; optional size win would reorder pointers/strings/bools
 type App struct {
-	userCache           *cache.SafeUserCache       // 8 bytes pointer
-	redisUserCache      *cache.RedisUserCache      // 8 bytes pointer
-	redisClient         *redis.Client              // 8 bytes pointer
-	rateLimiter         *middlewarekit.RateLimiter // 8 bytes pointer
-	rulesLoader         *loader.RulesLoader        // rules loader (parser-kit)
-	log                 *loggerkit.Logger          // logger-kit instance
-	port                string                     // 16 bytes
-	configURL           string                     // 16 bytes
-	authorizationHeader string                     // 16 bytes
-	appMode             string                     // 16 bytes
-	apiKey              string                     // 16 bytes
-	dataFile            string                     // 16 bytes - local user data file path
-	taskInterval        uint64                     // 8 bytes
-	redisEnabled        bool                       // 1 byte (padding to 8 bytes)
+	userCache            *cache.SafeUserCache
+	redisUserCache       *cache.RedisUserCache
+	redisClient          *redis.Client
+	rateLimiter          *middlewarekit.RateLimiter
+	rulesLoader          *loader.RulesLoader
+	log                  *loggerkit.Logger
+	port                 string
+	configURL            string
+	authorizationHeader  string
+	appMode              string
+	apiKey               string
+	dataFile             string
+	taskInterval         uint64
+	redisEnabled         bool
+	hmacKeys             map[string]string
+	hmacToleranceSec     int
+	tlsCertFile          string
+	tlsKeyFile           string
+	tlsCAFile            string
+	tlsRequireClientCert bool
 }
 
 // NewApp creates a new application instance
@@ -65,10 +76,23 @@ func NewApp(cfg *cmd.Config) *App {
 		appMode:             cfg.Mode,
 		dataFile:            cfg.DataFile,
 		// #nosec G115 -- conversion is safe, TaskInterval is positive
-		taskInterval: uint64(cfg.TaskInterval),
-		apiKey:       cfg.APIKey,
-		redisEnabled: cfg.RedisEnabled,
-		log:          logger.GetLoggerKit(),
+		taskInterval:         uint64(cfg.TaskInterval),
+		apiKey:               cfg.APIKey,
+		redisEnabled:         cfg.RedisEnabled,
+		log:                  logger.GetLoggerKit(),
+		hmacToleranceSec:     cfg.HMACToleranceSec,
+		tlsCertFile:          cfg.TLSCertFile,
+		tlsKeyFile:           cfg.TLSKeyFile,
+		tlsCAFile:            cfg.TLSCAFile,
+		tlsRequireClientCert: cfg.TLSRequireClientCert,
+	}
+	if cfg.HMACKeys != "" {
+		var keys map[string]string
+		if err := json.Unmarshal([]byte(cfg.HMACKeys), &keys); err != nil {
+			app.log.Warn().Err(err).Msg("WARDEN_HMAC_KEYS invalid JSON, HMAC auth disabled")
+		} else {
+			app.hmacKeys = keys
+		}
 	}
 
 	if cfg.HTTPInsecureTLS {
@@ -427,9 +451,10 @@ func (app *App) backgroundTask(rulesFile string) {
 		Msg(i18n.TWithLang(i18n.LangZH, "log.background_update"))
 }
 
-// startServer starts HTTP server
-func startServer(port string) *http.Server {
-	return &http.Server{
+// startServer starts HTTP server. When tlsCertFile and tlsKeyFile are set, TLS (and optional mTLS) is enabled;
+// the caller must use ListenAndServeTLS(certFile, keyFile) instead of ListenAndServe().
+func startServer(port, tlsCertFile, tlsKeyFile, tlsCAFile string, tlsRequireClientCert bool) *http.Server {
+	srv := &http.Server{
 		Addr:              ":" + port,
 		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
 		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
@@ -437,6 +462,44 @@ func startServer(port string) *http.Server {
 		IdleTimeout:       define.IDLE_TIMEOUT,
 		MaxHeaderBytes:    define.MAX_HEADER_BYTES,
 	}
+	if tlsCertFile != "" && tlsKeyFile != "" {
+		tlsCfg, err := buildTLSConfig(tlsCertFile, tlsKeyFile, tlsCAFile, tlsRequireClientCert)
+		if err != nil {
+			logger.GetLoggerKit().Fatal().Err(err).Msg("Failed to build TLS config for mTLS")
+		}
+		srv.TLSConfig = tlsCfg
+	}
+	return srv
+}
+
+// buildTLSConfig builds tls.Config for server and optional client cert verification (mTLS).
+func buildTLSConfig(certFile, keyFile, caFile string, requireClientCert bool) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load TLS cert/key: %w", err)
+	}
+	cfg := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+	if caFile != "" {
+		// #nosec G304 -- caFile is from trusted config (env WARDEN_TLS_CA), not user input
+		caPEM, err := os.ReadFile(caFile)
+		if err != nil {
+			return nil, fmt.Errorf("read client CA: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("parse client CA failed")
+		}
+		cfg.ClientCAs = pool
+		if requireClientCert {
+			cfg.ClientAuth = tls.RequireAndVerifyClientCert
+		} else {
+			cfg.ClientAuth = tls.VerifyClientCertIfGiven
+		}
+	}
+	return cfg, nil
 }
 
 // shutdownServer gracefully shuts down the server
@@ -565,11 +628,17 @@ func main() {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_init_failed"))
 	}
 
-	// Start server
-	srv := startServer(app.port)
+	// Start server (TLS/mTLS when cert and key are set)
+	srv := startServer(app.port, app.tlsCertFile, app.tlsKeyFile, app.tlsCAFile, app.tlsRequireClientCert)
 	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.service_listening"), app.port)
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var err error
+		if app.tlsCertFile != "" && app.tlsKeyFile != "" {
+			err = srv.ListenAndServeTLS(app.tlsCertFile, app.tlsKeyFile)
+		} else {
+			err = srv.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			app.log.Fatal().
 				Err(err).
 				Msgf(i18n.TWithLang(i18n.LangZH, "log.startup_error"), err)

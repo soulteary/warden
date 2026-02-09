@@ -243,7 +243,7 @@ func TestApp_checkDataChanged(t *testing.T) {
 
 // TestStartServer tests server startup configuration
 func TestStartServer(t *testing.T) {
-	srv := startServer("8081")
+	srv := startServer("8081", "", "", "", false)
 	require.NotNil(t, srv)
 	assert.Equal(t, ":8081", srv.Addr)
 	assert.NotZero(t, srv.ReadTimeout)

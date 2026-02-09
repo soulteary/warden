@@ -2,7 +2,72 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONFIGURATION.md) | [中文](CONFIGURATION.md) | [Français](../frFR/CONFIGURATION.md) | [Italiano](../itIT/CONFIGURATION.md) | [日本語](../jaJP/CONFIGURATION.md) | [Deutsch](../deDE/CONFIGURATION.md) | [한국어](../koKR/CONFIGURATION.md)
 
-本文档详细说明 Warden 的配置选项，包括运行模式、配置文件格式、环境变量等。
+本文档详细说明 Warden 的配置选项，包括运行模式、配置文件格式、环境变量等。配置来源优先级：**命令行参数 > 环境变量 > 配置文件 (YAML) > 默认值**。
+
+## 配置项总览
+
+以下为当前代码实际支持的配置项与默认值（参见 `internal/config/config.go`、`internal/define/define.go`、`internal/cmd/cmd.go`）：
+
+| 分类 | 配置项 | YAML 路径 | 环境变量 | 默认值 |
+|------|--------|-----------|----------|--------|
+| 服务 | 端口 | `server.port` | `PORT` | `8081` |
+| 服务 | 读超时 | `server.read_timeout` | — | `5s` |
+| 服务 | 写超时 | `server.write_timeout` | — | `5s` |
+| 服务 | 关闭超时 | `server.shutdown_timeout` | — | `5s` |
+| 服务 | 空闲超时 | `server.idle_timeout` | — | `120s` |
+| 服务 | 最大请求头 | `server.max_header_bytes` | — | `1048576` (1MB) |
+| Redis | 地址 | `redis.addr` | `REDIS` | `localhost:6379` |
+| Redis | 密码 | `redis.password` | `REDIS_PASSWORD` | 空 |
+| Redis | 密码文件 | `redis.password_file` | `REDIS_PASSWORD_FILE` | 空 |
+| Redis | DB 索引 | `redis.db` | — | `0` |
+| Redis | 是否启用 | — | `REDIS_ENABLED` | `true`（仅 `ONLY_LOCAL` 且未设 REDIS 时为 `false`） |
+| 缓存 | TTL | `cache.ttl` | — | 无（仅 `update_interval` 有默认） |
+| 缓存 | 更新间隔 | `cache.update_interval` | — | `5s` |
+| 限流 | 速率 | `rate_limit.rate` | — | `60`（次/分钟） |
+| 限流 | 窗口 | `rate_limit.window` | — | `1m` |
+| HTTP 客户端 | 超时 | `http.timeout` | `HTTP_TIMEOUT` | `5s` |
+| HTTP 客户端 | 最大空闲连接 | `http.max_idle_conns` | `HTTP_MAX_IDLE_CONNS` | `100` |
+| HTTP 客户端 | 跳过 TLS 验证 | `http.insecure_tls` | `HTTP_INSECURE_TLS` | `false` |
+| HTTP 客户端 | 最大重试 | `http.max_retries` | — | `3` |
+| HTTP 客户端 | 重试延迟 | `http.retry_delay` | — | `1s` |
+| 远程 | URL | `remote.url` | `CONFIG` | `http://localhost:8080/data.json` |
+| 远程 | 认证 Key | `remote.key` | `KEY` | 空 |
+| 远程 | 模式 | `remote.mode` / `app.mode` | `MODE` | `DEFAULT` |
+| 任务 | 间隔 | `task.interval` | `INTERVAL` | `5`（秒） |
+| 应用 | 模式 | `app.mode` | `MODE` | `DEFAULT` |
+| 应用 | API Key | `app.api_key` | `API_KEY` | 空 |
+| 应用 | 本地数据文件 | `app.data_file` | `DATA_FILE` | `./data.json` |
+| 追踪 | 启用 | `tracing.enabled` | `OTLP_ENABLED` | `false` |
+| 追踪 | OTLP 端点 | `tracing.endpoint` | `OTLP_ENDPOINT` | 空 |
+| 其他 | 配置文件路径 | — | `CONFIG_FILE` | 空（用于仅通过环境变量指定 YAML 时加载 tracing 等） |
+| 其他 | 信任代理 IP | — | `TRUSTED_PROXY_IPS` | 空 |
+| 其他 | 健康检查 IP 白名单 | — | `HEALTH_CHECK_IP_WHITELIST` | 空 |
+| 其他 | 全局 IP 白名单 | — | `IP_WHITELIST` | 空 |
+| 其他 | 日志级别 | — | `LOG_LEVEL` | `info` |
+| 服务间鉴权 | HMAC 密钥（JSON） | — | `WARDEN_HMAC_KEYS` | 空 |
+| 服务间鉴权 | HMAC 时间戳容差（秒） | — | `WARDEN_HMAC_TIMESTAMP_TOLERANCE` | `60`（仅当配置了 HMAC 时） |
+| 服务间鉴权 | TLS 服务端证书路径 | — | `WARDEN_TLS_CERT` | 空 |
+| 服务间鉴权 | TLS 服务端私钥路径 | — | `WARDEN_TLS_KEY` | 空 |
+| 服务间鉴权 | 客户端 CA 路径（mTLS） | — | `WARDEN_TLS_CA` | 空 |
+| 服务间鉴权 | 是否要求客户端证书 | — | `WARDEN_TLS_REQUIRE_CLIENT_CERT` | `false` |
+
+说明：
+- 使用 `--config-file` 时，主配置（端口、Redis、远程、任务等）从 YAML 加载，环境变量仍可覆盖；**当前实现下，主程序不会从该 YAML 读取 `tracing` 段**，需通过环境变量 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用追踪，或设置 `CONFIG_FILE` 指向同一/另一 YAML 以从文件启用 tracing。
+- 未使用 `--config-file` 时，可通过 `CONFIG_FILE` 指定 YAML 路径，用于从文件读取 `tracing` 等（主配置仍来自命令行/环境变量）。
+- OpenTelemetry 也可仅通过 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用，无需 YAML。
+
+## 配置校验规则
+
+启动时 `cmd.ValidateConfig` 会校验以下项（参见 `internal/cmd/validate.go`），不通过则退出：
+
+| 项 | 规则 |
+|----|------|
+| 端口 | 合法端口格式（cli-kit `ValidatePortString`） |
+| Redis | 非空时为 `host:port` 格式（cli-kit `ValidateHostPort`） |
+| 远程 URL | 非默认且非空时须为合法 URL（SSRF 校验） |
+| 任务间隔 | `TaskInterval >= 1`（秒） |
+| 模式 | 须为枚举之一：`DEFAULT`、`REMOTE_FIRST`、`ONLY_REMOTE`、`ONLY_LOCAL`、`LOCAL_FIRST`、`REMOTE_FIRST_ALLOW_REMOTE_FAILED`、`LOCAL_FIRST_ALLOW_REMOTE_FAILED` |
+| 生产 + TLS | `app.mode` 为 `production`/`prod` 时禁止 `http.insecure_tls: true`（config 层校验） |
 
 ## 运行模式 (MODE)
 
@@ -149,11 +214,17 @@ task:
 
 app:
   mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
+  api_key: ""      # 建议使用环境变量 API_KEY
+  data_file: "./data.json"
+
+tracing:
+  enabled: false
+  endpoint: ""     # 例如 "http://localhost:4318"
 ```
 
 **配置优先级**：命令行参数 > 环境变量 > 配置文件 > 默认值
 
-参考示例文件：[config.example.yaml](../config.example.yaml)
+参考示例文件：[config.example.yaml](../../config.example.yaml)
 
 ## 命令行参数
 
@@ -171,6 +242,7 @@ go run . \
   --http-max-idle-conns 100 \     # HTTP 最大空闲连接数 (默认: 100)
   --http-insecure-tls \           # 跳过 TLS 证书验证（仅用于开发环境）
   --api-key "your-secret-api-key" \ # API Key 用于认证（可选，建议使用环境变量）
+  --data-file ./data.json \        # 本地用户数据文件路径（默认: ./data.json）
   --config-file config.yaml        # 配置文件路径（支持 YAML 格式）
 ```
 
@@ -193,16 +265,26 @@ export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认:
                                         #       但如果显式设置了 REDIS 地址，则会自动启用 Redis
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
-export INTERVAL=5
+export INTERVAL=5                      # 定时任务间隔（秒）；仅在不使用配置文件时生效（使用 YAML 时 task.interval 来自文件，INTERVAL 不参与覆盖）
 export MODE=DEFAULT
-export HTTP_TIMEOUT=5                  # HTTP 请求超时时间（秒）
+export DATA_FILE=./data.json          # 本地用户数据文件路径
+export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 duration，如 30s、1m30s）
 export HTTP_MAX_IDLE_CONNS=100         # HTTP 最大空闲连接数
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
 export API_KEY="your-secret-api-key"   # API Key 用于认证（强烈建议设置）
+export CONFIG_FILE=config.yaml         # 配置文件路径（可选；用于在不使用 --config-file 时仍从 YAML 加载 tracing 等）
+export OTLP_ENABLED=false              # 是否启用 OpenTelemetry（true/false 或 1/0）
+export OTLP_ENDPOINT=http://localhost:4318  # OTLP 端点，OTLP_ENABLED 为 true 时必填
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # 信任的代理 IP 列表（逗号分隔）
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # 健康检查端点 IP 白名单（可选）
 export IP_WHITELIST="192.168.1.0/24"  # 全局 IP 白名单（可选）
 export LOG_LEVEL="info"                # 日志级别（可选，默认: info，可选值: trace, debug, info, warn, error, fatal, panic）
+export WARDEN_HMAC_KEYS='{"key-id-1":"secret-1"}'  # 服务间 HMAC 鉴权密钥（JSON，可选）
+export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60         # HMAC 时间戳容差（秒），默认 60
+export WARDEN_TLS_CERT=/path/to/warden.crt        # 服务端 TLS 证书（可选，与 KEY 同时设置则启用 TLS）
+export WARDEN_TLS_KEY=/path/to/warden.key         # 服务端 TLS 私钥
+export WARDEN_TLS_CA=/path/to/ca.crt              # 客户端 CA（mTLS 时验证客户端证书）
+export WARDEN_TLS_REQUIRE_CLIENT_CERT=true        # 是否强制要求客户端证书（mTLS）
 ```
 
 **环境变量优先级**：
@@ -239,97 +321,19 @@ API 响应格式应与 `data.json` 文件格式一致：
 Authorization: Bearer your-token-here
 ```
 
-## 可选服务集成配置
+## 与 Stargate 集成（调用方配置）
 
-如果选择与其他服务（如 Stargate）集成使用，可以配置服务间鉴权。以下是相关配置项：
-
-**注意**：如果 Warden 独立使用，以下配置是可选的。
-
-### mTLS 配置（推荐）
-
-使用双向 TLS 证书进行服务间鉴权：
-
-**环境变量**：
-```bash
-# Warden 服务端证书
-export WARDEN_TLS_CERT=/path/to/warden.crt
-export WARDEN_TLS_KEY=/path/to/warden.key
-export WARDEN_TLS_CA=/path/to/ca.crt
-
-# 是否要求客户端证书（mTLS）
-export WARDEN_TLS_REQUIRE_CLIENT_CERT=true
-
-# TLS 监听端口（可选，默认使用 HTTP_PORT）
-export WARDEN_TLS_PORT=8443
-```
-
-**配置文件**（`config.yaml`）：
-```yaml
-tls:
-  cert: "/path/to/warden.crt"
-  key: "/path/to/warden.key"
-  ca: "/path/to/ca.crt"
-  require_client_cert: true
-  port: 8443
-```
-
-### HMAC 签名配置
-
-使用 HMAC-SHA256 签名进行服务间鉴权：
-
-**环境变量**：
-```bash
-# HMAC 密钥（JSON 格式，支持多个密钥用于轮换）
-export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
-
-# 时间戳容差（秒），默认 60
-export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
-```
-
-**配置文件**（`config.yaml`）：
-```yaml
-hmac:
-  keys:
-    key-id-1: "secret-key-1"
-    key-id-2: "secret-key-2"
-  timestamp_tolerance: 60
-```
-
-### Stargate 调用配置
-
-Stargate 需要配置 Warden 服务地址和认证信息：
+Warden 支持 **mTLS、HMAC、API Key** 三种服务间鉴权（优先级 mTLS > HMAC > API Key）。若由 Stargate 调用 Warden，请在 **Stargate 侧**配置 Warden 服务地址与认证方式：
 
 **Stargate 配置示例**（环境变量）：
 ```bash
-# Warden 服务地址
+# Warden 服务地址（启用 TLS 时使用 https）
 export STARGATE_WARDEN_BASE_URL=http://warden:8081
 
-# 服务间鉴权方式（mTLS 或 HMAC）
-export STARGATE_WARDEN_AUTH_TYPE=hmac
-
-# HMAC 配置（如果使用 HMAC）
-export STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
-export STARGATE_WARDEN_HMAC_SECRET=secret-key-1
-
-# mTLS 配置（如果使用 mTLS）
-export STARGATE_WARDEN_TLS_CERT=/path/to/stargate.crt
-export STARGATE_WARDEN_TLS_KEY=/path/to/stargate.key
-export STARGATE_WARDEN_TLS_CA=/path/to/ca.crt
+# 认证方式一：API Key（与 Warden API_KEY 一致）
+# 认证方式二：HMAC（与 Warden WARDEN_HMAC_KEYS 中某 key 的 secret 一致，请求时带 X-Signature、X-Timestamp、X-Key-Id）
+# 认证方式三：mTLS（Stargate 配置客户端证书，Warden 配置 WARDEN_TLS_*）
 ```
-
-### 配置优先级
-
-1. **mTLS**：如果配置了 TLS 证书，优先使用 mTLS
-2. **HMAC**：如果未配置 mTLS，则使用 HMAC 签名
-3. **API Key**：如果两者都未配置，则回退到 API Key 认证（不推荐用于服务间调用）
-
-### 配置验证
-
-启动 Warden 时，会检查服务间鉴权配置：
-
-- 如果配置了 mTLS，会验证证书文件是否存在
-- 如果配置了 HMAC，会验证密钥格式是否正确
-- 如果两者都未配置，会记录警告（生产环境不推荐）
 
 ## 详细配置说明
 
