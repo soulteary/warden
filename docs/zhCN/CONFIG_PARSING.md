@@ -398,16 +398,17 @@ export API_KEY=your_api_key_here
 
 ### 配置文件
 
-#### CONFIG_FILE
+#### 配置文件路径（--config-file 与 CONFIG_FILE）
 
 - **CLI 参数**: `--config-file <路径>`
+- **环境变量**: `CONFIG_FILE`（仅用于 tracing，见下）
 - **类型**: 文件路径
 - **默认值**: 空字符串（不使用配置文件）
-- **说明**: 配置文件路径（支持 YAML 格式）
+- **说明**: 主配置通过 `--config-file` 指定 YAML 时，端口、Redis、远程、任务等从该文件加载；**主程序不会从该 YAML 读取 `tracing` 段**。环境变量 `CONFIG_FILE` 由 main 在启动时单独使用，仅用于从 YAML 加载 tracing 配置（与 GetArgs 主配置无关）；若未使用 `--config-file` 可设 `CONFIG_FILE` 指向 YAML 以启用文件中的 tracing，否则请用 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用追踪。
 
 **示例**:
 ```bash
-# 使用配置文件
+# 使用配置文件（主配置 + 可选 OTLP 环境变量启用追踪）
 ./warden --config-file /path/to/config.yaml
 
 # 配置文件示例见 config.example.yaml
