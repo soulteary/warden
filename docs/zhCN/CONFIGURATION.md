@@ -44,6 +44,12 @@
 | 其他 | 健康检查 IP 白名单 | — | `HEALTH_CHECK_IP_WHITELIST` | 空 |
 | 其他 | 全局 IP 白名单 | — | `IP_WHITELIST` | 空 |
 | 其他 | 日志级别 | — | `LOG_LEVEL` | `info` |
+| 服务间鉴权 | HMAC 密钥（JSON） | — | `WARDEN_HMAC_KEYS` | 空 |
+| 服务间鉴权 | HMAC 时间戳容差（秒） | — | `WARDEN_HMAC_TIMESTAMP_TOLERANCE` | `60`（仅当配置了 HMAC 时） |
+| 服务间鉴权 | TLS 服务端证书路径 | — | `WARDEN_TLS_CERT` | 空 |
+| 服务间鉴权 | TLS 服务端私钥路径 | — | `WARDEN_TLS_KEY` | 空 |
+| 服务间鉴权 | 客户端 CA 路径（mTLS） | — | `WARDEN_TLS_CA` | 空 |
+| 服务间鉴权 | 是否要求客户端证书 | — | `WARDEN_TLS_REQUIRE_CLIENT_CERT` | `false` |
 
 说明：
 - 使用 `--config-file` 时，主配置（端口、Redis、远程、任务等）从 YAML 加载，环境变量仍可覆盖；**当前实现下，主程序不会从该 YAML 读取 `tracing` 段**，需通过环境变量 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用追踪，或设置 `CONFIG_FILE` 指向同一/另一 YAML 以从文件启用 tracing。
@@ -273,6 +279,12 @@ export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # 信任的代理 IP 列表（�
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # 健康检查端点 IP 白名单（可选）
 export IP_WHITELIST="192.168.1.0/24"  # 全局 IP 白名单（可选）
 export LOG_LEVEL="info"                # 日志级别（可选，默认: info，可选值: trace, debug, info, warn, error, fatal, panic）
+export WARDEN_HMAC_KEYS='{"key-id-1":"secret-1"}'  # 服务间 HMAC 鉴权密钥（JSON，可选）
+export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60         # HMAC 时间戳容差（秒），默认 60
+export WARDEN_TLS_CERT=/path/to/warden.crt        # 服务端 TLS 证书（可选，与 KEY 同时设置则启用 TLS）
+export WARDEN_TLS_KEY=/path/to/warden.key         # 服务端 TLS 私钥
+export WARDEN_TLS_CA=/path/to/ca.crt              # 客户端 CA（mTLS 时验证客户端证书）
+export WARDEN_TLS_REQUIRE_CLIENT_CERT=true        # 是否强制要求客户端证书（mTLS）
 ```
 
 **环境变量优先级**：
@@ -311,17 +323,16 @@ Authorization: Bearer your-token-here
 
 ## 与 Stargate 集成（调用方配置）
 
-当前 Warden **仅支持 API Key 鉴权**（通过请求头或 `API_KEY` 环境变量保护 `/`、`/log/level` 等端点）。服务端 mTLS、HMAC 等尚未在代码中实现。
-
-若由 Stargate 调用 Warden，请在 **Stargate 侧**配置 Warden 服务地址与认证方式：
+Warden 支持 **mTLS、HMAC、API Key** 三种服务间鉴权（优先级 mTLS > HMAC > API Key）。若由 Stargate 调用 Warden，请在 **Stargate 侧**配置 Warden 服务地址与认证方式：
 
 **Stargate 配置示例**（环境变量）：
 ```bash
-# Warden 服务地址
+# Warden 服务地址（启用 TLS 时使用 https）
 export STARGATE_WARDEN_BASE_URL=http://warden:8081
 
-# 当前 Warden 仅支持 API Key：在 Stargate 中配置与 Warden API_KEY 一致的值用于请求鉴权
-# 若未来 Warden 支持 mTLS/HMAC，可在此处配置 STARGATE_WARDEN_AUTH_TYPE、STARGATE_WARDEN_HMAC_* 等
+# 认证方式一：API Key（与 Warden API_KEY 一致）
+# 认证方式二：HMAC（与 Warden WARDEN_HMAC_KEYS 中某 key 的 secret 一致，请求时带 X-Signature、X-Timestamp、X-Key-Id）
+# 认证方式三：mTLS（Stargate 配置客户端证书，Warden 配置 WARDEN_TLS_*）
 ```
 
 ## 详细配置说明

@@ -210,7 +210,7 @@ If you discover a security vulnerability, please report it through:
 
 ## Inter-Service Authentication (Optional)
 
-If you choose to integrate with other services (such as Stargate), inter-service authentication can be used to ensure security. Warden supports the following two authentication methods:
+If you choose to integrate with other services (such as Stargate), inter-service authentication can be used to ensure security. **mTLS and HMAC are implemented**; the authentication priority is **mTLS > HMAC > API Key**. Warden supports the following authentication methods:
 
 **Note**: If Warden is used standalone, inter-service authentication is optional.
 

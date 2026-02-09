@@ -47,7 +47,13 @@ func registerRoutes(app *App) {
 	authBaseCfg.AuthScheme = "Bearer"
 	authBaseCfg.TrustedProxyConfig = trustedProxyConfig
 	authBaseCfg.Logger = logger.ZerologPtr()
-	authMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
+	apiKeyMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
+	// Service auth chain: mTLS (client cert) > HMAC > API Key
+	hmacCfg := middleware.HMACConfig{
+		Keys:                  app.hmacKeys,
+		TimestampToleranceSec: app.hmacToleranceSec,
+	}
+	authMiddleware := middleware.ServiceAuthChain(hmacCfg, apiKeyMiddleware)
 	optionalAuthCfg := authBaseCfg
 	optionalAuthCfg.AllowEmptyKey = true
 	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(optionalAuthCfg)
