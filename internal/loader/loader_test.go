@@ -210,3 +210,51 @@ func TestAllowListUserKey(t *testing.T) {
 		assert.False(t, ok)
 	})
 }
+
+func TestMergeByMode(t *testing.T) {
+	remote := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "r@example.com", UserID: "remote1"},
+		{Phone: "13900139000", Mail: "r2@example.com", UserID: "remote2"},
+	}
+	local := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "l@example.com", UserID: "local1"},
+		{Phone: "13700137000", Mail: "l2@example.com", UserID: "local2"},
+	}
+
+	t.Run("REMOTE_FIRST", func(t *testing.T) {
+		out := mergeByMode(remote, local, "REMOTE_FIRST")
+		require.Len(t, out, 3)
+		byPhone := make(map[string]define.AllowListUser)
+		for _, u := range out {
+			k, _ := allowListUserKey(u)
+			byPhone[k] = u
+		}
+		assert.Equal(t, "r@example.com", byPhone["13800138000"].Mail, "remote wins on same key")
+		assert.Equal(t, "r2@example.com", byPhone["13900139000"].Mail)
+		assert.Equal(t, "l2@example.com", byPhone["13700137000"].Mail)
+	})
+
+	t.Run("LOCAL_FIRST", func(t *testing.T) {
+		out := mergeByMode(remote, local, "LOCAL_FIRST")
+		require.Len(t, out, 3)
+		byPhone := make(map[string]define.AllowListUser)
+		for _, u := range out {
+			k, _ := allowListUserKey(u)
+			byPhone[k] = u
+		}
+		assert.Equal(t, "l@example.com", byPhone["13800138000"].Mail, "local wins on same key")
+		assert.Equal(t, "r2@example.com", byPhone["13900139000"].Mail)
+		assert.Equal(t, "l2@example.com", byPhone["13700137000"].Mail)
+	})
+
+	t.Run("LOCAL_FIRST_ALLOW_REMOTE_FAILED", func(t *testing.T) {
+		out := mergeByMode(remote, local, "LOCAL_FIRST_ALLOW_REMOTE_FAILED")
+		require.Len(t, out, 3)
+		byPhone := make(map[string]define.AllowListUser)
+		for _, u := range out {
+			k, _ := allowListUserKey(u)
+			byPhone[k] = u
+		}
+		assert.Equal(t, "l@example.com", byPhone["13800138000"].Mail)
+	})
+}

@@ -119,6 +119,7 @@ func TestOverrideFromEnv(t *testing.T) {
 	// Save original environment variables
 	originalPort := os.Getenv("PORT")
 	originalRedis := os.Getenv("REDIS")
+	originalResponseFields := os.Getenv("RESPONSE_FIELDS")
 	defer func() {
 		if originalPort != "" {
 			require.NoError(t, os.Setenv("PORT", originalPort))
@@ -129,6 +130,11 @@ func TestOverrideFromEnv(t *testing.T) {
 			require.NoError(t, os.Setenv("REDIS", originalRedis))
 		} else {
 			require.NoError(t, os.Unsetenv("REDIS"))
+		}
+		if originalResponseFields != "" {
+			require.NoError(t, os.Setenv("RESPONSE_FIELDS", originalResponseFields))
+		} else {
+			require.NoError(t, os.Unsetenv("RESPONSE_FIELDS"))
 		}
 	}()
 
@@ -141,6 +147,44 @@ func TestOverrideFromEnv(t *testing.T) {
 
 	assert.Equal(t, "9999", cfg.Server.Port)
 	assert.Equal(t, "custom-redis:6379", cfg.Redis.Addr)
+}
+
+// TestOverrideFromEnv_ResponseFields tests parseResponseFields via RESPONSE_FIELDS env (covers parseResponseFields)
+func TestOverrideFromEnv_ResponseFields(t *testing.T) {
+	orig := os.Getenv("RESPONSE_FIELDS")
+	defer func() {
+		if orig != "" {
+			require.NoError(t, os.Setenv("RESPONSE_FIELDS", orig))
+		} else {
+			require.NoError(t, os.Unsetenv("RESPONSE_FIELDS"))
+		}
+	}()
+
+	tests := []struct {
+		envValue string
+		want     []string
+	}{
+		{"phone,mail,user_id", []string{"phone", "mail", "user_id"}},
+		{" phone , mail , user_id ", []string{"phone", "mail", "user_id"}},
+		{"scope", []string{"scope"}},
+		{"", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.envValue, func(t *testing.T) {
+			if tt.envValue == "" {
+				require.NoError(t, os.Unsetenv("RESPONSE_FIELDS"))
+			} else {
+				require.NoError(t, os.Setenv("RESPONSE_FIELDS", tt.envValue))
+			}
+			cfg := &Config{}
+			overrideFromEnv(cfg)
+			if tt.want == nil {
+				assert.Nil(t, cfg.App.ResponseFields)
+			} else {
+				assert.Equal(t, tt.want, cfg.App.ResponseFields)
+			}
+		})
+	}
 }
 
 // TestValidate_ValidConfig tests valid configuration validation

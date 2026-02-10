@@ -2,6 +2,8 @@ package logger
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"testing"
@@ -139,6 +141,17 @@ func TestLogger_Stderr(t *testing.T) {
 
 	// If no panic, means can write to stderr normally
 	assert.True(t, true)
+}
+
+func TestZerologPtr(t *testing.T) {
+	ptr := ZerologPtr()
+	require.NotNil(t, ptr, "ZerologPtr() should return non-nil")
+}
+
+func TestFromRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	lk := FromRequest(req)
+	require.NotNil(t, lk, "FromRequest should return non-nil (default logger when not in context)")
 }
 
 func TestSetLevel(t *testing.T) {

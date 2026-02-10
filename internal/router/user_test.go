@@ -101,6 +101,29 @@ func TestGetUserByIdentifier_ByUserID(t *testing.T) {
 	assert.Equal(t, "13800138000", user.Phone)
 }
 
+// TestGetUserByIdentifier_WithResponseFields covers UserToMap path (field whitelist)
+func TestGetUserByIdentifier_WithResponseFields(t *testing.T) {
+	testUsers := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test1@example.com", UserID: "user1", Name: "Test User"},
+	}
+	userCache := cache.NewSafeUserCache()
+	userCache.Set(testUsers)
+	responseFields := []string{"phone", "user_id"}
+	handler := GetUserByIdentifier(userCache, responseFields)
+
+	req := httptest.NewRequest("GET", "/user?phone=13800138000", http.NoBody)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var m map[string]interface{}
+	err := json.NewDecoder(w.Body).Decode(&m)
+	require.NoError(t, err)
+	assert.Equal(t, "13800138000", m["phone"])
+	assert.Equal(t, "user1", m["user_id"])
+	assert.Len(t, m, 2, "only phone and user_id should be present")
+}
+
 // TestGetUserByIdentifier_MissingIdentifier tests missing identifier
 func TestGetUserByIdentifier_MissingIdentifier(t *testing.T) {
 	userCache := cache.NewSafeUserCache()

@@ -122,6 +122,32 @@ func TestJSON_Unicode(t *testing.T) {
 	assert.Equal(t, "test@example.com", result[0].Mail, "应该正确处理数据")
 }
 
+// TestJSON_WithResponseFields covers UsersToMaps path (field whitelist)
+func TestJSON_WithResponseFields(t *testing.T) {
+	testData := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "a@example.com", UserID: "u1"},
+		{Phone: "13900139000", Mail: "b@example.com", UserID: "u2"},
+	}
+	userCache := cache.NewSafeUserCache()
+	userCache.Set(testData)
+	responseFields := []string{"phone", "mail"}
+	handler := JSON(userCache, responseFields)
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var result []map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	assert.Len(t, result[0], 2)
+	assert.Equal(t, "13800138000", result[0]["phone"])
+	assert.Equal(t, "a@example.com", result[0]["mail"])
+	assert.NotContains(t, result[0], "user_id")
+}
+
 func TestJSON_ContentType(t *testing.T) {
 	// Test Content-Type header
 	testData := []define.AllowListUser{

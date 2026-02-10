@@ -835,6 +835,24 @@ func TestJob_Sunday(t *testing.T) {
 	assert.Equal(t, time.Sunday, job.GetWeekday(), "应该设置为Sunday")
 }
 
+// TestJob_Thursday tests Thursday method
+func TestJob_Thursday(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Thursday()
+
+	assert.NotNil(t, job, "Thursday()应该返回有效的Job")
+	assert.Equal(t, time.Thursday, job.GetWeekday(), "应该设置为Thursday")
+}
+
+// TestJob_Friday tests Friday method
+func TestJob_Friday(t *testing.T) {
+	sched := NewScheduler()
+	job := sched.Every(1).Friday()
+
+	assert.NotNil(t, job, "Friday()应该返回有效的Job")
+	assert.Equal(t, time.Friday, job.GetWeekday(), "应该设置为Friday")
+}
+
 // TestJob_WithContext tests WithContext method
 func TestJob_WithContext(t *testing.T) {
 	sched := NewScheduler()

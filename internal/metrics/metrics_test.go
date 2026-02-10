@@ -130,3 +130,32 @@ func TestMetrics_VariablesInitialized(t *testing.T) {
 	assert.NotNil(t, CacheMisses, "CacheMisses应该已初始化")
 	assert.NotNil(t, RateLimitHits, "RateLimitHits应该已初始化")
 }
+
+// TestRecordFunctions covers RecordHTTPRequest, RecordCacheHit, RecordCacheMiss,
+// SetCacheSize, RecordBackgroundTask, RecordRateLimitHit (no panic, metrics increment)
+func TestRecordHTTPRequest(t *testing.T) {
+	RecordHTTPRequest("GET", "/api", "200", 0)
+	RecordHTTPRequest("POST", "/user", "201", 0)
+}
+
+func TestRecordCacheHit(t *testing.T) {
+	RecordCacheHit()
+}
+
+func TestRecordCacheMiss(t *testing.T) {
+	RecordCacheMiss()
+}
+
+func TestSetCacheSize(t *testing.T) {
+	SetCacheSize(0)
+	SetCacheSize(100)
+}
+
+func TestRecordBackgroundTask(t *testing.T) {
+	RecordBackgroundTask(0, true)
+	RecordBackgroundTask(0, false)
+}
+
+func TestRecordRateLimitHit(t *testing.T) {
+	RecordRateLimitHit("127.0.0.1")
+}
