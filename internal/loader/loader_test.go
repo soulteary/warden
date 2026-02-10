@@ -56,19 +56,19 @@ func TestBuildLoadOptions(t *testing.T) {
 
 func TestBuildSources(t *testing.T) {
 	t.Run("ONLY_LOCAL", func(t *testing.T) {
-		sources := BuildSources("/data.json", "", "", "ONLY_LOCAL")
+		sources := BuildSources("/data.json", "", "", "", "ONLY_LOCAL")
 		require.Len(t, sources, 1)
 		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
 		assert.Equal(t, "/data.json", sources[0].Config.FilePath)
 	})
 
 	t.Run("ONLY_REMOTE_empty_url", func(t *testing.T) {
-		sources := BuildSources("", "", "", "ONLY_REMOTE")
+		sources := BuildSources("", "", "", "", "ONLY_REMOTE")
 		assert.Empty(t, sources)
 	})
 
 	t.Run("ONLY_REMOTE_with_url", func(t *testing.T) {
-		sources := BuildSources("", "http://api/data", "Bearer x", "ONLY_REMOTE")
+		sources := BuildSources("", "", "http://api/data", "Bearer x", "ONLY_REMOTE")
 		require.Len(t, sources, 1)
 		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
 		assert.Equal(t, "http://api/data", sources[0].Config.RemoteURL)
@@ -76,7 +76,7 @@ func TestBuildSources(t *testing.T) {
 	})
 
 	t.Run("REMOTE_FIRST_with_remote", func(t *testing.T) {
-		sources := BuildSources("/local.json", "http://remote", "key", "REMOTE_FIRST")
+		sources := BuildSources("/local.json", "", "http://remote", "key", "REMOTE_FIRST")
 		require.Len(t, sources, 2)
 		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
 		assert.Equal(t, parserkit.SourceTypeFile, sources[1].Type)
@@ -84,7 +84,7 @@ func TestBuildSources(t *testing.T) {
 	})
 
 	t.Run("LOCAL_FIRST_swaps_priority", func(t *testing.T) {
-		sources := BuildSources("/local.json", "http://remote", "", "LOCAL_FIRST")
+		sources := BuildSources("/local.json", "", "http://remote", "", "LOCAL_FIRST")
 		require.Len(t, sources, 2)
 		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
 		assert.Equal(t, parserkit.SourceTypeRemote, sources[1].Type)
@@ -93,9 +93,29 @@ func TestBuildSources(t *testing.T) {
 	})
 
 	t.Run("default_no_remote_url", func(t *testing.T) {
-		sources := BuildSources("/local.json", "", "", "development")
+		sources := BuildSources("/local.json", "", "", "", "development")
 		require.Len(t, sources, 1)
 		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
+	})
+
+	t.Run("ONLY_LOCAL_with_dataDir", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "a.json"), []byte(`[{"phone":"1","mail":"a@x.com"}]`), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "b.json"), []byte(`[{"phone":"2","mail":"b@x.com"}]`), 0o600))
+		sources := BuildSources("", tmpDir, "", "", "ONLY_LOCAL")
+		require.Len(t, sources, 2)
+		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
+		assert.Equal(t, parserkit.SourceTypeFile, sources[1].Type)
+		assert.Contains(t, sources[0].Config.FilePath, ".json")
+		assert.Contains(t, sources[1].Config.FilePath, ".json")
+	})
+
+	t.Run("REMOTE_FIRST_with_dataDir_and_file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "extra.json"), []byte(`[]`), 0o600))
+		sources := BuildSources("/main.json", tmpDir, "http://api/data", "Bearer x", "REMOTE_FIRST")
+		require.GreaterOrEqual(t, len(sources), 2)
+		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
 	})
 }
 
@@ -156,7 +176,7 @@ func TestRulesLoader_Load(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	users, err := r.Load(ctx, path, "", "")
+	users, err := r.Load(ctx, path, "", "", "")
 	require.NoError(t, err)
 	require.Len(t, users, 1)
 }
@@ -166,7 +186,7 @@ func TestRulesLoader_Load_NoSources(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	_, err = r.Load(ctx, "", "", "")
+	_, err = r.Load(ctx, "", "", "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no sources")
 }

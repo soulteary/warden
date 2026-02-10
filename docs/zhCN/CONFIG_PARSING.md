@@ -290,7 +290,7 @@ export MODE=ONLY_LOCAL
 - **配置文件**: `task.interval`
 - **类型**: 整数（秒）
 - **默认值**: `5`
-- **说明**: 后台任务执行间隔（秒）
+- **说明**: 后台任务执行间隔（秒）。**注意**：使用 `--config-file` 时，任务间隔来自 YAML 的 `task.interval` 与默认值，环境变量 `INTERVAL` 不参与覆盖；仅在不使用配置文件时 `INTERVAL` 生效。。**注意**：使用 `--config-file` 时，任务间隔来自 YAML 的 `task.interval` 及默认值，环境变量 `INTERVAL` 不参与覆盖；仅在不使用配置文件时 `INTERVAL` 生效。
 
 **示例**:
 ```bash

@@ -3,6 +3,7 @@ package cmd
 import (
 	// Standard library
 	"fmt"
+	"os"
 	"strings"
 
 	// External packages
@@ -53,6 +54,49 @@ func ValidateConfig(cfg *Config) error {
 	}
 	if err := validator.ValidateEnum(cfg.Mode, validModes, true); err != nil {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
+	}
+
+	// Validate DATA_DIR when set: must exist and be a directory
+	if cfg.DataDir != "" {
+		info, err := os.Stat(cfg.DataDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				errors = append(errors, fmt.Sprintf("DATA_DIR %q does not exist", cfg.DataDir))
+			} else {
+				errors = append(errors, fmt.Sprintf("DATA_DIR %q: %v", cfg.DataDir, err))
+			}
+		} else if !info.IsDir() {
+			errors = append(errors, fmt.Sprintf("DATA_DIR %q is not a directory", cfg.DataDir))
+		}
+	}
+
+	// When remote decrypt is enabled, either RSA private key file or inline PEM must be set
+	if cfg.RemoteDecryptEnabled {
+		if cfg.RemoteRSAPrivateKeyFile == "" && cfg.RemoteRSAPrivateKey == "" {
+			errors = append(errors, "REMOTE_DECRYPT_ENABLED is true but neither REMOTE_RSA_PRIVATE_KEY_FILE nor REMOTE_RSA_PRIVATE_KEY is set")
+		} else if cfg.RemoteRSAPrivateKeyFile != "" {
+			info, err := os.Stat(cfg.RemoteRSAPrivateKeyFile)
+			switch {
+			case err != nil:
+				if os.IsNotExist(err) {
+					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q does not exist", cfg.RemoteRSAPrivateKeyFile))
+				} else {
+					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q: %v", cfg.RemoteRSAPrivateKeyFile, err))
+				}
+			case info.IsDir():
+				errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is a directory, not a file", cfg.RemoteRSAPrivateKeyFile))
+			default:
+				f, err := os.Open(cfg.RemoteRSAPrivateKeyFile)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is not readable: %v", cfg.RemoteRSAPrivateKeyFile, err))
+				} else {
+					if closeErr := f.Close(); closeErr != nil {
+						errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q close: %v", cfg.RemoteRSAPrivateKeyFile, closeErr))
+					}
+				}
+			}
+		}
+		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
 	}
 
 	if len(errors) > 0 {

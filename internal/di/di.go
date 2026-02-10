@@ -128,12 +128,12 @@ func (d *Dependencies) initHandlers() {
 	bodyLimitCfg.MaxSize = define.MAX_REQUEST_BODY_SIZE
 	bodyLimitMiddleware := middlewarekit.BodyLimitStd(bodyLimitCfg)
 
-	// Main data interface handler
+	// Main data interface handler (nil responseFields = all fields)
 	d.MainHandler = compressMiddleware(
 		bodyLimitMiddleware(
 			middleware.MetricsMiddleware(
 				rateLimitMiddleware(
-					router.ProcessWithLogger(router.JSON(d.UserCache)),
+					router.ProcessWithLogger(router.JSON(d.UserCache, nil)),
 				),
 			),
 		),

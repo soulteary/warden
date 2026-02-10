@@ -34,14 +34,16 @@ API Key 可以通过环境变量 `API_KEY` 或命令行参数 `--api-key` 配置
 
 ### 获取用户列表
 
-获取所有用户或分页用户列表。
+获取所有用户或分页用户列表。**`GET /data.json`** 与 **`GET /`** 行为完全一致（认证、分页、响应格式相同），可作为「当前合并结果的 data.json API」供下游或编辑器消费。
 
 **请求**
 ```http
 GET /
+GET /data.json
 X-API-Key: your-secret-api-key
 
 GET /?page=1&page_size=100
+GET /data.json?page=1&page_size=100
 X-API-Key: your-secret-api-key
 ```
 
@@ -51,12 +53,17 @@ X-API-Key: your-secret-api-key
 
 **注意**: 此端点需要 API Key 认证。
 
+**响应字段**：默认返回用户对象的全部字段。若配置了 `response_fields`（见 [CONFIGURATION](../zhCN/CONFIGURATION.md)），则仅返回白名单中的字段（如 `phone`、`mail`、`user_id`、`status`、`scope`、`role`、`name` 等）。
+
 **响应（无分页）**
 ```json
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "user_id": "user-123",
+        "status": "active",
+        "name": "管理员"
     },
     {
         "phone": "13900139000",
@@ -112,7 +119,7 @@ X-API-Key: your-secret-api-key
 - 此端点需要 API Key 认证
 - 只能提供一个查询参数（`phone`、`mail` 或 `user_id` 之一）
 
-**响应（用户存在）**
+**响应（用户存在）**：返回字段同样受 `response_fields` 控制（未配置则返回全部）。
 ```json
 {
     "phone": "13800138000",
@@ -120,7 +127,8 @@ X-API-Key: your-secret-api-key
     "user_id": "user-123",
     "status": "active",
     "scope": ["read", "write"],
-    "role": "admin"
+    "role": "admin",
+    "name": "管理员"
 }
 ```
 
@@ -135,6 +143,7 @@ X-API-Key: your-secret-api-key
   - 如果未设置，默认为 `"active"`
 - `scope`: 用户权限范围数组（可选），用于细粒度授权，例如 `["read", "write", "admin"]`
 - `role`: 用户角色（可选），例如 `"admin"`, `"user"`, `"guest"`
+- `name`: 用户显示名称（可选）
 
 **注意**：
 - 只有 `status` 为 `"active"` 的用户才能通过认证检查
@@ -181,11 +190,13 @@ X-API-Key: your-secret-api-key
         "phone": "13800138000"
     },
     "status": "active",
-    "channel_hint": "sms"
+    "channel_hint": "sms",
+    "name": "管理员"
 }
 ```
 
 - `channel_hint`: `"sms"` 或 `"email"`，表示推荐用于 OTP 的通道（有手机则 sms，否则 email）。
+- `name`: 用户显示名称（可选，数据源有则返回）。
 
 **版本化路径**：`/v1/users`、`/v1/user`、`/v1/health` 与 `/`、`/user`、`/health` 行为相同。
 

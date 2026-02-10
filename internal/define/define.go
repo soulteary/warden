@@ -30,6 +30,7 @@ const (
 	PATH_HEALTH      = "/health"
 	PATH_HEALTHCHECK = "/healthcheck"
 	PATH_METRICS     = "/metrics"
+	PATH_DATA_JSON   = "/data.json" // 与 GET / 行为一致，返回合并后的用户列表 JSON，便于作为“data.json API”消费
 )
 
 // SkipPathsHealthAndMetrics is the path list to skip for rate limiting and access logging.

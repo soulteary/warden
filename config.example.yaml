@@ -12,7 +12,7 @@ server:
 redis:
   addr: "localhost:6379"
   password: ""  # 建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE
-  password_file: ""  # 密码文件路径（优先级高于 password）
+  password_file: ""  # 密码文件路径（同 YAML 内与 password 二选一时优先；整体优先级：REDIS_PASSWORD 环境变量 > REDIS_PASSWORD_FILE/本项 > password）
   db: 0
 
 cache:
@@ -34,6 +34,8 @@ remote:
   url: "http://localhost:8080/data.json"
   key: ""
   mode: "DEFAULT"
+  decrypt_enabled: false       # 是否对远程响应做 RSA 解密（需配合 rsa_private_key_file 或环境变量 REMOTE_RSA_PRIVATE_KEY_FILE / REMOTE_RSA_PRIVATE_KEY）
+  rsa_private_key_file: ""     # RSA 私钥 PEM 文件路径；也可通过环境变量 REMOTE_RSA_PRIVATE_KEY 提供内联 PEM
 
 task:
   interval: 5s
@@ -42,6 +44,8 @@ app:
   mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
   api_key: ""  # API Key 用于认证（敏感信息，强烈建议使用环境变量 API_KEY）
   data_file: "./data.json"  # 本地用户数据文件路径
+  data_dir: ""   # 可选：用户数据目录，合并该目录下所有 *.json 文件（可与 data_file 同时使用）
+  response_fields: []  # 可选：API 响应字段白名单，空则返回全部字段；如 ["phone","mail","user_id","status","scope","role","name"]
 
 tracing:
   enabled: false  # 是否启用 OpenTelemetry 追踪

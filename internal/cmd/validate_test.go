@@ -94,3 +94,49 @@ func TestValidateConfig_InvalidTaskInterval(t *testing.T) {
 	assert.Error(t, err, "无效任务间隔应该返回错误")
 	assert.Contains(t, err.Error(), "任务间隔")
 }
+
+func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotSet(t *testing.T) {
+	cfg := &Config{
+		Port:                    "8081",
+		Redis:                   "localhost:6379",
+		TaskInterval:            5,
+		Mode:                    "DEFAULT",
+		RemoteDecryptEnabled:    true,
+		RemoteRSAPrivateKeyFile: "", // 未设置
+		RemoteRSAPrivateKey:     "", // 未设置
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "启用远程解密但未配置私钥文件或 PEM 应返回错误")
+	assert.Contains(t, err.Error(), "REMOTE_RSA_PRIVATE_KEY")
+}
+
+func TestValidateConfig_RemoteDecryptEnabled_OnlyPEMSet(t *testing.T) {
+	cfg := &Config{
+		Port:                    "8081",
+		Redis:                   "localhost:6379",
+		TaskInterval:            5,
+		Mode:                    "DEFAULT",
+		RemoteDecryptEnabled:    true,
+		RemoteRSAPrivateKeyFile: "",
+		RemoteRSAPrivateKey:     "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0\n-----END RSA PRIVATE KEY-----",
+	}
+
+	err := ValidateConfig(cfg)
+	assert.NoError(t, err, "仅设置 REMOTE_RSA_PRIVATE_KEY 时校验应通过，PEM 在加载时解析")
+}
+
+func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotExist(t *testing.T) {
+	cfg := &Config{
+		Port:                    "8081",
+		Redis:                   "localhost:6379",
+		TaskInterval:            5,
+		Mode:                    "DEFAULT",
+		RemoteDecryptEnabled:    true,
+		RemoteRSAPrivateKeyFile: "/nonexistent/path/to/private.pem",
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "启用远程解密但私钥文件不存在应返回错误")
+	assert.Contains(t, err.Error(), "does not exist")
+}
