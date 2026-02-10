@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,7 +112,9 @@ func TestLocker_LocalFallback(t *testing.T) {
 	assert.True(t, success3, "解锁后应该可以再次锁定")
 }
 
-// TestLocker_UnlockWithoutLockValue tests unlocking when lockValue is not stored
+// TestLocker_UnlockWithoutLockValue tests unlocking when lock was not acquired by this Locker (no entry in lockStore).
+// When the key exists in Redis but was set directly (e.g. client.Set) rather than via Lock(), Unlock returns "lock not held"
+// because the in-memory lockStore has no lock value for this key.
 func TestLocker_UnlockWithoutLockValue(t *testing.T) {
 	if testing.Short() {
 		t.Skip("跳过集成测试")
@@ -133,15 +136,15 @@ func TestLocker_UnlockWithoutLockValue(t *testing.T) {
 
 	key := "test-lock-key-no-value"
 
-	// Set a lock directly in Redis (not through Lock method)
+	// Set a key directly in Redis (not through Lock method), so lockStore has no entry for this key
 	ctx2, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = client.Set(ctx2, key, "some-value", 10*time.Second)
 
-	// Try to unlock (no stored lockValue, should directly delete)
+	// Unlock without having called Lock() → lockStore has no lockValue → should return "lock not held"
 	err = locker.Unlock(key)
-	// Should not return error (backward compatibility)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "lock not held"), "expected 'lock not held' error, got: %v", err)
 }
 
 // TestLocker_UnlockWithWrongValue tests unlocking when lock value doesn't match
