@@ -97,6 +97,26 @@ func TestBuildSources(t *testing.T) {
 		require.Len(t, sources, 1)
 		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
 	})
+
+	t.Run("ONLY_LOCAL_with_dataDir", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "a.json"), []byte(`[{"phone":"1","mail":"a@x.com"}]`), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "b.json"), []byte(`[{"phone":"2","mail":"b@x.com"}]`), 0o600))
+		sources := BuildSources("", tmpDir, "", "", "ONLY_LOCAL")
+		require.Len(t, sources, 2)
+		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
+		assert.Equal(t, parserkit.SourceTypeFile, sources[1].Type)
+		assert.Contains(t, sources[0].Config.FilePath, ".json")
+		assert.Contains(t, sources[1].Config.FilePath, ".json")
+	})
+
+	t.Run("REMOTE_FIRST_with_dataDir_and_file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "extra.json"), []byte(`[]`), 0o600))
+		sources := BuildSources("/main.json", tmpDir, "http://api/data", "Bearer x", "REMOTE_FIRST")
+		require.GreaterOrEqual(t, len(sources), 2)
+		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
+	})
 }
 
 func TestNewRulesLoader(t *testing.T) {

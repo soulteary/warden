@@ -36,7 +36,8 @@ type Config struct {
 	DataDir                 string   // 16 bytes - local user data directory (merge *.json)
 	ResponseFields          []string // API response field whitelist (empty = all)
 	RemoteDecryptEnabled    bool     // decrypt remote API response with RSA
-	RemoteRSAPrivateKeyFile string   // path to PEM file for RSA decryption
+	RemoteRSAPrivateKeyFile string   // path to PEM file for RSA decryption (preferred)
+	RemoteRSAPrivateKey     string   // inline PEM for RSA decryption (used when file not set)
 	TaskInterval            int      // 8 bytes
 	HTTPTimeout             int      // 8 bytes
 	HTTPMaxIdleConns        int      // 8 bytes
@@ -336,13 +337,16 @@ func processResponseFieldsFromEnv(cfg *Config) {
 	}
 }
 
-// processRemoteDecryptFromEnv reads REMOTE_DECRYPT_ENABLED and REMOTE_RSA_PRIVATE_KEY_FILE from env.
+// processRemoteDecryptFromEnv reads REMOTE_DECRYPT_ENABLED, REMOTE_RSA_PRIVATE_KEY_FILE, REMOTE_RSA_PRIVATE_KEY from env.
 func processRemoteDecryptFromEnv(cfg *Config) {
 	if v := env.GetTrimmed("REMOTE_DECRYPT_ENABLED", ""); v != "" {
 		cfg.RemoteDecryptEnabled = strings.EqualFold(v, "true") || v == "1"
 	}
 	if v := env.GetTrimmed("REMOTE_RSA_PRIVATE_KEY_FILE", ""); v != "" {
 		cfg.RemoteRSAPrivateKeyFile = v
+	}
+	if v := env.GetTrimmed("REMOTE_RSA_PRIVATE_KEY", ""); v != "" {
+		cfg.RemoteRSAPrivateKey = v
 	}
 }
 
@@ -389,6 +393,7 @@ func getArgsFromFlags() *Config {
 		ResponseFields:          nil,
 		RemoteDecryptEnabled:    false,
 		RemoteRSAPrivateKeyFile: "",
+		RemoteRSAPrivateKey:     "",
 		HTTPTimeout:             define.DEFAULT_TIMEOUT,
 		HTTPMaxIdleConns:        100,
 		HTTPInsecureTLS:         false,
@@ -453,6 +458,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		ResponseFields:          cfg.ResponseFields,
 		RemoteDecryptEnabled:    cfg.RemoteDecryptEnabled,
 		RemoteRSAPrivateKeyFile: cfg.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:     cfg.RemoteRSAPrivateKey,
 		HTTPTimeout:             cfg.HTTPTimeout,
 		HTTPMaxIdleConns:        cfg.HTTPMaxIdleConns,
 		HTTPInsecureTLS:         cfg.HTTPInsecureTLS,
@@ -493,6 +499,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 		ResponseFields:          cfg.ResponseFields,
 		RemoteDecryptEnabled:    cfg.RemoteDecryptEnabled,
 		RemoteRSAPrivateKeyFile: cfg.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:     cfg.RemoteRSAPrivateKey,
 		TaskInterval:            cfg.TaskInterval,
 		HTTPTimeout:             cfg.HTTPTimeout,
 		HTTPMaxIdleConns:        cfg.HTTPMaxIdleConns,
@@ -526,6 +533,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	cfg.ResponseFields = tempCfg.ResponseFields
 	cfg.RemoteDecryptEnabled = tempCfg.RemoteDecryptEnabled
 	cfg.RemoteRSAPrivateKeyFile = tempCfg.RemoteRSAPrivateKeyFile
+	cfg.RemoteRSAPrivateKey = tempCfg.RemoteRSAPrivateKey
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns
@@ -575,6 +583,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 		ResponseFields:          cfg.ResponseFields,
 		RemoteDecryptEnabled:    cfg.RemoteDecryptEnabled,
 		RemoteRSAPrivateKeyFile: cfg.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:     cfg.RemoteRSAPrivateKey,
 		TaskInterval:            cfg.TaskInterval,
 		HTTPTimeout:             cfg.HTTPTimeout,
 		HTTPMaxIdleConns:        cfg.HTTPMaxIdleConns,
@@ -616,6 +625,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.ResponseFields = tempCfg.ResponseFields
 	cfg.RemoteDecryptEnabled = tempCfg.RemoteDecryptEnabled
 	cfg.RemoteRSAPrivateKeyFile = tempCfg.RemoteRSAPrivateKeyFile
+	cfg.RemoteRSAPrivateKey = tempCfg.RemoteRSAPrivateKey
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns

@@ -181,12 +181,13 @@ func BuildSources(rulesFile, dataDir, configURL, auth, appMode string) []parserk
 //
 //nolint:govet // fieldalignment: keep field order for readability; optional size win would reorder bools/pointer/strings
 type RulesLoader struct {
-	remoteDecrypt       bool
-	httpInsecureTLS     bool
-	dl                  parserkit.DataLoader[define.AllowListUser]
-	httpTimeout         time.Duration
-	appMode             string
-	remoteRSAPrivateKey string
+	remoteDecrypt          bool
+	httpInsecureTLS        bool
+	dl                     parserkit.DataLoader[define.AllowListUser]
+	httpTimeout            time.Duration
+	appMode                string
+	remoteRSAPrivateKey    string // file path (preferred)
+	remoteRSAPrivateKeyPEM string // inline PEM when file not set
 }
 
 // NewRulesLoader creates a RulesLoader using cfg and appMode.
@@ -199,20 +200,23 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 	timeout := time.Duration(define.DEFAULT_TIMEOUT) * time.Second
 	decrypt := false
 	keyPath := ""
+	keyPEM := ""
 	if cfg != nil {
 		if cfg.HTTPTimeout > 0 {
 			timeout = time.Duration(cfg.HTTPTimeout) * time.Second
 		}
-		decrypt = cfg.RemoteDecryptEnabled && cfg.RemoteRSAPrivateKeyFile != ""
+		decrypt = cfg.RemoteDecryptEnabled && (cfg.RemoteRSAPrivateKeyFile != "" || cfg.RemoteRSAPrivateKey != "")
 		keyPath = cfg.RemoteRSAPrivateKeyFile
+		keyPEM = cfg.RemoteRSAPrivateKey
 	}
 	return &RulesLoader{
-		dl:                  dl,
-		appMode:             appMode,
-		remoteDecrypt:       decrypt,
-		remoteRSAPrivateKey: keyPath,
-		httpTimeout:         timeout,
-		httpInsecureTLS:     cfg != nil && cfg.HTTPInsecureTLS,
+		dl:                     dl,
+		appMode:                appMode,
+		remoteDecrypt:          decrypt,
+		remoteRSAPrivateKey:    keyPath,
+		remoteRSAPrivateKeyPEM: keyPEM,
+		httpTimeout:            timeout,
+		httpInsecureTLS:        cfg != nil && cfg.HTTPInsecureTLS,
 	}, nil
 }
 
@@ -225,8 +229,8 @@ func (r *RulesLoader) FromFile(ctx context.Context, path string) ([]define.Allow
 // When remote decrypt is enabled, fetches remote with RSA decryption then merges with file sources.
 func (r *RulesLoader) Load(ctx context.Context, rulesFile, dataDir, configURL, auth string) ([]define.AllowListUser, error) {
 	mode := strings.ToUpper(strings.TrimSpace(r.appMode))
-	if r.remoteDecrypt && configURL != "" && r.remoteRSAPrivateKey != "" {
-		remoteUsers, err := remote.FetchDecryptedUsers(ctx, configURL, auth, true, r.remoteRSAPrivateKey, r.httpTimeout, r.httpInsecureTLS)
+	if r.remoteDecrypt && configURL != "" && (r.remoteRSAPrivateKey != "" || r.remoteRSAPrivateKeyPEM != "") {
+		remoteUsers, err := remote.FetchDecryptedUsers(ctx, configURL, auth, true, r.remoteRSAPrivateKey, r.remoteRSAPrivateKeyPEM, r.httpTimeout, r.httpInsecureTLS)
 		if err != nil {
 			return nil, fmt.Errorf("remote decrypt fetch: %w", err)
 		}

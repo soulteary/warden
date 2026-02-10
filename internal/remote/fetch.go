@@ -35,11 +35,12 @@ const (
 	IVSize = 16
 )
 
-// FetchDecrypted fetches url with optional auth header. If decryptEnabled and rsaKeyPath are set,
+// FetchDecrypted fetches url with optional auth header. If decryptEnabled and rsaKey (file path or PEM) are set,
 // and response Content-Type is EncryptedContentType (or body looks like base64), decrypts with RSA private key.
 // Expected encrypted format: base64( RSA_encrypt(aes_key_32 + iv_16) || aes_ctr_ciphertext ).
 // Returns decrypted or raw body and error.
-func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath string, timeout time.Duration, insecureTLS bool) ([]byte, error) {
+// rsaKeyPath and rsaKeyPEM: use file when rsaKeyPath is non-empty, else use rsaKeyPEM (inline PEM).
+func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath, rsaKeyPEM string, timeout time.Duration, insecureTLS bool) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("remote fetch: %w", err)
@@ -66,14 +67,14 @@ func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled 
 	if err != nil {
 		return nil, fmt.Errorf("remote fetch: read %w", err)
 	}
-	if !decryptEnabled || rsaKeyPath == "" {
+	if !decryptEnabled || (rsaKeyPath == "" && rsaKeyPEM == "") {
 		return body, nil
 	}
 	ct := strings.TrimSpace(strings.ToLower(resp.Header.Get("Content-Type")))
 	if ct != EncryptedContentType && !strings.HasPrefix(ct, EncryptedContentType+";") {
 		return body, nil
 	}
-	privKey, err := loadRSAPrivateKeyFromFile(rsaKeyPath)
+	privKey, err := loadRSAPrivateKey(rsaKeyPath, rsaKeyPEM)
 	if err != nil {
 		return nil, fmt.Errorf("remote decrypt: load key %w", err)
 	}
@@ -84,15 +85,26 @@ func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled 
 	return dec, nil
 }
 
-func loadRSAPrivateKeyFromFile(path string) (*rsa.PrivateKey, error) {
-	path = filepath.Clean(path)
-	data, err := os.ReadFile(path) // #nosec G304 path is from config and validated by caller
-	if err != nil {
-		return nil, err
+// loadRSAPrivateKey loads RSA private key from file path (if keyPath != "") or from inline PEM (keyPEM).
+// File path takes precedence when both are set.
+func loadRSAPrivateKey(keyPath, keyPEM string) (*rsa.PrivateKey, error) {
+	var data []byte
+	switch {
+	case keyPath != "":
+		keyPath = filepath.Clean(keyPath)
+		var err error
+		data, err = os.ReadFile(keyPath) // #nosec G304 path is from config and validated by caller
+		if err != nil {
+			return nil, err
+		}
+	case keyPEM != "":
+		data = []byte(strings.TrimSpace(keyPEM))
+	default:
+		return nil, fmt.Errorf("no RSA private key: set REMOTE_RSA_PRIVATE_KEY_FILE or REMOTE_RSA_PRIVATE_KEY")
 	}
 	block, _ := pem.Decode(data)
 	if block == nil {
-		return nil, fmt.Errorf("no PEM block in %s", path)
+		return nil, fmt.Errorf("no PEM block in key source")
 	}
 	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
@@ -142,8 +154,9 @@ func decryptHybrid(body []byte, priv *rsa.PrivateKey) ([]byte, error) {
 
 // FetchDecryptedUsers fetches remote URL and returns parsed []AllowListUser.
 // If decrypt is enabled and response is encrypted, decrypts then parses JSON.
-func FetchDecryptedUsers(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath string, timeout time.Duration, insecureTLS bool) ([]define.AllowListUser, error) {
-	body, err := FetchDecrypted(ctx, url, authHeader, decryptEnabled, rsaKeyPath, timeout, insecureTLS)
+// rsaKeyPath and rsaKeyPEM: use file when rsaKeyPath is non-empty, else use rsaKeyPEM.
+func FetchDecryptedUsers(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath, rsaKeyPEM string, timeout time.Duration, insecureTLS bool) ([]define.AllowListUser, error) {
+	body, err := FetchDecrypted(ctx, url, authHeader, decryptEnabled, rsaKeyPath, rsaKeyPEM, timeout, insecureTLS)
 	if err != nil {
 		return nil, err
 	}

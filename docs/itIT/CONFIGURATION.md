@@ -1,6 +1,8 @@
 # Configuration
 
 > 🌐 **Language / 语言**: [English](../enUS/CONFIGURATION.md) | [中文](../zhCN/CONFIGURATION.md) | [Français](../frFR/CONFIGURATION.md) | [Italiano](CONFIGURATION.md) | [日本語](../jaJP/CONFIGURATION.md) | [Deutsch](../deDE/CONFIGURATION.md) | [한국어](../koKR/CONFIGURATION.md)
+>
+> **完整配置项表与校验规则**：请参见 [zhCN](../zhCN/CONFIGURATION.md) 或 [enUS](../enUS/CONFIGURATION.md)。
 
 This document provides detailed information about Warden's configuration options, including running modes, configuration file formats, environment variables, etc.
 
@@ -167,7 +169,7 @@ Supports configuration via environment variables, with lower priority than comma
 export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis password (optional)
-export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis password file path (optional, higher priority than REDIS_PASSWORD)
+export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis password file path (optional; priority: REDIS_PASSWORD > REDIS_PASSWORD_FILE > config)
 export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true, supports true/false/1/0)
                                         # Note: In ONLY_LOCAL mode, default is false
                                         #       But if REDIS address is explicitly set, Redis will be enabled automatically
@@ -186,7 +188,7 @@ export LOG_LEVEL="info"                # Log level (optional, default: info, opt
 ```
 
 **Environment Variable Priority**:
-- Redis password: `REDIS_PASSWORD_FILE` > `REDIS_PASSWORD` > command line argument `--redis-password`
+- Redis password: `REDIS_PASSWORD` > `REDIS_PASSWORD_FILE` > command line argument `--redis-password`
 
 **Security Configuration Notes**:
 - `API_KEY`: Used to protect sensitive endpoints (`/`, `/log/level`), strongly recommended for production environments

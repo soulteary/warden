@@ -34,7 +34,8 @@
 | 远程 | 认证 Key | `remote.key` | `KEY` | 空 |
 | 远程 | 模式 | `remote.mode` / `app.mode` | `MODE` | `DEFAULT` |
 | 远程 | 解密启用 | `remote.decrypt_enabled` | `REMOTE_DECRYPT_ENABLED` | `false` |
-| 远程 | RSA 私钥文件 | `remote.rsa_private_key_file` | `REMOTE_RSA_PRIVATE_KEY_FILE` | 空（推荐用文件，避免 env 泄露） |
+| 远程 | RSA 私钥文件 | `remote.rsa_private_key_file` | `REMOTE_RSA_PRIVATE_KEY_FILE` | 空（推荐用文件） |
+| 远程 | RSA 私钥 PEM（内联） | — | `REMOTE_RSA_PRIVATE_KEY` | 空（当未设置文件时可用，多行 PEM 需保留换行） |
 | 任务 | 间隔 | `task.interval` | `INTERVAL` | `5`（秒） |
 | 应用 | 模式 | `app.mode` | `MODE` | `DEFAULT` |
 | 应用 | API Key | `app.api_key` | `API_KEY` | 空 |
@@ -56,9 +57,9 @@
 | 服务间鉴权 | 是否要求客户端证书 | — | `WARDEN_TLS_REQUIRE_CLIENT_CERT` | `false` |
 
 说明：
-- 使用 `--config-file` 时，主配置（端口、Redis、远程、任务等）从 YAML 加载，环境变量仍可覆盖；**当前实现下，主程序不会从该 YAML 读取 `tracing` 段**，需通过环境变量 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用追踪，或设置 `CONFIG_FILE` 指向同一/另一 YAML 以从文件启用 tracing。
+- 使用 `--config-file` 时，主配置（端口、Redis、远程、任务等）从 YAML 加载，环境变量仍可覆盖。**追踪（tracing）**：主程序在初始化追踪时仅读取 `CONFIG_FILE` 环境变量或 `OTLP_ENABLED`/`OTLP_ENDPOINT`，不会自动使用 `--config-file` 指向的 YAML 中的 `tracing` 段。若希望从 YAML 启用追踪，请同时设置 `CONFIG_FILE` 指向同一配置文件，或直接使用环境变量 `OTLP_ENABLED` + `OTLP_ENDPOINT`。
 - 未使用 `--config-file` 时，可通过 `CONFIG_FILE` 指定 YAML 路径，用于从文件读取 `tracing` 等（主配置仍来自命令行/环境变量）。
-- OpenTelemetry 也可仅通过 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用，无需 YAML。
+- 任务间隔：使用配置文件时，`task.interval` 来自 YAML 与默认值，环境变量 `INTERVAL` 不参与覆盖；仅在不使用配置文件时 `INTERVAL` 生效。
 
 ## 配置校验规则
 
@@ -73,7 +74,7 @@
 | 模式 | 须为枚举之一：`DEFAULT`、`REMOTE_FIRST`、`ONLY_REMOTE`、`ONLY_LOCAL`、`LOCAL_FIRST`、`REMOTE_FIRST_ALLOW_REMOTE_FAILED`、`LOCAL_FIRST_ALLOW_REMOTE_FAILED` |
 | 生产 + TLS | `app.mode` 为 `production`/`prod` 时禁止 `http.insecure_tls: true`（config 层校验） |
 | DATA_DIR | 非空时须存在且为目录 |
-| 远程解密 | `REMOTE_DECRYPT_ENABLED=true` 时须配置 `REMOTE_RSA_PRIVATE_KEY_FILE` 且文件存在可读 |
+| 远程解密 | `REMOTE_DECRYPT_ENABLED=true` 时须配置 `REMOTE_RSA_PRIVATE_KEY_FILE`（且文件存在可读）或 `REMOTE_RSA_PRIVATE_KEY` 之一 |
 
 ## 运行模式 (MODE)
 
@@ -201,7 +202,7 @@ app:
 
 当远程 API 返回加密 body 时，可启用 RSA 解密后再解析 JSON。
 
-- **配置**：`REMOTE_DECRYPT_ENABLED=true`，`REMOTE_RSA_PRIVATE_KEY_FILE=/path/to/private.pem`（推荐使用文件，避免私钥写入环境变量）。
+- **配置**：`REMOTE_DECRYPT_ENABLED=true`，并设置 `REMOTE_RSA_PRIVATE_KEY_FILE=/path/to/private.pem`（推荐）或 `REMOTE_RSA_PRIVATE_KEY`（内联 PEM，适用于密钥管理服务注入）。
 - **约定**：远程响应需设置 `Content-Type: application/x-warden-encrypted`，body 为 Base64 编码的混合密文：前 256 字节为 RSA(2048) 加密的 AES 密钥+IV，其后为 AES-CTR 密文；解密后为 JSON 数组格式，与本地 `data.json` 结构一致。
 - 启用解密时，远程拉取与解密在 Warden 内完成，再与本地文件源按 MODE 合并。
 
@@ -298,7 +299,7 @@ go run . \
 export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis 密码（可选）
-export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis 密码文件路径（可选，优先级高于 REDIS_PASSWORD）
+export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis 密码文件路径（可选；整体优先级：REDIS_PASSWORD > REDIS_PASSWORD_FILE > 配置文件）
 export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认: true，支持 true/false/1/0）
                                         # 注意: 在 ONLY_LOCAL 模式下，默认值为 false
                                         #       但如果显式设置了 REDIS 地址，则会自动启用 Redis
@@ -310,7 +311,8 @@ export DATA_FILE=./data.json          # 本地用户数据文件路径
 export DATA_DIR=                      # 可选：用户数据目录，合并该目录下所有 *.json（可与 DATA_FILE 同时使用）
 export RESPONSE_FIELDS=               # 可选：API 响应字段白名单，逗号分隔，如 phone,mail,user_id,status,name；空=全部
 export REMOTE_DECRYPT_ENABLED=false   # 可选：是否对远程响应做 RSA 解密
-export REMOTE_RSA_PRIVATE_KEY_FILE=   # 可选：RSA 私钥 PEM 文件路径（推荐用文件，避免 env 泄露）
+export REMOTE_RSA_PRIVATE_KEY_FILE=   # 可选：RSA 私钥 PEM 文件路径（与 REMOTE_RSA_PRIVATE_KEY 二选一，文件优先）
+export REMOTE_RSA_PRIVATE_KEY=        # 可选：RSA 私钥 PEM 内联（多行需保留换行；未设置 FILE 时使用）
 export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 duration，如 30s、1m30s）
 export HTTP_MAX_IDLE_CONNS=100         # HTTP 最大空闲连接数
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
@@ -331,7 +333,7 @@ export WARDEN_TLS_REQUIRE_CLIENT_CERT=true        # 是否强制要求客户端�
 ```
 
 **环境变量优先级**：
-- Redis 密码：`REDIS_PASSWORD_FILE` > `REDIS_PASSWORD` > 命令行参数 `--redis-password`
+- Redis 密码：`REDIS_PASSWORD` > `REDIS_PASSWORD_FILE` > 命令行参数 `--redis-password`
 
 **安全配置说明**：
 - `API_KEY`: 用于保护敏感端点（`/`、`/log/level`），强烈建议在生产环境设置

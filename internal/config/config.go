@@ -513,7 +513,8 @@ type CmdConfigData struct {
 	DataDir                 string   // 16 bytes - local user data directory (merge *.json)
 	ResponseFields          []string // API response field whitelist (empty = all)
 	RemoteDecryptEnabled    bool     // decrypt remote response with RSA
-	RemoteRSAPrivateKeyFile string   // path to PEM file for RSA decryption
+	RemoteRSAPrivateKeyFile string   // path to PEM file for RSA decryption (preferred)
+	RemoteRSAPrivateKey     string   // inline PEM for RSA decryption (env REMOTE_RSA_PRIVATE_KEY)
 	TaskInterval            int      // 8 bytes
 	HTTPTimeout             int      // 8 bytes
 	HTTPMaxIdleConns        int      // 8 bytes
@@ -580,6 +581,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 	if v := strings.TrimSpace(os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE")); v != "" {
 		rsaKeyFile = v
 	}
+	rsaKeyPEM := strings.TrimSpace(os.Getenv("REMOTE_RSA_PRIVATE_KEY"))
 	return &CmdConfigData{
 		Port:                    c.Server.Port,
 		Redis:                   c.Redis.Addr,
@@ -594,6 +596,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		ResponseFields:          responseFields,
 		RemoteDecryptEnabled:    remoteDecrypt,
 		RemoteRSAPrivateKeyFile: rsaKeyFile,
+		RemoteRSAPrivateKey:     rsaKeyPEM,
 		HTTPTimeout:             int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns:        c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:         c.HTTP.InsecureTLS,

@@ -70,11 +70,11 @@ func ValidateConfig(cfg *Config) error {
 		}
 	}
 
-	// When remote decrypt is enabled, RSA private key file must be set and exist/readable
+	// When remote decrypt is enabled, either RSA private key file or inline PEM must be set
 	if cfg.RemoteDecryptEnabled {
-		if cfg.RemoteRSAPrivateKeyFile == "" {
-			errors = append(errors, "REMOTE_DECRYPT_ENABLED is true but REMOTE_RSA_PRIVATE_KEY_FILE is not set")
-		} else {
+		if cfg.RemoteRSAPrivateKeyFile == "" && cfg.RemoteRSAPrivateKey == "" {
+			errors = append(errors, "REMOTE_DECRYPT_ENABLED is true but neither REMOTE_RSA_PRIVATE_KEY_FILE nor REMOTE_RSA_PRIVATE_KEY is set")
+		} else if cfg.RemoteRSAPrivateKeyFile != "" {
 			info, err := os.Stat(cfg.RemoteRSAPrivateKeyFile)
 			switch {
 			case err != nil:
@@ -96,6 +96,7 @@ func ValidateConfig(cfg *Config) error {
 				}
 			}
 		}
+		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
 	}
 
 	if len(errors) > 0 {
