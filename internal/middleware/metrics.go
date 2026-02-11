@@ -9,7 +9,7 @@ import (
 	"time"
 
 	// Internal packages
-	"github.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/prommetrics"
 )
 
 // MetricsMiddleware creates Prometheus metrics collection middleware
@@ -31,8 +31,8 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 
 		status := strconv.Itoa(rw.statusCode)
 
-		metrics.HTTPRequestTotal.WithLabelValues(r.Method, endpoint, status).Inc()
-		metrics.HTTPRequestDuration.WithLabelValues(r.Method, endpoint).Observe(duration)
+		prommetrics.HTTPRequestTotal.WithLabelValues(r.Method, endpoint, status).Inc()
+		prommetrics.HTTPRequestDuration.WithLabelValues(r.Method, endpoint).Observe(duration)
 	})
 }
 

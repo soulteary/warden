@@ -16,7 +16,7 @@ import (
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
-	"github.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/prommetrics"
 )
 
 // bufferPool reuses bytes.Buffer objects
@@ -187,7 +187,7 @@ func JSON(userCache *cache.SafeUserCache, responseFields []string) func(http.Res
 		}
 
 		userData := userCache.Get()
-		metrics.CacheHits.Inc()
+		prommetrics.CacheHits.Inc()
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

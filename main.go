@@ -37,7 +37,7 @@ import (
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
-	"github.com/soulteary/warden/internal/metrics"
+	"github.com/soulteary/warden/internal/prommetrics"
 	"github.com/soulteary/warden/pkg/gocron"
 )
 
@@ -170,7 +170,7 @@ func NewApp(cfg *cmd.Config) *App {
 	}
 
 	// Initialize cache size metrics
-	metrics.CacheSize.Set(float64(app.userCache.Len()))
+	prommetrics.CacheSize.Set(float64(app.userCache.Len()))
 
 	// Ensure task interval is not less than default value
 	if app.taskInterval < define.DEFAULT_TASK_INTERVAL {
@@ -228,14 +228,14 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	// 1. Try to load from Redis cache (if Redis is available)
 	if app.redisUserCache != nil {
 		if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
-			metrics.CacheHits.Inc()
+			prommetrics.CacheHits.Inc()
 			app.log.Info().
 				Int("count", len(cachedUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
 			app.userCache.Set(cachedUsers)
 			return nil
 		}
-		metrics.CacheMisses.Inc()
+		prommetrics.CacheMisses.Inc()
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
@@ -380,7 +380,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 // Side effects:
 //   - Updates memory cache (app.userCache)
 //   - Updates Redis cache (app.redisUserCache)
-//   - Updates Prometheus metrics (metrics.BackgroundTaskTotal, metrics.BackgroundTaskDuration, etc.)
+//   - Updates Prometheus metrics (prommetrics.BackgroundTaskTotal, prommetrics.BackgroundTaskDuration, etc.)
 //   - Records logs (debug, info, warning levels)
 //
 // Error handling:
@@ -394,7 +394,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 func (app *App) backgroundTask(rulesFile, dataDir string) {
 	defer func() {
 		if r := recover(); r != nil {
-			metrics.BackgroundTaskErrors.Inc()
+			prommetrics.BackgroundTaskErrors.Inc()
 			app.log.Error().
 				Interface("panic", r).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.background_task_panic"))
@@ -439,7 +439,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 				app.log.Warn().
 					Err(err).
 					Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
-				metrics.BackgroundTaskErrors.Inc()
+				prommetrics.BackgroundTaskErrors.Inc()
 			}
 		}
 	} else {
@@ -452,9 +452,9 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 
 	// Update metrics
 	duration := time.Since(start).Seconds()
-	metrics.BackgroundTaskTotal.Inc()
-	metrics.BackgroundTaskDuration.Observe(duration)
-	metrics.CacheSize.Set(float64(app.userCache.Len()))
+	prommetrics.BackgroundTaskTotal.Inc()
+	prommetrics.BackgroundTaskDuration.Observe(duration)
+	prommetrics.CacheSize.Set(float64(app.userCache.Len()))
 
 	app.log.Info().
 		Int("count", len(newUsers)).

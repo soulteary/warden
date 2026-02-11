@@ -1,4 +1,4 @@
-package metrics
+package prommetrics
 
 import (
 	"net/http"

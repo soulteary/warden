@@ -17,8 +17,8 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
-	"github.com/soulteary/warden/internal/metrics"
 	"github.com/soulteary/warden/internal/middleware"
+	"github.com/soulteary/warden/internal/prommetrics"
 	"github.com/soulteary/warden/internal/router"
 	internal_tracing "github.com/soulteary/warden/internal/tracing"
 )
@@ -38,7 +38,7 @@ func registerRoutes(app *App) {
 		Logger:             logger.ZerologPtr(),
 		SkipPaths:          define.SkipPathsHealthAndMetrics,
 		OnLimitReached: func(key string) {
-			metrics.RateLimitHits.WithLabelValues(key).Inc()
+			prommetrics.RateLimitHits.WithLabelValues(key).Inc()
 		},
 	})
 
@@ -78,7 +78,7 @@ func registerRoutes(app *App) {
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
 						optionalAuthMiddleware(
-							middleware.MetricsMiddleware(metrics.Handler()),
+							middleware.MetricsMiddleware(prommetrics.Handler()),
 						),
 					),
 				),

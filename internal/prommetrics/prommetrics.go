@@ -1,6 +1,6 @@
-// Package metrics provides Prometheus metrics collection functionality.
+// Package prommetrics provides Prometheus metrics collection functionality.
 // Includes HTTP request metrics, cache metrics, background task metrics, etc.
-package metrics
+package prommetrics
 
 import (
 	"net/http"
