@@ -33,7 +33,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
-	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -42,9 +41,9 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.11 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.6.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.8 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
-	github.com/lib/pq v1.11.1 // indirect
+	github.com/lib/pq v1.11.2 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
