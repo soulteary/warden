@@ -11,6 +11,7 @@ type AllowListUser struct {
 	Status         string   `json:"status"`                    // User status (e.g., "active", "inactive", "suspended")
 	Scope          []string `json:"scope"`                     // User permission scope (optional)
 	Role           string   `json:"role"`                      // User role (optional)
+	Name           string   `json:"name,omitempty"`            // User display name (optional)
 	DingtalkUserID string   `json:"dingtalk_userid,omitempty"` // DingTalk user ID for work notification (optional)
 }
 

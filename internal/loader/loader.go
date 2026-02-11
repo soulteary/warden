@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soulteary/parser-kit"
+	parserkit "github.com/soulteary/parser-kit"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/remote"
