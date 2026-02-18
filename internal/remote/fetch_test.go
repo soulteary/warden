@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -94,7 +95,7 @@ func TestDecryptHybrid_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	keyIV := append(append([]byte{}, aesKey...), iv...)
-	encKeyBlock, err := rsa.EncryptPKCS1v15(rand.Reader, &priv.PublicKey, keyIV)
+	encKeyBlock, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, &priv.PublicKey, keyIV, nil)
 	require.NoError(t, err)
 
 	block, err := aes.NewCipher(aesKey)

@@ -8,6 +8,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -37,7 +38,7 @@ const (
 
 // FetchDecrypted fetches url with optional auth header. If decryptEnabled and rsaKey (file path or PEM) are set,
 // and response Content-Type is EncryptedContentType (or body looks like base64), decrypts with RSA private key.
-// Expected encrypted format: base64( RSA_encrypt(aes_key_32 + iv_16) || aes_ctr_ciphertext ).
+// Expected encrypted format: base64( RSA-OAEP_SHA256(aes_key_32 + iv_16) || aes_ctr_ciphertext ).
 // Returns decrypted or raw body and error.
 // rsaKeyPath and rsaKeyPEM: use file when rsaKeyPath is non-empty, else use rsaKeyPEM (inline PEM).
 func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath, rsaKeyPEM string, timeout time.Duration, insecureTLS bool) ([]byte, error) {
@@ -55,7 +56,7 @@ func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled 
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
 		}
 	}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) // #nosec G704 -- URL from config, caller is responsible for allowlist
 	if err != nil {
 		return nil, fmt.Errorf("remote fetch: %w", err)
 	}
@@ -122,7 +123,7 @@ func loadRSAPrivateKey(keyPath, keyPEM string) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-// decryptHybrid expects body = base64( RSA_encrypt(aes_key_32 + iv_16) || aes_ctr_ciphertext ).
+// decryptHybrid expects body = base64( RSA-OAEP_SHA256(aes_key_32 + iv_16) || aes_ctr_ciphertext ).
 func decryptHybrid(body []byte, priv *rsa.PrivateKey) ([]byte, error) {
 	raw, err := base64.StdEncoding.DecodeString(string(bytes.TrimSpace(body)))
 	if err != nil {
@@ -132,7 +133,7 @@ func decryptHybrid(body []byte, priv *rsa.PrivateKey) ([]byte, error) {
 		return nil, fmt.Errorf("body too short for hybrid cipher")
 	}
 	encKeyBlock := raw[:RSAKeySize2048]
-	plainKeyIV, err := rsa.DecryptPKCS1v15(rand.Reader, priv, encKeyBlock)
+	plainKeyIV, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, priv, encKeyBlock, nil)
 	if err != nil {
 		return nil, fmt.Errorf("rsa decrypt: %w", err)
 	}

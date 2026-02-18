@@ -1860,7 +1860,7 @@ func TestClient_checkResponseStatus_AllStatusCodes(t *testing.T) {
 
 			req, err := http.NewRequest("GET", server.URL, http.NoBody)
 			require.NoError(t, err)
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := http.DefaultClient.Do(req) // #nosec G704 -- server.URL from httptest.Server, test-only
 			if err != nil {
 				t.Fatalf("Failed to make request: %v", err)
 			}

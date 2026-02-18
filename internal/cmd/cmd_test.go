@@ -142,7 +142,7 @@ func TestReadPasswordFromFile(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-password-*.txt")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write password to file
@@ -168,7 +168,7 @@ func TestReadPasswordFromFile_EmptyFile(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-empty-*.txt")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 	require.NoError(t, tmpFile.Close())
 
@@ -248,7 +248,7 @@ func TestGetArgs_RedisPassword_FromFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 	defer func() {
-		if err := os.Remove(tmpFile.Name()); err != nil {
+		if err := os.Remove(tmpFile.Name()); err != nil { // #nosec G703 -- path from os.CreateTemp
 			t.Logf("清理临时文件失败: %s", tmpFile.Name())
 		}
 	}()
@@ -415,7 +415,7 @@ func TestGetArgs_WithConfigFile(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-config-*.yaml")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write valid YAML config
@@ -479,7 +479,7 @@ func TestGetArgs_WithConfigFile_OverrideByCLI(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-config-*.yaml")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write valid YAML config
@@ -560,7 +560,7 @@ func TestLoadConfig(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-config-*.yaml")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write valid YAML config
@@ -649,7 +649,7 @@ func TestLoadConfig_InvalidFile(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-invalid-config-*.yaml")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write invalid YAML content
@@ -705,7 +705,7 @@ func TestLoadConfig_WithEnvOverride(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-config-*.yaml")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write valid YAML config
@@ -889,7 +889,7 @@ func TestGetArgs_RedisPassword_Priority(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 	defer func() {
-		if err := os.Remove(tmpFile.Name()); err != nil {
+		if err := os.Remove(tmpFile.Name()); err != nil { // #nosec G703 -- path from os.CreateTemp
 			t.Logf("清理临时文件失败: %s", tmpFile.Name())
 		}
 	}()

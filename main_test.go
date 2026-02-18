@@ -290,7 +290,7 @@ func TestApp_loadInitialData_ONLY_LOCAL(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	// Write test data
@@ -326,7 +326,7 @@ func TestApp_loadInitialData_EmptyFile(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-empty-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 	require.NoError(t, tmpFile.Close())
 
@@ -378,7 +378,7 @@ func TestApp_backgroundTask_NoChange(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testData := `[
@@ -420,7 +420,7 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	initialData := `[
@@ -454,7 +454,7 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 		{"phone": "13800138000", "mail": "test@example.com"},
 		{"phone": "13900139000", "mail": "test2@example.com"}
 	]`
-	err = os.WriteFile(tmpFile.Name(), []byte(newData), 0o600)
+	err = os.WriteFile(tmpFile.Name(), []byte(newData), 0o600) // #nosec G703 -- path from os.CreateTemp
 	require.NoError(t, err)
 
 	// Run background task (with data change)
@@ -758,7 +758,7 @@ func TestApp_loadInitialData_FileExistsButEmpty(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-empty-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 	require.NoError(t, tmpFile.Close())
 
@@ -807,7 +807,7 @@ func TestApp_backgroundTask_WithRedis(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testData := `[
@@ -844,7 +844,7 @@ func TestApp_backgroundTask_DataInconsistency(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testData := `[
@@ -1038,7 +1038,7 @@ func TestApp_loadInitialData_RemoteFirst(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testData := `[
@@ -1078,7 +1078,7 @@ func TestApp_backgroundTask_RemoteMode(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testData := `[
@@ -1159,7 +1159,7 @@ func TestNewApp_WithRedisPasswordFromFile(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-redis-password-*.txt")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testPassword := "file-password-123"
@@ -1241,7 +1241,7 @@ func TestApp_backgroundTask_DataConsistency(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "test-data-*.json")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, os.Remove(tmpFile.Name())) // #nosec G703 -- path from os.CreateTemp
 	}()
 
 	testData := `[

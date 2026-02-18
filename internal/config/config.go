@@ -91,7 +91,7 @@ type TaskConfig struct {
 // AppConfig application configuration
 type AppConfig struct {
 	Mode           string   `yaml:"mode"`
-	APIKey         string   `yaml:"api_key"`         // API Key for authentication (sensitive information, recommend using environment variables)
+	APIKey         string   `yaml:"api_key"`         // API Key for authentication (recommend env)
 	DataFile       string   `yaml:"data_file"`       // Local user data file path
 	DataDir        string   `yaml:"data_dir"`        // Local user data directory (merge all *.json files; can be used with data_file)
 	ResponseFields []string `yaml:"response_fields"` // API response field whitelist (empty = all fields); e.g. ["phone","mail","user_id","status","scope","role","name"]
@@ -441,7 +441,7 @@ func (c *Config) GetRedisPassword() (string, error) {
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)
 		}
-		// #nosec G304 -- file path has been validated, is safe
+		// #nosec G304 G703 -- file path has been validated by validateConfigPath, safe to read
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			return "", errors.ErrConfigLoad.WithError(err)

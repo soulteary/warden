@@ -112,7 +112,7 @@ func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotSet(t *testing.T) {
 }
 
 func TestValidateConfig_RemoteDecryptEnabled_OnlyPEMSet(t *testing.T) {
-	cfg := &Config{
+	cfg := &Config{ // #nosec G101 -- test fixture only, not a real key
 		Port:                    "8081",
 		Redis:                   "localhost:6379",
 		TaskInterval:            5,

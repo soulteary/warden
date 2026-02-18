@@ -69,12 +69,10 @@ linters:
         # - 所有导出的常量必须使用 ALL_CAPS (UPPER_SNAKE_CASE)
         # - 错误变量（以 Err 开头）可以使用 PascalCase（这是 Go 的约定）
         # - 其他导出的变量使用 PascalCase
-#
-#   gosec:
-#     # 排除一些误报
-#     excludes:
-#       - G104 # 错误未检查（某些情况下可以接受）
-#       - G107 # HTTP 请求（某些情况下需要）
+    gosec:
+      # 排除：G117 为配置/选项结构体中的 APIKey/Password 字段名，值为 env/调用方传入，非硬编码
+      excludes:
+        - G117
 
 # 注意：golangci-lint v2 格式中，issues 配置已被移除
 # 如果需要排除特定问题，请使用 revive 的配置或其他 linter 的配置选项
