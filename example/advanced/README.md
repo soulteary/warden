@@ -13,7 +13,7 @@ This is Warden's complete feature example, demonstrating all core features, incl
 ## 📋 Prerequisites
 
 - Docker and Docker Compose
-- Or Go 1.25+ and Redis
+- Or Go 1.26+ and Redis
 
 ## 🏗️ Architecture Overview
 

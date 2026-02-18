@@ -30,7 +30,7 @@ Wenn Sie an diesem Projekt teilnehmen, respektieren Sie bitte alle Mitwirkenden,
 
 ### Voraussetzungen
 
-- Go 1.25 oder höher
+- Go 1.26 oder höher
 - Redis (für Tests)
 - Git
 

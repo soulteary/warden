@@ -35,7 +35,7 @@ assignees: ''
 ## 🔧 環境情報
 
 - **OS**: [例: macOS 12.0, Ubuntu 22.04, Windows 11]
-- **Go バージョン**: [例: 1.25]
+- **Go バージョン**: [例: 1.26]
 - **Redis バージョン**: [例: 7.0]
 - **Warden バージョン**: [例: `warden --version` を実行するか、起動ログを確認]
 - **実行モード**: [例: DEFAULT, ONLY_REMOTE, ONLY_LOCAL]

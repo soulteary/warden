@@ -35,7 +35,7 @@ assignees: ''
 ## 🔧 환경 정보
 
 - **OS**: [예: macOS 12.0, Ubuntu 22.04, Windows 11]
-- **Go 버전**: [예: 1.25]
+- **Go 버전**: [예: 1.26]
 - **Redis 버전**: [예: 7.0]
 - **Warden 버전**: [예: `warden --version` 실행 또는 시작 로그 확인]
 - **실행 모드**: [예: DEFAULT, ONLY_REMOTE, ONLY_LOCAL]

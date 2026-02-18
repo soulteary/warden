@@ -89,6 +89,20 @@
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程优先，允许远程失败时回退到本地 | 高可用场景 |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 本地优先，允许远程失败时回退到本地 | 混合模式 |
 
+### `REDIS_ENABLED` 与 `MODE=ONLY_LOCAL` 交互规则
+
+当前实现中，`ONLY_LOCAL` 不等同于“强制关闭 Redis”，而是“默认关闭 Redis”：
+
+1. 当 `MODE=ONLY_LOCAL` 且未显式设置 `REDIS_ENABLED` 与 `REDIS` 地址时，`REDIS_ENABLED` 默认视为 `false`。
+2. 当 `MODE=ONLY_LOCAL` 但显式设置了 `REDIS_ENABLED=true`，则会启用 Redis。
+3. 当 `MODE=ONLY_LOCAL` 且未设置 `REDIS_ENABLED`，但显式设置了 `REDIS=<host:port>`，则会启用 Redis。
+
+实践建议：
+
+- **离线/轻量测试**：`MODE=ONLY_LOCAL` + `REDIS_ENABLED=false`
+- **本地数据但希望缓存更稳**：`MODE=ONLY_LOCAL` + `REDIS_ENABLED=true` + `REDIS=...`
+- **生产环境**：建议启用 Redis，并显式设置 `REDIS_ENABLED=true`，避免依赖隐式推导
+
 ### 配置方式
 
 可以通过以下方式设置运行模式：

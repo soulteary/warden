@@ -6,7 +6,7 @@ This document explains how to deploy the Warden service, including Docker deploy
 
 ## Prerequisites
 
-- Go 1.25+ (refer to [go.mod](../go.mod))
+- Go 1.26+ (refer to [go.mod](../go.mod))
 - Redis (for distributed locks and caching)
 - Docker (optional, for containerized deployment)
 

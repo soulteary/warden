@@ -29,7 +29,7 @@ When participating in this project, please respect all contributors, accept cons
 
 ### Prerequisites
 
-- Go 1.25 or higher
+- Go 1.26 or higher
 - Redis (for testing)
 - Git
 
@@ -165,7 +165,7 @@ Clearly and concisely describe what actually happened.
 
 **Environment Information**
 - OS: [e.g. macOS 12.0]
-- Go Version: [e.g. 1.25]
+- Go Version: [e.g. 1.26]
 - Redis Version: [e.g. 7.0]
 ```
 

@@ -35,7 +35,7 @@ Collez les logs pertinents ici
 ## 🔧 Informations sur l'Environnement
 
 - **OS**: [par ex. macOS 12.0, Ubuntu 22.04, Windows 11]
-- **Version Go**: [par ex. 1.25]
+- **Version Go**: [par ex. 1.26]
 - **Version Redis**: [par ex. 7.0]
 - **Version Warden**: [par ex. Exécutez `warden --version` ou consultez les logs de démarrage]
 - **Mode d'Exécution**: [par ex. DEFAULT, ONLY_REMOTE, ONLY_LOCAL]

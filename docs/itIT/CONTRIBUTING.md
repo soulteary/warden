@@ -31,7 +31,7 @@ Quando partecipi a questo progetto, per favore rispetta tutti i contributori, ac
 
 ### Prerequisiti
 
-- Go 1.25 o superiore
+- Go 1.26 o superiore
 - Redis (per i test)
 - Git
 

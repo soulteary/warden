@@ -29,7 +29,7 @@
 
 ### 前置要求
 
-- Go 1.25 或更高版本
+- Go 1.26 或更高版本
 - Redis（用于测试）
 - Git
 
@@ -165,7 +165,7 @@ git push origin feature/your-feature-name
 
 **环境信息**
 - OS: [e.g. macOS 12.0]
-- Go 版本: [e.g. 1.25]
+- Go 版本: [e.g. 1.26]
 - Redis 版本: [e.g. 7.0]
 ```
 
