@@ -1,4 +1,4 @@
-FROM golang:1.26.5-alpine3.22 AS builder
+FROM golang:1.26.5-alpine3.23 AS builder
 RUN apk add git bash gcc musl-dev upx
 WORKDIR /app
 ENV GO111MODULE=on
@@ -28,7 +28,7 @@ RUN if command -v upx > /dev/null 2>&1; then \
     fi
 
 
-FROM alpine:3.22
+FROM alpine:3.23
 COPY --from=builder /app/warden /bin/warden
 RUN apk add --no-cache curl
 WORKDIR /app
