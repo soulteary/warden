@@ -74,6 +74,7 @@
   "log.identity_diagnostic_ok": "Controllo identità in sola lettura superato: nessun identificatore duplicato o user_id mancante",
   "log.identity_diagnostic_risk": "Il controllo identità in sola lettura ha rilevato un rischio di migrazione: identificatori duplicati o user_id mancante (valori mascherati)",
   "log.identity_diagnostic_failed": "Impossibile eseguire il controllo identità in sola lettura",
+  "log.legacy_mode_env_deprecated": "L'ambiente di distribuzione è stato dedotto da un MODE=production/prod legacy; ciò è deprecato. Utilizzare invece la variabile ENVIRONMENT (MODE ora seleziona solo la modalità di unione dei dati)",
   "log.forced_shutdown": "Arresto forzato",
   "log.config_validation_failed_exit": "Validazione configurazione fallita, uscita",
   "log.app_version": "Versione applicazione: %s, Ora di compilazione: %s, Versione codice: %s",

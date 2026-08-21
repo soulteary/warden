@@ -10,6 +10,7 @@ import (
 	"github.com/soulteary/cli-kit/validator"
 
 	// Internal packages
+	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 )
@@ -42,18 +43,20 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
 	}
 
-	// Validate mode using cli-kit validator
-	validModes := []string{
-		"DEFAULT",
-		"REMOTE_FIRST",
-		"ONLY_REMOTE",
-		"ONLY_LOCAL",
-		"LOCAL_FIRST",
-		"REMOTE_FIRST_ALLOW_REMOTE_FAILED",
-		"LOCAL_FIRST_ALLOW_REMOTE_FAILED",
-	}
-	if err := validator.ValidateEnum(cfg.Mode, validModes, true); err != nil {
+	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
+	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
+	}
+
+	// Validate deployment environment (security-policy concern only).
+	environment, envOK := config.ParseEnvironment(cfg.Environment)
+	if !envOK {
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.environment_invalid", cfg.Environment))
+	}
+
+	// Production-specific security validation. These key off ENVIRONMENT, never the merge mode.
+	if environment.IsProduction() {
+		errors = append(errors, validateProduction(cfg)...)
 	}
 
 	// Validate DATA_DIR when set: must exist and be a directory
@@ -104,4 +107,29 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// validateProduction returns production-only security violations. It intentionally does
+// NOT include the auth requirement, which is added in the auth-hardening phase.
+func validateProduction(cfg *Config) []string {
+	var errs []string
+
+	// 1. Insecure TLS is forbidden in production.
+	if cfg.HTTPInsecureTLS {
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_tls_not_allowed"))
+	}
+
+	hasRemote := cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG
+	if hasRemote {
+		// 2. Remote fetch must have a bounded timeout.
+		if cfg.HTTPTimeout <= 0 {
+			errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_remote_timeout_required"))
+		}
+		// 3. Remote encryption must be required (fail closed) in production.
+		if !cfg.RemoteEncryptionRequired {
+			errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_remote_encryption_required"))
+		}
+	}
+
+	return errs
 }

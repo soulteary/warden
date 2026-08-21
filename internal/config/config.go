@@ -382,9 +382,18 @@ func validate(cfg *Config) error {
 		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.task_interval_too_short"))
 	}
 
-	// Force TLS verification in production environment
-	isProduction := cfg.App.Mode == "production" || cfg.App.Mode == "prod"
-	if isProduction && cfg.HTTP.InsecureTLS {
+	// Force TLS verification in production environment. Production is now determined by
+	// the dedicated ENVIRONMENT (falling back to a legacy MODE=production/prod), never by
+	// the data merge mode.
+	envStr := strings.TrimSpace(os.Getenv("ENVIRONMENT"))
+	if envStr == "" {
+		// Migration fallback: a legacy Mode of production/prod still implies production.
+		if strings.EqualFold(cfg.App.Mode, "production") || strings.EqualFold(cfg.App.Mode, "prod") {
+			envStr = string(EnvProduction)
+		}
+	}
+	environment, _ := ParseEnvironment(envStr)
+	if environment.IsProduction() && cfg.HTTP.InsecureTLS {
 		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_tls_not_allowed"))
 	}
 
@@ -507,7 +516,9 @@ type CmdConfigData struct {
 	RedisEnabled             bool     // 1 byte (padding to 8 bytes)
 	RemoteConfig             string   // 16 bytes
 	RemoteKey                string   // 16 bytes
-	Mode                     string   // 16 bytes
+	Mode                     string   // 16 bytes (merge mode; legacy MODE is a deprecated alias)
+	Environment              string   // env ENVIRONMENT: development|test|production
+	LegacyModeUsedForEnv     bool     // legacy MODE used to derive environment (deprecation signal)
 	APIKey                   string   // 16 bytes
 	DataFile                 string   // 16 bytes - local user data file path
 	DataDir                  string   // 16 bytes - local user data directory (merge *.json)
@@ -542,6 +553,26 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 	mode := strings.TrimSpace(c.Remote.Mode)
 	if mode == "" {
 		mode = strings.TrimSpace(c.App.Mode)
+	}
+	// Resolve deployment environment (security policy) independently from the merge mode.
+	// A legacy Mode of production/prod is migrated to Environment=production so existing
+	// hardening is preserved; the merge mode then falls back to the historical default.
+	legacyIsProdEnv := strings.EqualFold(mode, "production") || strings.EqualFold(mode, "prod")
+	environment := ""
+	legacyModeUsedForEnv := false
+	if v := strings.TrimSpace(os.Getenv("ENVIRONMENT")); v != "" {
+		environment = v
+	} else if legacyIsProdEnv {
+		environment = string(EnvProduction)
+		legacyModeUsedForEnv = true
+	} else {
+		environment = string(DefaultEnvironment)
+	}
+	// MERGE_MODE env overrides the (merge) mode; a legacy prod mode is not a merge mode.
+	if v := strings.TrimSpace(os.Getenv("MERGE_MODE")); v != "" {
+		mode = v
+	} else if legacyIsProdEnv {
+		mode = string(MergeDefault)
 	}
 	// If still empty, use default value
 	if mode == "" {
@@ -608,6 +639,8 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		RemoteKey:                c.Remote.Key,
 		TaskInterval:             int(c.Task.Interval.Seconds()),
 		Mode:                     mode,
+		Environment:              environment,
+		LegacyModeUsedForEnv:     legacyModeUsedForEnv,
 		DataFile:                 dataFile,
 		DataDir:                  dataDir,
 		ResponseFields:           responseFields,

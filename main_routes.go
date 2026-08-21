@@ -15,6 +15,7 @@ import (
 	middlewarekit "github.com/soulteary/middleware-kit"
 	tracing "github.com/soulteary/tracing-kit"
 	"github.com/soulteary/warden/internal/cache"
+	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/middleware"
@@ -157,7 +158,7 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/v1/lookup", lookupHandler)
 
-	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.appMode, app.redisEnabled, healthWhitelist)
+	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.appMode, app.environment, app.redisEnabled, healthWhitelist)
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -201,8 +202,11 @@ func registerRoutes(app *App) {
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
-func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
-	isProduction := appMode == "production" || appMode == "prod"
+func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode, environment string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
+	// Production hardening (hide details/checks) keys off the deployment ENVIRONMENT,
+	// never off the data merge mode. isOnlyLocalMode still uses the merge mode.
+	env, _ := config.ParseEnvironment(environment)
+	isProduction := env.IsProduction()
 	isOnlyLocalMode := strings.ToUpper(strings.TrimSpace(appMode)) == "ONLY_LOCAL"
 
 	var ipList []string

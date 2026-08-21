@@ -30,7 +30,9 @@ type Config struct {
 	RedisEnabled             bool     // 1 byte (padding to 8 bytes)
 	RemoteConfig             string   // 16 bytes
 	RemoteKey                string   // 16 bytes
-	Mode                     string   // 16 bytes
+	Mode                     string   // 16 bytes (merge mode; legacy MODE is a deprecated alias)
+	Environment              string   // env ENVIRONMENT: development|test|production (security policy)
+	LegacyModeUsedForEnv     bool     // true when legacy MODE was used to derive the environment (deprecation)
 	APIKey                   string   // 16 bytes
 	DataFile                 string   // 16 bytes - local user data file path
 	DataDir                  string   // 16 bytes - local user data directory (merge *.json)
@@ -269,6 +271,47 @@ func processTaskFromFlags(cfg *Config, fs *flag.FlagSet) {
 	cfg.TaskInterval = configutil.ResolveInt(fs, "interval", "INTERVAL", cfg.TaskInterval, false)
 }
 
+// processEnvironmentAndMergeMode resolves the deployment Environment (security policy)
+// and the data MergeMode as two independent concepts, layered on top of the legacy MODE
+// value that processModeFromFlags already placed in cfg.Mode.
+//
+// Precedence:
+//   - MergeMode: CLI -mode / MODE (already in cfg.Mode) is the base; MERGE_MODE env, when
+//     set, overrides it. This keeps existing MODE-as-merge-mode deployments working while
+//     letting operators migrate to the explicit MERGE_MODE variable.
+//   - Environment: ENVIRONMENT env wins. When ENVIRONMENT is unset but the legacy MODE was
+//     "production"/"prod", we honor it as the environment (with a deprecation signal) so we
+//     never silently drop production hardening during migration. Otherwise defaults to
+//     development.
+//
+// The legacy MODE no longer *directly* drives production security checks; those key off the
+// resolved Environment only.
+func processEnvironmentAndMergeMode(cfg *Config) {
+	// Detect a legacy MODE that actually meant "production environment" rather than a
+	// merge mode, before we normalize cfg.Mode for merge purposes.
+	legacyModeRaw := strings.TrimSpace(cfg.Mode)
+	legacyIsProdEnv := strings.EqualFold(legacyModeRaw, "production") || strings.EqualFold(legacyModeRaw, "prod")
+
+	// MergeMode: apply MERGE_MODE override when present.
+	if v := env.GetTrimmed("MERGE_MODE", ""); v != "" {
+		cfg.Mode = v
+	} else if legacyIsProdEnv {
+		// A legacy MODE=production is not a valid merge mode; fall back to the historical
+		// default merge behavior so data loading is unaffected.
+		cfg.Mode = string(config.MergeDefault)
+	}
+
+	// Environment: ENVIRONMENT env has priority; otherwise migrate legacy prod MODE.
+	if v := env.GetTrimmed("ENVIRONMENT", ""); v != "" {
+		cfg.Environment = v
+	} else if legacyIsProdEnv {
+		cfg.Environment = string(config.EnvProduction)
+		cfg.LegacyModeUsedForEnv = true
+	} else if cfg.Environment == "" {
+		cfg.Environment = string(config.DefaultEnvironment)
+	}
+}
+
 // processModeFromFlags processes mode configuration
 func processModeFromFlags(cfg *Config, fs *flag.FlagSet) {
 	// Use configutil to resolve with priority: CLI > ENV > default
@@ -451,6 +494,7 @@ func getArgsFromFlags() *Config {
 	// Process each configuration item
 	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
 	processModeFromFlags(cfg, fs)
+	processEnvironmentAndMergeMode(cfg)
 	processPortFromFlags(cfg, fs)
 	processRedisFromFlags(cfg, fs, flagVals)
 	processRemoteConfigFromFlags(cfg, fs)
@@ -478,6 +522,8 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		RemoteKey:                cfg.RemoteKey,
 		TaskInterval:             cfg.TaskInterval,
 		Mode:                     cfg.Mode,
+		Environment:              cfg.Environment,
+		LegacyModeUsedForEnv:     cfg.LegacyModeUsedForEnv,
 		DataFile:                 cfg.DataFile,
 		DataDir:                  cfg.DataDir,
 		ResponseFields:           cfg.ResponseFields,
@@ -522,6 +568,8 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 		RemoteConfig:             cfg.RemoteConfig,
 		RemoteKey:                cfg.RemoteKey,
 		Mode:                     cfg.Mode,
+		Environment:              cfg.Environment,
+		LegacyModeUsedForEnv:     cfg.LegacyModeUsedForEnv,
 		APIKey:                   cfg.APIKey,
 		DataFile:                 cfg.DataFile,
 		DataDir:                  cfg.DataDir,
@@ -540,6 +588,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	// Process each configuration item using unified processing functions
 	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
 	processModeFromFlags(tempCfg, overrideFs)
+	processEnvironmentAndMergeMode(tempCfg)
 	processPortFromFlags(tempCfg, overrideFs)
 	processRedisFromFlags(tempCfg, overrideFs, flagVals)
 	processRemoteConfigFromFlags(tempCfg, overrideFs)
@@ -558,6 +607,8 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	cfg.RemoteConfig = tempCfg.RemoteConfig
 	cfg.RemoteKey = tempCfg.RemoteKey
 	cfg.Mode = tempCfg.Mode
+	cfg.Environment = tempCfg.Environment
+	cfg.LegacyModeUsedForEnv = tempCfg.LegacyModeUsedForEnv
 	cfg.APIKey = tempCfg.APIKey
 	cfg.DataFile = tempCfg.DataFile
 	cfg.DataDir = tempCfg.DataDir
@@ -610,6 +661,8 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 		RemoteConfig:             cfg.RemoteConfig,
 		RemoteKey:                cfg.RemoteKey,
 		Mode:                     cfg.Mode,
+		Environment:              cfg.Environment,
+		LegacyModeUsedForEnv:     cfg.LegacyModeUsedForEnv,
 		APIKey:                   cfg.APIKey,
 		DataFile:                 cfg.DataFile,
 		DataDir:                  cfg.DataDir,
@@ -636,6 +689,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	// Process each configuration item using unified processing functions
 	// Pass nil for flagVals since we're only processing environment variables
 	processModeFromFlags(tempCfg, emptyFs)
+	processEnvironmentAndMergeMode(tempCfg)
 	processPortFromFlags(tempCfg, emptyFs)
 	processRedisFromFlags(tempCfg, emptyFs, nil)
 	processRemoteConfigFromFlags(tempCfg, emptyFs)
@@ -657,6 +711,8 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.RemoteConfig = tempCfg.RemoteConfig
 	cfg.RemoteKey = tempCfg.RemoteKey
 	cfg.Mode = tempCfg.Mode
+	cfg.Environment = tempCfg.Environment
+	cfg.LegacyModeUsedForEnv = tempCfg.LegacyModeUsedForEnv
 	cfg.APIKey = tempCfg.APIKey
 	cfg.DataFile = tempCfg.DataFile
 	cfg.DataDir = tempCfg.DataDir

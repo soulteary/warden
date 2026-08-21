@@ -46,6 +46,9 @@
   "validation.redis_addr_empty": "redis.addr 不能为空",
   "validation.task_interval_too_short": "task.interval 必须至少为 1 秒",
   "validation.prod_tls_not_allowed": "生产环境不允许禁用 TLS 证书验证",
+  "validation.environment_invalid": "无效的部署环境：%s（有效值：development, test, production）",
+  "validation.prod_remote_timeout_required": "生产环境下配置远程数据源时必须设置有界的 HTTP 超时（HTTP_TIMEOUT > 0）",
+  "validation.prod_remote_encryption_required": "生产环境下配置远程数据源时必须启用远程加密并要求密文（REMOTE_ENCRYPTION_REQUIRED=true，fail closed）",
 
   "log_level.updated": "日志级别已更新",
   "log_level.invalid": "无效的日志级别，支持的值：trace, debug, info, warn, error, fatal, panic",
@@ -90,6 +93,7 @@
   "log.identity_diagnostic_ok": "身份数据只读校验通过：未发现唯一标识冲突或缺失的 user_id",
   "log.identity_diagnostic_risk": "身份数据只读校验发现迁移风险：存在唯一标识冲突或缺失的 user_id（值已脱敏）",
   "log.identity_diagnostic_failed": "身份数据只读校验执行失败",
+  "log.legacy_mode_env_deprecated": "检测到通过旧的 MODE=production/prod 推断部署环境，该用法已弃用；请改用 ENVIRONMENT 变量（MODE 现仅表示数据合并模式）",
   "log.forced_shutdown": "程序强制关闭",
   "log.config_validation_failed_exit": "配置验证失败，程序退出",
   "log.app_version": "程序版本：%s, 构建时间：%s, 代码版本：%s",

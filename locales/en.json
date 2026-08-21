@@ -46,6 +46,9 @@
   "validation.redis_addr_empty": "redis.addr cannot be empty",
   "validation.task_interval_too_short": "task.interval must be at least 1 second",
   "validation.prod_tls_not_allowed": "production environment does not allow disabling TLS certificate verification",
+  "validation.environment_invalid": "invalid deployment environment: %s (valid values: development, test, production)",
+  "validation.prod_remote_timeout_required": "a bounded HTTP timeout (HTTP_TIMEOUT > 0) is required when a remote data source is configured in production",
+  "validation.prod_remote_encryption_required": "remote encryption must be required (REMOTE_ENCRYPTION_REQUIRED=true, fail closed) when a remote data source is configured in production",
 
   "log_level.updated": "Log level updated",
   "log_level.invalid": "Invalid log level, supported: trace, debug, info, warn, error, fatal, panic",
@@ -90,6 +93,7 @@
   "log.identity_diagnostic_ok": "Identity read-only check passed: no duplicate identifiers or missing user_id found",
   "log.identity_diagnostic_risk": "Identity read-only check found migration risk: duplicate identifiers or missing user_id present (values masked)",
   "log.identity_diagnostic_failed": "Identity read-only check failed to run",
+  "log.legacy_mode_env_deprecated": "Deployment environment was inferred from a legacy MODE=production/prod; this is deprecated. Use the ENVIRONMENT variable instead (MODE now only selects the data merge mode)",
   "log.forced_shutdown": "Forced shutdown",
   "log.config_validation_failed_exit": "Configuration validation failed, exiting",
   "log.app_version": "Application version: %s, Build time: %s, Code version: %s",

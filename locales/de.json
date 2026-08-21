@@ -74,6 +74,7 @@
   "log.identity_diagnostic_ok": "Schreibgeschützte Identitätsprüfung bestanden: keine doppelten Kennungen oder fehlenden user_id gefunden",
   "log.identity_diagnostic_risk": "Schreibgeschützte Identitätsprüfung fand Migrationsrisiko: doppelte Kennungen oder fehlende user_id vorhanden (Werte maskiert)",
   "log.identity_diagnostic_failed": "Schreibgeschützte Identitätsprüfung konnte nicht ausgeführt werden",
+  "log.legacy_mode_env_deprecated": "Die Bereitstellungsumgebung wurde aus einem veralteten MODE=production/prod abgeleitet; dies ist veraltet. Verwenden Sie stattdessen die Variable ENVIRONMENT (MODE wählt jetzt nur noch den Datenzusammenführungsmodus)",
   "log.forced_shutdown": "Erzwungener Shutdown",
   "log.config_validation_failed_exit": "Konfigurationsvalidierung fehlgeschlagen, Beendigung",
   "log.app_version": "Anwendungsversion: %s, Build-Zeit: %s, Code-Version: %s",

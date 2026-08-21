@@ -74,6 +74,7 @@
   "log.identity_diagnostic_ok": "ID 읽기 전용 검사 통과: 중복 식별자 또는 누락된 user_id가 발견되지 않았습니다",
   "log.identity_diagnostic_risk": "ID 읽기 전용 검사에서 마이그레이션 위험 발견: 중복 식별자 또는 누락된 user_id 존재 (값은 마스킹됨)",
   "log.identity_diagnostic_failed": "ID 읽기 전용 검사 실행 실패",
+  "log.legacy_mode_env_deprecated": "레거시 MODE=production/prod에서 배포 환경을 추론했습니다. 이 방식은 더 이상 사용되지 않습니다. 대신 ENVIRONMENT 변수를 사용하세요 (MODE는 이제 데이터 병합 모드만 지정합니다)",
   "log.forced_shutdown": "강제 종료",
   "log.config_validation_failed_exit": "구성 유효성 검사 실패, 종료",
   "log.app_version": "애플리케이션 버전: %s, 빌드 시간: %s, 코드 버전: %s",

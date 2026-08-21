@@ -57,6 +57,7 @@ type App struct {
 	configURL            string
 	authorizationHeader  string
 	appMode              string
+	environment          string
 	apiKey               string
 	dataFile             string
 	dataDir              string
@@ -86,6 +87,7 @@ func NewApp(cfg *cmd.Config) *App {
 		configURL:            cfg.RemoteConfig,
 		authorizationHeader:  cfg.RemoteKey,
 		appMode:              cfg.Mode,
+		environment:          cfg.Environment,
 		dataFile:             cfg.DataFile,
 		dataDir:              cfg.DataDir,
 		responseFields:       cfg.ResponseFields,
@@ -111,10 +113,17 @@ func NewApp(cfg *cmd.Config) *App {
 
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))
-		// In production environment, force TLS verification
-		if cfg.Mode == "production" || cfg.Mode == "prod" {
+		// In production environment, force TLS verification. Production is determined by the
+		// dedicated ENVIRONMENT (with legacy MODE=production migration), never the merge mode.
+		if env, _ := config.ParseEnvironment(cfg.Environment); env.IsProduction() {
 			app.log.Fatal().Msg(i18n.TWithLang(i18n.LangZH, "log.prod_tls_required"))
 		}
+	}
+
+	// Emit a one-time deprecation warning when a legacy MODE=production/prod was used to
+	// derive the environment, so operators migrate to ENVIRONMENT.
+	if cfg.LegacyModeUsedForEnv {
+		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.legacy_mode_env_deprecated"))
 	}
 
 	// Initialize cache (create memory cache first)

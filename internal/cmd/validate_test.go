@@ -140,3 +140,101 @@ func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotExist(t *testing.T) {
 	assert.Error(t, err, "启用远程解密但私钥文件不存在应返回错误")
 	assert.Contains(t, err.Error(), "does not exist")
 }
+
+// TestValidateConfig_InvalidEnvironment ensures an unrecognized ENVIRONMENT is rejected.
+func TestValidateConfig_InvalidEnvironment(t *testing.T) {
+	cfg := &Config{
+		Port:         "8081",
+		Redis:        "localhost:6379",
+		RemoteConfig: "http://example.com/data.json",
+		TaskInterval: 5,
+		Mode:         "DEFAULT",
+		Environment:  "staging", // not a recognized environment
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "无效部署环境应返回错误")
+}
+
+// TestValidateConfig_ProductionForbidsInsecureTLS ensures production hardening keys off
+// ENVIRONMENT (not the merge mode) and rejects disabled TLS verification.
+func TestValidateConfig_ProductionForbidsInsecureTLS(t *testing.T) {
+	cfg := &Config{
+		Port:            "8081",
+		Redis:           "localhost:6379",
+		TaskInterval:    5,
+		Mode:            "DEFAULT",
+		Environment:     "production",
+		HTTPInsecureTLS: true,
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "生产环境禁止禁用 TLS 验证")
+}
+
+// TestValidateConfig_ProductionRemoteRequiresEncryptionAndTimeout ensures production
+// remote fetches must be bounded and encrypted (fail closed).
+func TestValidateConfig_ProductionRemoteRequiresEncryptionAndTimeout(t *testing.T) {
+	cfg := &Config{
+		Port:                     "8081",
+		Redis:                    "localhost:6379",
+		TaskInterval:             5,
+		Mode:                     "DEFAULT",
+		Environment:              "production",
+		RemoteConfig:             "http://example.com/data.json",
+		HTTPTimeout:              0,     // unbounded
+		RemoteEncryptionRequired: false, // not fail-closed
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "生产环境远程数据源必须设置超时并要求加密")
+}
+
+// TestValidateConfig_ProductionRemoteOK ensures a properly hardened production remote
+// config passes validation.
+func TestValidateConfig_ProductionRemoteOK(t *testing.T) {
+	cfg := &Config{
+		Port:                     "8081",
+		Redis:                    "localhost:6379",
+		TaskInterval:             5,
+		Mode:                     "DEFAULT",
+		Environment:              "production",
+		RemoteConfig:             "http://example.com/data.json",
+		HTTPTimeout:              30,
+		RemoteEncryptionRequired: true,
+	}
+
+	err := ValidateConfig(cfg)
+	assert.NoError(t, err, "满足生产硬化要求的配置应通过校验")
+}
+
+// TestValidateConfig_DevelopmentAllowsInsecureTLS ensures the development environment
+// does NOT trigger production hardening (explicitly allowed for local workflows).
+func TestValidateConfig_DevelopmentAllowsInsecureTLS(t *testing.T) {
+	cfg := &Config{
+		Port:            "8081",
+		Redis:           "localhost:6379",
+		TaskInterval:    5,
+		Mode:            "DEFAULT",
+		Environment:     "development",
+		HTTPInsecureTLS: true,
+	}
+
+	err := ValidateConfig(cfg)
+	assert.NoError(t, err, "开发环境显式允许禁用 TLS 验证")
+}
+
+// TestValidateConfig_ProdAliasNormalized ensures the "prod" alias is treated as production.
+func TestValidateConfig_ProdAliasNormalized(t *testing.T) {
+	cfg := &Config{
+		Port:            "8081",
+		Redis:           "localhost:6379",
+		TaskInterval:    5,
+		Mode:            "DEFAULT",
+		Environment:     "prod",
+		HTTPInsecureTLS: true,
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "prod 别名应规范化为 production 并触发硬化校验")
+}
