@@ -1,11 +1,5 @@
 package define
 
-import (
-	"strings"
-
-	secure "github.com/soulteary/secure-kit"
-)
-
 // AllowListUser represents user information in the allow list.
 //
 // This struct is used to store user's basic information, including phone number, email address, user ID, status, etc.
@@ -33,15 +27,11 @@ type AllowListUser struct {
 // - If scope is nil, set to empty array
 // - If role is empty, set to empty string
 func (u *AllowListUser) Normalize() {
-	// Generate user_id (if not provided)
-	if u.UserID == "" {
-		identifier := strings.TrimSpace(u.Phone)
-		if identifier == "" {
-			identifier = strings.TrimSpace(strings.ToLower(u.Mail))
-		}
-		if identifier != "" {
-			u.UserID = secure.GetSHA256Hash(identifier)[:16] // Take first 16 characters
-		}
+	// Generate user_id (if not provided). When an explicit id is required, leave it
+	// empty so identity validation can reject the record instead of silently deriving
+	// one. Derivation never changes an id that is already present.
+	if u.UserID == "" && !RequireExplicitUserID() {
+		u.UserID = deriveUserID(u.Phone, u.Mail)
 	}
 
 	// Set default status

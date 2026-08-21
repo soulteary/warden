@@ -35,6 +35,7 @@ import (
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/identity"
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/prommetrics"
@@ -164,12 +165,28 @@ func NewApp(cfg *cmd.Config) *App {
 
 	app.log.Debug().Str("mode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.current_mode"))
 
+	// Apply identity configuration (user_id derivation strategy + explicit-id requirement)
+	// BEFORE any data is loaded so Normalize/validation observe a consistent policy.
+	if strat, ok := define.ParseUserIDStrategy(cfg.UserIDStrategy); ok {
+		define.SetUserIDStrategy(strat)
+	} else {
+		app.log.Warn().
+			Str("value", cfg.UserIDStrategy).
+			Msg("Unknown USER_ID_STRATEGY; falling back to legacy")
+		define.SetUserIDStrategy(define.UserIDStrategyLegacy)
+	}
+	define.SetRequireExplicitUserID(cfg.RequireExplicitUserID)
+
 	// Load initial data (multi-level fallback)
 	if app.rulesLoader != nil {
 		if err := app.loadInitialData(cfg.DataFile, cfg.DataDir); err != nil {
 			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
 		}
 	}
+
+	// Read-only identity diagnostic: report (masked) conflict / missing-id counts and the
+	// active user_id strategy so operators can assess migration risk without failing startup.
+	app.reportIdentityDiagnostics()
 
 	// Initialize cache size metrics
 	prommetrics.CacheSize.Set(float64(app.userCache.Len()))
@@ -191,6 +208,53 @@ func NewApp(cfg *cmd.Config) *App {
 	return app
 }
 
+// reportIdentityDiagnostics runs a read-only (report-only) identity validation over the
+// currently-loaded rule set and logs masked conflict / missing-id counts plus the active
+// user_id derivation strategy. It never mutates the cache and never fails startup; it only
+// surfaces migration risk (e.g. sets that would be rejected once REQUIRE_EXPLICIT_USER_ID
+// or a stricter strategy is enabled).
+func (app *App) reportIdentityDiagnostics() {
+	users := app.userCache.Get()
+	if len(users) == 0 {
+		return
+	}
+	res, err := identity.ValidateAndIndexUsers(users, identity.Options{
+		RequireExplicitUserID: define.RequireExplicitUserID(),
+		ReportOnly:            true,
+	})
+	if err != nil {
+		// ReportOnly should not return an error; log defensively without leaking data.
+		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.identity_diagnostic_failed"))
+		return
+	}
+	ev := app.log.Info().
+		Str("user_id_strategy", string(define.GetUserIDStrategy())).
+		Bool("require_explicit_user_id", define.RequireExplicitUserID()).
+		Int("conflicts", res.ConflictCount).
+		Int("missing_user_id", res.MissingIDCount)
+	if res.ConflictCount > 0 || res.MissingIDCount > 0 {
+		ev.Msg(i18n.TWithLang(i18n.LangZH, "log.identity_diagnostic_risk"))
+		return
+	}
+	ev.Msg(i18n.TWithLang(i18n.LangZH, "log.identity_diagnostic_ok"))
+}
+
+// applyUsers validates a rule set through centralized identity validation and, only on
+// success, swaps it into the shared cache. On a uniqueness/missing-id conflict it keeps
+// the current cache contents (last-known-good) and returns the typed error so callers can
+// decide whether to fall back. This is the single choke point ensuring no partial/
+// last-write-wins set ever enters the shared cache.
+func (app *App) applyUsers(users []define.AllowListUser) error {
+	opts := identity.Options{RequireExplicitUserID: define.RequireExplicitUserID()}
+	if err := app.userCache.SetValidated(users, opts); err != nil {
+		app.log.Warn().
+			Err(err).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.identity_validation_failed"))
+		return err
+	}
+	return nil
+}
+
 // loadInitialData loads data with multi-level fallback (Redis → parser-kit Load).
 func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
@@ -205,7 +269,10 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			app.log.Info().
 				Int("count", len(localUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
-			app.userCache.Set(localUsers)
+			if err := app.applyUsers(localUsers); err != nil {
+				// Conflicting local set: do not overwrite good data; report and abort this load.
+				return err
+			}
 			app.snapshots.Store(snapshotFromResult(localRes))
 			app.updateSnapshotMetrics()
 			if app.redisUserCache != nil {
@@ -237,10 +304,15 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			app.log.Info().
 				Int("count", len(cachedUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
-			app.userCache.Set(cachedUsers)
-			return nil
+			if err := app.applyUsers(cachedUsers); err != nil {
+				// Redis held a conflicting set; fall through to remote/local sources.
+				prommetrics.CacheMisses.Inc()
+			} else {
+				return nil
+			}
+		} else {
+			prommetrics.CacheMisses.Inc()
 		}
-		prommetrics.CacheMisses.Inc()
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
@@ -252,7 +324,11 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			Str("source", string(res.Source)).
 			Bool("degraded", res.Degraded).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
-		app.userCache.Set(users)
+		if err := app.applyUsers(users); err != nil {
+			// Conflicting rule set: keep last-known-good and report all sources failed below.
+			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
+			return nil
+		}
 		app.snapshots.Store(snapshotFromResult(res))
 		app.updateSnapshotMetrics()
 		if res.Degraded {
@@ -455,8 +531,19 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		return
 	}
 
-	// Update memory cache and swap in the new immutable snapshot atomically.
-	app.userCache.Set(newUsers)
+	// Update memory cache and swap in the new immutable snapshot atomically. Validation
+	// happens inside applyUsers; on a conflict we keep the last-known-good snapshot and
+	// record a refresh failure instead of overwriting good data with a bad set.
+	if err := app.applyUsers(newUsers); err != nil {
+		failures := app.snapshots.RecordRefreshFailure("identity_conflict")
+		prommetrics.RefreshFailuresTotal.WithLabelValues("identity_conflict").Inc()
+		app.log.Warn().
+			Err(err).
+			Str("reason", "identity_conflict").
+			Int64("consecutive_failures", failures).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
+		return
+	}
 	app.snapshots.Store(snapshotFromResult(res))
 
 	// Verify data consistency (optimistic locking strategy)

@@ -15,6 +15,7 @@ import (
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/identity"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -170,7 +171,9 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 	c.cache.Set(validUsers)
 
 	afterLen := c.cache.Len()
-	duplicateCount := beforeLen - afterLen - invalidCount
+	// beforeLen already excludes invalid (empty-key) records, so duplicates are simply
+	// the records dropped by the cache's dedup step. Do NOT subtract invalidCount again.
+	duplicateCount := beforeLen - afterLen
 	if duplicateCount < 0 {
 		duplicateCount = 0
 	}
@@ -185,6 +188,22 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 			Int("duplicates", duplicateCount).
 			Msg("Data validation completed")
 	}
+}
+
+// SetValidated runs centralized identity validation (identifier uniqueness, optional
+// explicit user_id requirement) BEFORE swapping the data into the shared cache. On a
+// uniqueness/missing-id conflict it returns a typed error and leaves the existing cache
+// contents untouched, so a bad remote/local rule set can never overwrite good data with
+// a partially-deduped ("last-write-wins") set. On success the cache is replaced with the
+// deterministically-ordered validated set.
+func (c *SafeUserCache) SetValidated(users []define.AllowListUser, opts identity.Options) error {
+	res, err := identity.ValidateAndIndexUsers(users, opts)
+	if err != nil {
+		// Do NOT mutate the cache on validation failure: keep last-known-good.
+		return err
+	}
+	c.Set(res.Users)
+	return nil
 }
 
 // Len gets user count (thread-safe)

@@ -40,6 +40,8 @@ type Config struct {
 	RemoteRSAPrivateKey      string   // inline PEM for RSA decryption (used when file not set)
 	RemoteEncryptionRequired bool     // env REMOTE_ENCRYPTION_REQUIRED: fail closed on plaintext
 	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
+	UserIDStrategy           string   // env USER_ID_STRATEGY: legacy|sha256-128 (default legacy)
+	RequireExplicitUserID    bool     // env REQUIRE_EXPLICIT_USER_ID: reject records without user_id
 	TaskInterval             int      // 8 bytes
 	HTTPTimeout              int      // 8 bytes
 	HTTPMaxIdleConns         int      // 8 bytes
@@ -359,6 +361,18 @@ func processRemoteDecryptFromEnv(cfg *Config) {
 	}
 }
 
+// processIdentityFromEnv reads USER_ID_STRATEGY and REQUIRE_EXPLICIT_USER_ID from env.
+// These control how a missing user_id is derived and whether records without an explicit
+// user_id are rejected. Defaults preserve historical behavior (legacy strategy, not required).
+func processIdentityFromEnv(cfg *Config) {
+	if v := env.GetTrimmed("USER_ID_STRATEGY", ""); v != "" {
+		cfg.UserIDStrategy = strings.ToLower(v)
+	}
+	if v := env.GetTrimmed("REQUIRE_EXPLICIT_USER_ID", ""); v != "" {
+		cfg.RequireExplicitUserID = strings.EqualFold(v, "true") || v == "1"
+	}
+}
+
 // processServiceAuthFromEnv reads service-to-service auth config from env (no CLI flags).
 const (
 	defaultHMACToleranceSec = 60
@@ -447,6 +461,7 @@ func getArgsFromFlags() *Config {
 	processDataDirFromEnv(cfg)
 	processResponseFieldsFromEnv(cfg)
 	processRemoteDecryptFromEnv(cfg)
+	processIdentityFromEnv(cfg)
 	processServiceAuthFromEnv(cfg)
 
 	return cfg
@@ -471,6 +486,8 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		RemoteRSAPrivateKey:      cfg.RemoteRSAPrivateKey,
 		RemoteEncryptionRequired: cfg.RemoteEncryptionRequired,
 		RemoteEncryptionFormat:   cfg.RemoteEncryptionFormat,
+		UserIDStrategy:           cfg.UserIDStrategy,
+		RequireExplicitUserID:    cfg.RequireExplicitUserID,
 		HTTPTimeout:              cfg.HTTPTimeout,
 		HTTPMaxIdleConns:         cfg.HTTPMaxIdleConns,
 		HTTPInsecureTLS:          cfg.HTTPInsecureTLS,
@@ -602,6 +619,8 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 		RemoteRSAPrivateKey:      cfg.RemoteRSAPrivateKey,
 		RemoteEncryptionRequired: cfg.RemoteEncryptionRequired,
 		RemoteEncryptionFormat:   cfg.RemoteEncryptionFormat,
+		UserIDStrategy:           cfg.UserIDStrategy,
+		RequireExplicitUserID:    cfg.RequireExplicitUserID,
 		TaskInterval:             cfg.TaskInterval,
 		HTTPTimeout:              cfg.HTTPTimeout,
 		HTTPMaxIdleConns:         cfg.HTTPMaxIdleConns,
@@ -627,6 +646,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	processDataDirFromEnv(tempCfg)
 	processResponseFieldsFromEnv(tempCfg)
 	processRemoteDecryptFromEnv(tempCfg)
+	processIdentityFromEnv(tempCfg)
 	processServiceAuthFromEnv(tempCfg)
 
 	// Copy back to CmdConfigData
@@ -646,6 +666,8 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.RemoteRSAPrivateKey = tempCfg.RemoteRSAPrivateKey
 	cfg.RemoteEncryptionRequired = tempCfg.RemoteEncryptionRequired
 	cfg.RemoteEncryptionFormat = tempCfg.RemoteEncryptionFormat
+	cfg.UserIDStrategy = tempCfg.UserIDStrategy
+	cfg.RequireExplicitUserID = tempCfg.RequireExplicitUserID
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns

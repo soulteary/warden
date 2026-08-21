@@ -406,5 +406,18 @@ func mergeByMode(remoteUsers, fileUsers []define.AllowListUser, mode string) []d
 	for k := range keyToUser {
 		out = append(out, keyToUser[k])
 	}
+	// Deterministic ordering: primarily by user_id, then canonical key, then mail.
+	// This guarantees identical output regardless of map iteration order.
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].UserID != out[j].UserID {
+			return out[i].UserID < out[j].UserID
+		}
+		ki, _ := allowListUserKey(out[i])
+		kj, _ := allowListUserKey(out[j])
+		if ki != kj {
+			return ki < kj
+		}
+		return strings.ToLower(out[i].Mail) < strings.ToLower(out[j].Mail)
+	})
 	return out
 }

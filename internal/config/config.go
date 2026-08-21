@@ -517,6 +517,8 @@ type CmdConfigData struct {
 	RemoteRSAPrivateKey      string   // inline PEM for RSA decryption (env REMOTE_RSA_PRIVATE_KEY)
 	RemoteEncryptionRequired bool     // env REMOTE_ENCRYPTION_REQUIRED: fail closed on plaintext
 	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
+	UserIDStrategy           string   // env USER_ID_STRATEGY: legacy|sha256-128
+	RequireExplicitUserID    bool     // env REQUIRE_EXPLICIT_USER_ID: reject records without user_id
 	TaskInterval             int      // 8 bytes
 	HTTPTimeout              int      // 8 bytes
 	HTTPMaxIdleConns         int      // 8 bytes
@@ -592,6 +594,11 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 	if v := strings.TrimSpace(os.Getenv("REMOTE_ENCRYPTION_FORMAT")); v != "" {
 		remoteEncFormat = strings.ToLower(v)
 	}
+	userIDStrategy := strings.ToLower(strings.TrimSpace(os.Getenv("USER_ID_STRATEGY")))
+	requireExplicitUserID := false
+	if v := strings.TrimSpace(os.Getenv("REQUIRE_EXPLICIT_USER_ID")); v != "" {
+		requireExplicitUserID = strings.EqualFold(v, "true") || v == "1"
+	}
 	return &CmdConfigData{
 		Port:                     c.Server.Port,
 		Redis:                    c.Redis.Addr,
@@ -609,6 +616,8 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		RemoteRSAPrivateKey:      rsaKeyPEM,
 		RemoteEncryptionRequired: remoteEncRequired,
 		RemoteEncryptionFormat:   remoteEncFormat,
+		UserIDStrategy:           userIDStrategy,
+		RequireExplicitUserID:    requireExplicitUserID,
 		HTTPTimeout:              int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:          c.HTTP.InsecureTLS,
