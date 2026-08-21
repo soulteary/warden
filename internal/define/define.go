@@ -76,6 +76,10 @@ const (
 	MAX_REQUEST_BODY_SIZE = 10 * 1024
 	// MAX_JSON_SIZE maximum JSON response body size (10MB), prevents memory exhaustion attacks
 	MAX_JSON_SIZE = 10 * 1024 * 1024
+	// MAX_ENVELOPE_JSON_SIZE maximum encrypted-envelope JSON size before parsing.
+	// The envelope is a JSON object with base64url-encoded ciphertext (~1.37x plaintext)
+	// plus RSA/nonce/metadata overhead, so allow generous headroom over MAX_JSON_SIZE.
+	MAX_ENVELOPE_JSON_SIZE = 2 * MAX_JSON_SIZE
 	// SHUTDOWN_TIMEOUT graceful shutdown timeout
 	SHUTDOWN_TIMEOUT = 5 * time.Second
 	// HTTP_RETRY_MAX_RETRIES HTTP request maximum retry count

@@ -24,30 +24,32 @@ import (
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Config struct {
-	Port                    string   // 16 bytes
-	Redis                   string   // 16 bytes
-	RedisPassword           string   // 16 bytes
-	RedisEnabled            bool     // 1 byte (padding to 8 bytes)
-	RemoteConfig            string   // 16 bytes
-	RemoteKey               string   // 16 bytes
-	Mode                    string   // 16 bytes
-	APIKey                  string   // 16 bytes
-	DataFile                string   // 16 bytes - local user data file path
-	DataDir                 string   // 16 bytes - local user data directory (merge *.json)
-	ResponseFields          []string // API response field whitelist (empty = all)
-	RemoteDecryptEnabled    bool     // decrypt remote API response with RSA
-	RemoteRSAPrivateKeyFile string   // path to PEM file for RSA decryption (preferred)
-	RemoteRSAPrivateKey     string   // inline PEM for RSA decryption (used when file not set)
-	TaskInterval            int      // 8 bytes
-	HTTPTimeout             int      // 8 bytes
-	HTTPMaxIdleConns        int      // 8 bytes
-	HTTPInsecureTLS         bool     // 1 byte (padding to 8 bytes)
-	HMACKeys                string   // JSON map key_id -> secret (env WARDEN_HMAC_KEYS)
-	HMACToleranceSec        int      // env WARDEN_HMAC_TIMESTAMP_TOLERANCE, default 60
-	TLSCertFile             string   // env WARDEN_TLS_CERT
-	TLSKeyFile              string   // env WARDEN_TLS_KEY
-	TLSCAFile               string   // env WARDEN_TLS_CA (client CA for mTLS)
-	TLSRequireClientCert    bool     // env WARDEN_TLS_REQUIRE_CLIENT_CERT
+	Port                     string   // 16 bytes
+	Redis                    string   // 16 bytes
+	RedisPassword            string   // 16 bytes
+	RedisEnabled             bool     // 1 byte (padding to 8 bytes)
+	RemoteConfig             string   // 16 bytes
+	RemoteKey                string   // 16 bytes
+	Mode                     string   // 16 bytes
+	APIKey                   string   // 16 bytes
+	DataFile                 string   // 16 bytes - local user data file path
+	DataDir                  string   // 16 bytes - local user data directory (merge *.json)
+	ResponseFields           []string // API response field whitelist (empty = all)
+	RemoteDecryptEnabled     bool     // decrypt remote API response with RSA
+	RemoteRSAPrivateKeyFile  string   // path to PEM file for RSA decryption (preferred)
+	RemoteRSAPrivateKey      string   // inline PEM for RSA decryption (used when file not set)
+	RemoteEncryptionRequired bool     // env REMOTE_ENCRYPTION_REQUIRED: fail closed on plaintext
+	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
+	TaskInterval             int      // 8 bytes
+	HTTPTimeout              int      // 8 bytes
+	HTTPMaxIdleConns         int      // 8 bytes
+	HTTPInsecureTLS          bool     // 1 byte (padding to 8 bytes)
+	HMACKeys                 string   // JSON map key_id -> secret (env WARDEN_HMAC_KEYS)
+	HMACToleranceSec         int      // env WARDEN_HMAC_TIMESTAMP_TOLERANCE, default 60
+	TLSCertFile              string   // env WARDEN_TLS_CERT
+	TLSKeyFile               string   // env WARDEN_TLS_KEY
+	TLSCAFile                string   // env WARDEN_TLS_CA (client CA for mTLS)
+	TLSRequireClientCert     bool     // env WARDEN_TLS_REQUIRE_CLIENT_CERT
 }
 
 // flagValues holds parsed flag values
@@ -337,7 +339,8 @@ func processResponseFieldsFromEnv(cfg *Config) {
 	}
 }
 
-// processRemoteDecryptFromEnv reads REMOTE_DECRYPT_ENABLED, REMOTE_RSA_PRIVATE_KEY_FILE, REMOTE_RSA_PRIVATE_KEY from env.
+// processRemoteDecryptFromEnv reads REMOTE_DECRYPT_ENABLED, REMOTE_RSA_PRIVATE_KEY_FILE, REMOTE_RSA_PRIVATE_KEY,
+// REMOTE_ENCRYPTION_REQUIRED and REMOTE_ENCRYPTION_FORMAT from env.
 func processRemoteDecryptFromEnv(cfg *Config) {
 	if v := env.GetTrimmed("REMOTE_DECRYPT_ENABLED", ""); v != "" {
 		cfg.RemoteDecryptEnabled = strings.EqualFold(v, "true") || v == "1"
@@ -347,6 +350,12 @@ func processRemoteDecryptFromEnv(cfg *Config) {
 	}
 	if v := env.GetTrimmed("REMOTE_RSA_PRIVATE_KEY", ""); v != "" {
 		cfg.RemoteRSAPrivateKey = v
+	}
+	if v := env.GetTrimmed("REMOTE_ENCRYPTION_REQUIRED", ""); v != "" {
+		cfg.RemoteEncryptionRequired = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := env.GetTrimmed("REMOTE_ENCRYPTION_FORMAT", ""); v != "" {
+		cfg.RemoteEncryptionFormat = strings.ToLower(v)
 	}
 }
 
@@ -394,6 +403,7 @@ func getArgsFromFlags() *Config {
 		RemoteDecryptEnabled:    false,
 		RemoteRSAPrivateKeyFile: "",
 		RemoteRSAPrivateKey:     "",
+		RemoteEncryptionFormat:  "auto",
 		HTTPTimeout:             define.DEFAULT_TIMEOUT,
 		HTTPMaxIdleConns:        100,
 		HTTPInsecureTLS:         false,
@@ -445,30 +455,32 @@ func getArgsFromFlags() *Config {
 // convertToConfig converts internal configuration type to Config
 func convertToConfig(cfg *config.CmdConfigData) *Config {
 	return &Config{
-		Port:                    cfg.Port,
-		Redis:                   cfg.Redis,
-		RedisPassword:           cfg.RedisPassword,
-		RedisEnabled:            cfg.RedisEnabled,
-		RemoteConfig:            cfg.RemoteConfig,
-		RemoteKey:               cfg.RemoteKey,
-		TaskInterval:            cfg.TaskInterval,
-		Mode:                    cfg.Mode,
-		DataFile:                cfg.DataFile,
-		DataDir:                 cfg.DataDir,
-		ResponseFields:          cfg.ResponseFields,
-		RemoteDecryptEnabled:    cfg.RemoteDecryptEnabled,
-		RemoteRSAPrivateKeyFile: cfg.RemoteRSAPrivateKeyFile,
-		RemoteRSAPrivateKey:     cfg.RemoteRSAPrivateKey,
-		HTTPTimeout:             cfg.HTTPTimeout,
-		HTTPMaxIdleConns:        cfg.HTTPMaxIdleConns,
-		HTTPInsecureTLS:         cfg.HTTPInsecureTLS,
-		APIKey:                  cfg.APIKey,
-		HMACKeys:                cfg.HMACKeys,
-		HMACToleranceSec:        cfg.HMACToleranceSec,
-		TLSCertFile:             cfg.TLSCertFile,
-		TLSKeyFile:              cfg.TLSKeyFile,
-		TLSCAFile:               cfg.TLSCAFile,
-		TLSRequireClientCert:    cfg.TLSRequireClientCert,
+		Port:                     cfg.Port,
+		Redis:                    cfg.Redis,
+		RedisPassword:            cfg.RedisPassword,
+		RedisEnabled:             cfg.RedisEnabled,
+		RemoteConfig:             cfg.RemoteConfig,
+		RemoteKey:                cfg.RemoteKey,
+		TaskInterval:             cfg.TaskInterval,
+		Mode:                     cfg.Mode,
+		DataFile:                 cfg.DataFile,
+		DataDir:                  cfg.DataDir,
+		ResponseFields:           cfg.ResponseFields,
+		RemoteDecryptEnabled:     cfg.RemoteDecryptEnabled,
+		RemoteRSAPrivateKeyFile:  cfg.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:      cfg.RemoteRSAPrivateKey,
+		RemoteEncryptionRequired: cfg.RemoteEncryptionRequired,
+		RemoteEncryptionFormat:   cfg.RemoteEncryptionFormat,
+		HTTPTimeout:              cfg.HTTPTimeout,
+		HTTPMaxIdleConns:         cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:          cfg.HTTPInsecureTLS,
+		APIKey:                   cfg.APIKey,
+		HMACKeys:                 cfg.HMACKeys,
+		HMACToleranceSec:         cfg.HMACToleranceSec,
+		TLSCertFile:              cfg.TLSCertFile,
+		TLSKeyFile:               cfg.TLSKeyFile,
+		TLSCAFile:                cfg.TLSCAFile,
+		TLSRequireClientCert:     cfg.TLSRequireClientCert,
 	}
 }
 
@@ -486,24 +498,26 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 
 	// Convert CmdConfigData to Config for processing
 	tempCfg := &Config{
-		Port:                    cfg.Port,
-		Redis:                   cfg.Redis,
-		RedisPassword:           cfg.RedisPassword,
-		RedisEnabled:            cfg.RedisEnabled,
-		RemoteConfig:            cfg.RemoteConfig,
-		RemoteKey:               cfg.RemoteKey,
-		Mode:                    cfg.Mode,
-		APIKey:                  cfg.APIKey,
-		DataFile:                cfg.DataFile,
-		DataDir:                 cfg.DataDir,
-		ResponseFields:          cfg.ResponseFields,
-		RemoteDecryptEnabled:    cfg.RemoteDecryptEnabled,
-		RemoteRSAPrivateKeyFile: cfg.RemoteRSAPrivateKeyFile,
-		RemoteRSAPrivateKey:     cfg.RemoteRSAPrivateKey,
-		TaskInterval:            cfg.TaskInterval,
-		HTTPTimeout:             cfg.HTTPTimeout,
-		HTTPMaxIdleConns:        cfg.HTTPMaxIdleConns,
-		HTTPInsecureTLS:         cfg.HTTPInsecureTLS,
+		Port:                     cfg.Port,
+		Redis:                    cfg.Redis,
+		RedisPassword:            cfg.RedisPassword,
+		RedisEnabled:             cfg.RedisEnabled,
+		RemoteConfig:             cfg.RemoteConfig,
+		RemoteKey:                cfg.RemoteKey,
+		Mode:                     cfg.Mode,
+		APIKey:                   cfg.APIKey,
+		DataFile:                 cfg.DataFile,
+		DataDir:                  cfg.DataDir,
+		ResponseFields:           cfg.ResponseFields,
+		RemoteDecryptEnabled:     cfg.RemoteDecryptEnabled,
+		RemoteRSAPrivateKeyFile:  cfg.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:      cfg.RemoteRSAPrivateKey,
+		RemoteEncryptionRequired: cfg.RemoteEncryptionRequired,
+		RemoteEncryptionFormat:   cfg.RemoteEncryptionFormat,
+		TaskInterval:             cfg.TaskInterval,
+		HTTPTimeout:              cfg.HTTPTimeout,
+		HTTPMaxIdleConns:         cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:          cfg.HTTPInsecureTLS,
 	}
 
 	// Process each configuration item using unified processing functions
@@ -534,6 +548,8 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	cfg.RemoteDecryptEnabled = tempCfg.RemoteDecryptEnabled
 	cfg.RemoteRSAPrivateKeyFile = tempCfg.RemoteRSAPrivateKeyFile
 	cfg.RemoteRSAPrivateKey = tempCfg.RemoteRSAPrivateKey
+	cfg.RemoteEncryptionRequired = tempCfg.RemoteEncryptionRequired
+	cfg.RemoteEncryptionFormat = tempCfg.RemoteEncryptionFormat
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns
@@ -570,30 +586,32 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 
 	// Convert CmdConfigData to Config for processing
 	tempCfg := &Config{
-		Port:                    cfg.Port,
-		Redis:                   cfg.Redis,
-		RedisPassword:           cfg.RedisPassword,
-		RedisEnabled:            cfg.RedisEnabled,
-		RemoteConfig:            cfg.RemoteConfig,
-		RemoteKey:               cfg.RemoteKey,
-		Mode:                    cfg.Mode,
-		APIKey:                  cfg.APIKey,
-		DataFile:                cfg.DataFile,
-		DataDir:                 cfg.DataDir,
-		ResponseFields:          cfg.ResponseFields,
-		RemoteDecryptEnabled:    cfg.RemoteDecryptEnabled,
-		RemoteRSAPrivateKeyFile: cfg.RemoteRSAPrivateKeyFile,
-		RemoteRSAPrivateKey:     cfg.RemoteRSAPrivateKey,
-		TaskInterval:            cfg.TaskInterval,
-		HTTPTimeout:             cfg.HTTPTimeout,
-		HTTPMaxIdleConns:        cfg.HTTPMaxIdleConns,
-		HTTPInsecureTLS:         cfg.HTTPInsecureTLS,
-		HMACKeys:                cfg.HMACKeys,
-		HMACToleranceSec:        cfg.HMACToleranceSec,
-		TLSCertFile:             cfg.TLSCertFile,
-		TLSKeyFile:              cfg.TLSKeyFile,
-		TLSCAFile:               cfg.TLSCAFile,
-		TLSRequireClientCert:    cfg.TLSRequireClientCert,
+		Port:                     cfg.Port,
+		Redis:                    cfg.Redis,
+		RedisPassword:            cfg.RedisPassword,
+		RedisEnabled:             cfg.RedisEnabled,
+		RemoteConfig:             cfg.RemoteConfig,
+		RemoteKey:                cfg.RemoteKey,
+		Mode:                     cfg.Mode,
+		APIKey:                   cfg.APIKey,
+		DataFile:                 cfg.DataFile,
+		DataDir:                  cfg.DataDir,
+		ResponseFields:           cfg.ResponseFields,
+		RemoteDecryptEnabled:     cfg.RemoteDecryptEnabled,
+		RemoteRSAPrivateKeyFile:  cfg.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:      cfg.RemoteRSAPrivateKey,
+		RemoteEncryptionRequired: cfg.RemoteEncryptionRequired,
+		RemoteEncryptionFormat:   cfg.RemoteEncryptionFormat,
+		TaskInterval:             cfg.TaskInterval,
+		HTTPTimeout:              cfg.HTTPTimeout,
+		HTTPMaxIdleConns:         cfg.HTTPMaxIdleConns,
+		HTTPInsecureTLS:          cfg.HTTPInsecureTLS,
+		HMACKeys:                 cfg.HMACKeys,
+		HMACToleranceSec:         cfg.HMACToleranceSec,
+		TLSCertFile:              cfg.TLSCertFile,
+		TLSKeyFile:               cfg.TLSKeyFile,
+		TLSCAFile:                cfg.TLSCAFile,
+		TLSRequireClientCert:     cfg.TLSRequireClientCert,
 	}
 
 	// Process each configuration item using unified processing functions
@@ -626,6 +644,8 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.RemoteDecryptEnabled = tempCfg.RemoteDecryptEnabled
 	cfg.RemoteRSAPrivateKeyFile = tempCfg.RemoteRSAPrivateKeyFile
 	cfg.RemoteRSAPrivateKey = tempCfg.RemoteRSAPrivateKey
+	cfg.RemoteEncryptionRequired = tempCfg.RemoteEncryptionRequired
+	cfg.RemoteEncryptionFormat = tempCfg.RemoteEncryptionFormat
 	cfg.TaskInterval = tempCfg.TaskInterval
 	cfg.HTTPTimeout = tempCfg.HTTPTimeout
 	cfg.HTTPMaxIdleConns = tempCfg.HTTPMaxIdleConns

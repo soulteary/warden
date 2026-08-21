@@ -82,13 +82,13 @@ func TestLoadRSAPrivateKey_FileNotFound(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestDecryptHybrid_RoundTrip(t *testing.T) {
+func TestDecryptHybridLegacy_RoundTrip(t *testing.T) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
 	plaintext := []byte(`[{"phone":"13800138000","mail":"a@example.com"}]`)
-	aesKey := make([]byte, AESKeySize)
-	iv := make([]byte, IVSize)
+	aesKey := make([]byte, legacyAESKeySize)
+	iv := make([]byte, legacyIVSize)
 	_, err = rand.Read(aesKey)
 	require.NoError(t, err)
 	_, err = rand.Read(iv)
@@ -107,24 +107,24 @@ func TestDecryptHybrid_RoundTrip(t *testing.T) {
 	raw := append(append([]byte{}, encKeyBlock...), ciphertext...)
 	body := []byte(base64.StdEncoding.EncodeToString(raw))
 
-	dec, err := decryptHybrid(body, priv)
+	dec, err := decryptHybridLegacy(body, priv)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, dec)
 }
 
-func TestDecryptHybrid_InvalidBase64(t *testing.T) {
+func TestDecryptHybridLegacy_InvalidBase64(t *testing.T) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
-	_, err = decryptHybrid([]byte("not-base64!!!"), priv)
+	_, err = decryptHybridLegacy([]byte("not-base64!!!"), priv)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "base64")
 }
 
-func TestDecryptHybrid_BodyTooShort(t *testing.T) {
+func TestDecryptHybridLegacy_BodyTooShort(t *testing.T) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	short := base64.StdEncoding.EncodeToString(make([]byte, 100))
-	_, err = decryptHybrid([]byte(short), priv)
+	_, err = decryptHybridLegacy([]byte(short), priv)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "too short")
 }

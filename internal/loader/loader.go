@@ -188,6 +188,8 @@ type RulesLoader struct {
 	appMode                string
 	remoteRSAPrivateKey    string // file path (preferred)
 	remoteRSAPrivateKeyPEM string // inline PEM when file not set
+	remoteEncRequired      bool   // fail closed on plaintext when true
+	remoteEncFormat        remote.EncryptionFormat
 }
 
 // NewRulesLoader creates a RulesLoader using cfg and appMode.
@@ -201,6 +203,8 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 	decrypt := false
 	keyPath := ""
 	keyPEM := ""
+	encRequired := false
+	encFormat := remote.FormatAuto
 	if cfg != nil {
 		if cfg.HTTPTimeout > 0 {
 			timeout = time.Duration(cfg.HTTPTimeout) * time.Second
@@ -208,6 +212,10 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 		decrypt = cfg.RemoteDecryptEnabled && (cfg.RemoteRSAPrivateKeyFile != "" || cfg.RemoteRSAPrivateKey != "")
 		keyPath = cfg.RemoteRSAPrivateKeyFile
 		keyPEM = cfg.RemoteRSAPrivateKey
+		encRequired = cfg.RemoteEncryptionRequired
+		if f, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err == nil {
+			encFormat = f
+		}
 	}
 	return &RulesLoader{
 		dl:                     dl,
@@ -215,6 +223,8 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 		remoteDecrypt:          decrypt,
 		remoteRSAPrivateKey:    keyPath,
 		remoteRSAPrivateKeyPEM: keyPEM,
+		remoteEncRequired:      encRequired,
+		remoteEncFormat:        encFormat,
 		httpTimeout:            timeout,
 		httpInsecureTLS:        cfg != nil && cfg.HTTPInsecureTLS,
 	}, nil
@@ -230,7 +240,17 @@ func (r *RulesLoader) FromFile(ctx context.Context, path string) ([]define.Allow
 func (r *RulesLoader) Load(ctx context.Context, rulesFile, dataDir, configURL, auth string) ([]define.AllowListUser, error) {
 	mode := strings.ToUpper(strings.TrimSpace(r.appMode))
 	if r.remoteDecrypt && configURL != "" && (r.remoteRSAPrivateKey != "" || r.remoteRSAPrivateKeyPEM != "") {
-		remoteUsers, err := remote.FetchDecryptedUsers(ctx, configURL, auth, true, r.remoteRSAPrivateKey, r.remoteRSAPrivateKeyPEM, r.httpTimeout, r.httpInsecureTLS)
+		remoteUsers, err := remote.FetchDecryptedUsersWithOptions(ctx, remote.FetchOptions{
+			URL:                configURL,
+			AuthHeader:         auth,
+			RSAKeyPath:         r.remoteRSAPrivateKey,
+			RSAKeyPEM:          r.remoteRSAPrivateKeyPEM,
+			Timeout:            r.httpTimeout,
+			InsecureTLS:        r.httpInsecureTLS,
+			DecryptEnabled:     true,
+			EncryptionRequired: r.remoteEncRequired,
+			Format:             r.remoteEncFormat,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("remote decrypt fetch: %w", err)
 		}

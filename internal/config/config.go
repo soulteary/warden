@@ -501,30 +501,32 @@ func (c *Config) ToLegacyConfig() *LegacyConfig {
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type CmdConfigData struct {
-	Port                    string   // 16 bytes
-	Redis                   string   // 16 bytes
-	RedisPassword           string   // 16 bytes
-	RedisEnabled            bool     // 1 byte (padding to 8 bytes)
-	RemoteConfig            string   // 16 bytes
-	RemoteKey               string   // 16 bytes
-	Mode                    string   // 16 bytes
-	APIKey                  string   // 16 bytes
-	DataFile                string   // 16 bytes - local user data file path
-	DataDir                 string   // 16 bytes - local user data directory (merge *.json)
-	ResponseFields          []string // API response field whitelist (empty = all)
-	RemoteDecryptEnabled    bool     // decrypt remote response with RSA
-	RemoteRSAPrivateKeyFile string   // path to PEM file for RSA decryption (preferred)
-	RemoteRSAPrivateKey     string   // inline PEM for RSA decryption (env REMOTE_RSA_PRIVATE_KEY)
-	TaskInterval            int      // 8 bytes
-	HTTPTimeout             int      // 8 bytes
-	HTTPMaxIdleConns        int      // 8 bytes
-	HTTPInsecureTLS         bool     // 1 byte (padding to 8 bytes)
-	HMACKeys                string   // WARDEN_HMAC_KEYS
-	HMACToleranceSec        int      // WARDEN_HMAC_TIMESTAMP_TOLERANCE
-	TLSCertFile             string   // WARDEN_TLS_CERT
-	TLSKeyFile              string   // WARDEN_TLS_KEY
-	TLSCAFile               string   // WARDEN_TLS_CA
-	TLSRequireClientCert    bool     // WARDEN_TLS_REQUIRE_CLIENT_CERT
+	Port                     string   // 16 bytes
+	Redis                    string   // 16 bytes
+	RedisPassword            string   // 16 bytes
+	RedisEnabled             bool     // 1 byte (padding to 8 bytes)
+	RemoteConfig             string   // 16 bytes
+	RemoteKey                string   // 16 bytes
+	Mode                     string   // 16 bytes
+	APIKey                   string   // 16 bytes
+	DataFile                 string   // 16 bytes - local user data file path
+	DataDir                  string   // 16 bytes - local user data directory (merge *.json)
+	ResponseFields           []string // API response field whitelist (empty = all)
+	RemoteDecryptEnabled     bool     // decrypt remote response with RSA
+	RemoteRSAPrivateKeyFile  string   // path to PEM file for RSA decryption (preferred)
+	RemoteRSAPrivateKey      string   // inline PEM for RSA decryption (env REMOTE_RSA_PRIVATE_KEY)
+	RemoteEncryptionRequired bool     // env REMOTE_ENCRYPTION_REQUIRED: fail closed on plaintext
+	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
+	TaskInterval             int      // 8 bytes
+	HTTPTimeout              int      // 8 bytes
+	HTTPMaxIdleConns         int      // 8 bytes
+	HTTPInsecureTLS          bool     // 1 byte (padding to 8 bytes)
+	HMACKeys                 string   // WARDEN_HMAC_KEYS
+	HMACToleranceSec         int      // WARDEN_HMAC_TIMESTAMP_TOLERANCE
+	TLSCertFile              string   // WARDEN_TLS_CERT
+	TLSKeyFile               string   // WARDEN_TLS_KEY
+	TLSCAFile                string   // WARDEN_TLS_CA
+	TLSRequireClientCert     bool     // WARDEN_TLS_REQUIRE_CLIENT_CERT
 }
 
 // ToCmdConfig converts to cmd.Config format
@@ -582,30 +584,40 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		rsaKeyFile = v
 	}
 	rsaKeyPEM := strings.TrimSpace(os.Getenv("REMOTE_RSA_PRIVATE_KEY"))
+	remoteEncRequired := false
+	if v := strings.TrimSpace(os.Getenv("REMOTE_ENCRYPTION_REQUIRED")); v != "" {
+		remoteEncRequired = strings.EqualFold(v, "true") || v == "1"
+	}
+	remoteEncFormat := "auto"
+	if v := strings.TrimSpace(os.Getenv("REMOTE_ENCRYPTION_FORMAT")); v != "" {
+		remoteEncFormat = strings.ToLower(v)
+	}
 	return &CmdConfigData{
-		Port:                    c.Server.Port,
-		Redis:                   c.Redis.Addr,
-		RedisPassword:           redisPassword,
-		RedisEnabled:            redisEnabled,
-		RemoteConfig:            c.Remote.URL,
-		RemoteKey:               c.Remote.Key,
-		TaskInterval:            int(c.Task.Interval.Seconds()),
-		Mode:                    mode,
-		DataFile:                dataFile,
-		DataDir:                 dataDir,
-		ResponseFields:          responseFields,
-		RemoteDecryptEnabled:    remoteDecrypt,
-		RemoteRSAPrivateKeyFile: rsaKeyFile,
-		RemoteRSAPrivateKey:     rsaKeyPEM,
-		HTTPTimeout:             int(c.HTTP.Timeout.Seconds()),
-		HTTPMaxIdleConns:        c.HTTP.MaxIdleConns,
-		HTTPInsecureTLS:         c.HTTP.InsecureTLS,
-		APIKey:                  c.App.APIKey,
-		HMACKeys:                hmacKeys,
-		HMACToleranceSec:        hmacTolerance,
-		TLSCertFile:             strings.TrimSpace(os.Getenv("WARDEN_TLS_CERT")),
-		TLSKeyFile:              strings.TrimSpace(os.Getenv("WARDEN_TLS_KEY")),
-		TLSCAFile:               strings.TrimSpace(os.Getenv("WARDEN_TLS_CA")),
-		TLSRequireClientCert:    tlsRequire,
+		Port:                     c.Server.Port,
+		Redis:                    c.Redis.Addr,
+		RedisPassword:            redisPassword,
+		RedisEnabled:             redisEnabled,
+		RemoteConfig:             c.Remote.URL,
+		RemoteKey:                c.Remote.Key,
+		TaskInterval:             int(c.Task.Interval.Seconds()),
+		Mode:                     mode,
+		DataFile:                 dataFile,
+		DataDir:                  dataDir,
+		ResponseFields:           responseFields,
+		RemoteDecryptEnabled:     remoteDecrypt,
+		RemoteRSAPrivateKeyFile:  rsaKeyFile,
+		RemoteRSAPrivateKey:      rsaKeyPEM,
+		RemoteEncryptionRequired: remoteEncRequired,
+		RemoteEncryptionFormat:   remoteEncFormat,
+		HTTPTimeout:              int(c.HTTP.Timeout.Seconds()),
+		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
+		HTTPInsecureTLS:          c.HTTP.InsecureTLS,
+		APIKey:                   c.App.APIKey,
+		HMACKeys:                 hmacKeys,
+		HMACToleranceSec:         hmacTolerance,
+		TLSCertFile:              strings.TrimSpace(os.Getenv("WARDEN_TLS_CERT")),
+		TLSKeyFile:               strings.TrimSpace(os.Getenv("WARDEN_TLS_KEY")),
+		TLSCAFile:                strings.TrimSpace(os.Getenv("WARDEN_TLS_CA")),
+		TLSRequireClientCert:     tlsRequire,
 	}
 }
