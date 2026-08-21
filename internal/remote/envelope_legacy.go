@@ -38,7 +38,10 @@ func decryptHybridLegacy(body []byte, priv *rsa.PrivateKey) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("legacy decrypt: base64 decode: %w", err)
 	}
-	if len(raw) < legacyRSAKeySize2048+legacyAESKeySize+legacyIVSize {
+	// The wrapped key+IV lives inside the fixed-size RSA ciphertext block, so the
+	// minimum valid body is exactly one RSA block (the AES-CTR ciphertext that
+	// follows may be any length, including empty for empty plaintext).
+	if len(raw) < legacyRSAKeySize2048 {
 		return nil, fmt.Errorf("legacy decrypt: body too short for hybrid cipher")
 	}
 	encKeyBlock := raw[:legacyRSAKeySize2048]
