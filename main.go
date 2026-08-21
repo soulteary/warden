@@ -50,6 +50,7 @@ type App struct {
 	redisClient          *redis.Client
 	rateLimiter          *middlewarekit.RateLimiter
 	rulesLoader          *loader.RulesLoader
+	snapshots            *snapshotStore
 	log                  *loggerkit.Logger
 	port                 string
 	configURL            string
@@ -97,6 +98,7 @@ func NewApp(cfg *cmd.Config) *App {
 		tlsCAFile:            cfg.TLSCAFile,
 		tlsRequireClientCert: cfg.TLSRequireClientCert,
 	}
+	app.snapshots = newSnapshotStore()
 	if cfg.HMACKeys != "" {
 		var keys map[string]string
 		if err := json.Unmarshal([]byte(cfg.HMACKeys), &keys); err != nil {
@@ -197,12 +199,15 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
-		localUsers, err := app.rulesLoader.Load(ctx, rulesFile, dataDir, "", "")
-		if err == nil && len(localUsers) > 0 {
+		localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
+		localUsers := localRes.Users
+		if localRes.Err == nil && len(localUsers) > 0 {
 			app.log.Info().
 				Int("count", len(localUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
 			app.userCache.Set(localUsers)
+			app.snapshots.Store(snapshotFromResult(localRes))
+			app.updateSnapshotMetrics()
 			if app.redisUserCache != nil {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
 					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -239,12 +244,20 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
-	users, err := app.rulesLoader.Load(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
-	if err == nil && len(users) > 0 {
+	res := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
+	users := res.Users
+	if res.Err == nil && len(users) > 0 {
 		app.log.Info().
 			Int("count", len(users)).
+			Str("source", string(res.Source)).
+			Bool("degraded", res.Degraded).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
 		app.userCache.Set(users)
+		app.snapshots.Store(snapshotFromResult(res))
+		app.updateSnapshotMetrics()
+		if res.Degraded {
+			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
+		}
 		if app.redisUserCache != nil {
 			if err := app.redisUserCache.Set(users); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
@@ -402,32 +415,49 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	}()
 
 	start := time.Now()
-	var newUsers []define.AllowListUser
 
 	if app.rulesLoader == nil {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
 	defer cancel()
-	var err error
+	var res loader.LoadResult
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
-		newUsers, err = app.rulesLoader.Load(ctx, rulesFile, dataDir, "", "")
+		res = app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
 	} else {
-		newUsers, err = app.rulesLoader.Load(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
+		res = app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	}
-	if err != nil {
-		app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
+	if res.Err != nil {
+		// Refresh failed: keep the last-known-good snapshot and cache untouched.
+		reason := classifyRefreshReason(res.Err)
+		failures := app.snapshots.RecordRefreshFailure(reason)
+		prommetrics.RefreshFailuresTotal.WithLabelValues(reason).Inc()
+		app.log.Warn().
+			Err(res.Err).
+			Str("reason", reason).
+			Int64("consecutive_failures", failures).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
 		return
+	}
+
+	newUsers := res.Users
+	if res.Degraded {
+		prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
 	}
 
 	// Check if data has changed
 	if !app.checkDataChanged(newUsers) {
+		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
+		// successful refresh clears the failure counter and updates degraded state.
+		app.snapshots.Store(snapshotFromResult(res))
+		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
 	}
 
-	// Update memory cache
+	// Update memory cache and swap in the new immutable snapshot atomically.
 	app.userCache.Set(newUsers)
+	app.snapshots.Store(snapshotFromResult(res))
 
 	// Verify data consistency (optimistic locking strategy)
 	currentHash := app.userCache.GetHash()
@@ -455,6 +485,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	prommetrics.BackgroundTaskTotal.Inc()
 	prommetrics.BackgroundTaskDuration.Observe(duration)
 	prommetrics.CacheSize.Set(float64(app.userCache.Len()))
+	app.updateSnapshotMetrics()
 
 	app.log.Info().
 		Int("count", len(newUsers)).

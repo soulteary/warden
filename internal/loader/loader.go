@@ -3,6 +3,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	parserkit "github.com/soulteary/parser-kit"
+	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/remote"
@@ -236,40 +238,138 @@ func (r *RulesLoader) FromFile(ctx context.Context, path string) ([]define.Allow
 }
 
 // Load loads rules from sources built from (rulesFile, dataDir, configURL, auth) and r.appMode.
-// When remote decrypt is enabled, fetches remote with RSA decryption then merges with file sources.
+// It preserves the historical signature and error semantics by delegating to LoadWithResult.
 func (r *RulesLoader) Load(ctx context.Context, rulesFile, dataDir, configURL, auth string) ([]define.AllowListUser, error) {
-	mode := strings.ToUpper(strings.TrimSpace(r.appMode))
-	if r.remoteDecrypt && configURL != "" && (r.remoteRSAPrivateKey != "" || r.remoteRSAPrivateKeyPEM != "") {
-		remoteUsers, err := remote.FetchDecryptedUsersWithOptions(ctx, remote.FetchOptions{
-			URL:                configURL,
-			AuthHeader:         auth,
-			RSAKeyPath:         r.remoteRSAPrivateKey,
-			RSAKeyPEM:          r.remoteRSAPrivateKeyPEM,
-			Timeout:            r.httpTimeout,
-			InsecureTLS:        r.httpInsecureTLS,
-			DecryptEnabled:     true,
-			EncryptionRequired: r.remoteEncRequired,
-			Format:             r.remoteEncFormat,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("remote decrypt fetch: %w", err)
-		}
-		remoteUsers = normalizeAllowListUser(remoteUsers)
-		fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode)
-		if len(fileSources) == 0 {
-			return remoteUsers, nil
-		}
-		fileUsers, err := r.dl.Load(ctx, fileSources...)
-		if err != nil {
-			return remoteUsers, nil
-		}
-		return mergeByMode(remoteUsers, fileUsers, mode), nil
+	res := r.LoadWithResult(ctx, rulesFile, dataDir, configURL, auth)
+	if res.Err != nil {
+		return nil, res.Err
 	}
+	return res.Users, nil
+}
+
+// LoadWithResult loads rules and returns a structured LoadResult that separates the
+// read source from the mode decision. Remote failures no longer short-circuit before
+// the mode policy is applied: modes that tolerate remote failure fall back to the
+// local rule set and mark the result Degraded, while strict modes surface the root
+// cause. This function never returns partial/unvalidated data with a nil Err.
+func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, configURL, auth string) LoadResult {
+	mode := normalizeMode(r.appMode)
+	now := time.Now()
+
+	// Decryption path: remote fetch is performed explicitly so we can apply the
+	// mode fallback policy uniformly across network/decrypt/integrity/JSON errors.
+	if r.remoteDecrypt && configURL != "" && (r.remoteRSAPrivateKey != "" || r.remoteRSAPrivateKeyPEM != "") {
+		return r.loadDecryptPath(ctx, rulesFile, dataDir, configURL, auth, mode, now)
+	}
+
+	// Non-decrypt path: parser-kit resolves the configured sources.
 	sources := BuildSources(rulesFile, dataDir, configURL, auth, r.appMode)
 	if len(sources) == 0 {
-		return nil, fmt.Errorf("no sources for mode %s", r.appMode)
+		return LoadResult{Source: SourceNone, LoadedAt: now, Err: fmt.Errorf("no sources for mode %s", r.appMode)}
 	}
-	return r.dl.Load(ctx, sources...)
+	users, err := r.dl.Load(ctx, sources...)
+	if err != nil {
+		// parser-kit already honors per-mode fallback across the source list; a hard
+		// error here means all eligible sources failed. Attempt a local-only fallback
+		// for modes that tolerate remote failure so an unreachable remote does not take
+		// the service down when valid local rules exist.
+		if configURL != "" && allowsRemoteFailure(mode) && mode != ModeOnlyRemote {
+			if localUsers, lerr := r.loadLocalOnly(ctx, rulesFile, dataDir); lerr == nil && len(localUsers) > 0 {
+				return LoadResult{
+					Users:          localUsers,
+					Source:         SourceLocal,
+					Version:        cache.HashUserList(localUsers),
+					LoadedAt:       now,
+					Degraded:       true,
+					DegradedReason: "remote_failed",
+				}
+			}
+		}
+		return LoadResult{Source: SourceNone, LoadedAt: now, Err: err}
+	}
+	return LoadResult{
+		Users:    users,
+		Source:   sourceForMode(mode, configURL, rulesFile, dataDir),
+		Version:  cache.HashUserList(users),
+		LoadedAt: now,
+	}
+}
+
+// loadDecryptPath implements the encrypted remote path with uniform mode fallback.
+func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
+	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, remote.FetchOptions{
+		URL:                configURL,
+		AuthHeader:         auth,
+		RSAKeyPath:         r.remoteRSAPrivateKey,
+		RSAKeyPEM:          r.remoteRSAPrivateKeyPEM,
+		Timeout:            r.httpTimeout,
+		InsecureTLS:        r.httpInsecureTLS,
+		DecryptEnabled:     true,
+		EncryptionRequired: r.remoteEncRequired,
+		Format:             r.remoteEncFormat,
+	})
+	if rerr != nil {
+		// Uniform policy: strict modes surface the root cause; tolerant modes fall back
+		// to validated local rules and mark degraded. Never return ciphertext/partial data.
+		if allowsRemoteFailure(mode) {
+			localUsers, lerr := r.loadLocalOnly(ctx, rulesFile, dataDir)
+			if lerr == nil && len(localUsers) > 0 {
+				return LoadResult{
+					Users:          localUsers,
+					Source:         SourceLocal,
+					Version:        cache.HashUserList(localUsers),
+					LoadedAt:       now,
+					Degraded:       true,
+					DegradedReason: "remote_failed",
+				}
+			}
+			return LoadResult{Source: SourceNone, LoadedAt: now, Err: errors.Join(
+				fmt.Errorf("remote decrypt fetch: %w", rerr), lerr)}
+		}
+		return LoadResult{Source: SourceNone, LoadedAt: now, Err: fmt.Errorf("remote decrypt fetch: %w", rerr)}
+	}
+	remoteUsers = normalizeAllowListUser(remoteUsers)
+
+	fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode)
+	if len(fileSources) == 0 {
+		return LoadResult{Users: remoteUsers, Source: SourceRemote, Version: cache.HashUserList(remoteUsers), LoadedAt: now}
+	}
+	fileUsers, ferr := r.dl.Load(ctx, fileSources...)
+	if ferr != nil {
+		// Local read failed but remote succeeded: use remote (not degraded).
+		return LoadResult{Users: remoteUsers, Source: SourceRemote, Version: cache.HashUserList(remoteUsers), LoadedAt: now}
+	}
+	merged := mergeByMode(remoteUsers, fileUsers, mode)
+	return LoadResult{Users: merged, Source: SourceMerged, Version: cache.HashUserList(merged), LoadedAt: now}
+}
+
+// loadLocalOnly loads rules from local sources only (no remote), used as a fallback.
+func (r *RulesLoader) loadLocalOnly(ctx context.Context, rulesFile, dataDir string) ([]define.AllowListUser, error) {
+	fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode)
+	if len(fileSources) == 0 {
+		return nil, fmt.Errorf("no local sources available for fallback")
+	}
+	return r.dl.Load(ctx, fileSources...)
+}
+
+// sourceForMode reports the likely source label when parser-kit resolved sources
+// without a hard error. It is a best-effort classification for observability only.
+func sourceForMode(mode, configURL, rulesFile, dataDir string) Source {
+	switch mode {
+	case ModeOnlyLocal:
+		return SourceLocal
+	case ModeOnlyRemote:
+		return SourceRemote
+	default:
+		hasLocal := rulesFile != "" || dataDir != ""
+		if configURL != "" && hasLocal {
+			return SourceMerged
+		}
+		if configURL != "" {
+			return SourceRemote
+		}
+		return SourceLocal
+	}
 }
 
 // mergeByMode merges remoteUsers and fileUsers by mode (REMOTE_FIRST = remote wins, LOCAL_FIRST = file wins).

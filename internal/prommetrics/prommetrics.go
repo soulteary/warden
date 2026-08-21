@@ -46,6 +46,19 @@ var (
 
 	// RateLimitHits records number of rate limit hits (legacy, uses ip label)
 	RateLimitHits *prometheus.CounterVec
+
+	// SnapshotAgeSeconds records the age of the current rule-set snapshot in seconds.
+	SnapshotAgeSeconds prometheus.Gauge
+
+	// SnapshotDegraded is 1 when the current snapshot is degraded (served from
+	// local/last-known-good after a remote failure), 0 otherwise.
+	SnapshotDegraded prometheus.Gauge
+
+	// RefreshFailuresTotal counts background refresh failures by non-sensitive reason code.
+	RefreshFailuresTotal *prometheus.CounterVec
+
+	// RemoteFallbackTotal counts remote-failure fallbacks by merge mode and reason code.
+	RemoteFallbackTotal *prometheus.CounterVec
 )
 
 func init() {
@@ -98,6 +111,25 @@ func Init() {
 	RateLimitHits = Registry.Counter("rate_limit_hits_legacy_total").
 		Help("Total number of rate limit hits (legacy, by IP)").
 		Labels("ip").
+		BuildVec()
+
+	// Snapshot / fallback observability (low-cardinality labels only).
+	SnapshotAgeSeconds = Registry.Gauge("snapshot_age_seconds").
+		Help("Age in seconds of the current rule-set snapshot").
+		Build()
+
+	SnapshotDegraded = Registry.Gauge("snapshot_degraded").
+		Help("Whether the current snapshot is degraded (1) or healthy (0)").
+		Build()
+
+	RefreshFailuresTotal = Registry.Counter("refresh_failures_total").
+		Help("Total number of background refresh failures by reason").
+		Labels("reason").
+		BuildVec()
+
+	RemoteFallbackTotal = Registry.Counter("remote_fallback_total").
+		Help("Total number of remote-failure fallbacks by mode and reason").
+		Labels("mode", "reason").
 		BuildVec()
 }
 
