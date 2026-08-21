@@ -28,6 +28,8 @@ type ReplayGuard interface {
 // memoryReplayGuard is a single-node ReplayGuard backed by a map with lazy TTL
 // eviction plus a periodic sweep. It is intentionally simple and lock-based; the
 // per-request work is O(1) amortized.
+//
+//nolint:govet // fieldalignment: field order chosen for readability
 type memoryReplayGuard struct {
 	mu      sync.Mutex
 	seen    map[string]time.Time // key -> expiry

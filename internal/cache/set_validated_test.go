@@ -70,7 +70,9 @@ func TestSetValidated_ConcurrentReadsDuringSet(t *testing.T) {
 
 	c := NewSafeUserCache()
 	users := []define.AllowListUser{{Phone: "13800000001", Mail: "a@example.com"}}
-	_ = c.SetValidated(users, identity.Options{})
+	if err := c.SetValidated(users, identity.Options{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
@@ -85,7 +87,9 @@ func TestSetValidated_ConcurrentReadsDuringSet(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = c.SetValidated(users, identity.Options{})
+			if err := c.SetValidated(users, identity.Options{}); err != nil {
+				t.Errorf("SetValidated: %v", err)
+			}
 		}()
 	}
 	wg.Wait()

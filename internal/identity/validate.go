@@ -22,6 +22,7 @@ var ErrMissingUserID = errors.New("identity: explicit user_id required but missi
 // FieldType identifies which unique field caused a conflict.
 type FieldType string
 
+// Field type constants identify which unique field caused a conflict.
 const (
 	FieldPhone  FieldType = "phone"
 	FieldMail   FieldType = "mail"
@@ -46,9 +47,9 @@ func (e *ConflictError) Unwrap() error { return ErrIdentityConflict }
 
 // MissingUserIDError describes a record missing a required explicit user_id.
 type MissingUserIDError struct {
-	Index int
 	// MaskedIdentifier is a masked phone/mail used only for diagnostics.
 	MaskedIdentifier string
+	Index            int
 }
 
 func (e *MissingUserIDError) Error() string {
@@ -167,7 +168,7 @@ func stableSort(users []define.AllowListUser) []define.AllowListUser {
 		if ki != kj {
 			return ki < kj
 		}
-		ci, cj := canonicalKey(out[i]), canonicalKey(out[j])
+		ci, cj := canonicalKey(&out[i]), canonicalKey(&out[j])
 		if ci != cj {
 			return ci < cj
 		}
@@ -177,7 +178,7 @@ func stableSort(users []define.AllowListUser) []define.AllowListUser {
 }
 
 // canonicalKey mirrors the cache/loader primary key (phone else normalized mail).
-func canonicalKey(u define.AllowListUser) string {
+func canonicalKey(u *define.AllowListUser) string {
 	k := strings.TrimSpace(u.Phone)
 	if k == "" {
 		k = strings.ToLower(strings.TrimSpace(u.Mail))

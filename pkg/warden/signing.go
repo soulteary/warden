@@ -39,6 +39,8 @@ func (systemClock) Now() time.Time { return time.Now() }
 //
 // The signature is HMAC-SHA256(secret, canonical) hex-encoded. A fresh random
 // nonce is generated per request to allow the server to reject replays.
+//
+//nolint:govet // fieldalignment: field order chosen for readability
 type hmacSigner struct {
 	keyID  string
 	secret []byte
@@ -79,7 +81,7 @@ func bodyHashHex(req *http.Request) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		defer func() { _ = rc.Close() }()
+		defer func() { _ = rc.Close() }() //nolint:errcheck // read-only body copy; close error is irrelevant
 		data, err := io.ReadAll(rc)
 		if err != nil {
 			return "", err
@@ -92,7 +94,7 @@ func bodyHashHex(req *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_ = req.Body.Close()
+	_ = req.Body.Close() //nolint:errcheck // body fully read; close error is irrelevant
 	sum := sha256.Sum256(data)
 	// Restore a re-readable body.
 	req.Body = io.NopCloser(bytes.NewReader(data))

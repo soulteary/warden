@@ -194,7 +194,7 @@ func (o *Options) WithTLSConfig(cfg *tls.Config) *Options {
 
 // WithTLSClientCert configures mutual TLS by presenting the given client
 // certificate. It preserves any existing TLSConfig fields.
-func (o *Options) WithTLSClientCert(cert tls.Certificate) *Options {
+func (o *Options) WithTLSClientCert(cert tls.Certificate) *Options { //nolint:gocritic // public API: value receiver keeps a stable, ergonomic signature
 	if o.TLSConfig == nil {
 		o.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12} //nolint:gosec // MinVersion set explicitly
 	}

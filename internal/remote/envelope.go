@@ -230,7 +230,7 @@ func Encrypt(plaintext []byte, pub *rsa.PublicKey, keyID string) ([]byte, error)
 		return nil, fmt.Errorf("remote: gcm: %w", err)
 	}
 	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("remote: nonce generation: %w", err)
 	}
 	env := &envelopeV2{

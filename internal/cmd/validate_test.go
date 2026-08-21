@@ -236,7 +236,7 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 			Environment:  "production",
 		}
 	}
-	cases := []struct {
+	cases := []struct { //nolint:govet // fieldalignment: table-test readability
 		name    string
 		mutate  func(*Config)
 		wantErr bool

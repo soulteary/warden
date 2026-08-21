@@ -39,6 +39,8 @@ type Snapshot struct {
 
 // snapshotStore holds the current immutable snapshot plus refresh health counters.
 // Reads are lock-free via atomic.Pointer; writes replace the whole snapshot.
+//
+//nolint:govet // fieldalignment: field order chosen for readability
 type snapshotStore struct {
 	current atomic.Pointer[Snapshot]
 	// refreshFailures counts consecutive background refresh failures since the last
@@ -87,7 +89,7 @@ func (s *snapshotStore) AgeSeconds() float64 {
 }
 
 // snapshotFromResult builds an immutable Snapshot from a loader.LoadResult.
-func snapshotFromResult(res loader.LoadResult) *Snapshot {
+func snapshotFromResult(res *loader.LoadResult) *Snapshot {
 	return &Snapshot{
 		Users:          res.Users,
 		Count:          len(res.Users),

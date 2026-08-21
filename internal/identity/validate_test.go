@@ -17,7 +17,7 @@ func TestValidateAndIndexUsers_Uniqueness(t *testing.T) {
 	define.SetUserIDStrategy(define.UserIDStrategyLegacy)
 	define.SetRequireExplicitUserID(false)
 
-	tests := []struct {
+	tests := []struct { //nolint:govet // fieldalignment: table-test readability
 		name      string
 		users     []define.AllowListUser
 		wantField FieldType

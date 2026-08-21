@@ -1,4 +1,4 @@
-// Package config: merge_mode.go defines the data MergeMode type.
+// Package config defines the data MergeMode type (merge_mode.go).
 //
 // MergeMode controls how local and remote rule sources are combined. It is distinct
 // from Environment (which drives security policy). The legacy overloaded "MODE" env

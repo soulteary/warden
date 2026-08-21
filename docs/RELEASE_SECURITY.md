@@ -54,7 +54,7 @@
 
 当前第三方 Action 固定到主版本 tag，并由 `.github/dependabot.yml` 自动升级。
 
-**高保证建议**：将第三方 Action 进一步固定到 commit SHA（例如 `uses: aquasecurity/trivy-action@<40 位 SHA> # v0.28.0`）。
+**高保证建议**：将第三方 Action 进一步固定到 commit SHA（例如 `uses: aquasecurity/trivy-action@<40 位 SHA> # v0.35.0`）。
 Dependabot 支持在 SHA 固定后自动提交升级 PR，兼顾可复现与可维护。
 
 ## 6. CHANGELOG 维护

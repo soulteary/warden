@@ -88,7 +88,6 @@ func TestEnvelopeV2_NonDeterministicCiphertext(t *testing.T) {
 
 func TestEnvelopeV2_VariableRSAKeySizes(t *testing.T) {
 	for _, bits := range []int{2048, 3072, 4096} {
-		bits := bits
 		t.Run(bitsName(bits), func(t *testing.T) {
 			priv := mustGenKey(t, bits)
 			plaintext := []byte(`[{"user_id":"u1"}]`)
@@ -140,11 +139,10 @@ func TestEnvelopeV2_TamperDetection(t *testing.T) {
 	cases := map[string]func(e *envelopeV2){
 		"ciphertext": func(e *envelopeV2) { e.Ciphertext = flipB64(e.Ciphertext) },
 		"nonce":      func(e *envelopeV2) { e.Nonce = flipB64(e.Nonce) },
-		"key_id_aad": func(e *envelopeV2) { e.KeyID = e.KeyID + "-x" },
+		"key_id_aad": func(e *envelopeV2) { e.KeyID += "-x" },
 		"enc_key":    func(e *envelopeV2) { e.EncKey = flipB64(e.EncKey) },
 	}
 	for name, mut := range cases {
-		mut := mut
 		t.Run(name, func(t *testing.T) {
 			corrupted := tamper(mut)
 			_, err := DecryptEnvelopeV2(corrupted, priv)
@@ -176,7 +174,6 @@ func TestEnvelopeV2_MalformedInputs(t *testing.T) {
 		"missing field":   []byte(`{"version":"warden-remote-envelope-v2","key_alg":"RSA-OAEP-256","content_alg":"A256GCM","enc_key":"AA","nonce":"AA"}`),
 	}
 	for name, body := range cases {
-		body := body
 		t.Run(name, func(t *testing.T) {
 			_, err := DecryptEnvelopeV2(body, priv)
 			require.Error(t, err)
@@ -192,7 +189,8 @@ func TestEnvelopeV2_UnknownVersionAndAlg(t *testing.T) {
 		var e envelopeV2
 		require.NoError(t, json.Unmarshal(base, &e))
 		f(&e)
-		b, _ := json.Marshal(&e)
+		b, merr := json.Marshal(&e)
+		require.NoError(t, merr)
 		return b
 	}
 
@@ -235,7 +233,7 @@ func TestDecryptEnvelopeV2_NilPrivateKey(t *testing.T) {
 	require.NoError(t, err)
 	// Should not panic on nil key.
 	assert.NotPanics(t, func() {
-		_, _ = DecryptEnvelopeV2(env, nil)
+		_, _ = DecryptEnvelopeV2(env, nil) //nolint:errcheck // verifying no panic on nil key
 	})
 }
 
@@ -247,12 +245,14 @@ func TestFetchDecryptedWithOptions_V2(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", EncryptedContentType)
-		_, _ = w.Write(env)
+		if _, werr := w.Write(env); werr != nil {
+			t.Errorf("write: %v", werr)
+		}
 	}))
 	defer srv.Close()
 
 	pemKey := privToPEM(t, priv)
-	got, err := FetchDecryptedWithOptions(context.Background(), FetchOptions{
+	got, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
 		URL:            srv.URL,
 		RSAKeyPEM:      pemKey,
 		Timeout:        testTimeout,
@@ -266,12 +266,14 @@ func TestFetchDecryptedWithOptions_V2(t *testing.T) {
 func TestFetchDecryptedWithOptions_RequiredRejectsPlaintext(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[{"phone":"1"}]`))
+		if _, err := w.Write([]byte(`[{"phone":"1"}]`)); err != nil {
+			t.Errorf("write: %v", err)
+		}
 	}))
 	defer srv.Close()
 
 	priv := mustGenKey(t, 2048)
-	_, err := FetchDecryptedWithOptions(context.Background(), FetchOptions{
+	_, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
 		URL:                srv.URL,
 		RSAKeyPEM:          privToPEM(t, priv),
 		Timeout:            testTimeout,
@@ -285,12 +287,14 @@ func TestFetchDecryptedWithOptions_RequiredRejectsPlaintext(t *testing.T) {
 
 func TestFetchDecryptedWithOptions_RequiredNoDecrypt(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`[{"phone":"1"}]`))
+		if _, err := w.Write([]byte(`[{"phone":"1"}]`)); err != nil {
+			t.Errorf("write: %v", err)
+		}
 	}))
 	defer srv.Close()
 
 	// DecryptEnabled=false but EncryptionRequired=true must fail closed.
-	_, err := FetchDecryptedWithOptions(context.Background(), FetchOptions{
+	_, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
 		URL:                srv.URL,
 		Timeout:            testTimeout,
 		DecryptEnabled:     false,
@@ -309,11 +313,13 @@ func TestFetchDecryptedWithOptions_WrongContentTypeNoDowngrade(t *testing.T) {
 	// Server sends a wrong (plaintext) content-type but an actual v2 envelope body.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write(env)
+		if _, werr := w.Write(env); werr != nil {
+			t.Errorf("write: %v", werr)
+		}
 	}))
 	defer srv.Close()
 
-	got, err := FetchDecryptedWithOptions(context.Background(), FetchOptions{
+	got, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
 		URL:            srv.URL,
 		RSAKeyPEM:      privToPEM(t, priv),
 		Timeout:        testTimeout,
@@ -330,11 +336,13 @@ func TestFetchDecryptedWithOptions_LegacyExplicitAndDeprecation(t *testing.T) {
 	legacyBody := makeLegacyBody(t, priv, []byte(`[{"phone":"1"}]`))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(legacyBody)
+		if _, err := w.Write(legacyBody); err != nil {
+			t.Errorf("write: %v", err)
+		}
 	}))
 	defer srv.Close()
 
-	got, err := FetchDecryptedWithOptions(context.Background(), FetchOptions{
+	got, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
 		URL:            srv.URL,
 		RSAKeyPEM:      privToPEM(t, priv),
 		Timeout:        testTimeout,
@@ -378,10 +386,12 @@ func TestErrorMessagesDoNotLeakSecrets(t *testing.T) {
 	// Tamper to force integrity failure.
 	var e envelopeV2
 	require.NoError(t, json.Unmarshal(env, &e))
-	raw, _ := base64.RawURLEncoding.DecodeString(e.Ciphertext)
+	raw, err := base64.RawURLEncoding.DecodeString(e.Ciphertext)
+	require.NoError(t, err)
 	raw[0] ^= 0xFF
 	e.Ciphertext = base64.RawURLEncoding.EncodeToString(raw)
-	b, _ := json.Marshal(&e)
+	b, err := json.Marshal(&e)
+	require.NoError(t, err)
 	_, err = DecryptEnvelopeV2(b, priv)
 	require.Error(t, err)
 	assert.False(t, strings.Contains(err.Error(), secret), "error must not contain plaintext")

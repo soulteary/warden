@@ -80,7 +80,7 @@ var legacyDeprecationOnce = newOnceReporter()
 // FetchDecryptedWithOptions fetches opts.URL and applies the configured decryption policy.
 // It returns typed sentinel errors (see envelope.go) and never downgrades a decrypt failure
 // to plaintext. The Content-Type header is used only as a soft consistency check.
-func FetchDecryptedWithOptions(ctx context.Context, opts FetchOptions) ([]byte, error) {
+func FetchDecryptedWithOptions(ctx context.Context, opts *FetchOptions) ([]byte, error) {
 	body, contentType, err := fetchBody(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func decryptAuto(body []byte, priv *rsa.PrivateKey, contentType string, required
 }
 
 // fetchBody performs the HTTP GET and returns the (size-limited) body and content-type.
-func fetchBody(ctx context.Context, opts FetchOptions) ([]byte, string, error) {
+func fetchBody(ctx context.Context, opts *FetchOptions) (body []byte, contentType string, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, opts.URL, http.NoBody)
 	if err != nil {
 		return nil, "", fmt.Errorf("remote fetch: %w", err)
@@ -195,12 +195,12 @@ func fetchBody(ctx context.Context, opts FetchOptions) ([]byte, string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("remote fetch: status %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, define.MAX_ENVELOPE_JSON_SIZE))
+	body, err = io.ReadAll(io.LimitReader(resp.Body, define.MAX_ENVELOPE_JSON_SIZE))
 	if err != nil {
 		return nil, "", fmt.Errorf("remote fetch: read %w", err)
 	}
-	ct := strings.TrimSpace(strings.ToLower(resp.Header.Get("Content-Type")))
-	return body, ct, nil
+	contentType = strings.TrimSpace(strings.ToLower(resp.Header.Get("Content-Type")))
+	return body, contentType, nil
 }
 
 // FetchDecrypted fetches url with optional auth header and optional decryption.
@@ -210,7 +210,7 @@ func fetchBody(ctx context.Context, opts FetchOptions) ([]byte, string, error) {
 // implementation, it no longer silently returns ciphertext as plaintext when decryption
 // is enabled: a decrypt failure returns a typed error.
 func FetchDecrypted(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath, rsaKeyPEM string, timeout time.Duration, insecureTLS bool) ([]byte, error) {
-	return FetchDecryptedWithOptions(ctx, FetchOptions{
+	return FetchDecryptedWithOptions(ctx, &FetchOptions{
 		URL:            url,
 		AuthHeader:     authHeader,
 		RSAKeyPath:     rsaKeyPath,
@@ -260,7 +260,7 @@ func loadRSAPrivateKey(keyPath, keyPEM string) (*rsa.PrivateKey, error) {
 }
 
 // FetchDecryptedUsersWithOptions fetches, decrypts (per opts) and parses []AllowListUser.
-func FetchDecryptedUsersWithOptions(ctx context.Context, opts FetchOptions) ([]define.AllowListUser, error) {
+func FetchDecryptedUsersWithOptions(ctx context.Context, opts *FetchOptions) ([]define.AllowListUser, error) {
 	body, err := FetchDecryptedWithOptions(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -272,7 +272,7 @@ func FetchDecryptedUsersWithOptions(ctx context.Context, opts FetchOptions) ([]d
 //
 // Deprecated: prefer FetchDecryptedUsersWithOptions.
 func FetchDecryptedUsers(ctx context.Context, url, authHeader string, decryptEnabled bool, rsaKeyPath, rsaKeyPEM string, timeout time.Duration, insecureTLS bool) ([]define.AllowListUser, error) {
-	return FetchDecryptedUsersWithOptions(ctx, FetchOptions{
+	return FetchDecryptedUsersWithOptions(ctx, &FetchOptions{
 		URL:            url,
 		AuthHeader:     authHeader,
 		RSAKeyPath:     rsaKeyPath,

@@ -297,7 +297,7 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 
 // loadDecryptPath implements the encrypted remote path with uniform mode fallback.
 func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
-	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, remote.FetchOptions{
+	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, &remote.FetchOptions{
 		URL:                configURL,
 		AuthHeader:         auth,
 		RSAKeyPath:         r.remoteRSAPrivateKey,

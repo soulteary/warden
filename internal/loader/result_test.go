@@ -30,9 +30,10 @@ func mustGenKeyLoader(t *testing.T) string {
 }
 
 // writeLocal writes a local users file and returns its path.
-func writeLocal(t *testing.T, dir, name, body string) string {
+func writeLocal(t *testing.T, dir string) string {
 	t.Helper()
-	p := filepath.Join(dir, name)
+	p := filepath.Join(dir, "users.json")
+	body := `[{"phone":"13800138000","mail":"a@example.com"}]`
 	require.NoError(t, os.WriteFile(p, []byte(body), 0o600))
 	return p
 }
@@ -56,7 +57,6 @@ func TestAllowsRemoteFailure(t *testing.T) {
 		ModeLocalFirstAllowRemoteFail:  true,
 	}
 	for mode, want := range cases {
-		mode, want := mode, want
 		t.Run(mode, func(t *testing.T) {
 			assert.Equal(t, want, allowsRemoteFailure(mode))
 		})
@@ -65,7 +65,7 @@ func TestAllowsRemoteFailure(t *testing.T) {
 
 func TestLoadWithResult_LocalSuccess(t *testing.T) {
 	dir := t.TempDir()
-	path := writeLocal(t, dir, "users.json", `[{"phone":"13800138000","mail":"a@example.com"}]`)
+	path := writeLocal(t, dir)
 
 	r, err := NewRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestLoadWithResult_LocalSuccess(t *testing.T) {
 
 func TestLoadWithResult_RemoteFailure_Modes(t *testing.T) {
 	dir := t.TempDir()
-	path := writeLocal(t, dir, "users.json", `[{"phone":"13800138000","mail":"a@example.com"}]`)
+	path := writeLocal(t, dir)
 	badURL := unreachableURL(t)
 
 	cases := []struct {
@@ -95,7 +95,6 @@ func TestLoadWithResult_RemoteFailure_Modes(t *testing.T) {
 		{ModeRemoteFirst, false, false},                // parser-kit merge still yields local; strict handled in decrypt path
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.mode, func(t *testing.T) {
 			cfg := &cmd.Config{HTTPTimeout: 1}
 			r, err := NewRulesLoader(cfg, tc.mode)
@@ -127,7 +126,9 @@ func TestLoadWithResult_OnlyRemote_StrictFailure(t *testing.T) {
 func TestLoadWithResult_DecryptPath_StrictModeSurfacesError(t *testing.T) {
 	// Server returns plaintext; decrypt is enabled + required, so it must fail.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`[{"phone":"1"}]`))
+		if _, err := w.Write([]byte(`[{"phone":"1"}]`)); err != nil {
+			t.Errorf("write: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -150,12 +151,14 @@ func TestLoadWithResult_DecryptPath_StrictModeSurfacesError(t *testing.T) {
 func TestLoadWithResult_DecryptPath_TolerantFallsBackDegraded(t *testing.T) {
 	// Server returns plaintext (decrypt fails) but a valid local file exists.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`not-an-envelope`))
+		if _, err := w.Write([]byte(`not-an-envelope`)); err != nil {
+			t.Errorf("write: %v", err)
+		}
 	}))
 	defer srv.Close()
 
 	dir := t.TempDir()
-	path := writeLocal(t, dir, "users.json", `[{"phone":"13800138000","mail":"a@example.com"}]`)
+	path := writeLocal(t, dir)
 
 	priv := mustGenKeyLoader(t)
 	cfg := &cmd.Config{
@@ -178,7 +181,7 @@ func TestLoadWithResult_DecryptPath_TolerantFallsBackDegraded(t *testing.T) {
 
 func TestLoadWithResult_ConcurrentReads(t *testing.T) {
 	dir := t.TempDir()
-	path := writeLocal(t, dir, "users.json", `[{"phone":"13800138000","mail":"a@example.com"}]`)
+	path := writeLocal(t, dir)
 	r, err := NewRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 

@@ -96,7 +96,7 @@ func TestHMACv2_TamperedFields(t *testing.T) {
 		}
 	}
 
-	cases := []struct {
+	cases := []struct { //nolint:govet // fieldalignment: table-test readability
 		name   string
 		mutate func(req *http.Request)
 	}{
@@ -195,7 +195,7 @@ func TestHMACv2_DifferentNonce_NotReplay(t *testing.T) {
 func TestHMACv2_TimestampSkewBoundary(t *testing.T) {
 	secret := "v2-secret"
 	tol := 60
-	cases := []struct {
+	cases := []struct { //nolint:govet // fieldalignment: table-test readability
 		name     string
 		offset   int64
 		wantOK   bool

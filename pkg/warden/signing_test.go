@@ -28,7 +28,7 @@ func (c fixedClock) Now() time.Time { return c.t }
 // signatures the same way the middleware does. It mirrors the production canonical
 // form: METHOD\nPATH_AND_QUERY\nTIMESTAMP\nNONCE\nSHA256_HEX(body).
 func serverVerifyV2(r *http.Request, secret string) bool {
-	body, _ := io.ReadAll(r.Body)
+	body, _ := io.ReadAll(r.Body) //nolint:errcheck // test helper; body read best-effort
 	bh := sha256.Sum256(body)
 	p := r.URL.EscapedPath()
 	if p == "" {
@@ -90,7 +90,9 @@ func TestClient_SignedRequest_VerifiedByServer(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode([]AllowListUser{{UserID: "u1", Phone: "13800138000", Status: "active"}})
+		if err := json.NewEncoder(w).Encode([]AllowListUser{{UserID: "u1", Phone: "13800138000", Status: "active"}}); err != nil {
+			t.Errorf("encode: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -141,14 +143,14 @@ func TestClient_ResponseSizeLimit(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		// Write a big array that exceeds the limit.
-		_, _ = w.Write([]byte("["))
+		_, _ = w.Write([]byte("[")) //nolint:errcheck // test server best-effort write
 		for i := 0; i < 10000; i++ {
 			if i > 0 {
-				_, _ = w.Write([]byte(","))
+				_, _ = w.Write([]byte(",")) //nolint:errcheck // test server best-effort write
 			}
-			_, _ = w.Write([]byte(`{"user_id":"padding-padding-padding"}`))
+			_, _ = w.Write([]byte(`{"user_id":"padding-padding-padding"}`)) //nolint:errcheck // test server best-effort write
 		}
-		_, _ = w.Write([]byte("]"))
+		_, _ = w.Write([]byte("]")) //nolint:errcheck // test server best-effort write
 	}))
 	defer server.Close()
 
@@ -196,7 +198,7 @@ func TestClient_RetriesGetOn5xxWithFreshNonce(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("[]"))
+		_, _ = w.Write([]byte("[]")) //nolint:errcheck // test server best-effort write
 	}))
 	defer server.Close()
 
@@ -224,7 +226,7 @@ func TestSigner_SecretNeverLogged(t *testing.T) {
 	const secret = "super-secret-value-should-not-leak"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("[]"))
+		_, _ = w.Write([]byte("[]")) //nolint:errcheck // test server best-effort write
 	}))
 	defer server.Close()
 

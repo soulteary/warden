@@ -182,8 +182,8 @@ func NewApp(cfg *cmd.Config) *App {
 
 	// Apply identity configuration (user_id derivation strategy + explicit-id requirement)
 	// BEFORE any data is loaded so Normalize/validation observe a consistent policy.
-	if strat, ok := define.ParseUserIDStrategy(cfg.UserIDStrategy); ok {
-		define.SetUserIDStrategy(strat)
+	if strategy, ok := define.ParseUserIDStrategy(cfg.UserIDStrategy); ok {
+		define.SetUserIDStrategy(strategy)
 	} else {
 		app.log.Warn().
 			Str("value", cfg.UserIDStrategy).
@@ -288,7 +288,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 				// Conflicting local set: do not overwrite good data; report and abort this load.
 				return err
 			}
-			app.snapshots.Store(snapshotFromResult(localRes))
+			app.snapshots.Store(snapshotFromResult(&localRes))
 			app.updateSnapshotMetrics()
 			if app.redisUserCache != nil {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
@@ -344,7 +344,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
 			return nil
 		}
-		app.snapshots.Store(snapshotFromResult(res))
+		app.snapshots.Store(snapshotFromResult(&res))
 		app.updateSnapshotMetrics()
 		if res.Degraded {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
@@ -540,7 +540,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	if !app.checkDataChanged(newUsers) {
 		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
 		// successful refresh clears the failure counter and updates degraded state.
-		app.snapshots.Store(snapshotFromResult(res))
+		app.snapshots.Store(snapshotFromResult(&res))
 		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
@@ -559,7 +559,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
 		return
 	}
-	app.snapshots.Store(snapshotFromResult(res))
+	app.snapshots.Store(snapshotFromResult(&res))
 
 	// Verify data consistency (optimistic locking strategy)
 	currentHash := app.userCache.GetHash()

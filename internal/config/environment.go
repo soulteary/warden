@@ -1,4 +1,4 @@
-// Package config: environment.go defines the deployment Environment type.
+// Package config defines the deployment Environment type (environment.go).
 //
 // Historically a single overloaded "MODE" string conflated two orthogonal concerns:
 // the data merge strategy (ONLY_LOCAL / LOCAL_FIRST / REMOTE_FIRST / ...) and the

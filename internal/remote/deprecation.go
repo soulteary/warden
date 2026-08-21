@@ -33,7 +33,7 @@ func (o *onceReporter) Reset() {
 	o.mu.Unlock()
 }
 
-// LegacyEncryptionObserver, when set, is invoked once (deduped) the first time the
+// LegacyEncryptionObserver is invoked once (deduped) the first time the
 // deprecated legacy encryption format is used. It lets callers (main) record a
 // deprecation metric without this package importing the metrics package.
 var LegacyEncryptionObserver func()
