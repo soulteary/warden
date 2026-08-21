@@ -109,8 +109,8 @@ github.com/soulteary/cli-kit v1.7.0 h1:kOkSDv6aUGpr0rllmGLs6wTpQ0FtvCWcQoti7pM6I
 github.com/soulteary/cli-kit v1.7.0/go.mod h1:O7jG7L41pI4tTjTb8yWnI/pQl6L9Zl9waKEqRir5qXo=
 github.com/soulteary/health-kit v1.3.0 h1:eFK8Yna+X9tHpOc+HDs70W4h1WTmWoPFUpGZ8mNzlzo=
 github.com/soulteary/health-kit v1.3.0/go.mod h1:rRaOMvxfKpukAaewAOkTUZ9N8+MZpql2/sq+keom6qc=
-github.com/soulteary/http-kit v1.1.0 h1:qo0m4+mtmY9XojjiSIDKL4lXQr5ryQurFnHMHrHIPRo=
-github.com/soulteary/http-kit v1.1.0/go.mod h1:gKyrUG/Sk+M2EKZSPnORoNjHb3WaT4fZWEfYWlELJjk=
+github.com/soulteary/http-kit v1.2.0 h1:Nq7McLtpzhZS53mE7WR0geArGvSnZDotMOe3Z8RnRHU=
+github.com/soulteary/http-kit v1.2.0/go.mod h1:EIlpxL+IpPwMnKYvdfqtXI1e48d1FkQQ/6ASnnD8Q/g=
 github.com/soulteary/i18n-kit v1.2.0 h1:3+tVa8VhqG/E8FkL3wMAawDPHIbJy+kneO6E6Co5ZQk=
 github.com/soulteary/i18n-kit v1.2.0/go.mod h1:gHGQWHKZ08/u97TbsBXMF2xCKsgOI8qOco3xpp5sOCo=
 github.com/soulteary/logger-kit v1.5.0 h1:XR1IpN9HgEvHGS9hrv5KPQHG7R7RvKhv4NcrMzrv7mQ=
