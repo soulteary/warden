@@ -33,6 +33,11 @@ func (o *onceReporter) Reset() {
 	o.mu.Unlock()
 }
 
+// LegacyEncryptionObserver, when set, is invoked once (deduped) the first time the
+// deprecated legacy encryption format is used. It lets callers (main) record a
+// deprecation metric without this package importing the metrics package.
+var LegacyEncryptionObserver func()
+
 // reportLegacyDeprecation logs a single deprecation warning for the legacy v1 format.
 // The message contains no secrets or payloads.
 func reportLegacyDeprecation() {
@@ -41,6 +46,9 @@ func reportLegacyDeprecation() {
 			Str("format", string(FormatLegacy)).
 			Str("recommended", string(FormatV2)).
 			Msg("remote: legacy unauthenticated encryption format in use; migrate to envelope v2")
+		if LegacyEncryptionObserver != nil {
+			LegacyEncryptionObserver()
+		}
 	}
 }
 

@@ -44,8 +44,10 @@ var (
 	// BackgroundTaskErrors records number of background task errors
 	BackgroundTaskErrors prometheus.Counter
 
-	// RateLimitHits records number of rate limit hits (legacy, uses ip label)
-	RateLimitHits *prometheus.CounterVec
+	// RateLimitHits records number of rate limit hits. The legacy metric name is
+	// kept for dashboard compatibility, but the high-cardinality per-IP label has
+	// been removed (see below) to avoid unbounded time series.
+	RateLimitHits prometheus.Counter
 
 	// SnapshotAgeSeconds records the age of the current rule-set snapshot in seconds.
 	SnapshotAgeSeconds prometheus.Gauge
@@ -59,6 +61,14 @@ var (
 
 	// RemoteFallbackTotal counts remote-failure fallbacks by merge mode and reason code.
 	RemoteFallbackTotal *prometheus.CounterVec
+
+	// DeprecationTotal counts uses of deprecated features by a stable, low-cardinality
+	// feature label (e.g. "encryption_legacy", "mode_legacy_env", "hmac_v1").
+	DeprecationTotal *prometheus.CounterVec
+
+	// HMACReplayRejectedTotal counts HMAC v2 requests rejected because their nonce was
+	// already seen within the timestamp window (replay protection).
+	HMACReplayRejectedTotal prometheus.Counter
 )
 
 func init() {
@@ -107,11 +117,13 @@ func Init() {
 		Help("Total number of background task errors").
 		Build()
 
-	// Rate limit legacy alias (uses ip label instead of scope for backward compatibility)
+	// Rate limit legacy metric. The historical name is retained but the per-IP label
+	// is intentionally dropped: a per-client-IP label is unbounded (one series per
+	// source address) and both a cardinality and a mild privacy concern. Aggregate
+	// per-scope counting still happens via RateLimit.RecordHit below.
 	RateLimitHits = Registry.Counter("rate_limit_hits_legacy_total").
-		Help("Total number of rate limit hits (legacy, by IP)").
-		Labels("ip").
-		BuildVec()
+		Help("Total number of rate limit hits (legacy; no per-IP label)").
+		Build()
 
 	// Snapshot / fallback observability (low-cardinality labels only).
 	SnapshotAgeSeconds = Registry.Gauge("snapshot_age_seconds").
@@ -131,6 +143,15 @@ func Init() {
 		Help("Total number of remote-failure fallbacks by mode and reason").
 		Labels("mode", "reason").
 		BuildVec()
+
+	DeprecationTotal = Registry.Counter("deprecation_total").
+		Help("Total uses of deprecated features by feature code").
+		Labels("feature").
+		BuildVec()
+
+	HMACReplayRejectedTotal = Registry.Counter("hmac_replay_rejected_total").
+		Help("Total HMAC v2 requests rejected due to nonce replay within the window").
+		Build()
 }
 
 // Handler returns Prometheus metrics endpoint handler
@@ -168,9 +189,22 @@ func RecordBackgroundTask(duration time.Duration, success bool) {
 	}
 }
 
-// RecordRateLimitHit records a rate limit hit by IP (legacy)
+// RecordRateLimitHit records a rate limit hit. The ip argument is accepted for
+// backward-compatible call sites but intentionally NOT used as a metric label to
+// avoid high-cardinality/PII time series.
 func RecordRateLimitHit(ip string) {
-	RateLimitHits.WithLabelValues(ip).Inc()
-	// Also record in the new metrics with "ip" scope
+	_ = ip
+	RateLimitHits.Inc()
+	// Also record in the new metrics with a fixed low-cardinality "ip" scope label.
 	RateLimit.RecordHit("ip")
+}
+
+// RecordDeprecation increments the deprecation counter for a stable feature code.
+func RecordDeprecation(feature string) {
+	DeprecationTotal.WithLabelValues(feature).Inc()
+}
+
+// RecordHMACReplayRejected increments the HMAC replay-rejection counter.
+func RecordHMACReplayRejected() {
+	HMACReplayRejectedTotal.Inc()
 }

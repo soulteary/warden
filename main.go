@@ -39,6 +39,7 @@ import (
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/prommetrics"
+	"github.com/soulteary/warden/internal/remote"
 	"github.com/soulteary/warden/pkg/gocron"
 )
 
@@ -102,6 +103,10 @@ func NewApp(cfg *cmd.Config) *App {
 		tlsRequireClientCert: cfg.TLSRequireClientCert,
 	}
 	app.snapshots = newSnapshotStore()
+	// Surface use of the deprecated legacy encryption format as a metric (deduped).
+	remote.LegacyEncryptionObserver = func() {
+		prommetrics.RecordDeprecation("encryption_legacy")
+	}
 	if cfg.HMACKeys != "" {
 		var keys map[string]string
 		if err := json.Unmarshal([]byte(cfg.HMACKeys), &keys); err != nil {
@@ -124,6 +129,7 @@ func NewApp(cfg *cmd.Config) *App {
 	// derive the environment, so operators migrate to ENVIRONMENT.
 	if cfg.LegacyModeUsedForEnv {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.legacy_mode_env_deprecated"))
+		prommetrics.RecordDeprecation("mode_legacy_env")
 	}
 
 	// Initialize cache (create memory cache first)

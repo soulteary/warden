@@ -39,7 +39,7 @@ func registerRoutes(app *App) {
 		Logger:             logger.ZerologPtr(),
 		SkipPaths:          define.SkipPathsHealthAndMetrics,
 		OnLimitReached: func(key string) {
-			prommetrics.RateLimitHits.WithLabelValues(key).Inc()
+			prommetrics.RecordRateLimitHit(key)
 		},
 	})
 
@@ -49,10 +49,16 @@ func registerRoutes(app *App) {
 	authBaseCfg.TrustedProxyConfig = trustedProxyConfig
 	authBaseCfg.Logger = logger.ZerologPtr()
 	apiKeyMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
-	// Service auth chain: mTLS (client cert) > HMAC > API Key
+	// Service auth chain: mTLS (client cert) > HMAC > API Key.
+	// Accept both legacy v1 and authenticated v2 signatures during migration; v2 adds
+	// per-request nonce + replay rejection. Deprecation of v1 is surfaced via a metric.
 	hmacCfg := middleware.HMACConfig{
 		Keys:                  app.hmacKeys,
 		TimestampToleranceSec: app.hmacToleranceSec,
+		OnReplayRejected:      prommetrics.RecordHMACReplayRejected,
+		OnV1Used: func() {
+			prommetrics.RecordDeprecation("hmac_v1")
+		},
 	}
 	authMiddleware := middleware.ServiceAuthChain(hmacCfg, apiKeyMiddleware)
 	optionalAuthCfg := authBaseCfg
@@ -73,12 +79,20 @@ func registerRoutes(app *App) {
 
 	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
 
+	// Metrics exposure is configurable. By default metrics are exposed anonymously
+	// (optionalAuthMiddleware) for scrape simplicity and expose only low-cardinality,
+	// non-sensitive series. Operators can require authentication for /metrics by setting
+	// WARDEN_METRICS_REQUIRE_AUTH=true, in which case the full service auth chain applies.
+	metricsAuth := optionalAuthMiddleware
+	if requireAuthEnv := strings.TrimSpace(os.Getenv("WARDEN_METRICS_REQUIRE_AUTH")); requireAuthEnv == "true" || requireAuthEnv == "1" {
+		metricsAuth = authMiddleware
+	}
 	metricsHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						optionalAuthMiddleware(
+						metricsAuth(
 							middleware.MetricsMiddleware(prommetrics.Handler()),
 						),
 					),
@@ -158,7 +172,7 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/v1/lookup", lookupHandler)
 
-	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.appMode, app.environment, app.redisEnabled, healthWhitelist)
+	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.appMode, app.environment, app.redisEnabled, healthWhitelist)
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -202,7 +216,7 @@ func registerRoutes(app *App) {
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
-func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, appMode, environment string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
+func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, appMode, environment string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
 	// Production hardening (hide details/checks) keys off the deployment ENVIRONMENT,
 	// never off the data merge mode. isOnlyLocalMode still uses the merge mode.
 	env, _ := config.ParseEnvironment(environment)
@@ -252,6 +266,48 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		}
 		return nil
 	}))
+
+	// Snapshot provenance checker. Serving a last-known-good snapshot after a
+	// remote refresh failure is reported as "degraded" (still functional, HTTP
+	// 200) rather than unhealthy, carrying only a stable, non-sensitive reason
+	// code plus low-cardinality provenance metadata (source, short version
+	// digest, loaded-at). Raw errors, URLs, and keys are never surfaced here.
+	if snapshots != nil {
+		aggregator.AddChecker(health.NewCheckerFunc("snapshot", func(_ context.Context) health.CheckResult {
+			snap := snapshots.Load()
+			res := health.CheckResult{
+				Name:      "snapshot",
+				Status:    health.StatusHealthy,
+				Timestamp: time.Now(),
+			}
+			if snap == nil {
+				res.Status = health.StatusDegraded
+				res.Message = "no snapshot loaded"
+				res.Metadata = map[string]any{"reason": "no_snapshot"}
+				return res
+			}
+			meta := map[string]any{
+				"source": string(snap.Source),
+			}
+			if snap.Version != "" {
+				meta["version"] = snap.Version
+			}
+			if !snap.LoadedAt.IsZero() {
+				meta["loaded_at"] = snap.LoadedAt.UTC().Format(time.RFC3339)
+			}
+			if snap.Degraded {
+				reason := snap.DegradedReason
+				if reason == "" {
+					reason = "unknown"
+				}
+				meta["reason"] = reason
+				res.Status = health.StatusDegraded
+				res.Message = "serving last-known-good snapshot"
+			}
+			res.Metadata = meta
+			return res
+		}))
+	}
 
 	return aggregator
 }
