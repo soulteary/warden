@@ -1,4 +1,49 @@
+# 版本控制与 CI/CD 元数据
 .git
-!**/*.go
-!**/*.mod
-!**/*.sum
+.github
+.gitignore
+.dockerignore
+
+# 已提交的编译产物 / 本地构建产物（不应进入构建上下文）
+dist/
+warden
+warden.exe
+example/advanced/mock-api/mock-api
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# 密钥与证书（严禁进入镜像）
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+
+# 本地敏感配置与真实数据（仅示例文件可入镜像）
+.env
+.env.*
+!.env.example
+config.yaml
+config.yml
+*.local.yaml
+*.local.yml
+*.local.json
+data.json
+*.local.data.json
+data.json.backup
+console.json
+
+# 覆盖率与临时文件
+coverage.*
+*.tar
+tmp/
+
+# 文档与示例（运行时不需要）
+docs/
+example/
+*.md

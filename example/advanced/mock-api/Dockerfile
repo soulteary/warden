@@ -1,33 +1,33 @@
+# syntax=docker/dockerfile:1
+#
+# 演示用 Mock API：多阶段构建，运行阶段以非 root 用户运行。
+# 二进制在构建期生成，不再提交到版本库（见仓库 .gitignore）。
 FROM golang:1.26.6-alpine3.23 AS builder
 
 WORKDIR /app
 
-# 复制源代码
+# 使用已有的 go.mod（无需 go mod init），复制源码后构建静态二进制
+COPY go.mod .
 COPY main.go .
-COPY data.json .
 
-# 构建应用
-RUN go mod init mock-api && \
-    go build -o mock-api main.go
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o mock-api main.go
 
 # 运行阶段
-FROM alpine:latest
+FROM alpine:3.23
 
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata && \
+    addgroup -g 10001 -S mockapi && \
+    adduser -u 10001 -S -G mockapi -H -s /sbin/nologin mockapi
 
 WORKDIR /app
 
-# 从构建阶段复制二进制文件和数据
 COPY --from=builder /app/mock-api .
-COPY --from=builder /app/data.json .
 
-# 暴露端口
 EXPOSE 8080
 
-# 健康检查
+# data.json 通过卷挂载提供（见 example/advanced/docker-compose.yml）
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
 
-# 运行服务
+USER 10001:10001
 CMD ["./mock-api"]
-

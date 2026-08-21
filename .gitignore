@@ -39,3 +39,10 @@ data.json
 .env.*.local
 
 data.json.backup
+
+# 已提交的编译产物：mock-api 二进制由 `make mock-api` 或 Docker 构建生成，不应提交
+example/advanced/mock-api/mock-api
+# 本地构建的 warden 主二进制
+/warden
+/warden.exe
+dist/

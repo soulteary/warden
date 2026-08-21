@@ -10,7 +10,7 @@ echo "🚀 启动 Warden 简单示例..."
 # 检查 Redis 是否运行
 if ! redis-cli -h localhost -p 6379 ping > /dev/null 2>&1; then
     echo "⚠️  Redis 未运行，请先启动 Redis："
-    echo "   docker run -d --name redis -p 6379:6379 redis:6.2.4"
+    echo "   docker run -d --name redis -p 6379:6379 redis:7.4-alpine"
     echo "   或: redis-server"
     exit 1
 fi
