@@ -102,7 +102,7 @@ jobs:
 
       - name: 构建并推送 Docker 镜像
         id: build-push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./docker/Dockerfile
