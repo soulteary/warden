@@ -100,7 +100,7 @@ jobs:
         run: go tool cover -html=coverage.out -o coverage.html
 
       - name: 上传覆盖率报告
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.html
@@ -225,7 +225,7 @@ jobs:
 
       - name: 上传 Trivy 扫描结果
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: trivy-image-sarif
           path: trivy-image.sarif
@@ -239,7 +239,7 @@ jobs:
           output-file: warden-sbom.spdx.json
 
       - name: 上传 SBOM
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: warden-sbom
           path: warden-sbom.spdx.json
