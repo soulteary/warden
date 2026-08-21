@@ -49,6 +49,7 @@
   "validation.environment_invalid": "无效的部署环境：%s（有效值：development, test, production）",
   "validation.prod_remote_timeout_required": "生产环境下配置远程数据源时必须设置有界的 HTTP 超时（HTTP_TIMEOUT > 0）",
   "validation.prod_remote_encryption_required": "生产环境下配置远程数据源时必须启用远程加密并要求密文（REMOTE_ENCRYPTION_REQUIRED=true，fail closed）",
+  "validation.prod_auth_required": "生产环境必须配置至少一种认证方式：设置 API_KEY、WARDEN_HMAC_KEYS，或 mTLS（WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true）",
 
   "log_level.updated": "日志级别已更新",
   "log_level.invalid": "无效的日志级别，支持的值：trace, debug, info, warn, error, fatal, panic",

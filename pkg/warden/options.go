@@ -1,6 +1,7 @@
 package warden
 
 import (
+	"crypto/tls"
 	"net/http"
 	"strings"
 	"time"
@@ -45,7 +46,23 @@ type Options struct {
 	Transport                *http.Transport // Custom HTTP transport (optional)
 	Retry                    *RetryOptions   // Retry configuration (optional)
 	CacheInvalidationChannel <-chan struct{} // Channel for event-driven cache invalidation (optional)
+
+	// HMACKeyID and HMACSecret enable request signing (HMAC v2). When both are set,
+	// every request is signed. The secret is never logged.
+	HMACKeyID  string
+	HMACSecret string
+	// Clock overrides the time source used for signature timestamps (testing).
+	Clock Clock
+	// TLSConfig, when set, is applied to the HTTP transport (e.g. client certs, root
+	// CAs). It takes precedence over Transport's own TLSClientConfig.
+	TLSConfig *tls.Config
+	// MaxResponseBytes bounds the response body read to defend against unbounded
+	// payloads. Zero means use DefaultMaxResponseBytes; a negative value disables it.
+	MaxResponseBytes int64
 }
+
+// DefaultMaxResponseBytes is the default cap on response body size (8 MiB).
+const DefaultMaxResponseBytes int64 = 8 << 20
 
 // DefaultOptions returns default options with sensible defaults.
 func DefaultOptions() *Options {
@@ -150,5 +167,44 @@ func (o *Options) WithRetry(retry *RetryOptions) *Options {
 // When a signal is received on this channel, the cache will be automatically cleared.
 func (o *Options) WithCacheInvalidationChannel(ch <-chan struct{}) *Options {
 	o.CacheInvalidationChannel = ch
+	return o
+}
+
+// WithHMAC enables HMAC v2 request signing with the given key id and secret.
+// The secret is never logged. Passing empty values disables signing.
+func (o *Options) WithHMAC(keyID, secret string) *Options {
+	o.HMACKeyID = keyID
+	o.HMACSecret = secret
+	return o
+}
+
+// WithClock overrides the time source used for signature timestamps. Primarily
+// useful for deterministic tests.
+func (o *Options) WithClock(clock Clock) *Options {
+	o.Clock = clock
+	return o
+}
+
+// WithTLSConfig sets a custom *tls.Config (e.g. client certificates, root CAs)
+// that will be applied to the HTTP transport.
+func (o *Options) WithTLSConfig(cfg *tls.Config) *Options {
+	o.TLSConfig = cfg
+	return o
+}
+
+// WithTLSClientCert configures mutual TLS by presenting the given client
+// certificate. It preserves any existing TLSConfig fields.
+func (o *Options) WithTLSClientCert(cert tls.Certificate) *Options {
+	if o.TLSConfig == nil {
+		o.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12} //nolint:gosec // MinVersion set explicitly
+	}
+	o.TLSConfig.Certificates = append(o.TLSConfig.Certificates, cert)
+	return o
+}
+
+// WithMaxResponseBytes bounds how many bytes of a response body will be read.
+// Zero uses DefaultMaxResponseBytes; a negative value disables the limit.
+func (o *Options) WithMaxResponseBytes(n int64) *Options {
+	o.MaxResponseBytes = n
 	return o
 }

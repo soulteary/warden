@@ -202,10 +202,80 @@ func TestValidateConfig_ProductionRemoteOK(t *testing.T) {
 		RemoteConfig:             "http://example.com/data.json",
 		HTTPTimeout:              30,
 		RemoteEncryptionRequired: true,
+		APIKey:                   "an-api-key", // production requires an auth mechanism
 	}
 
 	err := ValidateConfig(cfg)
 	assert.NoError(t, err, "满足生产硬化要求的配置应通过校验")
+}
+
+// TestValidateConfig_ProductionRequiresAuth ensures that production startup FAILS (not
+// merely warns) when no authentication mechanism is configured.
+func TestValidateConfig_ProductionRequiresAuth(t *testing.T) {
+	cfg := &Config{
+		Port:         "8081",
+		Redis:        "localhost:6379",
+		TaskInterval: 5,
+		Mode:         "DEFAULT",
+		Environment:  "production",
+		// No RemoteConfig so remote-specific checks do not fire; only the auth check should.
+	}
+
+	err := ValidateConfig(cfg)
+	assert.Error(t, err, "生产环境未配置任何认证方式必须启动失败")
+}
+
+// TestValidateConfig_ProductionAuthMechanisms table-tests each accepted auth mechanism.
+func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
+	base := func() *Config {
+		return &Config{
+			Port:         "8081",
+			Redis:        "localhost:6379",
+			TaskInterval: 5,
+			Mode:         "DEFAULT",
+			Environment:  "production",
+		}
+	}
+	cases := []struct {
+		name    string
+		mutate  func(*Config)
+		wantErr bool
+	}{
+		{"api_key", func(c *Config) { c.APIKey = "k" }, false},
+		{"hmac_keys", func(c *Config) { c.HMACKeys = `{"id1":"secret1"}` }, false},
+		{"mtls_required", func(c *Config) { c.TLSCAFile = "/tmp/ca.pem"; c.TLSRequireClientCert = true }, false},
+		{"mtls_ca_without_require", func(c *Config) { c.TLSCAFile = "/tmp/ca.pem"; c.TLSRequireClientCert = false }, true},
+		{"empty_hmac_json", func(c *Config) { c.HMACKeys = `{}` }, true},
+		{"malformed_hmac_json", func(c *Config) { c.HMACKeys = `{not-json` }, true},
+		{"blank_api_key", func(c *Config) { c.APIKey = "   " }, true},
+		{"none", func(_ *Config) {}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := base()
+			tc.mutate(cfg)
+			err := ValidateConfig(cfg)
+			if tc.wantErr {
+				assert.Error(t, err, "缺少有效认证方式应报错")
+			} else {
+				assert.NoError(t, err, "配置了有效认证方式应通过")
+			}
+		})
+	}
+}
+
+// TestValidateConfig_DevelopmentDoesNotRequireAuth ensures the auth requirement is
+// production-only (development stays permissive for local workflows).
+func TestValidateConfig_DevelopmentDoesNotRequireAuth(t *testing.T) {
+	cfg := &Config{
+		Port:         "8081",
+		Redis:        "localhost:6379",
+		TaskInterval: 5,
+		Mode:         "DEFAULT",
+		Environment:  "development",
+	}
+	err := ValidateConfig(cfg)
+	assert.NoError(t, err, "开发环境不要求配置认证")
 }
 
 // TestValidateConfig_DevelopmentAllowsInsecureTLS ensures the development environment

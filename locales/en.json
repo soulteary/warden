@@ -49,6 +49,7 @@
   "validation.environment_invalid": "invalid deployment environment: %s (valid values: development, test, production)",
   "validation.prod_remote_timeout_required": "a bounded HTTP timeout (HTTP_TIMEOUT > 0) is required when a remote data source is configured in production",
   "validation.prod_remote_encryption_required": "remote encryption must be required (REMOTE_ENCRYPTION_REQUIRED=true, fail closed) when a remote data source is configured in production",
+  "validation.prod_auth_required": "production environment requires at least one authentication mechanism: set API_KEY, WARDEN_HMAC_KEYS, or mTLS (WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true)",
 
   "log_level.updated": "Log level updated",
   "log_level.invalid": "Invalid log level, supported: trace, debug, info, warn, error, fatal, panic",

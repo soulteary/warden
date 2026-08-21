@@ -2,6 +2,7 @@ package cmd
 
 import (
 	// Standard library
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -109,8 +110,8 @@ func ValidateConfig(cfg *Config) error {
 	return nil
 }
 
-// validateProduction returns production-only security violations. It intentionally does
-// NOT include the auth requirement, which is added in the auth-hardening phase.
+// validateProduction returns production-only security violations. These key off the
+// deployment ENVIRONMENT (never the merge mode).
 func validateProduction(cfg *Config) []string {
 	var errs []string
 
@@ -131,5 +132,49 @@ func validateProduction(cfg *Config) []string {
 		}
 	}
 
+	// 4. At least one authentication mechanism must be configured in production. The
+	// user-facing endpoints (full user rules / lookup) must never be exposed without
+	// authentication. We fail startup (not merely warn) when NONE of API key / HMAC
+	// keys / mTLS client-cert verification is configured.
+	if !hasConfiguredAuth(cfg) {
+		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_auth_required"))
+	}
+
 	return errs
+}
+
+// hasConfiguredAuth reports whether any service authentication mechanism is
+// configured: an API key, at least one HMAC key, or mTLS client-cert verification
+// (a client CA plus required-client-cert). A TLS server cert alone is transport
+// encryption, not client authentication, so it does not count.
+func hasConfiguredAuth(cfg *Config) bool {
+	if strings.TrimSpace(cfg.APIKey) != "" {
+		return true
+	}
+	if hasHMACKeys(cfg.HMACKeys) {
+		return true
+	}
+	if strings.TrimSpace(cfg.TLSCAFile) != "" && cfg.TLSRequireClientCert {
+		return true
+	}
+	return false
+}
+
+// hasHMACKeys reports whether the HMAC keys JSON contains at least one key. It
+// parses defensively and never logs the secret material.
+func hasHMACKeys(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	var keys map[string]string
+	if err := json.Unmarshal([]byte(raw), &keys); err != nil {
+		return false
+	}
+	for id, secret := range keys {
+		if strings.TrimSpace(id) != "" && strings.TrimSpace(secret) != "" {
+			return true
+		}
+	}
+	return false
 }

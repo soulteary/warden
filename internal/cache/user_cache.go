@@ -88,19 +88,23 @@ func validateUser(user define.AllowListUser) error {
 	emailOpts := &validator.EmailOptions{AllowEmpty: true}
 
 	if err := validator.ValidatePhone(user.Phone, phoneOpts); err != nil {
+		// NOTE: the validator error message can embed the raw phone value (e.g. "%q
+		// does not match"), so we must NOT log err directly. Log a stable, non-PII
+		// reason code plus masked identifiers only.
 		log.Warn().
-			Err(err).
-			Str("phone", user.Phone).
-			Str("mail", user.Mail).
+			Str("reason", "invalid_phone").
+			Str("phone", identity.MaskPhone(user.Phone)).
+			Str("mail", identity.MaskMail(user.Mail)).
 			Str("field", "phone").
 			Msg("Skipping invalid user data")
 		return err
 	}
 	if err := validator.ValidateEmail(user.Mail, emailOpts); err != nil {
+		// See phone note above: the email validator error can embed the raw address.
 		log.Warn().
-			Err(err).
-			Str("phone", user.Phone).
-			Str("mail", user.Mail).
+			Str("reason", "invalid_email").
+			Str("phone", identity.MaskPhone(user.Phone)).
+			Str("mail", identity.MaskMail(user.Mail)).
 			Str("field", "email").
 			Msg("Skipping invalid user data")
 		return err

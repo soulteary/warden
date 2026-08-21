@@ -24,6 +24,8 @@ type Client struct {
 	cache                    *Cache
 	logger                   Logger
 	retry                    *RetryOptions
+	signer                   *hmacSigner
+	maxResponseBytes         int64
 	cacheInvalidationChannel <-chan struct{}
 	stopCacheListener        context.CancelFunc
 	cacheListenerWg          sync.WaitGroup
@@ -48,6 +50,16 @@ func NewClient(opts *Options) (*Client, error) {
 	if opts.Transport != nil {
 		clientOpts.Transport = opts.Transport
 	}
+	// Apply a custom TLS config (client certs / root CAs) when provided. We attach it
+	// to a transport so it reaches the underlying http.Client.
+	if opts.TLSConfig != nil {
+		tr := opts.Transport
+		if tr == nil {
+			tr = &http.Transport{}
+		}
+		tr.TLSClientConfig = opts.TLSConfig
+		clientOpts.Transport = tr
+	}
 
 	httpClient, err := httpkit.NewClient(clientOpts)
 	if err != nil {
@@ -60,6 +72,11 @@ func NewClient(opts *Options) (*Client, error) {
 		retry = DefaultRetryOptions()
 	}
 
+	maxResp := opts.MaxResponseBytes
+	if maxResp == 0 {
+		maxResp = DefaultMaxResponseBytes
+	}
+
 	client := &Client{
 		httpClient:               httpClient,
 		baseURL:                  opts.BaseURL,
@@ -67,6 +84,8 @@ func NewClient(opts *Options) (*Client, error) {
 		cache:                    NewCache(opts.CacheTTL),
 		logger:                   opts.Logger,
 		retry:                    retry,
+		signer:                   newHMACSigner(opts.HMACKeyID, opts.HMACSecret, opts.Clock),
+		maxResponseBytes:         maxResp,
 		cacheInvalidationChannel: opts.CacheInvalidationChannel,
 	}
 
@@ -378,6 +397,18 @@ func (c *Client) InvalidateCache() {
 	c.ClearCache()
 }
 
+// isIdempotentMethod reports whether an HTTP method is safe to retry. Retrying
+// non-idempotent methods (POST/PATCH) risks duplicate side effects, so we only
+// retry idempotent verbs. All current SDK calls are GET.
+func isIdempotentMethod(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	default:
+		return false
+	}
+}
+
 // isRetryableError checks if an error should trigger a retry.
 func (c *Client) isRetryableError(err error, statusCode int) bool {
 	if c.retry == nil || c.retry.MaxRetries == 0 {
@@ -424,6 +455,9 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 	var lastErr error
 	var lastResp *http.Response
 
+	// Only idempotent methods are retried to avoid duplicate side effects.
+	retryAllowed := isIdempotentMethod(req.Method)
+
 	maxAttempts := c.retry.MaxRetries + 1
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
@@ -441,11 +475,16 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 		}
 
 		// Make the request
+		if c.signer != nil {
+			if err := c.signer.sign(req); err != nil {
+				return nil, NewError(ErrCodeRequestFailed, "failed to sign request", err)
+			}
+		}
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = err
 			lastResp = nil
-			if !c.isRetryableError(err, 0) {
+			if !retryAllowed || !c.isRetryableError(err, 0) {
 				return nil, NewError(ErrCodeRequestFailed, "failed to execute request", err)
 			}
 			if attempt < c.retry.MaxRetries {
@@ -455,7 +494,7 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 		}
 
 		// Check if status code is retryable
-		if c.isRetryableError(nil, resp.StatusCode) && attempt < c.retry.MaxRetries {
+		if retryAllowed && c.isRetryableError(nil, resp.StatusCode) && attempt < c.retry.MaxRetries {
 			// Close response body before retry
 			if err := resp.Body.Close(); err != nil {
 				c.logger.Debugf("Failed to close response body before retry: %v", err)
@@ -467,6 +506,7 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 
 		// Success or non-retryable error - return response
 		// The caller will check the status code
+		c.applyResponseLimit(resp)
 		return resp, nil
 	}
 
@@ -489,6 +529,33 @@ func (c *Client) addAuthHeaders(req *http.Request) {
 		c.logger.Debug("Added API key headers to Warden request")
 	}
 }
+
+// applyResponseLimit wraps the response body with an io.LimitReader so decoders
+// cannot be forced to read an unbounded payload. A negative maxResponseBytes
+// disables the limit.
+func (c *Client) applyResponseLimit(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	if c.maxResponseBytes < 0 {
+		return
+	}
+	limit := c.maxResponseBytes
+	if limit == 0 {
+		limit = DefaultMaxResponseBytes
+	}
+	orig := resp.Body
+	resp.Body = &limitedReadCloser{r: io.LimitReader(orig, limit), c: orig}
+}
+
+// limitedReadCloser bounds reads while still closing the underlying body.
+type limitedReadCloser struct {
+	r io.Reader
+	c io.Closer
+}
+
+func (l *limitedReadCloser) Read(p []byte) (int, error) { return l.r.Read(p) }
+func (l *limitedReadCloser) Close() error               { return l.c.Close() }
 
 // checkResponseStatus checks the HTTP response status and returns an error if not OK.
 func (c *Client) checkResponseStatus(resp *http.Response) error {
