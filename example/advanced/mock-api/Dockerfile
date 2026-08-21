@@ -13,7 +13,7 @@ COPY main.go .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o mock-api main.go
 
 # 运行阶段
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN apk --no-cache add ca-certificates tzdata && \
     addgroup -g 10001 -S mockapi && \
