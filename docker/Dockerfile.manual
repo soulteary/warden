@@ -45,7 +45,7 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
     fi
 
 
-FROM alpine:3.23
+FROM alpine:3.24
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     apk add --no-cache tzdata curl ca-certificates && \

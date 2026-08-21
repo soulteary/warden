@@ -44,7 +44,7 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
 
 
 # 高保证：可将 tag 追加 @sha256:<digest> 固定运行时基础镜像。
-FROM alpine:3.23
+FROM alpine:3.24
 
 # curl 供 healthcheck 使用；ca-certificates 供出站 TLS 使用。
 RUN apk add --no-cache curl ca-certificates
