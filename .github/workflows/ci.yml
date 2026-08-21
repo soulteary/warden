@@ -202,6 +202,48 @@ jobs:
           docker images warden:test
           docker inspect warden:test
 
+      # 校验运行阶段以非 root 用户运行（阶段六容器加固回归测试）
+      - name: 校验非 root 运行
+        run: |
+          UID_IN_IMAGE=$(docker inspect --format '{{.Config.User}}' warden:test)
+          echo "镜像配置用户: ${UID_IN_IMAGE}"
+          if [ "${UID_IN_IMAGE}" = "" ] || [ "${UID_IN_IMAGE}" = "root" ] || [ "${UID_IN_IMAGE}" = "0" ] || [ "${UID_IN_IMAGE}" = "0:0" ]; then
+            echo "::error::镜像必须以非 root 用户运行"
+            exit 1
+          fi
+
+      # 容器镜像漏洞扫描（Trivy）；发现 HIGH/CRITICAL 漏洞则失败
+      - name: 容器镜像漏洞扫描
+        uses: aquasecurity/trivy-action@0.28.0 # 建议高保证场景固定为 commit SHA
+        with:
+          image-ref: warden:test
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: 上传 Trivy 扫描结果
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: trivy-image-sarif
+          path: trivy-image.sarif
+
+      # 生成 SBOM（软件物料清单，SPDX 格式）
+      - name: 生成 SBOM
+        uses: anchore/sbom-action@v0 # 建议高保证场景固定为 commit SHA
+        with:
+          image: warden:test
+          format: spdx-json
+          output-file: warden-sbom.spdx.json
+
+      - name: 上传 SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: warden-sbom
+          path: warden-sbom.spdx.json
+
   # 完整构建检查
   build:
     name: 构建检查

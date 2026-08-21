@@ -16,6 +16,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write # keyless cosign 签名（OIDC）所需
 
     steps:
       - name: 检出代码
@@ -100,6 +101,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: 构建并推送 Docker 镜像
+        id: build-push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -114,6 +116,32 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+
+      # 生成容器镜像 SBOM 并随 Release 一并发布
+      - name: 生成容器 SBOM
+        uses: anchore/sbom-action@v0 # 建议高保证场景固定为 commit SHA
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
+          format: spdx-json
+          output-file: dist/warden-image-sbom.spdx.json
+
+      # keyless cosign 签名（基于 OIDC，无需长期私钥）
+      - name: 安装 cosign
+        uses: sigstore/cosign-installer@v3 # 建议高保证场景固定为 commit SHA
+
+      - name: 签名容器镜像（keyless）
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+          DIGEST: ${{ steps.build-push.outputs.digest }}
+        run: |
+          cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+
+      # 为镜像重新生成校验和（含新增 SBOM），确保 checksums.txt 覆盖全部产物
+      - name: 重新生成校验和
+        run: |
+          cd dist
+          sha256sum $(ls | grep -v '^checksums.txt$') > checksums.txt
+          cat checksums.txt
 
       - name: 创建 Release
         uses: softprops/action-gh-release@v2
@@ -143,6 +171,15 @@ jobs:
 
             ### Checksums
             See `checksums.txt` for SHA256 checksums.
+
+            ### Supply-chain 安全
+            - 容器镜像已使用 keyless cosign 签名，可验证：
+              ```bash
+              cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }} \
+                --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
+                --certificate-oidc-issuer https://token.actions.githubusercontent.com
+              ```
+            - SBOM（SPDX）：`warden-image-sbom.spdx.json`
           draft: false
           prerelease: false
 
