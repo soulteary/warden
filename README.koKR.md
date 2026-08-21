@@ -135,6 +135,7 @@ wrk 스트레스 테스트 기반(30초, 16스레드, 100연결):
 - **[개발 가이드](docs/enUS/DEVELOPMENT.md)** - 개발 환경 설정 및 기여 가이드
 - **[보안](docs/enUS/SECURITY.md)** - 보안 기능 및 모범 사례
 - **[SDK](docs/enUS/SDK.md)** - Go SDK 사용 문서
+- **[마이그레이션 가이드](docs/migration-config.md)** - 설정 마이그레이션(`MODE` → `ENVIRONMENT`/`MERGE_MODE`) 및 [원격 암호화 v2](docs/migration-encryption-v2.md)
 - **[예제](example/README.md)** - 빠른 시작 예제(기본 및 고급)
 
 ## 📄 라이선스

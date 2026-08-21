@@ -140,6 +140,7 @@ curl "http://localhost:8081/health"
 - **[开发指南](docs/zhCN/DEVELOPMENT.md)** - 开发环境设置和贡献指南
 - **[安全文档](docs/zhCN/SECURITY.md)** - 安全特性和最佳实践
 - **[SDK 文档](docs/zhCN/SDK.md)** - Go SDK 使用文档
+- **[迁移指南](docs/migration-config.md)** - 配置迁移（`MODE` → `ENVIRONMENT`/`MERGE_MODE`）与[远程加密 v2](docs/migration-encryption-v2.md)
 - **[示例](example/README.zhCN.md)** - 快速开始示例（基础和高级）
 
 ## 📄 许可证

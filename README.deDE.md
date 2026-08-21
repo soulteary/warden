@@ -135,6 +135,7 @@ Basierend auf wrk-Stresstest (30s, 16 Threads, 100 Verbindungen):
 - **[Entwicklungsleitfaden](docs/enUS/DEVELOPMENT.md)** - Entwicklungsumgebung einrichten und Beitragsleitfaden
 - **[Sicherheit](docs/enUS/SECURITY.md)** - Sicherheitsfunktionen und Best Practices
 - **[SDK](docs/enUS/SDK.md)** - Go SDK-Verwendungsdokumentation
+- **[Migrationsleitfäden](docs/migration-config.md)** - Konfiguration (`MODE` → `ENVIRONMENT`/`MERGE_MODE`) und [Remote-Verschlüsselung v2](docs/migration-encryption-v2.md)
 - **[Beispiele](example/README.md)** - Schnellstart-Beispiele (grundlegend und erweitert)
 
 ## 📄 Lizenz

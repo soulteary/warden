@@ -135,6 +135,7 @@ Basato sul test di carico wrk (30s, 16 thread, 100 connessioni):
 - **[Guida allo Sviluppo](docs/enUS/DEVELOPMENT.md)** - Configurazione dell'ambiente di sviluppo e guida al contributo
 - **[Sicurezza](docs/enUS/SECURITY.md)** - Funzionalità di sicurezza e best practice
 - **[SDK](docs/enUS/SDK.md)** - Documentazione d'uso del SDK Go
+- **[Guide di migrazione](docs/migration-config.md)** - Configurazione (`MODE` → `ENVIRONMENT`/`MERGE_MODE`) e [crittografia remota v2](docs/migration-encryption-v2.md)
 - **[Esempi](example/README.md)** - Esempi di guida rapida (base e avanzati)
 
 ## 📄 Licenza

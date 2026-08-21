@@ -140,6 +140,7 @@ Based on wrk stress test (30s, 16 threads, 100 connections):
 - **[Development Guide](docs/enUS/DEVELOPMENT.md)** - Development environment setup and contribution guide
 - **[Security](docs/enUS/SECURITY.md)** - Security features and best practices
 - **[SDK](docs/enUS/SDK.md)** - Go SDK usage documentation
+- **[Migration Guides](docs/migration-config.md)** - Config (`MODE` → `ENVIRONMENT`/`MERGE_MODE`) and [remote encryption v2](docs/migration-encryption-v2.md)
 - **[Examples](example/README.md)** - Quick start examples (basic and advanced)
 
 ## 📄 License
