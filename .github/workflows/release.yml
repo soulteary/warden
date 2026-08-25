@@ -76,7 +76,10 @@ jobs:
       - name: 生成校验和
         run: |
           cd dist
-          sha256sum * > checksums.txt
+          # 排除 checksums.txt 自身:`sha256sum *` 可能把清单文件本身纳入清单
+          # （生成一行自引用记录，其哈希与最终文件永不匹配），导致之后
+          # `sha256sum -c` 报 "checksums.txt: FAILED"。只对清单以外的产物求哈希。
+          sha256sum $(ls | grep -v '^checksums.txt$') > checksums.txt
 
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
