@@ -5,7 +5,7 @@ package middleware
 import (
 	"net/http"
 
-	kit "github.com/soulteary/i18n-kit"
+	kit "github.com/soulteary/i18n-kit/v2"
 	"github.com/soulteary/warden/internal/i18n"
 )
 

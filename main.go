@@ -21,15 +21,15 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 	"github.com/redis/go-redis/v9"
-	loggerkit "github.com/soulteary/logger-kit"
+	loggerkit "github.com/soulteary/logger-kit/v2"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Middleware kit
-	middlewarekit "github.com/soulteary/middleware-kit"
+	middlewarekit "github.com/soulteary/middleware-kit/v2"
 
 	// Internal packages
 	"github.com/soulteary/tracing-kit"
-	version "github.com/soulteary/version-kit"
+	version "github.com/soulteary/version-kit/v2"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/config"

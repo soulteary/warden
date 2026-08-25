@@ -11,7 +11,7 @@ import (
 
 	// Third-party libraries
 	"github.com/rs/zerolog"
-	loggerkit "github.com/soulteary/logger-kit"
+	loggerkit "github.com/soulteary/logger-kit/v2"
 	secure "github.com/soulteary/secure-kit"
 )
 

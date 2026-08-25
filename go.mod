@@ -10,17 +10,17 @@ require (
 	github.com/soulteary/audit-kit v1.4.0
 	github.com/soulteary/cache-kit v1.3.0
 	github.com/soulteary/cli-kit v1.7.0
-	github.com/soulteary/health-kit v1.3.0
+	github.com/soulteary/health-kit/v2 v2.0.0-20260825184135-89cb8e95e121
 	github.com/soulteary/http-kit v1.1.0
-	github.com/soulteary/i18n-kit v1.2.0
-	github.com/soulteary/logger-kit v1.5.0
-	github.com/soulteary/metrics-kit v1.3.0
-	github.com/soulteary/middleware-kit v1.2.0
+	github.com/soulteary/i18n-kit/v2 v2.0.0-20260825190253-e8da5522ba65
+	github.com/soulteary/logger-kit/v2 v2.0.0-20260825184132-bd516089d69e
+	github.com/soulteary/metrics-kit/v2 v2.0.0-20260825185947-3f24228cb916
+	github.com/soulteary/middleware-kit/v2 v2.0.0-20260825190458-60b2c35b9c45
 	github.com/soulteary/parser-kit v1.3.0
 	github.com/soulteary/redis-kit v1.3.0
 	github.com/soulteary/secure-kit v1.4.0
 	github.com/soulteary/tracing-kit v1.2.0
-	github.com/soulteary/version-kit v1.4.0
+	github.com/soulteary/version-kit/v2 v2.0.0-20260825184911-3810845453eb
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/otel v1.45.0
 	go.opentelemetry.io/otel/trace v1.45.0
@@ -38,7 +38,9 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
-	github.com/gofiber/fiber/v2 v2.52.14 // indirect
+	github.com/gofiber/fiber/v3 v3.4.0 // indirect
+	github.com/gofiber/schema v1.8.0 // indirect
+	github.com/gofiber/utils/v2 v2.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.6.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
@@ -46,7 +48,9 @@ require (
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.27 // indirect
+	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.73.0 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect

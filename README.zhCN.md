@@ -9,6 +9,8 @@
 
 一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
 
+Warden 继续使用 Go 的 `net/http` 服务；其共享 kit 依赖已升级到兼容 Fiber v3 的 v2 模块版本，因此依赖图中不再包含 Fiber v2。从源码构建需要 Go 1.26 或更高版本。
+
 ![Warden](.github/assets/banner.jpg)
 
 > **Warden**（看守者）—— 守护星门的看守者，决定谁可以通过，谁将被拒绝。正如 Stargate 的看守者守护着星际之门，Warden 守护着你的允许列表，确保只有授权用户能够通过。
