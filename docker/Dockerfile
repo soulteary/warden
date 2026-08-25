@@ -34,7 +34,7 @@ RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
     OS=${TARGETOS:-linux} && \
     GO111MODULE=on GOOS=$OS GOARCH=$ARCH CGO_ENABLED=0 go build \
     -trimpath \
-    -ldflags "-w -s -X github.com/soulteary/version-kit.Version=$VERSION -X github.com/soulteary/version-kit.Commit=$COMMIT -X github.com/soulteary/version-kit.BuildDate=$BUILD_DATE" \
+    -ldflags "-w -s -X github.com/soulteary/version-kit/v2.Version=$VERSION -X github.com/soulteary/version-kit/v2.Commit=$COMMIT -X github.com/soulteary/version-kit/v2.BuildDate=$BUILD_DATE" \
     -o warden .
 
 # UPX 压缩仅在 ENABLE_UPX=1 时执行；失败则跳过以保证多平台构建兼容性。

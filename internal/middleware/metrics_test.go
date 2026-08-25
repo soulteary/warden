@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	loggerkit "github.com/soulteary/logger-kit"
+	loggerkit "github.com/soulteary/logger-kit/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

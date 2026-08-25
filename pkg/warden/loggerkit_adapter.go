@@ -1,7 +1,7 @@
 package warden
 
 import (
-	loggerkit "github.com/soulteary/logger-kit"
+	loggerkit "github.com/soulteary/logger-kit/v2"
 )
 
 // LoggerKitAdapter adapts logger-kit Logger to the SDK Logger interface.

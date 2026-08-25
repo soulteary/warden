@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	health "github.com/soulteary/health-kit"
-	loggerkit "github.com/soulteary/logger-kit"
-	middlewarekit "github.com/soulteary/middleware-kit"
+	health "github.com/soulteary/health-kit/v2"
+	loggerkit "github.com/soulteary/logger-kit/v2"
+	middlewarekit "github.com/soulteary/middleware-kit/v2"
 	tracing "github.com/soulteary/tracing-kit"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/config"

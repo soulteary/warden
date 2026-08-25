@@ -9,9 +9,9 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%FT%T%z)
 
 LDFLAGS := -s -w \
-	-X github.com/soulteary/version-kit.Version=$(VERSION) \
-	-X github.com/soulteary/version-kit.Commit=$(COMMIT) \
-	-X github.com/soulteary/version-kit.BuildDate=$(BUILD_DATE)
+	-X github.com/soulteary/version-kit/v2.Version=$(VERSION) \
+	-X github.com/soulteary/version-kit/v2.Commit=$(COMMIT) \
+	-X github.com/soulteary/version-kit/v2.BuildDate=$(BUILD_DATE)
 
 # Docker 镜像构建参数
 IMAGE ?= warden:dev
