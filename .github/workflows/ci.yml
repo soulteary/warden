@@ -169,7 +169,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: 获取版本信息
         id: version
@@ -183,7 +183,7 @@ jobs:
           echo "最近版本: $VERSION / $COMMIT"
 
       - name: 构建 Docker 镜像
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./docker/Dockerfile
