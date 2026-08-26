@@ -31,7 +31,7 @@ func registerRoutes(app *App) {
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
 
 	i18nMiddleware := middleware.I18nMiddleware()
-	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.appMode)
+	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.environment)
 	securityCfg := middlewarekit.StrictSecurityHeadersConfig()
 	securityHeadersMiddleware := middlewarekit.SecurityHeadersStd(securityCfg)
 	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{

@@ -9,6 +9,7 @@ import (
 	"os"
 
 	// Internal packages
+	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
 )
@@ -26,12 +27,13 @@ type ErrorResponse struct {
 // Detailed error information is only recorded in logs, not returned to clients.
 //
 // Parameters:
-//   - appMode: application mode ("production" or "prod" indicates production environment)
+//   - environment: deployment environment ("production" or "prod" indicates production)
 //
 // Returns:
 //   - func(http.Handler) http.Handler: HTTP middleware function
-func ErrorHandlerMiddleware(appMode string) func(http.Handler) http.Handler {
-	isProduction := appMode == "production" || appMode == "prod"
+func ErrorHandlerMiddleware(environment string) func(http.Handler) http.Handler {
+	env, _ := config.ParseEnvironment(environment)
+	isProduction := env.IsProduction()
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -131,8 +133,8 @@ func getGenericErrorMessage(r *http.Request, statusCode int) string {
 
 // SafeError safely returns error response (decides whether to hide detailed information based on environment)
 func SafeError(w http.ResponseWriter, r *http.Request, statusCode int, err error, detailMessage string) {
-	appMode := os.Getenv("MODE")
-	isProduction := appMode == "production" || appMode == "prod"
+	env, _ := config.ParseEnvironment(os.Getenv("ENVIRONMENT"))
+	isProduction := env.IsProduction()
 
 	// Record detailed error to log
 	logger.FromRequest(r).Error().
