@@ -51,7 +51,7 @@ type HMACConfig struct {
 	// MaxTimestampToleranceSec is the hard upper bound on the tolerance (default 300).
 	MaxTimestampToleranceSec int
 	// AllowV1 keeps the legacy v1 canonical form acceptable during migration. Nil
-	// defaults to true so existing signers keep working; point to false to require v2.
+	// defaults to false; callers must explicitly opt in to the deprecated protocol.
 	AllowV1 *bool
 	// ReplayGuard rejects reused v2 nonces within the timestamp window. When nil a
 	// process-local in-memory guard is used. See ReplayGuard docs for the multi-replica
@@ -70,7 +70,7 @@ func (cfg HMACConfig) normalized() HMACConfig {
 		cfg.Keys = make(map[string]string)
 	}
 	if cfg.AllowV1 == nil {
-		allowV1 := true
+		allowV1 := false
 		cfg.AllowV1 = &allowV1
 	}
 	if cfg.MaxTimestampToleranceSec <= 0 {

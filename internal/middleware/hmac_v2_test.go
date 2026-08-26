@@ -319,9 +319,11 @@ func TestHMACv2_MissingNonce_Rejected(t *testing.T) {
 func TestHMAC_V1StillWorks_AndFiresDeprecation(t *testing.T) {
 	secret := "legacy-secret"
 	v1Used := 0
+	allowV1 := true
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"key1": secret},
 		TimestampToleranceSec: 60,
+		AllowV1:               &allowV1,
 		OnV1Used:              func() { v1Used++ },
 	}
 	mw := HMACAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -339,6 +341,26 @@ func TestHMAC_V1StillWorks_AndFiresDeprecation(t *testing.T) {
 	mw.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, 1, v1Used, "v1 deprecation observer should fire")
+}
+
+func TestHMAC_V1RejectedByDefault(t *testing.T) {
+	secret := "legacy-secret"
+	cfg := HMACConfig{
+		Keys:                  map[string]string{"key1": secret},
+		TimestampToleranceSec: 60,
+	}
+	mw := HMACAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	ts := time.Now().Unix()
+	req := httptest.NewRequest("GET", "/user", http.NoBody)
+	req.Header.Set(headerSignature, computeHMAC("GET", "/user", "", secret, ts))
+	req.Header.Set(headerTimestamp, strconv.FormatInt(ts, 10))
+	req.Header.Set(headerKeyID, "key1")
+
+	rec := httptest.NewRecorder()
+	mw.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestHMAC_V1CanBeDisabled(t *testing.T) {

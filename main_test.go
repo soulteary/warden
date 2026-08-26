@@ -237,6 +237,29 @@ func TestNewApp_HMACKeys(t *testing.T) {
 	})
 }
 
+func TestNewApp_HMACAllowV1(t *testing.T) {
+	t.Run("disabled by default", func(t *testing.T) {
+		t.Setenv("WARDEN_HMAC_ALLOW_V1", "")
+		app := NewApp(&cmd.Config{})
+		require.NotNil(t, app)
+		assert.False(t, app.hmacAllowV1)
+	})
+
+	t.Run("explicit opt-in", func(t *testing.T) {
+		t.Setenv("WARDEN_HMAC_ALLOW_V1", "true")
+		app := NewApp(&cmd.Config{})
+		require.NotNil(t, app)
+		assert.True(t, app.hmacAllowV1)
+	})
+
+	t.Run("invalid value keeps secure default", func(t *testing.T) {
+		t.Setenv("WARDEN_HMAC_ALLOW_V1", "enabled")
+		app := NewApp(&cmd.Config{})
+		require.NotNil(t, app)
+		assert.False(t, app.hmacAllowV1)
+	})
+}
+
 // TestApp_checkDataChanged tests data change detection
 func TestApp_checkDataChanged(t *testing.T) {
 	cfg := &cmd.Config{

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	// External packages
@@ -61,6 +62,12 @@ func ValidateConfig(cfg *Config) error {
 	if strings.TrimSpace(cfg.HMACKeys) != "" {
 		if _, err := ParseHMACKeys(cfg.HMACKeys); err != nil {
 			errors = append(errors, fmt.Sprintf("Invalid WARDEN_HMAC_KEYS: %v", err))
+		}
+	}
+
+	if raw := os.Getenv("WARDEN_HMAC_ALLOW_V1"); strings.TrimSpace(raw) != "" {
+		if _, err := ParseHMACAllowV1(raw); err != nil {
+			errors = append(errors, fmt.Sprintf("Invalid WARDEN_HMAC_ALLOW_V1 %q: %v", strings.TrimSpace(raw), err))
 		}
 	}
 
@@ -134,6 +141,21 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// ParseHMACAllowV1 parses the legacy HMAC v1 compatibility switch. The empty
+// value is deliberately secure by default; v1 must be enabled explicitly.
+func ParseHMACAllowV1(raw string) (bool, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false, nil
+	}
+
+	allow, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("expected a boolean: %w", err)
+	}
+	return allow, nil
 }
 
 // validateTLSConfig rejects partial TLS and mTLS configuration before the server

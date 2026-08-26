@@ -27,6 +27,11 @@ func computeHMAC(method, path, body, secret string, ts int64) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
+func allowHMACV1() *bool {
+	allow := true
+	return &allow
+}
+
 func TestHMACAuth_NoHeaders_PassesThrough(t *testing.T) {
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"k1": "secret1"},
@@ -63,6 +68,7 @@ func TestHMACAuth_ValidSignature_Returns200(t *testing.T) {
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"key1": secret},
 		TimestampToleranceSec: 60,
+		AllowV1:               allowHMACV1(),
 	}
 	ts := time.Now().Unix()
 	path := "/user"
@@ -88,6 +94,7 @@ func TestHMACAuth_ValidSignature_WithBody_Returns200(t *testing.T) {
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"key1": secret},
 		TimestampToleranceSec: 60,
+		AllowV1:               allowHMACV1(),
 	}
 	ts := time.Now().Unix()
 	path := "/post"
@@ -201,6 +208,7 @@ func TestHMACAuth_PathWithQuery(t *testing.T) {
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"k": secret},
 		TimestampToleranceSec: 60,
+		AllowV1:               allowHMACV1(),
 	}
 	ts := time.Now().Unix()
 	path := "/user?phone=13800138000"
@@ -243,6 +251,7 @@ func TestServiceAuthChain_ValidHMAC_SkipsAPIKey(t *testing.T) {
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"k": secret},
 		TimestampToleranceSec: 60,
+		AllowV1:               allowHMACV1(),
 	}
 	ts := time.Now().Unix()
 	sig := computeHMAC("GET", "/", "", secret, ts)
@@ -300,6 +309,7 @@ func TestVerifyHMAC_Valid(t *testing.T) {
 	cfg := HMACConfig{
 		Keys:                  map[string]string{"id": secret},
 		TimestampToleranceSec: 60,
+		AllowV1:               allowHMACV1(),
 	}
 	ts := time.Now().Unix()
 	path := "/user"
