@@ -23,7 +23,7 @@ type AllowListUser struct {
 //
 // This function will:
 // - If user_id is empty, generate based on phone or mail
-// - If status is empty, set to "active"
+// - If status is empty, set to "inactive" (fail closed)
 // - If scope is nil, set to empty array
 // - If role is empty, set to empty string
 func (u *AllowListUser) Normalize() {
@@ -36,7 +36,7 @@ func (u *AllowListUser) Normalize() {
 
 	// Set default status
 	if u.Status == "" {
-		u.Status = "active"
+		u.Status = "inactive"
 	}
 
 	// Set default scope (if nil)
