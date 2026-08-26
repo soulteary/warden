@@ -25,7 +25,7 @@ const (
 	// signatureV1 is the legacy canonical form: METHOD + PATH(+QUERY) + TS + BODY_HASH.
 	signatureV1 = "v1"
 	// signatureV2 is the current canonical form:
-	//   METHOD\nPATH_AND_QUERY\nTIMESTAMP\nNONCE\nSHA256_HEX(body)
+	//   METHOD\nPATH_AND_QUERY\nKEY_ID\nTIMESTAMP\nNONCE\nSHA256_HEX(body)
 	signatureV2 = "v2"
 
 	// defaultMaxTimestampToleranceSec is the hard upper bound on the configurable
@@ -183,10 +183,10 @@ func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool 
 	// This maximizes migration compatibility without weakening either form.
 	switch version {
 	case signatureV2:
-		return cfg.verifyV2(r, secret, sig, tsStr, nonce, bodyHash)
+		return cfg.verifyV2(r, keyID, secret, sig, tsStr, nonce, bodyHash)
 	case signatureV1, "":
 		if version == "" && nonce != "" {
-			if cfg.verifyV2(r, secret, sig, tsStr, nonce, bodyHash) {
+			if cfg.verifyV2(r, keyID, secret, sig, tsStr, nonce, bodyHash) {
 				return true
 			}
 			// Fall through to v1 (when allowed): a legacy signer might coincidentally
@@ -206,19 +206,19 @@ func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool 
 }
 
 // verifyV2 checks the v2 canonical form and enforces nonce replay rejection.
-func (cfg HMACConfig) verifyV2(r *http.Request, secret, sig, tsStr, nonce, bodyHash string) bool {
+func (cfg HMACConfig) verifyV2(r *http.Request, keyID, secret, sig, tsStr, nonce, bodyHash string) bool {
 	if nonce == "" {
 		logger.FromRequest(r).Debug().Msg("hmac: v2 missing nonce")
 		return false
 	}
-	canonical := r.Method + "\n" + escapedPathAndQuery(r) + "\n" + tsStr + "\n" + nonce + "\n" + bodyHash
+	canonical := r.Method + "\n" + escapedPathAndQuery(r) + "\n" + keyID + "\n" + tsStr + "\n" + nonce + "\n" + bodyHash
 	if !equalHMAC(secret, canonical, sig) {
 		logger.FromRequest(r).Debug().Msg("hmac: v2 signature mismatch")
 		return false
 	}
 	// Signature is valid; now enforce single-use of the nonce within the window. The
 	// replay key binds the key_id + nonce so different keys cannot collide.
-	replayKey := r.Header.Get(headerKeyID) + ":" + nonce
+	replayKey := keyID + ":" + nonce
 	ttl := time.Duration(cfg.TimestampToleranceSec)*time.Second*2 + time.Second
 	seenBefore, err := cfg.ReplayGuard.SeenBefore(replayKey, ttl)
 	if err != nil {
