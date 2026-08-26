@@ -107,6 +107,20 @@ type TracingConfig struct {
 // Supports YAML and TOML formats (determined by file extension)
 // Priority: configuration file > environment variables > default values
 func LoadFromFile(configPath string) (*Config, error) {
+	cfg, err := ParseFromFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := validate(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// ParseFromFile loads and merges a configuration file without semantic validation.
+// Callers that still need to apply higher-priority CLI values must validate the final
+// merged representation after those overrides are applied.
+func ParseFromFile(configPath string) (*Config, error) {
 	cfg := &Config{}
 
 	// If configuration file exists, attempt to load
@@ -119,8 +133,8 @@ func LoadFromFile(configPath string) (*Config, error) {
 			return nil, errors.ErrConfigLoad.WithError(err)
 		}
 
-		if _, err := os.Stat(validatedPath); err != nil {
-			return nil, errors.ErrConfigLoad.WithError(err)
+		if _, statErr := os.Stat(validatedPath); statErr != nil {
+			return nil, errors.ErrConfigLoad.WithError(statErr)
 		}
 
 		// #nosec G304 -- configuration file path has been validated, is safe
@@ -152,11 +166,6 @@ func LoadFromFile(configPath string) (*Config, error) {
 
 	// Override configuration from environment variables (priority higher than configuration file)
 	overrideFromEnv(cfg)
-
-	// Validate configuration
-	if err := validate(cfg); err != nil {
-		return nil, err
-	}
 
 	return cfg, nil
 }

@@ -697,7 +697,7 @@ func main() {
 	// Load config from file if config file is specified (for tracing config)
 	var tracingCfg *config.Config
 	if cfgFile := cfg.ConfigFile; cfgFile != "" {
-		if loadedCfg, err := config.LoadFromFile(cfgFile); err == nil {
+		if loadedCfg, err := config.ParseFromFile(cfgFile); err == nil {
 			tracingCfg = loadedCfg
 		}
 	}

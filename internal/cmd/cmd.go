@@ -186,7 +186,7 @@ func GetArgsWithError() (*Config, error) {
 	}
 
 	if configFile != "" {
-		newCfg, err := config.LoadFromFile(configFile)
+		newCfg, err := config.ParseFromFile(configFile)
 		if err != nil {
 			return nil, err
 		}
@@ -196,6 +196,9 @@ func GetArgsWithError() (*Config, error) {
 		overrideWithFlags(legacyCfg)
 		cfg := convertToConfig(legacyCfg)
 		cfg.ConfigFile = configFile
+		if err := ValidateConfig(cfg); err != nil {
+			return nil, err
+		}
 		return cfg, nil
 	}
 
