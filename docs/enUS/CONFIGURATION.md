@@ -147,7 +147,7 @@ task:
   interval: 5s
 
 app:
-  mode: "DEFAULT"  # Options: DEFAULT, production, prod
+  mode: "DEFAULT"  # Data merge mode; production policy is selected by ENVIRONMENT
   api_key: ""      # Recommend env API_KEY
   data_file: "./data.json"
   data_dir: ""     # Optional: merge all *.json in directory (can be used with data_file)
@@ -222,7 +222,7 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # Health check endpoint
 export IP_WHITELIST="192.168.1.0/24"  # Global IP whitelist (optional)
 export LOG_LEVEL="info"                # Log level (optional, default: info, options: trace, debug, info, warn, error, fatal, panic)
 export WARDEN_HMAC_KEYS='{"key-id":"secret"}'  # Service auth: HMAC keys (JSON)
-export WARDEN_HMAC_ALLOW_V1=false                # Disable legacy v1 after all callers use nonce-bearing v2
+export WARDEN_HMAC_ALLOW_V1=false                # Default: false; set true only during a bounded v1 migration
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # HMAC timestamp tolerance (seconds)
 export WARDEN_TLS_CERT=/path/to/warden.crt    # Service auth: server TLS cert (with KEY enables TLS)
 export WARDEN_TLS_KEY=/path/to/warden.key     # Server TLS key
@@ -294,6 +294,9 @@ export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
 
 # Timestamp tolerance (seconds), default 60 when HMAC keys are set
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+
+# Legacy v1 is disabled by default. Enable only while migrating old callers.
+export WARDEN_HMAC_ALLOW_V1=false
 ```
 
 ### Stargate Calling Configuration
@@ -328,9 +331,9 @@ export STARGATE_WARDEN_TLS_CA=/path/to/ca.crt
 
 When Warden starts, it checks inter-service authentication configuration:
 
-- If mTLS is configured, verifies certificate files exist
+- Rejects partial TLS configuration: certificate and key must be set together; mTLS also requires a client CA
 - If HMAC is configured, verifies key format is correct
-- If neither is configured, logs a warning (not recommended for production)
+- In `ENVIRONMENT=production`, refuses to start unless API Key, HMAC, or mTLS authentication is configured
 
 ## Detailed Configuration Documentation
 

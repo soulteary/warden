@@ -68,7 +68,7 @@ Configure **at least one** of:
 
 - **API key**: `API_KEY=<set-via-secret-manager>`
 - **HMAC**: `WARDEN_HMAC_KEYS='{"<key-id>":"<set-via-secret-manager>"}'`
-- **mTLS**: `WARDEN_TLS_CA=<path>` **and** `WARDEN_TLS_REQUIRE_CLIENT_CERT=true`
+- **mTLS**: `WARDEN_TLS_CERT=<path>`, `WARDEN_TLS_KEY=<path>`, `WARDEN_TLS_CA=<path>`, and `WARDEN_TLS_REQUIRE_CLIENT_CERT=true`
 
 Non-production environments (`development`, `test`) remain permissive.
 
@@ -108,10 +108,10 @@ setting.
 | `WARDEN_HMAC_KEYS` | JSON `{"key-id":"secret"}` | HMAC keys (use `<set-via-secret-manager>` for the secret). |
 | `WARDEN_HMAC_TIMESTAMP_TOLERANCE` | seconds | Allowed clock skew for signed requests (bounded upper limit enforced). Default `60`. |
 
-Warden accepts both HMAC v1 and the authenticated v2 signature (per-request
-nonce + replay rejection) during migration. v1 usage is surfaced via
-`deprecation_total{feature="hmac_v1"}`; replays rejected by v2 increment
-`hmac_replay_rejected_total`. The in-memory replay guard is single-node only —
-in a multi-replica deployment, replay protection requires a shared store.
+Warden accepts authenticated HMAC v2 by default. Legacy v1 can be enabled
+temporarily with `WARDEN_HMAC_ALLOW_V1=true`; accepted v1 requests increment
+`deprecation_total{feature="hmac_v1"}`. Replays rejected by v2 increment
+`hmac_replay_rejected_total`. The in-memory replay guard is single-node only;
+multi-replica deployments should use the Redis-backed shared guard.
 
-See also: [Encryption migration](migration-encryption-v2.md).
+See also: [HMAC v2 migration](migration-hmac-v2.md) and [encryption migration](migration-encryption-v2.md).

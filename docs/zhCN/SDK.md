@@ -167,6 +167,19 @@ opts := warden.DefaultOptions().
 client, err := warden.NewClient(opts)
 ```
 
+### HMAC v2 请求签名
+
+```go
+opts := warden.DefaultOptions().
+    WithBaseURL("https://warden:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET"))
+
+client, err := warden.NewClient(opts)
+```
+
+SDK 会将 Key ID、时间戳、nonce、路径与查询参数、请求方法和请求体哈希一并签名。
+Key ID 与 secret 必须同时配置；半配置会返回 `ErrCodeInvalidConfig`，不会静默发送未签名请求。
+
 ### 重试配置
 
 ```go
@@ -218,6 +231,8 @@ invalidationCh <- struct{}{}
 - `CacheTTL`: 缓存 TTL（默认 5 分钟）
 - `Logger`: 日志接口（可选，默认使用 NoOpLogger）
 - `Transport`: 自定义 HTTP transport（可选）
+- `HMACKeyID` / `HMACSecret`: HMAC v2 签名配置（必须同时设置或同时留空）
+- `TLSConfig`: TLS/mTLS 客户端配置（可选）
 - `Retry`: 重试配置（可选，默认不重试）
 - `CacheInvalidationChannel`: 事件驱动缓存失效通道（可选）
 

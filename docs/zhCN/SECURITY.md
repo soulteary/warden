@@ -23,17 +23,18 @@
 
 ### 1. 生产环境配置
 
-**必须配置项**（缺一不可）:
-- **必须**设置 `API_KEY` 环境变量。未配置时主数据接口会返回 401，但 `/metrics` 在未配置 API Key 时会放行，生产环境务必配置以避免指标泄露。
-- **必须**设置 `MODE=production` 启用生产模式
+**必须配置项**：
+- **必须**设置 `ENVIRONMENT=production` 启用生产安全策略。
+- **必须**至少配置一种服务鉴权方式：`API_KEY`、HMAC v2 或 mTLS。
 - **必须**配置 `TRUSTED_PROXY_IPS` 以正确获取客户端 IP
 - **必须**使用 `HEALTH_CHECK_IP_WHITELIST` 限制健康检查访问（或通过网络/反向代理限制 `/health`、`/healthcheck`）
-- **必须**对 `/metrics` 做访问控制：配置 API Key 后 Prometheus 拉取时需带相同 Key，或仅在反向代理/网络层限制该路径，不对外网暴露
+- **必须**限制 `/metrics`：设置 `WARDEN_METRICS_REQUIRE_AUTH=true`，或在反向代理/网络层限制该路径。
 
 **配置示例**:
 ```bash
 export API_KEY="your-strong-api-key-here"
-export MODE=production
+export ENVIRONMENT=production
+export WARDEN_METRICS_REQUIRE_AUTH=true
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"
 ```
@@ -183,7 +184,7 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
 
 ### 生产模式
 
-在生产模式下（`MODE=production` 或 `MODE=prod`）：
+在生产模式下（`ENVIRONMENT=production`）：
 
 - 隐藏详细的错误信息，防止信息泄露
 - 返回通用的错误消息
@@ -256,54 +257,36 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
 使用 HMAC-SHA256 签名验证请求，更易于部署。
 
 **签名算法**：
-```
-signature = HMAC_SHA256(secret, method + path + timestamp + body_hash)
+```text
+canonical_v2 = METHOD + "\n" + ESCAPED_PATH_AND_QUERY + "\n" + KEY_ID + "\n" +
+               TIMESTAMP + "\n" + NONCE + "\n" + SHA256_HEX(BODY)
+signature = HEX(HMAC_SHA256(secret, canonical_v2))
 ```
 
 **请求头**：
 - `X-Signature`: HMAC 签名值
 - `X-Timestamp`: Unix 时间戳（秒）
-- `X-Key-Id`: 密钥 ID（用于密钥轮换）
+- `X-Key-Id`: 密钥 ID（纳入签名，用于安全轮换）
+- `X-Nonce`: 唯一的 128 bit 十六进制随机数
+- `X-Signature-Version`: `v2`
 
 **Warden 配置**（环境变量）：
 ```bash
 export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # 时间戳容差（秒），默认 60
+export WARDEN_HMAC_ALLOW_V1=false          # 默认值；仅在旧调用方迁移期间临时设为 true
 ```
 
-**Stargate 调用示例**：
+**Go SDK 示例**：
 ```go
-import (
-    "crypto/hmac"
-    "crypto/sha256"
-    "encoding/hex"
-    "fmt"
-    "time"
-)
-
-func signRequest(method, path, body, secret string) (string, int64) {
-    timestamp := time.Now().Unix()
-    bodyHash := sha256.Sum256([]byte(body))
-    bodyHashHex := hex.EncodeToString(bodyHash[:])
-    
-    message := fmt.Sprintf("%s%s%d%s", method, path, timestamp, bodyHashHex)
-    mac := hmac.New(sha256.New, []byte(secret))
-    mac.Write([]byte(message))
-    signature := hex.EncodeToString(mac.Sum(nil))
-    
-    return signature, timestamp
-}
-
-// 在请求中使用
-signature, timestamp := signRequest("GET", "/user?phone=13800138000", "", "your-secret-key")
-req.Header.Set("X-Signature", signature)
-req.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
-req.Header.Set("X-Key-Id", "key-id-1")
+client, err := warden.NewClient(warden.DefaultOptions().
+    WithBaseURL("https://warden:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET")))
 ```
 
 **验证规则**：
 - Warden 会验证时间戳是否在容差范围内（默认 ±60 秒）
-- Warden 会验证签名是否匹配
+- Warden 会验证包含 Key ID 在内的全部 canonical 字段，并拒绝重复 nonce
 - 如果签名验证失败，返回 `401 Unauthorized`
 
 ### 配置优先级

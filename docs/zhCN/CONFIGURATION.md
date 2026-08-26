@@ -72,7 +72,7 @@
 | 远程 URL | 非默认且非空时须为合法 URL（SSRF 校验） |
 | 任务间隔 | `TaskInterval >= 1`（秒） |
 | 模式 | 须为枚举之一：`DEFAULT`、`REMOTE_FIRST`、`ONLY_REMOTE`、`ONLY_LOCAL`、`LOCAL_FIRST`、`REMOTE_FIRST_ALLOW_REMOTE_FAILED`、`LOCAL_FIRST_ALLOW_REMOTE_FAILED` |
-| 生产 + TLS | `app.mode` 为 `production`/`prod` 时禁止 `http.insecure_tls: true`（config 层校验） |
+| 生产 + TLS | `ENVIRONMENT=production` 时禁止 `http.insecure_tls: true`（config 层校验） |
 | DATA_DIR | 非空时须存在且为目录 |
 | 远程解密 | `REMOTE_DECRYPT_ENABLED=true` 时须配置 `REMOTE_RSA_PRIVATE_KEY_FILE`（且文件存在可读）或 `REMOTE_RSA_PRIVATE_KEY` 之一 |
 
@@ -265,7 +265,7 @@ task:
   interval: 5s
 
 app:
-  mode: "DEFAULT"  # 可选值: DEFAULT, production, prod
+  mode: "DEFAULT"  # 数据合并模式；生产安全策略由 ENVIRONMENT 选择
   api_key: ""      # 建议使用环境变量 API_KEY
   data_file: "./data.json"
   data_dir: ""     # 可选：用户数据目录，合并该目录下所有 *.json
@@ -339,7 +339,7 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # 健康检查端点 IP
 export IP_WHITELIST="192.168.1.0/24"  # 全局 IP 白名单（可选）
 export LOG_LEVEL="info"                # 日志级别（可选，默认: info，可选值: trace, debug, info, warn, error, fatal, panic）
 export WARDEN_HMAC_KEYS='{"key-id-1":"secret-1"}'  # 服务间 HMAC 鉴权密钥（JSON，可选）
-export WARDEN_HMAC_ALLOW_V1=false                  # 迁移完成后关闭旧版 v1，仅接受带 nonce 的 v2
+export WARDEN_HMAC_ALLOW_V1=false                  # 默认 false；仅在旧调用方迁移期间临时设为 true
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60         # HMAC 时间戳容差（秒），默认 60
 export WARDEN_TLS_CERT=/path/to/warden.crt        # 服务端 TLS 证书（可选，与 KEY 同时设置则启用 TLS）
 export WARDEN_TLS_KEY=/path/to/warden.key         # 服务端 TLS 私钥
@@ -391,7 +391,7 @@ Warden 支持 **mTLS、HMAC、API Key** 三种服务间鉴权（优先级 mTLS >
 export STARGATE_WARDEN_BASE_URL=http://warden:8081
 
 # 认证方式一：API Key（与 Warden API_KEY 一致）
-# 认证方式二：HMAC（与 Warden WARDEN_HMAC_KEYS 中某 key 的 secret 一致，请求时带 X-Signature、X-Timestamp、X-Key-Id）
+# 认证方式二：HMAC（与 Warden WARDEN_HMAC_KEYS 中某 key 的 secret 一致，请求时带 v2 的五个签名头）
 # 认证方式三：mTLS（Stargate 配置客户端证书，Warden 配置 WARDEN_TLS_*）
 ```
 

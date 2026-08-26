@@ -24,7 +24,7 @@ Dieses Dokument erläutert die Sicherheitsfunktionen von Warden, die Sicherheits
 
 **Erforderliche Konfiguration**:
 - Muss die Umgebungsvariable `API_KEY` setzen
-- `MODE=production` setzen, um den Produktionsmodus zu aktivieren
+- `ENVIRONMENT=production` setzen, um den Produktionsmodus zu aktivieren
 - `TRUSTED_PROXY_IPS` konfigurieren, um die Client-IP korrekt zu erhalten
 - `HEALTH_CHECK_IP_WHITELIST` verwenden, um den Zugriff auf Health-Checks einzuschränken
 

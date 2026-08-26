@@ -61,7 +61,7 @@ docker run -d \
 > 💡 **提示**: 查看 [示例目录](example/README.zhCN.md) 获取完整的 Docker Compose 配置示例。
 
 根目录的 `docker-compose.yml` 默认使用同一镜像。生产环境可通过 `WARDEN_IMAGE`
-固定版本标签（例如 `ghcr.io/soulteary/warden:0.15.0`）或 digest 以获得可复现部署；
+固定版本标签（例如 `ghcr.io/soulteary/warden:1.0.0`）或 digest 以获得可复现部署；
 `latest` 仅由稳定版本标签更新。
 
 ### 方式二：从源码运行
@@ -146,7 +146,7 @@ curl "http://localhost:8081/health"
 - **[开发指南](docs/zhCN/DEVELOPMENT.md)** - 开发环境设置和贡献指南
 - **[安全文档](docs/zhCN/SECURITY.md)** - 安全特性和最佳实践
 - **[SDK 文档](docs/zhCN/SDK.md)** - Go SDK 使用文档
-- **[迁移指南](docs/migration-config.md)** - 配置迁移（`MODE` → `ENVIRONMENT`/`MERGE_MODE`）与[远程加密 v2](docs/migration-encryption-v2.md)
+- **迁移指南** - [配置迁移](docs/migration-config.md)、[HMAC v2](docs/migration-hmac-v2.md)与[远程加密 v2](docs/migration-encryption-v2.md)
 - **[示例](example/README.zhCN.md)** - 快速开始示例（基础和高级）
 
 ## 📄 许可证

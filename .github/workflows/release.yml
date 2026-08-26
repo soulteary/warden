@@ -148,6 +148,11 @@ jobs:
           sha256sum $(ls | grep -v '^checksums.txt$') > checksums.txt
           cat checksums.txt
 
+      - name: 验证发布产物校验和
+        run: |
+          cd dist
+          sha256sum -c checksums.txt
+
       - name: 创建 Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:

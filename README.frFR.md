@@ -135,7 +135,7 @@ Basé sur le test de charge wrk (30s, 16 threads, 100 connexions):
 - **[Guide de Développement](docs/enUS/DEVELOPMENT.md)** - Configuration de l'environnement de développement et guide de contribution
 - **[Sécurité](docs/enUS/SECURITY.md)** - Fonctionnalités de sécurité et meilleures pratiques
 - **[SDK](docs/enUS/SDK.md)** - Documentation d'utilisation du SDK Go
-- **[Guides de migration](docs/migration-config.md)** - Configuration (`MODE` → `ENVIRONMENT`/`MERGE_MODE`) et [chiffrement distant v2](docs/migration-encryption-v2.md)
+- **Guides de migration** - [Configuration](docs/migration-config.md), [HMAC v2](docs/migration-hmac-v2.md) et [chiffrement distant v2](docs/migration-encryption-v2.md)
 - **[Exemples](example/README.md)** - Exemples de démarrage rapide (de base et avancés)
 
 ## 📄 Licence
