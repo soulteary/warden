@@ -215,9 +215,11 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 		keyPath = cfg.RemoteRSAPrivateKeyFile
 		keyPEM = cfg.RemoteRSAPrivateKey
 		encRequired = cfg.RemoteEncryptionRequired
-		if f, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err == nil {
-			encFormat = f
+		f, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat)
+		if err != nil {
+			return nil, err
 		}
+		encFormat = f
 	}
 	return &RulesLoader{
 		dl:                     dl,
