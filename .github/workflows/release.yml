@@ -20,17 +20,17 @@ jobs:
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - name: 设置 Go 环境
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: 'go.mod'
 
       - name: 缓存 Go 模块
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             ~/.cache/go-build
@@ -82,10 +82,10 @@ jobs:
           sha256sum $(ls | grep -v '^checksums.txt$') > checksums.txt
 
       - name: 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: 登录到容器注册表
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -93,7 +93,7 @@ jobs:
 
       - name: 提取元数据
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # Release runs on tags, so is_default_branch is always false here.
@@ -107,7 +107,7 @@ jobs:
 
       - name: 构建并推送 Docker 镜像
         id: build-push
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: ./docker/Dockerfile
@@ -124,7 +124,7 @@ jobs:
 
       # 生成容器镜像 SBOM 并随 Release 一并发布
       - name: 生成容器 SBOM
-        uses: anchore/sbom-action@v0 # 建议高保证场景固定为 commit SHA
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
           format: spdx-json
@@ -132,7 +132,7 @@ jobs:
 
       # keyless cosign 签名（基于 OIDC，无需长期私钥）
       - name: 安装 cosign
-        uses: sigstore/cosign-installer@v3 # 建议高保证场景固定为 commit SHA
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
       - name: 签名容器镜像（keyless）
         env:
@@ -149,7 +149,7 @@ jobs:
           cat checksums.txt
 
       - name: 创建 Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             dist/*
