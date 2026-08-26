@@ -140,7 +140,7 @@ X-API-Key: your-secret-api-key
   - `"active"`: 活跃状态，用户可以正常登录和访问系统
   - `"inactive"`: 非活跃状态，用户无法登录
   - `"suspended"`: 暂停状态，用户无法登录
-  - 如果未设置，默认为 `"active"`
+  - 如果未设置，按 `"inactive"` 处理；必须显式设置 `"active"` 才允许继续认证
 - `scope`: 用户权限范围数组（可选），用于细粒度授权，例如 `["read", "write", "admin"]`
 - `role`: 用户角色（可选），例如 `"admin"`, `"user"`, `"guest"`
 - `name`: 用户显示名称（可选）

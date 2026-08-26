@@ -145,7 +145,7 @@ go mod download
 - `phone`（必需）：用户手机号
 - `mail`（必需）：用户邮箱地址
 - `user_id`（可选）：用户唯一标识符，如果未提供则自动生成
-- `status`（可选）：用户状态，如 "active"、"inactive"、"suspended"，默认为 "active"
+- `status`（可选）：用户状态，如 "active"、"inactive"、"suspended"；省略时默认为 "inactive"
 - `scope`（可选）：用户权限范围数组，如 `["read", "write"]`
 - `role`（可选）：用户角色，如 "admin"、"user"
 
