@@ -132,7 +132,7 @@ X-API-Key: your-secret-api-key
   - `"active"`: Active status, user can login and access the system
   - `"inactive"`: Inactive status, user cannot login
   - `"suspended"`: Suspended status, user cannot login
-  - Defaults to `"active"` if not set
+  - Defaults to `"inactive"` if not set; `"active"` must be set explicitly to allow login
 - `scope`: User permission scope array (optional), used for fine-grained authorization, e.g., `["read", "write", "admin"]`
 - `role`: User role (optional), e.g., `"admin"`, `"user"`, `"guest"`
 

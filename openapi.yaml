@@ -533,8 +533,8 @@ components:
             - active
             - inactive
             - suspended
-          default: "active"
-          example: "active"
+          default: "inactive"
+          example: "inactive"
         scope:
           type: array
           description: 用户权限范围（可选）
@@ -742,4 +742,3 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: "Internal server error"
-
