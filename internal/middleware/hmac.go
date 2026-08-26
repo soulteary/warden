@@ -64,7 +64,6 @@ type HMACConfig struct {
 }
 
 // normalized returns a copy of cfg with defaults and bounds applied.
-//
 func (cfg HMACConfig) normalized() HMACConfig {
 	if cfg.Keys == nil {
 		cfg.Keys = make(map[string]string)
