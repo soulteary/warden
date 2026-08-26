@@ -80,9 +80,8 @@ func (s *snapshotStore) RecordRefreshFailure(reason string) int64 {
 }
 
 // RefreshFailure returns the consecutive failure count and latest stable reason.
-func (s *snapshotStore) RefreshFailure() (int64, string) {
-	failures := s.refreshFailures.Load()
-	reason := ""
+func (s *snapshotStore) RefreshFailure() (failures int64, reason string) {
+	failures = s.refreshFailures.Load()
 	if current := s.lastRefreshReason.Load(); current != nil {
 		reason = *current
 	}
