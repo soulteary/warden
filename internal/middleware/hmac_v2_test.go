@@ -20,10 +20,10 @@ import (
 )
 
 type replaySetNXResult struct {
-	inserted bool
 	err      error
 	key      string
 	ttl      time.Duration
+	inserted bool
 }
 
 func replaySeen(t *testing.T, guard ReplayGuard, key string, ttl time.Duration) bool {
@@ -330,12 +330,16 @@ func TestMemoryReplayGuard_Concurrent(t *testing.T) {
 	var mu sync.Mutex
 	firstSeen := 0
 	replays := 0
+	guardErrors := 0
 	wg.Add(goroutines)
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			replayed, _ := g.SeenBefore("same-key", time.Minute)
+			replayed, err := g.SeenBefore("same-key", time.Minute)
 			mu.Lock()
+			if err != nil {
+				guardErrors++
+			}
 			if replayed {
 				replays++
 			} else {
@@ -345,6 +349,7 @@ func TestMemoryReplayGuard_Concurrent(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	assert.Zero(t, guardErrors)
 	assert.Equal(t, 1, firstSeen, "exactly one goroutine should record the key first")
 	assert.Equal(t, goroutines-1, replays, "the rest should be treated as replays")
 }
