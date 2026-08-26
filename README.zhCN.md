@@ -60,6 +60,10 @@ docker run -d \
 
 > 💡 **提示**: 查看 [示例目录](example/README.zhCN.md) 获取完整的 Docker Compose 配置示例。
 
+根目录的 `docker-compose.yml` 默认使用同一镜像。生产环境可通过 `WARDEN_IMAGE`
+固定版本标签（例如 `ghcr.io/soulteary/warden:0.15.0`）或 digest 以获得可复现部署；
+`latest` 仅由稳定版本标签更新。
+
 ### 方式二：从源码运行
 
 1. **克隆并构建**
