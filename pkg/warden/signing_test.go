@@ -26,7 +26,7 @@ func (c fixedClock) Now() time.Time { return c.t }
 
 // serverVerifyV2 recomputes the v2 canonical form on the server side and compares
 // signatures the same way the middleware does. It mirrors the production canonical
-// form: METHOD\nPATH_AND_QUERY\nTIMESTAMP\nNONCE\nSHA256_HEX(body).
+// form: METHOD\nPATH_AND_QUERY\nKEY_ID\nTIMESTAMP\nNONCE\nSHA256_HEX(body).
 func serverVerifyV2(r *http.Request, secret string) bool {
 	body, _ := io.ReadAll(r.Body) //nolint:errcheck // test helper; body read best-effort
 	bh := sha256.Sum256(body)
@@ -39,6 +39,7 @@ func serverVerifyV2(r *http.Request, secret string) bool {
 		pathAndQuery = p + "?" + r.URL.RawQuery
 	}
 	canonical := r.Method + "\n" + pathAndQuery + "\n" +
+		r.Header.Get("X-Key-Id") + "\n" +
 		r.Header.Get("X-Timestamp") + "\n" +
 		r.Header.Get("X-Nonce") + "\n" +
 		hex.EncodeToString(bh[:])

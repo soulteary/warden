@@ -40,11 +40,11 @@ func (f *replaySetNXResult) SetNX(_ context.Context, key string, _ interface{}, 
 }
 
 // computeHMACv2 builds a v2 signature over the canonical form
-// METHOD\nPATH_AND_QUERY\nTIMESTAMP\nNONCE\nSHA256_HEX(body).
-func computeHMACv2(method, pathAndQuery, body, secret string, ts int64, nonce string) string {
+// METHOD\nPATH_AND_QUERY\nKEY_ID\nTIMESTAMP\nNONCE\nSHA256_HEX(body).
+func computeHMACv2(method, pathAndQuery, body, keyID, secret string, ts int64, nonce string) string {
 	h := sha256.Sum256([]byte(body))
 	bodyHash := hex.EncodeToString(h[:])
-	canonical := method + "\n" + pathAndQuery + "\n" + strconv.FormatInt(ts, 10) + "\n" + nonce + "\n" + bodyHash
+	canonical := method + "\n" + pathAndQuery + "\n" + keyID + "\n" + strconv.FormatInt(ts, 10) + "\n" + nonce + "\n" + bodyHash
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(canonical))
 	return hex.EncodeToString(mac.Sum(nil))
@@ -58,7 +58,7 @@ func newV2Request(method, target, body, secret, keyID string, ts int64, nonce st
 	} else {
 		req = httptest.NewRequest(method, target, bytes.NewReader([]byte(body)))
 	}
-	sig := computeHMACv2(method, escapedPathAndQuery(req), body, secret, ts, nonce)
+	sig := computeHMACv2(method, escapedPathAndQuery(req), body, keyID, secret, ts, nonce)
 	req.Header.Set(headerSignature, sig)
 	req.Header.Set(headerTimestamp, strconv.FormatInt(ts, 10))
 	req.Header.Set(headerKeyID, keyID)
@@ -132,7 +132,7 @@ func TestHMACv2_TamperedFields(t *testing.T) {
 	keyID := "key1"
 	base := func() HMACConfig {
 		return HMACConfig{
-			Keys:                  map[string]string{keyID: secret},
+			Keys:                  map[string]string{keyID: secret, "key2": secret},
 			TimestampToleranceSec: 60,
 			ReplayGuard:           NewMemoryReplayGuard(0),
 		}
@@ -149,6 +149,7 @@ func TestHMACv2_TamperedFields(t *testing.T) {
 			req.Header.Set(headerTimestamp, strconv.FormatInt(time.Now().Unix()-1, 10))
 		}},
 		{"tamper_nonce", func(req *http.Request) { req.Header.Set(headerNonce, "different-nonce") }},
+		{"tamper_key_id", func(req *http.Request) { req.Header.Set(headerKeyID, "key2") }},
 		{"tamper_signature", func(req *http.Request) { req.Header.Set(headerSignature, "deadbeef") }},
 		{"tamper_body", func(req *http.Request) {
 			req.Body = http.NoBody

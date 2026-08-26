@@ -35,7 +35,7 @@ func (systemClock) Now() time.Time { return time.Now() }
 
 // hmacSigner signs outgoing requests using the HMAC v2 canonical form:
 //
-//	METHOD\nPATH_AND_QUERY\nTIMESTAMP\nNONCE\nSHA256_HEX(body)
+//	METHOD\nPATH_AND_QUERY\nKEY_ID\nTIMESTAMP\nNONCE\nSHA256_HEX(body)
 //
 // The signature is HMAC-SHA256(secret, canonical) hex-encoded. A fresh random
 // nonce is generated per request to allow the server to reject replays.
@@ -103,8 +103,8 @@ func bodyHashHex(req *http.Request) (string, error) {
 }
 
 // canonicalString builds the v2 canonical string. Exposed (unexported) for tests.
-func canonicalString(method, pathAndQuery, timestamp, nonce, bodyHash string) string {
-	return method + "\n" + pathAndQuery + "\n" + timestamp + "\n" + nonce + "\n" + bodyHash
+func canonicalString(method, pathAndQuery, keyID, timestamp, nonce, bodyHash string) string {
+	return method + "\n" + pathAndQuery + "\n" + keyID + "\n" + timestamp + "\n" + nonce + "\n" + bodyHash
 }
 
 // pathAndQuery returns the request path including a raw query string when present.
@@ -130,7 +130,7 @@ func (s *hmacSigner) sign(req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	canonical := canonicalString(req.Method, pathAndQuery(req), ts, nonce, bh)
+	canonical := canonicalString(req.Method, pathAndQuery(req), s.keyID, ts, nonce, bh)
 	mac := hmac.New(sha256.New, s.secret)
 	mac.Write([]byte(canonical))
 	sig := hex.EncodeToString(mac.Sum(nil))
