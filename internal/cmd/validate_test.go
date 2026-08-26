@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateConfig_ValidConfig(t *testing.T) {
@@ -141,6 +142,33 @@ func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotExist(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not exist")
 }
 
+func TestValidateConfig_EncryptionRequiredNeedsActiveDecryptPath(t *testing.T) {
+	cfg := &Config{
+		Port:                     "8081",
+		TaskInterval:             5,
+		Mode:                     "DEFAULT",
+		RemoteEncryptionRequired: true,
+	}
+
+	err := ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REMOTE_DECRYPT_ENABLED=true")
+	assert.Contains(t, err.Error(), "REMOTE_RSA_PRIVATE_KEY")
+}
+
+func TestValidateConfig_InvalidRemoteEncryptionFormat(t *testing.T) {
+	cfg := &Config{
+		Port:                   "8081",
+		TaskInterval:           5,
+		Mode:                   "DEFAULT",
+		RemoteEncryptionFormat: "typo",
+	}
+
+	err := ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REMOTE_ENCRYPTION_FORMAT")
+}
+
 // TestValidateConfig_InvalidEnvironment ensures an unrecognized ENVIRONMENT is rejected.
 func TestValidateConfig_InvalidEnvironment(t *testing.T) {
 	cfg := &Config{
@@ -202,6 +230,9 @@ func TestValidateConfig_ProductionRemoteOK(t *testing.T) {
 		RemoteConfig:             "http://example.com/data.json",
 		HTTPTimeout:              30,
 		RemoteEncryptionRequired: true,
+		RemoteDecryptEnabled:     true,
+		RemoteRSAPrivateKey:      "test-key-pem",
+		RemoteEncryptionFormat:   "v2",
 		APIKey:                   "an-api-key", // production requires an auth mechanism
 	}
 

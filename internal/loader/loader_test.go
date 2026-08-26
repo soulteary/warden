@@ -132,6 +132,13 @@ func TestNewRulesLoader(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, r)
 	})
+
+	t.Run("invalid encryption format", func(t *testing.T) {
+		cfg := &cmd.Config{RemoteEncryptionFormat: "typo"}
+		r, err := NewRulesLoader(cfg, "ONLY_REMOTE")
+		require.Error(t, err)
+		assert.Nil(t, r)
+	})
 }
 
 func TestRulesLoader_FromFile(t *testing.T) {
