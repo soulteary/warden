@@ -433,3 +433,54 @@ func TestValidateConfig_ProdAliasNormalized(t *testing.T) {
 	err := ValidateConfig(cfg)
 	assert.Error(t, err, "prod 别名应规范化为 production 并触发硬化校验")
 }
+
+func TestParseHMACAllowV1(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		want    bool
+		wantErr bool
+	}{
+		{name: "empty is disabled", raw: "", want: false},
+		{name: "whitespace is disabled", raw: "  ", want: false},
+		{name: "explicit false", raw: "false", want: false},
+		{name: "explicit true", raw: "true", want: true},
+		{name: "numeric true", raw: "1", want: true},
+		{name: "invalid", raw: "enabled", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseHMACAllowV1(tt.raw)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestValidateConfig_HMACV1CompatibilityFlag(t *testing.T) {
+	base := func() *Config {
+		return &Config{
+			Port:         "8081",
+			TaskInterval: 5,
+			Mode:         "DEFAULT",
+			Environment:  "development",
+		}
+	}
+
+	t.Run("explicit boolean is accepted", func(t *testing.T) {
+		t.Setenv("WARDEN_HMAC_ALLOW_V1", "true")
+		require.NoError(t, ValidateConfig(base()))
+	})
+
+	t.Run("invalid value fails closed", func(t *testing.T) {
+		t.Setenv("WARDEN_HMAC_ALLOW_V1", "enabled")
+		err := ValidateConfig(base())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Invalid WARDEN_HMAC_ALLOW_V1")
+	})
+}

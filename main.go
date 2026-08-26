@@ -66,6 +66,7 @@ type App struct {
 	redisEnabled         bool
 	hmacKeys             map[string]string
 	hmacToleranceSec     int
+	hmacAllowV1          bool
 	tlsCertFile          string
 	tlsKeyFile           string
 	tlsCAFile            string
@@ -82,6 +83,7 @@ func taskIntervalU64(sec int) uint64 {
 
 // NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
+	hmacAllowV1, hmacAllowV1Err := cmd.ParseHMACAllowV1(os.Getenv("WARDEN_HMAC_ALLOW_V1"))
 	app := &App{
 		port:                 cfg.Port,
 		configURL:            cfg.RemoteConfig,
@@ -96,12 +98,18 @@ func NewApp(cfg *cmd.Config) *App {
 		redisEnabled:         cfg.RedisEnabled,
 		log:                  logger.GetLoggerKit(),
 		hmacToleranceSec:     cfg.HMACToleranceSec,
+		hmacAllowV1:          hmacAllowV1,
 		tlsCertFile:          cfg.TLSCertFile,
 		tlsKeyFile:           cfg.TLSKeyFile,
 		tlsCAFile:            cfg.TLSCAFile,
 		tlsRequireClientCert: cfg.TLSRequireClientCert,
 	}
 	app.snapshots = newSnapshotStore()
+	if hmacAllowV1Err != nil {
+		// ValidateConfig rejects this during normal startup. Keep the fallback secure
+		// for direct NewApp callers as a defense-in-depth measure.
+		app.log.Warn().Err(hmacAllowV1Err).Msg("invalid WARDEN_HMAC_ALLOW_V1; keeping secure default")
+	}
 	// Surface use of the deprecated legacy encryption format as a metric (deduped).
 	remote.LegacyEncryptionObserver = func() {
 		prommetrics.RecordDeprecation("encryption_legacy")
