@@ -7,20 +7,20 @@ require (
 	github.com/pterm/pterm v0.12.83
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/zerolog v1.35.1
-	github.com/soulteary/audit-kit v1.4.1
-	github.com/soulteary/cache-kit v1.3.0
+	github.com/soulteary/audit-kit v1.5.1
+	github.com/soulteary/cache-kit v1.4.0
 	github.com/soulteary/cli-kit v1.7.0
-	github.com/soulteary/health-kit/v2 v2.0.0-20260825184657-5abf6d7d57aa
-	github.com/soulteary/http-kit v1.2.0
-	github.com/soulteary/i18n-kit/v2 v2.0.0-20260825190833-61c6480faff7
-	github.com/soulteary/logger-kit/v2 v2.0.0-20260825184349-8667e28f7f2a
-	github.com/soulteary/metrics-kit/v2 v2.0.0-20260825190213-a45f1f3040f0
-	github.com/soulteary/middleware-kit/v2 v2.0.0-20260825190703-ab8d8cfae74a
-	github.com/soulteary/parser-kit v1.3.0
-	github.com/soulteary/redis-kit v1.3.0
+	github.com/soulteary/health-kit/v2 v2.0.0
+	github.com/soulteary/http-kit v1.3.0
+	github.com/soulteary/i18n-kit/v2 v2.0.0
+	github.com/soulteary/logger-kit/v2 v2.0.0
+	github.com/soulteary/metrics-kit/v2 v2.0.0
+	github.com/soulteary/middleware-kit/v2 v2.0.0
+	github.com/soulteary/parser-kit v1.4.0
+	github.com/soulteary/redis-kit v1.4.0
 	github.com/soulteary/secure-kit v1.4.0
-	github.com/soulteary/tracing-kit v1.2.0
-	github.com/soulteary/version-kit/v2 v2.0.0-20260825185013-b8322bc21a84
+	github.com/soulteary/tracing-kit v1.3.0
+	github.com/soulteary/version-kit/v2 v2.0.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
@@ -67,8 +67,8 @@ require (
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260825221802-da73d73af1c5 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect
 	google.golang.org/grpc v1.83.2 // indirect
 )
 
