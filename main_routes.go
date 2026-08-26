@@ -252,7 +252,8 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		WithTimeout(5 * time.Second).
 		WithIPWhitelist(ipList).
 		WithDetails(!isProduction).
-		WithChecks(!isProduction)
+		WithChecks(!isProduction).
+		WithCriticalChecks([]string{"redis", "data"})
 
 	aggregator := health.NewAggregator(healthConfig)
 
@@ -289,6 +290,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 	if snapshots != nil {
 		aggregator.AddChecker(health.NewCheckerFunc("snapshot", func(_ context.Context) health.CheckResult {
 			snap := snapshots.Load()
+			failures, refreshReason := snapshots.RefreshFailure()
 			res := health.CheckResult{
 				Name:      "snapshot",
 				Status:    health.StatusHealthy,
@@ -309,7 +311,15 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			if !snap.LoadedAt.IsZero() {
 				meta["loaded_at"] = snap.LoadedAt.UTC().Format(time.RFC3339)
 			}
-			if snap.Degraded {
+			if failures > 0 {
+				if refreshReason == "" {
+					refreshReason = "unknown"
+				}
+				meta["reason"] = refreshReason
+				meta["consecutive_failures"] = failures
+				res.Status = health.StatusDegraded
+				res.Message = "serving last-known-good snapshot after refresh failure"
+			} else if snap.Degraded {
 				reason := snap.DegradedReason
 				if reason == "" {
 					reason = "unknown"

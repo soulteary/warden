@@ -79,6 +79,16 @@ func (s *snapshotStore) RecordRefreshFailure(reason string) int64 {
 	return s.refreshFailures.Add(1)
 }
 
+// RefreshFailure returns the consecutive failure count and latest stable reason.
+func (s *snapshotStore) RefreshFailure() (int64, string) {
+	failures := s.refreshFailures.Load()
+	reason := ""
+	if current := s.lastRefreshReason.Load(); current != nil {
+		reason = *current
+	}
+	return failures, reason
+}
+
 // AgeSeconds returns the age of the current snapshot in seconds.
 func (s *snapshotStore) AgeSeconds() float64 {
 	snap := s.current.Load()
@@ -142,7 +152,8 @@ func (app *App) updateSnapshotMetrics() {
 	}
 	prommetrics.SnapshotAgeSeconds.Set(app.snapshots.AgeSeconds())
 	snap := app.snapshots.Load()
-	if snap != nil && snap.Degraded {
+	failures, _ := app.snapshots.RefreshFailure()
+	if failures > 0 || (snap != nil && snap.Degraded) {
 		prommetrics.SnapshotDegraded.Set(1)
 	} else {
 		prommetrics.SnapshotDegraded.Set(0)
