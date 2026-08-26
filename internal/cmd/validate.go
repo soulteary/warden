@@ -14,6 +14,7 @@ import (
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/remote"
 )
 
 // ValidateConfig validates configuration validity
@@ -60,6 +61,18 @@ func ValidateConfig(cfg *Config) error {
 	if strings.TrimSpace(cfg.HMACKeys) != "" {
 		if _, err := ParseHMACKeys(cfg.HMACKeys); err != nil {
 			errors = append(errors, fmt.Sprintf("Invalid WARDEN_HMAC_KEYS: %v", err))
+		}
+	}
+
+	if _, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if cfg.RemoteEncryptionRequired {
+		if !cfg.RemoteDecryptEnabled {
+			errors = append(errors, "REMOTE_ENCRYPTION_REQUIRED requires REMOTE_DECRYPT_ENABLED=true")
+		}
+		if strings.TrimSpace(cfg.RemoteRSAPrivateKeyFile) == "" && strings.TrimSpace(cfg.RemoteRSAPrivateKey) == "" {
+			errors = append(errors, "REMOTE_ENCRYPTION_REQUIRED requires REMOTE_RSA_PRIVATE_KEY_FILE or REMOTE_RSA_PRIVATE_KEY")
 		}
 	}
 
@@ -137,6 +150,10 @@ func validateProduction(cfg *Config) []string {
 		// 3. Remote encryption must be required (fail closed) in production.
 		if !cfg.RemoteEncryptionRequired {
 			errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_remote_encryption_required"))
+		}
+		format, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat)
+		if err == nil && format != remote.FormatV2 {
+			errs = append(errs, "production remote configuration requires REMOTE_ENCRYPTION_FORMAT=v2")
 		}
 	}
 

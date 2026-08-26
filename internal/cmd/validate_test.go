@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateConfig_ValidConfig(t *testing.T) {
@@ -141,6 +142,33 @@ func TestValidateConfig_RemoteDecryptEnabled_KeyFileNotExist(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not exist")
 }
 
+func TestValidateConfig_EncryptionRequiredNeedsActiveDecryptPath(t *testing.T) {
+	cfg := &Config{
+		Port:                     "8081",
+		TaskInterval:             5,
+		Mode:                     "DEFAULT",
+		RemoteEncryptionRequired: true,
+	}
+
+	err := ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REMOTE_DECRYPT_ENABLED=true")
+	assert.Contains(t, err.Error(), "REMOTE_RSA_PRIVATE_KEY")
+}
+
+func TestValidateConfig_InvalidRemoteEncryptionFormat(t *testing.T) {
+	cfg := &Config{
+		Port:                   "8081",
+		TaskInterval:           5,
+		Mode:                   "DEFAULT",
+		RemoteEncryptionFormat: "typo",
+	}
+
+	err := ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "REMOTE_ENCRYPTION_FORMAT")
+}
+
 // TestValidateConfig_InvalidEnvironment ensures an unrecognized ENVIRONMENT is rejected.
 func TestValidateConfig_InvalidEnvironment(t *testing.T) {
 	cfg := &Config{
@@ -202,6 +230,9 @@ func TestValidateConfig_ProductionRemoteOK(t *testing.T) {
 		RemoteConfig:             "http://example.com/data.json",
 		HTTPTimeout:              30,
 		RemoteEncryptionRequired: true,
+		RemoteDecryptEnabled:     true,
+		RemoteRSAPrivateKey:      "test-key-pem",
+		RemoteEncryptionFormat:   "v2",
 		APIKey:                   "an-api-key", // production requires an auth mechanism
 	}
 
@@ -263,6 +294,36 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 			} else {
 				assert.NoError(t, err, "配置了有效认证方式应通过")
 			}
+		})
+	}
+}
+
+func TestParseHMACKeys(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		want    map[string]string
+		wantErr string
+	}{
+		{name: "unset", raw: "   ", want: nil},
+		{name: "valid and normalized", raw: `{" key-1 ":"  secret  "}`, want: map[string]string{"key-1": "  secret  "}},
+		{name: "invalid JSON", raw: `{`, wantErr: "invalid JSON"},
+		{name: "empty set", raw: `{}`, wantErr: "at least one key is required"},
+		{name: "blank id", raw: `{"   ":"secret"}`, wantErr: "key id must not be empty"},
+		{name: "blank secret", raw: `{"key-1":"   "}`, wantErr: `secret for key "key-1" must not be empty`},
+		{name: "normalized collision", raw: `{"key-1":"first"," key-1 ":"second"}`, wantErr: `duplicate key id "key-1" after normalization`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseHMACKeys(tt.raw)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -1,10 +1,12 @@
 package warden
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -436,14 +438,22 @@ func (c *Client) isRetryableError(err error, statusCode int) bool {
 	return false
 }
 
-// calculateRetryDelay calculates the delay for the next retry attempt using exponential backoff.
-func (c *Client) calculateRetryDelay(attempt int) time.Duration {
+// calculateRetryDelay calculates the delay before a retry using exponential
+// backoff. retryIndex is zero-based, so the first retry waits RetryDelay.
+func (c *Client) calculateRetryDelay(retryIndex int) time.Duration {
 	if c.retry == nil {
 		return 0
 	}
 
-	delay := time.Duration(float64(c.retry.RetryDelay) * float64(attempt) * c.retry.BackoffMultiplier)
-	if delay > c.retry.MaxRetryDelay {
+	if retryIndex < 0 {
+		retryIndex = 0
+	}
+	delayFloat := float64(c.retry.RetryDelay) * math.Pow(c.retry.BackoffMultiplier, float64(retryIndex))
+	if delayFloat > float64(math.MaxInt64) {
+		delayFloat = float64(math.MaxInt64)
+	}
+	delay := time.Duration(delayFloat)
+	if c.retry.MaxRetryDelay > 0 && delay > c.retry.MaxRetryDelay {
 		delay = c.retry.MaxRetryDelay
 	}
 
@@ -506,7 +516,9 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 
 		// Success or non-retryable error - return response
 		// The caller will check the status code
-		c.applyResponseLimit(resp)
+		if err := c.applyResponseLimit(resp); err != nil {
+			return nil, NewError(ErrCodeInvalidResponse, "response body exceeds configured limit", err)
+		}
 		return resp, nil
 	}
 
@@ -530,32 +542,33 @@ func (c *Client) addAuthHeaders(req *http.Request) {
 	}
 }
 
-// applyResponseLimit wraps the response body with an io.LimitReader so decoders
-// cannot be forced to read an unbounded payload. A negative maxResponseBytes
-// disables the limit.
-func (c *Client) applyResponseLimit(resp *http.Response) {
+// applyResponseLimit reads at most limit+1 bytes so an oversized response is
+// rejected explicitly rather than exposed as an ambiguous truncated body.
+func (c *Client) applyResponseLimit(resp *http.Response) error {
 	if resp == nil || resp.Body == nil {
-		return
+		return nil
 	}
 	if c.maxResponseBytes < 0 {
-		return
+		return nil
 	}
 	limit := c.maxResponseBytes
 	if limit == 0 {
 		limit = DefaultMaxResponseBytes
 	}
 	orig := resp.Body
-	resp.Body = &limitedReadCloser{r: io.LimitReader(orig, limit), c: orig}
+	body, err := io.ReadAll(io.LimitReader(orig, limit+1))
+	if closeErr := orig.Close(); closeErr != nil {
+		c.logger.Debugf("Failed to close response body after bounded read: %v", closeErr)
+	}
+	if err != nil {
+		return err
+	}
+	if int64(len(body)) > limit {
+		return ErrResponseTooLarge
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	return nil
 }
-
-// limitedReadCloser bounds reads while still closing the underlying body.
-type limitedReadCloser struct {
-	r io.Reader
-	c io.Closer
-}
-
-func (l *limitedReadCloser) Read(p []byte) (int, error) { return l.r.Read(p) }
-func (l *limitedReadCloser) Close() error               { return l.c.Close() }
 
 // checkResponseStatus checks the HTTP response status and returns an error if not OK.
 func (c *Client) checkResponseStatus(resp *http.Response) error {

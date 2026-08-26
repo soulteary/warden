@@ -4,7 +4,7 @@ services:
 
   warden:
     restart: always
-    image: warden-release
+    image: ${WARDEN_IMAGE:-ghcr.io/soulteary/warden:latest}
     container_name: warden
     # Warden is an internal identity directory. Public traffic must enter through
     # the gateway service; do not publish this port on the Docker host.

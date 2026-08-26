@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	health "github.com/soulteary/health-kit/v2"
 	middlewarekit "github.com/soulteary/middleware-kit/v2"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
@@ -27,6 +28,29 @@ func newFailingRemoteServer(t *testing.T, expectedAuth string) *httptest.Server 
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+func TestHealthSnapshotDegradedAfterStrictRefreshFailure(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+	snapshots.Store(&Snapshot{
+		Users:    userCache.Get(),
+		Count:    1,
+		Source:   "remote",
+		Version:  "abc123",
+		LoadedAt: time.Now(),
+	})
+	snapshots.RecordRefreshFailure("timeout")
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, "ONLY_REMOTE", "development", false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusDegraded, result.Status)
+	snapshotCheck := result.Checks["snapshot"]
+	assert.Equal(t, health.StatusDegraded, snapshotCheck.Status)
+	assert.Equal(t, "timeout", snapshotCheck.Metadata["reason"])
+	assert.EqualValues(t, 1, snapshotCheck.Metadata["consecutive_failures"])
 }
 
 // TestCalculateHash tests hash calculation function
@@ -197,6 +221,20 @@ func TestNewApp(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewApp_HMACKeys(t *testing.T) {
+	t.Run("valid key set", func(t *testing.T) {
+		app := NewApp(&cmd.Config{HMACKeys: `{" key-1 ":"secret"}`})
+		require.NotNil(t, app)
+		assert.Equal(t, map[string]string{"key-1": "secret"}, app.hmacKeys)
+	})
+
+	t.Run("invalid key set is disabled", func(t *testing.T) {
+		app := NewApp(&cmd.Config{HMACKeys: `{"key-1":""}`})
+		require.NotNil(t, app)
+		assert.Nil(t, app.hmacKeys)
+	})
 }
 
 // TestApp_checkDataChanged tests data change detection
