@@ -6,6 +6,7 @@ import (
 	// Standard library
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 
 	// External packages
@@ -136,12 +137,26 @@ func HashUserList(users []define.AllowListUser) string {
 		ki, kj := primaryKeyForUser(sorted[i]), primaryKeyForUser(sorted[j])
 		return ki < kj
 	})
-	var sb strings.Builder
-	for i := range sorted {
-		scopeStr := strings.Join(sorted[i].Scope, ",")
-		sb.WriteString(sorted[i].Phone + ":" + sorted[i].Mail + ":" + sorted[i].UserID + ":" + sorted[i].Status + ":" + scopeStr + ":" + sorted[i].Role + "\n")
+	var encoded strings.Builder
+	writeField := func(value string) {
+		encoded.WriteString(strconv.Itoa(len(value)))
+		encoded.WriteByte(':')
+		encoded.WriteString(value)
 	}
-	return secure.GetSHA256Hash(sb.String())
+	for i := range sorted {
+		writeField(sorted[i].Phone)
+		writeField(sorted[i].Mail)
+		writeField(sorted[i].UserID)
+		writeField(sorted[i].Status)
+		writeField(strconv.Itoa(len(sorted[i].Scope)))
+		for _, scope := range sorted[i].Scope {
+			writeField(scope)
+		}
+		writeField(sorted[i].Role)
+		writeField(sorted[i].Name)
+		writeField(sorted[i].DingtalkUserID)
+	}
+	return secure.GetSHA256Hash(encoded.String())
 }
 
 // hashUsers calculates hash value of user data for change detection (cache-kit callback)

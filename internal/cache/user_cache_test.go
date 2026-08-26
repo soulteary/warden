@@ -150,6 +150,46 @@ func TestHashUserList(t *testing.T) {
 	assert.NotEmpty(t, emptyHash, "empty list should return fixed hash")
 }
 
+func TestHashUserList_AllFieldsAffectHash(t *testing.T) {
+	base := define.AllowListUser{
+		Phone:          "13800138000",
+		Mail:           "a@example.com",
+		UserID:         "user-1",
+		Status:         "active",
+		Scope:          []string{"read", "write"},
+		Role:           "member",
+		Name:           "Alice",
+		DingtalkUserID: "ding-1",
+	}
+	baseHash := HashUserList([]define.AllowListUser{base})
+
+	tests := map[string]func(*define.AllowListUser){
+		"phone":            func(u *define.AllowListUser) { u.Phone = "13900139000" },
+		"mail":             func(u *define.AllowListUser) { u.Mail = "b@example.com" },
+		"user_id":          func(u *define.AllowListUser) { u.UserID = "user-2" },
+		"status":           func(u *define.AllowListUser) { u.Status = "inactive" },
+		"scope":            func(u *define.AllowListUser) { u.Scope = []string{"admin"} },
+		"role":             func(u *define.AllowListUser) { u.Role = "admin" },
+		"name":             func(u *define.AllowListUser) { u.Name = "Bob" },
+		"dingtalk_user_id": func(u *define.AllowListUser) { u.DingtalkUserID = "ding-2" },
+	}
+
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			changed := base
+			changed.Scope = append([]string(nil), base.Scope...)
+			mutate(&changed)
+			assert.NotEqual(t, baseHash, HashUserList([]define.AllowListUser{changed}))
+		})
+	}
+}
+
+func TestHashUserList_ScopeEncodingIsUnambiguous(t *testing.T) {
+	first := []define.AllowListUser{{Phone: "13800138000", Scope: []string{"a,b", "c"}}}
+	second := []define.AllowListUser{{Phone: "13800138000", Scope: []string{"a", "b,c"}}}
+	assert.NotEqual(t, HashUserList(first), HashUserList(second))
+}
+
 func TestSafeUserCache_GetByUserID(t *testing.T) {
 	cache := NewSafeUserCache()
 
