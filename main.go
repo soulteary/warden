@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -108,9 +107,9 @@ func NewApp(cfg *cmd.Config) *App {
 		prommetrics.RecordDeprecation("encryption_legacy")
 	}
 	if cfg.HMACKeys != "" {
-		var keys map[string]string
-		if err := json.Unmarshal([]byte(cfg.HMACKeys), &keys); err != nil {
-			app.log.Warn().Err(err).Msg("WARDEN_HMAC_KEYS invalid JSON, HMAC auth disabled")
+		keys, err := cmd.ParseHMACKeys(cfg.HMACKeys)
+		if err != nil {
+			app.log.Warn().Err(err).Msg("WARDEN_HMAC_KEYS invalid, HMAC auth disabled")
 		} else {
 			app.hmacKeys = keys
 		}

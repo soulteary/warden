@@ -86,6 +86,25 @@ func TestHMACv2_ValidSignature_Returns200(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
+func TestHMACv2_EmptyConfiguredSecretIsRejected(t *testing.T) {
+	cfg := HMACConfig{
+		Keys:                  map[string]string{"key1": "   "},
+		TimestampToleranceSec: 60,
+		ReplayGuard:           NewMemoryReplayGuard(0),
+	}
+	nextCalled := false
+	mw := HMACAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		nextCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := newV2Request("GET", "/user", "", "   ", "key1", time.Now().Unix(), "nonce-empty-secret")
+	rec := httptest.NewRecorder()
+	mw.ServeHTTP(rec, req)
+
+	assert.False(t, nextCalled)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
 func TestHMACv2_ValidWithBody_Returns200(t *testing.T) {
 	secret := "v2-secret"
 	body := `{"a":1}`

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/soulteary/warden/internal/logger"
@@ -154,7 +155,7 @@ func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) ht
 func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool {
 	cfg = cfg.normalized()
 	secret, ok := cfg.Keys[keyID]
-	if !ok {
+	if !ok || strings.TrimSpace(secret) == "" {
 		logger.FromRequest(r).Debug().Str("key_id", keyID).Msg("hmac: unknown key_id")
 		return false
 	}

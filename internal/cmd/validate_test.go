@@ -247,6 +247,9 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 		{"mtls_ca_without_require", func(c *Config) { c.TLSCAFile = "/tmp/ca.pem"; c.TLSRequireClientCert = false }, true},
 		{"empty_hmac_json", func(c *Config) { c.HMACKeys = `{}` }, true},
 		{"malformed_hmac_json", func(c *Config) { c.HMACKeys = `{not-json` }, true},
+		{"empty_hmac_secret", func(c *Config) { c.HMACKeys = `{"id1":""}` }, true},
+		{"blank_hmac_secret", func(c *Config) { c.HMACKeys = `{"id1":"   "}` }, true},
+		{"mixed_valid_and_empty_hmac", func(c *Config) { c.HMACKeys = `{"id1":"secret1","id2":""}` }, true},
 		{"blank_api_key", func(c *Config) { c.APIKey = "   " }, true},
 		{"none", func(_ *Config) {}, true},
 	}
