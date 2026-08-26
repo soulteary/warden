@@ -1349,3 +1349,28 @@ func TestRegisterRoutes_AllEndpoints(t *testing.T) {
 	// Restore original routes
 	http.DefaultServeMux = originalDefaultMux
 }
+
+func TestRegisterRoutes_GlobalIPAllowlist(t *testing.T) {
+	t.Setenv("IP_WHITELIST", "192.0.2.10")
+
+	app := NewApp(&cmd.Config{
+		Port:         "8081",
+		RedisEnabled: false,
+		Mode:         "development",
+		APIKey:       "test-key",
+	})
+
+	originalDefaultMux := http.DefaultServeMux
+	http.DefaultServeMux = http.NewServeMux()
+	defer func() { http.DefaultServeMux = originalDefaultMux }()
+
+	registerRoutes(app)
+
+	for _, endpoint := range []string{"/", "/user", "/v1/lookup", "/health", "/metrics", "/log/level"} {
+		req := httptest.NewRequest(http.MethodGet, endpoint, nil)
+		req.RemoteAddr = "198.51.100.20:1234"
+		resp := httptest.NewRecorder()
+		http.DefaultServeMux.ServeHTTP(resp, req)
+		assert.Equal(t, http.StatusForbidden, resp.Code, "endpoint %s must honor IP_WHITELIST", endpoint)
+	}
+}
