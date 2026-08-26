@@ -79,6 +79,17 @@ func (o *Options) Validate() error {
 		return NewError(ErrCodeInvalidConfig, "BaseURL is required", nil)
 	}
 
+	// HMAC signing is enabled only as a complete key-id/secret pair. Reject a
+	// partial pair instead of silently constructing an unsigned client.
+	hmacKeyIDSet := strings.TrimSpace(o.HMACKeyID) != ""
+	hmacSecretSet := strings.TrimSpace(o.HMACSecret) != ""
+	if hmacKeyIDSet != hmacSecretSet {
+		return NewError(ErrCodeInvalidConfig, "HMACKeyID and HMACSecret must be configured together", nil)
+	}
+	if hmacKeyIDSet {
+		o.HMACKeyID = strings.TrimSpace(o.HMACKeyID)
+	}
+
 	// Normalize BaseURL
 	o.BaseURL = strings.TrimSuffix(o.BaseURL, "/")
 
@@ -171,7 +182,8 @@ func (o *Options) WithCacheInvalidationChannel(ch <-chan struct{}) *Options {
 }
 
 // WithHMAC enables HMAC v2 request signing with the given key id and secret.
-// The secret is never logged. Passing empty values disables signing.
+// The secret is never logged. Passing two empty values disables signing; a partial
+// key-id/secret pair is rejected by Validate.
 func (o *Options) WithHMAC(keyID, secret string) *Options {
 	o.HMACKeyID = keyID
 	o.HMACSecret = secret
