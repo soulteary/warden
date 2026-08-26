@@ -26,6 +26,13 @@ type replaySetNXResult struct {
 	ttl      time.Duration
 }
 
+func replaySeen(t *testing.T, guard ReplayGuard, key string, ttl time.Duration) bool {
+	t.Helper()
+	seen, err := guard.SeenBefore(key, ttl)
+	require.NoError(t, err)
+	return seen
+}
+
 func (f *replaySetNXResult) SetNX(_ context.Context, key string, _ interface{}, expiration time.Duration) *redis.BoolCmd {
 	f.key = key
 	f.ttl = expiration
@@ -181,6 +188,27 @@ func TestHMACv2_ReplayRejected(t *testing.T) {
 	assert.Equal(t, 1, replayCount, "replay observer should fire once")
 }
 
+func TestHMACv2_ReplayStoreErrorDoesNotCountAsReplay(t *testing.T) {
+	secret := "v2-secret"
+	replayCount := 0
+	cfg := HMACConfig{
+		Keys:                  map[string]string{"key1": secret},
+		TimestampToleranceSec: 60,
+		ReplayGuard:           newRedisReplayGuard(&replaySetNXResult{err: errors.New("redis unavailable")}),
+		OnReplayRejected:      func() { replayCount++ },
+	}
+	mw := HMACAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := newV2Request("GET", "/user", "", secret, "key1", time.Now().Unix(), "nonce")
+	rec := httptest.NewRecorder()
+	mw.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Zero(t, replayCount, "replay store failures must not increment the replay counter")
+}
+
 // TestHMACv2_DifferentNonce_NotReplay ensures a fresh nonce (as a retry would use)
 // is accepted even with the same timestamp.
 func TestHMACv2_DifferentNonce_NotReplay(t *testing.T) {
@@ -306,7 +334,7 @@ func TestMemoryReplayGuard_Concurrent(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			replayed := g.SeenBefore("same-key", time.Minute)
+			replayed, _ := g.SeenBefore("same-key", time.Minute)
 			mu.Lock()
 			if replayed {
 				replays++
@@ -329,40 +357,44 @@ func TestMemoryReplayGuard_TTLExpiry(t *testing.T) {
 	now := time.Now()
 	g.nowFn = func() time.Time { return now }
 
-	assert.False(t, g.SeenBefore("k", 10*time.Millisecond))
-	assert.True(t, g.SeenBefore("k", 10*time.Millisecond), "still within TTL => replay")
+	assert.False(t, replaySeen(t, g, "k", 10*time.Millisecond))
+	assert.True(t, replaySeen(t, g, "k", 10*time.Millisecond), "still within TTL => replay")
 
 	// Advance beyond TTL and the gcEvery interval.
 	now = now.Add(2 * time.Second)
-	assert.False(t, g.SeenBefore("k", 10*time.Millisecond), "after TTL the key is fresh again")
+	assert.False(t, replaySeen(t, g, "k", 10*time.Millisecond), "after TTL the key is fresh again")
 }
 
 // TestMemoryReplayGuard_MaxSizeFailsSafe ensures the bounded guard rejects new keys
 // (fails safe) rather than growing unboundedly once the cap is hit.
 func TestMemoryReplayGuard_MaxSizeFailsSafe(t *testing.T) {
 	g := NewMemoryReplayGuard(2)
-	assert.False(t, g.SeenBefore("a", time.Minute))
-	assert.False(t, g.SeenBefore("b", time.Minute))
+	assert.False(t, replaySeen(t, g, "a", time.Minute))
+	assert.False(t, replaySeen(t, g, "b", time.Minute))
 	// Cap reached; a brand-new key is treated as a replay (rejected).
-	assert.True(t, g.SeenBefore("c", time.Minute))
+	assert.True(t, replaySeen(t, g, "c", time.Minute))
 	// An already-tracked key still reports replay.
-	assert.True(t, g.SeenBefore("a", time.Minute))
+	assert.True(t, replaySeen(t, g, "a", time.Minute))
 }
 
 func TestRedisReplayGuard(t *testing.T) {
 	store := &replaySetNXResult{inserted: true}
 	guard := newRedisReplayGuard(store)
-	assert.False(t, guard.SeenBefore("key-id:nonce", 30*time.Second))
+	assert.False(t, replaySeen(t, guard, "key-id:nonce", 30*time.Second))
 	assert.Equal(t, 30*time.Second, store.ttl)
 	assert.Regexp(t, `^warden:hmac:replay:[0-9a-f]{64}$`, store.key)
 
 	store.inserted = false
-	assert.True(t, guard.SeenBefore("key-id:nonce", 30*time.Second))
+	assert.True(t, replaySeen(t, guard, "key-id:nonce", 30*time.Second))
 }
 
 func TestRedisReplayGuard_FailsClosed(t *testing.T) {
 	store := &replaySetNXResult{err: errors.New("redis unavailable")}
 	guard := newRedisReplayGuard(store)
-	assert.True(t, guard.SeenBefore("key-id:nonce", time.Minute))
-	assert.True(t, newRedisReplayGuard(nil).SeenBefore("key-id:nonce", time.Minute))
+	seen, err := guard.SeenBefore("key-id:nonce", time.Minute)
+	assert.False(t, seen)
+	require.Error(t, err)
+	seen, err = newRedisReplayGuard(nil).SeenBefore("key-id:nonce", time.Minute)
+	assert.False(t, seen)
+	require.Error(t, err)
 }

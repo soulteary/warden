@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"sync"
 	"time"
 
@@ -24,10 +25,11 @@ import (
 // window when the in-memory implementation is used.
 type ReplayGuard interface {
 	// SeenBefore atomically records the key and reports whether it had already been
-	// recorded within its TTL window. It returns true when the key is a replay.
+	// recorded within its TTL window. It returns true when the key is a replay and
+	// returns an error when the backing store cannot determine replay state.
 	// The ttl bounds how long the key must be remembered; callers pass the signature
 	// timestamp tolerance so memory is bounded by the accepted skew window.
-	SeenBefore(key string, ttl time.Duration) bool
+	SeenBefore(key string, ttl time.Duration) (bool, error)
 }
 
 type redisSetNX interface {
@@ -52,9 +54,9 @@ func newRedisReplayGuard(client redisSetNX) ReplayGuard {
 }
 
 // SeenBefore implements ReplayGuard.
-func (g *redisReplayGuard) SeenBefore(key string, ttl time.Duration) bool {
+func (g *redisReplayGuard) SeenBefore(key string, ttl time.Duration) (bool, error) {
 	if g == nil || g.client == nil {
-		return true
+		return false, errors.New("redis replay guard is not initialized")
 	}
 	if ttl <= 0 {
 		ttl = time.Minute
@@ -66,9 +68,9 @@ func (g *redisReplayGuard) SeenBefore(key string, ttl time.Duration) bool {
 		g.logOnce.Do(func() {
 			logger.GetLoggerKit().Error().Err(err).Msg("hmac: Redis replay guard failed closed")
 		})
-		return true
+		return false, err
 	}
-	return !inserted
+	return !inserted, nil
 }
 
 // memoryReplayGuard is a single-node ReplayGuard backed by a map with lazy TTL
@@ -99,7 +101,7 @@ func NewMemoryReplayGuard(maxSize int) *memoryReplayGuard {
 }
 
 // SeenBefore implements ReplayGuard.
-func (g *memoryReplayGuard) SeenBefore(key string, ttl time.Duration) bool {
+func (g *memoryReplayGuard) SeenBefore(key string, ttl time.Duration) (bool, error) {
 	if ttl <= 0 {
 		ttl = time.Minute
 	}
@@ -110,17 +112,17 @@ func (g *memoryReplayGuard) SeenBefore(key string, ttl time.Duration) bool {
 	g.gcLocked(now)
 
 	if exp, ok := g.seen[key]; ok && exp.After(now) {
-		return true
+		return true, nil
 	}
 	if g.maxSize > 0 && len(g.seen) >= g.maxSize {
 		// Bounded: refuse to grow unbounded under a flood of unique nonces. Treating
 		// this as a replay (reject) fails safe rather than allowing unlimited memory.
 		if _, ok := g.seen[key]; !ok {
-			return true
+			return true, nil
 		}
 	}
 	g.seen[key] = now.Add(ttl)
-	return false
+	return false, nil
 }
 
 // gcLocked evicts expired entries at most once per gcEvery. Caller holds mu.
