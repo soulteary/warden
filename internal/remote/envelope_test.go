@@ -378,6 +378,12 @@ func TestParseEncryptionFormat(t *testing.T) {
 	}
 }
 
+func TestReadLimitedBodyRejectsOversizedResponse(t *testing.T) {
+	body, err := readLimitedBody(strings.NewReader("12345"), 4)
+	assert.Nil(t, body)
+	assert.ErrorIs(t, err, ErrResponseTooLarge)
+}
+
 func TestErrorMessagesDoNotLeakSecrets(t *testing.T) {
 	priv := mustGenKey(t, 2048)
 	secret := "SUPER-SECRET-PLAINTEXT-13800138000"

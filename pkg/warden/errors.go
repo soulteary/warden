@@ -1,6 +1,12 @@
 package warden
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrResponseTooLarge is returned when a response exceeds MaxResponseBytes.
+var ErrResponseTooLarge = errors.New("warden: response exceeds size limit")
 
 // Error represents an error that occurred in the SDK.
 //

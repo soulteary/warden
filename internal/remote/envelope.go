@@ -67,6 +67,9 @@ var (
 	ErrEnvelopeMalformed = errors.New("remote: malformed envelope")
 	// ErrPlaintextTooLarge is returned when the decrypted plaintext exceeds MAX_JSON_SIZE.
 	ErrPlaintextTooLarge = errors.New("remote: decrypted plaintext exceeds size limit")
+	// ErrResponseTooLarge is returned when the HTTP response exceeds the encrypted
+	// envelope limit instead of silently returning a truncated prefix.
+	ErrResponseTooLarge = errors.New("remote: response exceeds size limit")
 )
 
 // envelopeV2 is the wire representation of a v2 envelope.
