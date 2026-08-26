@@ -145,7 +145,7 @@ Create a `data.json` file (refer to `data.example.json`):
 - `phone` (required): User phone number
 - `mail` (required): User email address
 - `user_id` (optional): User unique identifier, auto-generated if not provided
-- `status` (optional): User status, such as "active", "inactive", "suspended", defaults to "active"
+- `status` (optional): User status, such as "active", "inactive", "suspended"; omitted values default to "inactive"
 - `scope` (optional): User permission scope array, such as `["read", "write"]`
 - `role` (optional): User role, such as "admin", "user"
 

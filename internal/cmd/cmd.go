@@ -24,6 +24,7 @@ import (
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Config struct {
+	ConfigFile               string   // resolved application configuration file path
 	Port                     string   // 16 bytes
 	Redis                    string   // 16 bytes
 	RedisPassword            string   // 16 bytes
@@ -149,10 +150,25 @@ func registerFlags(fs *flag.FlagSet, defaults *flagDefaults) *flagValues {
 	return vals
 }
 
-// GetArgs parses command-line arguments and environment variables, returns configuration struct
-// Priority: command-line arguments > environment variables > configuration file > default values
-// If -config-file parameter is provided, will attempt to load from configuration file
+// GetArgs parses command-line arguments and environment variables, returning a configuration struct.
+// It panics when explicitly requested configuration cannot be parsed. New callers should use
+// GetArgsWithError so the startup path can report the error cleanly.
+//
+// Deprecated: use GetArgsWithError.
 func GetArgs() *Config {
+	cfg, err := GetArgsWithError()
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+// GetArgsWithError parses command-line arguments and environment variables.
+// Priority: command-line arguments > environment variables > configuration file > default values
+// The -config-file flag takes precedence over CONFIG_FILE. An explicitly requested configuration
+// file is mandatory: parse, validation and filesystem errors are returned instead of silently
+// falling back to development defaults.
+func GetArgsWithError() (*Config, error) {
 	// Create FlagSet to parse command-line arguments
 	// Need to define all possible parameters to avoid "flag provided but not defined" error
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
@@ -161,24 +177,32 @@ func GetArgs() *Config {
 
 	// Parse once to get configuration file path
 	if err := fs.Parse(os.Args[1:]); err != nil {
-		// Ignore parsing errors, continue using default values
-		_ = err // Explicitly ignore error
+		return nil, errors.ErrConfigParse.WithError(err)
 	}
 
-	// If configuration file is specified, attempt to load from it
-	if flagVals.configFile != "" {
-		if newCfg, err := config.LoadFromFile(flagVals.configFile); err == nil {
-			// Successfully loaded configuration file, convert to old format and apply command-line argument overrides
-			legacyCfg := newCfg.ToCmdConfig()
-			// Command-line arguments have highest priority, will override values in configuration file
-			overrideWithFlags(legacyCfg)
-			return convertToConfig(legacyCfg)
+	configFile := strings.TrimSpace(flagVals.configFile)
+	if configFile == "" {
+		configFile = env.GetTrimmed("CONFIG_FILE", "")
+	}
+
+	if configFile != "" {
+		newCfg, err := config.ParseFromFile(configFile)
+		if err != nil {
+			return nil, err
 		}
-		// Configuration file loading failed, continue using original logic (backward compatibility)
+
+		legacyCfg := newCfg.ToCmdConfig()
+		// Command-line arguments have highest priority and override file/env values.
+		overrideWithFlags(legacyCfg)
+		cfg := convertToConfig(legacyCfg)
+		cfg.ConfigFile = configFile
+		if err := ValidateConfig(cfg); err != nil {
+			return nil, err
+		}
+		return cfg, nil
 	}
 
-	// Original logic: load from command-line arguments and environment variables
-	return getArgsFromFlags()
+	return getArgsFromFlags(), nil
 }
 
 // processPortFromFlags processes port configuration
