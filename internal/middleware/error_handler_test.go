@@ -22,12 +22,12 @@ func init() {
 // TestErrorHandlerMiddleware_ProductionMode tests error handling in production mode
 func TestErrorHandlerMiddleware_ProductionMode(t *testing.T) {
 	// Save original environment variable
-	originalMode := os.Getenv("MODE")
+	originalEnvironment := os.Getenv("ENVIRONMENT")
 	defer func() {
-		require.NoError(t, os.Setenv("MODE", originalMode))
+		require.NoError(t, os.Setenv("ENVIRONMENT", originalEnvironment))
 	}()
 
-	require.NoError(t, os.Setenv("MODE", "production"))
+	require.NoError(t, os.Setenv("ENVIRONMENT", "production"))
 
 	middleware := ErrorHandlerMiddleware("production")
 
@@ -167,12 +167,12 @@ func TestGetGenericErrorMessage(t *testing.T) {
 
 // TestSafeError_ProductionMode tests SafeError function (production mode)
 func TestSafeError_ProductionMode(t *testing.T) {
-	originalMode := os.Getenv("MODE")
+	originalEnvironment := os.Getenv("ENVIRONMENT")
 	defer func() {
-		require.NoError(t, os.Setenv("MODE", originalMode))
+		require.NoError(t, os.Setenv("ENVIRONMENT", originalEnvironment))
 	}()
 
-	require.NoError(t, os.Setenv("MODE", "production"))
+	require.NoError(t, os.Setenv("ENVIRONMENT", "production"))
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -190,14 +190,27 @@ func TestSafeError_ProductionMode(t *testing.T) {
 	assert.Empty(t, resp.Message, "Production environment should not return detailed message")
 }
 
+func TestSafeError_UsesEnvironmentNotMergeMode(t *testing.T) {
+	t.Setenv("MODE", "DEFAULT")
+	t.Setenv("ENVIRONMENT", "prod")
+
+	req := httptest.NewRequest("GET", "/", http.NoBody)
+	w := httptest.NewRecorder()
+	SafeError(w, req, http.StatusInternalServerError, assert.AnError, "sensitive detail")
+
+	var resp ErrorResponse
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Empty(t, resp.Message)
+}
+
 // TestSafeError_DevelopmentMode tests SafeError function (development mode)
 func TestSafeError_DevelopmentMode(t *testing.T) {
-	originalMode := os.Getenv("MODE")
+	originalEnvironment := os.Getenv("ENVIRONMENT")
 	defer func() {
-		require.NoError(t, os.Setenv("MODE", originalMode))
+		require.NoError(t, os.Setenv("ENVIRONMENT", originalEnvironment))
 	}()
 
-	require.NoError(t, os.Setenv("MODE", "development"))
+	require.NoError(t, os.Setenv("ENVIRONMENT", "development"))
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
@@ -217,12 +230,12 @@ func TestSafeError_DevelopmentMode(t *testing.T) {
 
 // TestSafeError_WithError tests SafeError function (with error)
 func TestSafeError_WithError(t *testing.T) {
-	originalMode := os.Getenv("MODE")
+	originalEnvironment := os.Getenv("ENVIRONMENT")
 	defer func() {
-		require.NoError(t, os.Setenv("MODE", originalMode))
+		require.NoError(t, os.Setenv("ENVIRONMENT", originalEnvironment))
 	}()
 
-	require.NoError(t, os.Setenv("MODE", "development"))
+	require.NoError(t, os.Setenv("ENVIRONMENT", "development"))
 
 	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
