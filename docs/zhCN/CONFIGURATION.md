@@ -339,6 +339,7 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # 健康检查端点 IP
 export IP_WHITELIST="192.168.1.0/24"  # 全局 IP 白名单（可选）
 export LOG_LEVEL="info"                # 日志级别（可选，默认: info，可选值: trace, debug, info, warn, error, fatal, panic）
 export WARDEN_HMAC_KEYS='{"key-id-1":"secret-1"}'  # 服务间 HMAC 鉴权密钥（JSON，可选）
+export WARDEN_HMAC_ALLOW_V1=false                  # 迁移完成后关闭旧版 v1，仅接受带 nonce 的 v2
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60         # HMAC 时间戳容差（秒），默认 60
 export WARDEN_TLS_CERT=/path/to/warden.crt        # 服务端 TLS 证书（可选，与 KEY 同时设置则启用 TLS）
 export WARDEN_TLS_KEY=/path/to/warden.key         # 服务端 TLS 私钥

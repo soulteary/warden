@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,9 +53,18 @@ func registerRoutes(app *App) {
 	// Service auth chain: mTLS (client cert) > HMAC > API Key.
 	// Accept both legacy v1 and authenticated v2 signatures during migration; v2 adds
 	// per-request nonce + replay rejection. Deprecation of v1 is surfaced via a metric.
+	allowHMACV1 := true
+	if raw := strings.TrimSpace(os.Getenv("WARDEN_HMAC_ALLOW_V1")); raw != "" {
+		if parsed, err := strconv.ParseBool(raw); err == nil {
+			allowHMACV1 = parsed
+		} else {
+			logger.GetLoggerKit().Warn().Err(err).Msg("invalid WARDEN_HMAC_ALLOW_V1; keeping compatibility default")
+		}
+	}
 	hmacCfg := middleware.HMACConfig{
 		Keys:                  app.hmacKeys,
 		TimestampToleranceSec: app.hmacToleranceSec,
+		AllowV1:               &allowHMACV1,
 		OnReplayRejected:      prommetrics.RecordHMACReplayRejected,
 		OnV1Used: func() {
 			prommetrics.RecordDeprecation("hmac_v1")

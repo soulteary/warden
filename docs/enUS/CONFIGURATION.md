@@ -222,6 +222,7 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # Health check endpoint
 export IP_WHITELIST="192.168.1.0/24"  # Global IP whitelist (optional)
 export LOG_LEVEL="info"                # Log level (optional, default: info, options: trace, debug, info, warn, error, fatal, panic)
 export WARDEN_HMAC_KEYS='{"key-id":"secret"}'  # Service auth: HMAC keys (JSON)
+export WARDEN_HMAC_ALLOW_V1=false                # Disable legacy v1 after all callers use nonce-bearing v2
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # HMAC timestamp tolerance (seconds)
 export WARDEN_TLS_CERT=/path/to/warden.crt    # Service auth: server TLS cert (with KEY enables TLS)
 export WARDEN_TLS_KEY=/path/to/warden.key     # Server TLS key
