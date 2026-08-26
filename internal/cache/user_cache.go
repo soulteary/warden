@@ -4,6 +4,7 @@ package cache
 
 import (
 	// Standard library
+	"encoding/json"
 	"errors"
 	"sort"
 	"strings"
@@ -136,12 +137,13 @@ func HashUserList(users []define.AllowListUser) string {
 		ki, kj := primaryKeyForUser(sorted[i]), primaryKeyForUser(sorted[j])
 		return ki < kj
 	})
-	var sb strings.Builder
-	for i := range sorted {
-		scopeStr := strings.Join(sorted[i].Scope, ",")
-		sb.WriteString(sorted[i].Phone + ":" + sorted[i].Mail + ":" + sorted[i].UserID + ":" + sorted[i].Status + ":" + scopeStr + ":" + sorted[i].Role + "\n")
+	encoded, err := json.Marshal(sorted)
+	if err != nil {
+		// AllowListUser contains only JSON-safe scalar and slice fields. Keep a
+		// deterministic fallback in case the model changes in the future.
+		return secure.GetSHA256Hash("marshal-error")
 	}
-	return secure.GetSHA256Hash(sb.String())
+	return secure.GetSHA256Hash(string(encoded))
 }
 
 // hashUsers calculates hash value of user data for change detection (cache-kit callback)
