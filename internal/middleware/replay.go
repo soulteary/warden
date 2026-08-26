@@ -1,8 +1,16 @@
 package middleware
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
+
+	"github.com/soulteary/warden/internal/logger"
 )
 
 // ReplayGuard records recently-seen request nonces so a captured, still-in-window
@@ -12,17 +20,57 @@ import (
 // IMPORTANT (multi-replica limitation): the bundled in-memory implementation only
 // protects a single process. When Warden runs as multiple replicas behind a load
 // balancer, a replayed request routed to a *different* replica will NOT be caught
-// unless a shared store is plugged in. The signature timestamp tolerance still
-// bounds the replay window in that case. Provide a distributed implementation
-// (e.g. Redis SETNX with TTL) via SetReplayGuard for real multi-replica replay
-// protection. This is a known, documented limitation — do not assume multi-replica
-// replay is solved by the default guard.
+// unless a shared store is plugged in. Use NewRedisReplayGuard when multiple Warden
+// replicas share Redis. The signature timestamp tolerance still bounds the replay
+// window when the in-memory implementation is used.
 type ReplayGuard interface {
 	// SeenBefore atomically records the key and reports whether it had already been
-	// recorded within its TTL window. It returns true when the key is a replay.
+	// recorded within its TTL window. It returns true when the key is a replay and
+	// returns an error when the backing store cannot determine replay state.
 	// The ttl bounds how long the key must be remembered; callers pass the signature
 	// timestamp tolerance so memory is bounded by the accepted skew window.
-	SeenBefore(key string, ttl time.Duration) bool
+	SeenBefore(key string, ttl time.Duration) (bool, error)
+}
+
+type redisSetNX interface {
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd
+}
+
+// redisReplayGuard uses Redis SET NX with an expiry so nonce insertion is atomic
+// across all Warden replicas sharing the same Redis instance. Store failures reject
+// the request rather than silently disabling replay protection.
+type redisReplayGuard struct {
+	client  redisSetNX
+	logOnce sync.Once
+}
+
+// NewRedisReplayGuard creates a distributed replay guard backed by Redis.
+func NewRedisReplayGuard(client *redis.Client) ReplayGuard {
+	return newRedisReplayGuard(client)
+}
+
+func newRedisReplayGuard(client redisSetNX) ReplayGuard {
+	return &redisReplayGuard{client: client}
+}
+
+// SeenBefore implements ReplayGuard.
+func (g *redisReplayGuard) SeenBefore(key string, ttl time.Duration) (bool, error) {
+	if g == nil || g.client == nil {
+		return false, errors.New("redis replay guard is not initialized")
+	}
+	if ttl <= 0 {
+		ttl = time.Minute
+	}
+	digest := sha256.Sum256([]byte(key))
+	redisKey := "warden:hmac:replay:" + hex.EncodeToString(digest[:])
+	inserted, err := g.client.SetNX(context.Background(), redisKey, "1", ttl).Result()
+	if err != nil {
+		g.logOnce.Do(func() {
+			logger.GetLoggerKit().Error().Err(err).Msg("hmac: Redis replay guard failed closed")
+		})
+		return false, err
+	}
+	return !inserted, nil
 }
 
 // memoryReplayGuard is a single-node ReplayGuard backed by a map with lazy TTL
@@ -53,7 +101,7 @@ func NewMemoryReplayGuard(maxSize int) *memoryReplayGuard {
 }
 
 // SeenBefore implements ReplayGuard.
-func (g *memoryReplayGuard) SeenBefore(key string, ttl time.Duration) bool {
+func (g *memoryReplayGuard) SeenBefore(key string, ttl time.Duration) (bool, error) {
 	if ttl <= 0 {
 		ttl = time.Minute
 	}
@@ -64,17 +112,17 @@ func (g *memoryReplayGuard) SeenBefore(key string, ttl time.Duration) bool {
 	g.gcLocked(now)
 
 	if exp, ok := g.seen[key]; ok && exp.After(now) {
-		return true
+		return true, nil
 	}
 	if g.maxSize > 0 && len(g.seen) >= g.maxSize {
 		// Bounded: refuse to grow unbounded under a flood of unique nonces. Treating
 		// this as a replay (reject) fails safe rather than allowing unlimited memory.
 		if _, ok := g.seen[key]; !ok {
-			return true
+			return true, nil
 		}
 	}
 	g.seen[key] = now.Add(ttl)
-	return false
+	return false, nil
 }
 
 // gcLocked evicts expired entries at most once per gcEvery. Caller holds mu.

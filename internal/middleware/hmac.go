@@ -228,7 +228,12 @@ func (cfg HMACConfig) verifyV2(r *http.Request, secret, sig, tsStr, nonce, bodyH
 	// replay key binds the key_id + nonce so different keys cannot collide.
 	replayKey := r.Header.Get(headerKeyID) + ":" + nonce
 	ttl := time.Duration(cfg.TimestampToleranceSec)*time.Second*2 + time.Second
-	if cfg.ReplayGuard.SeenBefore(replayKey, ttl) {
+	seenBefore, err := cfg.ReplayGuard.SeenBefore(replayKey, ttl)
+	if err != nil {
+		logger.FromRequest(r).Debug().Err(err).Msg("hmac: replay guard unavailable; request rejected")
+		return false
+	}
+	if seenBefore {
 		logger.FromRequest(r).Debug().Msg("hmac: v2 nonce replay rejected")
 		if cfg.OnReplayRejected != nil {
 			cfg.OnReplayRejected()

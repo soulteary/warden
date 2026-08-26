@@ -60,6 +60,9 @@ func registerRoutes(app *App) {
 			prommetrics.RecordDeprecation("hmac_v1")
 		},
 	}
+	if app.redisClient != nil {
+		hmacCfg.ReplayGuard = middleware.NewRedisReplayGuard(app.redisClient)
+	}
 	authMiddleware := middleware.ServiceAuthChain(hmacCfg, apiKeyMiddleware)
 	optionalAuthCfg := authBaseCfg
 	optionalAuthCfg.AllowEmptyKey = true
