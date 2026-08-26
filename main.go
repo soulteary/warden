@@ -522,6 +522,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		// Refresh failed: keep the last-known-good snapshot and cache untouched.
 		reason := classifyRefreshReason(res.Err)
 		failures := app.snapshots.RecordRefreshFailure(reason)
+		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reason).Inc()
 		app.log.Warn().
 			Err(res.Err).
@@ -551,6 +552,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	// record a refresh failure instead of overwriting good data with a bad set.
 	if err := app.applyUsers(newUsers); err != nil {
 		failures := app.snapshots.RecordRefreshFailure("identity_conflict")
+		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues("identity_conflict").Inc()
 		app.log.Warn().
 			Err(err).
