@@ -64,6 +64,11 @@ func ValidateConfig(cfg *Config) error {
 		}
 	}
 
+	// TLS must be configured as a complete transport. startServer enables HTTPS only
+	// when both the certificate and private key are present, so accepting a partial
+	// configuration here would silently start a plaintext HTTP listener.
+	errors = append(errors, validateTLSConfig(cfg)...)
+
 	if _, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -129,6 +134,31 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// validateTLSConfig rejects partial TLS and mTLS configuration before the server
+// is started. File contents are loaded by buildTLSConfig during startup.
+func validateTLSConfig(cfg *Config) []string {
+	certSet := strings.TrimSpace(cfg.TLSCertFile) != ""
+	keySet := strings.TrimSpace(cfg.TLSKeyFile) != ""
+	caSet := strings.TrimSpace(cfg.TLSCAFile) != ""
+
+	var errs []string
+	if certSet != keySet {
+		errs = append(errs, "WARDEN_TLS_CERT and WARDEN_TLS_KEY must be configured together")
+	}
+	if caSet && (!certSet || !keySet) {
+		errs = append(errs, "WARDEN_TLS_CA requires WARDEN_TLS_CERT and WARDEN_TLS_KEY")
+	}
+	if cfg.TLSRequireClientCert {
+		if !certSet || !keySet {
+			errs = append(errs, "WARDEN_TLS_REQUIRE_CLIENT_CERT=true requires WARDEN_TLS_CERT and WARDEN_TLS_KEY")
+		}
+		if !caSet {
+			errs = append(errs, "WARDEN_TLS_REQUIRE_CLIENT_CERT=true requires WARDEN_TLS_CA")
+		}
+	}
+	return errs
 }
 
 // validateProduction returns production-only security violations. These key off the

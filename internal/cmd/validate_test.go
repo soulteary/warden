@@ -169,6 +169,62 @@ func TestValidateConfig_InvalidRemoteEncryptionFormat(t *testing.T) {
 	assert.Contains(t, err.Error(), "REMOTE_ENCRYPTION_FORMAT")
 }
 
+func TestValidateConfig_TLSConfiguration(t *testing.T) {
+	base := func() *Config {
+		return &Config{
+			Port:         "8081",
+			TaskInterval: 5,
+			Mode:         "DEFAULT",
+			Environment:  "development",
+		}
+	}
+	tests := []struct {
+		name    string
+		mutate  func(*Config)
+		wantErr string
+	}{
+		{name: "disabled", mutate: func(_ *Config) {}},
+		{name: "server TLS", mutate: func(c *Config) {
+			c.TLSCertFile = "server.crt"
+			c.TLSKeyFile = "server.key"
+		}},
+		{name: "mTLS", mutate: func(c *Config) {
+			c.TLSCertFile = "server.crt"
+			c.TLSKeyFile = "server.key"
+			c.TLSCAFile = "clients-ca.crt"
+			c.TLSRequireClientCert = true
+		}},
+		{name: "certificate only", mutate: func(c *Config) {
+			c.TLSCertFile = "server.crt"
+		}, wantErr: "WARDEN_TLS_CERT and WARDEN_TLS_KEY must be configured together"},
+		{name: "private key only", mutate: func(c *Config) {
+			c.TLSKeyFile = "server.key"
+		}, wantErr: "WARDEN_TLS_CERT and WARDEN_TLS_KEY must be configured together"},
+		{name: "CA without server TLS", mutate: func(c *Config) {
+			c.TLSCAFile = "clients-ca.crt"
+		}, wantErr: "WARDEN_TLS_CA requires WARDEN_TLS_CERT and WARDEN_TLS_KEY"},
+		{name: "required client certificate without CA", mutate: func(c *Config) {
+			c.TLSCertFile = "server.crt"
+			c.TLSKeyFile = "server.key"
+			c.TLSRequireClientCert = true
+		}, wantErr: "WARDEN_TLS_REQUIRE_CLIENT_CERT=true requires WARDEN_TLS_CA"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := base()
+			tt.mutate(cfg)
+			err := ValidateConfig(cfg)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
 // TestValidateConfig_InvalidEnvironment ensures an unrecognized ENVIRONMENT is rejected.
 func TestValidateConfig_InvalidEnvironment(t *testing.T) {
 	cfg := &Config{
@@ -274,7 +330,12 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 	}{
 		{"api_key", func(c *Config) { c.APIKey = "k" }, false},
 		{"hmac_keys", func(c *Config) { c.HMACKeys = `{"id1":"secret1"}` }, false},
-		{"mtls_required", func(c *Config) { c.TLSCAFile = "/tmp/ca.pem"; c.TLSRequireClientCert = true }, false},
+		{"mtls_required", func(c *Config) {
+			c.TLSCertFile = "/tmp/server.crt"
+			c.TLSKeyFile = "/tmp/server.key"
+			c.TLSCAFile = "/tmp/ca.pem"
+			c.TLSRequireClientCert = true
+		}, false},
 		{"mtls_ca_without_require", func(c *Config) { c.TLSCAFile = "/tmp/ca.pem"; c.TLSRequireClientCert = false }, true},
 		{"empty_hmac_json", func(c *Config) { c.HMACKeys = `{}` }, true},
 		{"malformed_hmac_json", func(c *Config) { c.HMACKeys = `{not-json` }, true},
