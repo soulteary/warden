@@ -6,14 +6,12 @@ services:
     restart: always
     image: warden-release
     container_name: warden
-    # Main service port mapping: host port 8081 -> container port 8081
-    # Purpose: Main service port for user whitelist service
-    ports:
-      - 8081:8081
+    # Warden is an internal identity directory. Public traffic must enter through
+    # the gateway service; do not publish this port on the Docker host.
     expose:
       - 8081
     networks:
-      - traefik
+      - auth-internal
     env_file:
       - ./.env
     environment:
@@ -21,6 +19,8 @@ services:
       - REDIS=${REDIS}
       - CONFIG=${CONFIG}
       - KEY=${KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - API_KEY=${API_KEY:?set API_KEY in .env before starting Warden}
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
@@ -46,7 +46,7 @@ services:
     expose:
       - 6379
     networks:
-      - traefik
+      - auth-internal
     healthcheck:
       test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
       interval: 10s
@@ -54,5 +54,8 @@ services:
       retries: 3
 
 networks:
-  traefik:
-    external: true
+  # A gateway such as Stargate can join this named network from its own stack.
+  # The bridge remains unexposed while retaining outbound access for remote rules.
+  auth-internal:
+    name: auth-internal
+    driver: bridge
