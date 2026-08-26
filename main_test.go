@@ -1367,7 +1367,7 @@ func TestRegisterRoutes_GlobalIPAllowlist(t *testing.T) {
 	registerRoutes(app)
 
 	for _, endpoint := range []string{"/", "/user", "/v1/lookup", "/health", "/metrics", "/log/level"} {
-		req := httptest.NewRequest(http.MethodGet, endpoint, nil)
+		req := httptest.NewRequest(http.MethodGet, endpoint, http.NoBody)
 		req.RemoteAddr = "198.51.100.20:1234"
 		resp := httptest.NewRecorder()
 		http.DefaultServeMux.ServeHTTP(resp, req)
