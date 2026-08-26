@@ -49,9 +49,9 @@ type HMACConfig struct {
 	TimestampToleranceSec int
 	// MaxTimestampToleranceSec is the hard upper bound on the tolerance (default 300).
 	MaxTimestampToleranceSec int
-	// AllowV1 keeps the legacy v1 canonical form acceptable during migration. It
-	// defaults to true so existing signers keep working; set false to require v2.
-	AllowV1 bool
+	// AllowV1 keeps the legacy v1 canonical form acceptable during migration. Nil
+	// defaults to true so existing signers keep working; point to false to require v2.
+	AllowV1 *bool
 	// ReplayGuard rejects reused v2 nonces within the timestamp window. When nil a
 	// process-local in-memory guard is used. See ReplayGuard docs for the multi-replica
 	// limitation.
@@ -64,17 +64,13 @@ type HMACConfig struct {
 }
 
 // normalized returns a copy of cfg with defaults and bounds applied.
-//
-// NOTE: AllowV1 defaults to true here. v1 acceptance is explicitly allowed during
-// migration, and callers that verify directly (e.g. verifyHMAC) rely on this default.
-// The v2-only posture is selected by the higher-level constructors when needed; both
-// HMACAuth and ServiceAuthChain set AllowV1 explicitly before calling normalized.
 func (cfg HMACConfig) normalized() HMACConfig {
 	if cfg.Keys == nil {
 		cfg.Keys = make(map[string]string)
 	}
-	if !cfg.AllowV1 {
-		cfg.AllowV1 = true
+	if cfg.AllowV1 == nil {
+		allowV1 := true
+		cfg.AllowV1 = &allowV1
 	}
 	if cfg.MaxTimestampToleranceSec <= 0 {
 		cfg.MaxTimestampToleranceSec = defaultMaxTimestampToleranceSec
@@ -101,10 +97,6 @@ var defaultReplayGuard = NewMemoryReplayGuard(1 << 20)
 // headers are absent, the middleware passes through without requiring HMAC
 // (unchanged historical behavior — the API-Key layer enforces auth).
 func HMACAuth(cfg HMACConfig) func(http.Handler) http.Handler {
-	// Default AllowV1 to true for a zero/config that did not set it explicitly. We
-	// cannot distinguish "unset" from "false" on a bool, so callers that need v2-only
-	// use a distinct constructor; historical callers keep v1.
-	cfg.AllowV1 = true
 	c := cfg.normalized()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +125,6 @@ func writeUnauthorized(w http.ResponseWriter, _ *http.Request) {
 // If HMAC headers are present and valid (v1 or v2), the inner handler is called (API Key
 // skipped). Otherwise the request is passed to apiKeyMiddleware.
 func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) http.Handler) func(http.Handler) http.Handler {
-	hmacCfg.AllowV1 = true
 	c := hmacCfg.normalized()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +191,7 @@ func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool 
 			// Fall through to v1 (when allowed): a legacy signer might coincidentally
 			// send a nonce header; do not silently reject during migration.
 		}
-		if cfg.AllowV1 && verifyV1(r, secret, sig, ts, bodyHash) {
+		if *cfg.AllowV1 && verifyV1(r, secret, sig, ts, bodyHash) {
 			if cfg.OnV1Used != nil {
 				cfg.OnV1Used()
 			}

@@ -321,6 +321,29 @@ func TestHMAC_V1StillWorks_AndFiresDeprecation(t *testing.T) {
 	assert.Equal(t, 1, v1Used, "v1 deprecation observer should fire")
 }
 
+func TestHMAC_V1CanBeDisabled(t *testing.T) {
+	secret := "legacy-secret"
+	allowV1 := false
+	cfg := HMACConfig{
+		Keys:                  map[string]string{"key1": secret},
+		TimestampToleranceSec: 60,
+		AllowV1:               &allowV1,
+	}
+	mw := HMACAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	ts := time.Now().Unix()
+	path := "/user"
+	req := httptest.NewRequest("GET", path, http.NoBody)
+	req.Header.Set(headerSignature, computeHMAC("GET", path, "", secret, ts))
+	req.Header.Set(headerTimestamp, strconv.FormatInt(ts, 10))
+	req.Header.Set(headerKeyID, "key1")
+
+	rec := httptest.NewRecorder()
+	mw.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
 // TestMemoryReplayGuard_Concurrent exercises the guard under concurrent access to
 // ensure exactly one caller "wins" a given key and the rest see a replay.
 func TestMemoryReplayGuard_Concurrent(t *testing.T) {
