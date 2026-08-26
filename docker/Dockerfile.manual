@@ -48,6 +48,7 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
 FROM alpine:3.23
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk upgrade --no-cache && \
     apk add --no-cache tzdata curl ca-certificates && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/cache/apk/*
