@@ -14,8 +14,16 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-26
+
 ### Security
+- HMAC v2：canonical request 绑定 `X-Key-Id`，并以 nonce 和共享 Redis replay guard 阻止窗口内重放；旧 HMAC v1 默认关闭，仅可通过 `WARDEN_HMAC_ALLOW_V1=true` 临时开启。
+- TLS/mTLS：证书、私钥、客户端 CA 与强制客户端证书配置必须完整，部分配置会在启动前失败，不再静默回退到 HTTP。
+- 配置：生产环境使用独立的 `ENVIRONMENT` 判定安全策略；无 API Key、HMAC 或 mTLS 时拒绝启动，非法或空 HMAC key set 整体拒绝。
+- 远程配置：生产环境强制使用加密 envelope v2，并检查解密开关、私钥及格式组合，避免配置组合绕过加密策略。
 - 身份状态：缺失 `status` 的记录不再自动激活，改为按 `inactive` 处理；允许访问必须显式设置 `active`。
+- 错误与健康：生产错误脱敏不再依赖数据合并模式；严格刷新失败会降级健康状态。
+- SDK：不完整 HMAC 配置会返回配置错误；响应体超限会明确报错；重试使用有首轮延迟的指数退避。
 - 容器：运行阶段以非 root 用户（uid/gid 10001）运行；基础镜像固定到明确版本并说明可选 digest 固定；`-trimpath` 构建去除本地路径信息。
 - 容器：UPX 压缩默认关闭，改为显式 build arg `ENABLE_UPX=1`。
 - 构建上下文：收紧 `.dockerignore`，排除源码无关文件、密钥、证书、真实数据与已提交产物。
@@ -23,12 +31,18 @@
 - Release：容器镜像新增 keyless cosign 签名与镜像 SBOM，校验和覆盖全部发布产物。
 
 ### Changed
+- HMAC v2 canonical request 定义为 `METHOD`、escaped path/query、Key ID、timestamp、nonce、body SHA-256，各字段以换行分隔。
+- 配置变量拆分为 `ENVIRONMENT`（部署安全策略）与 `MERGE_MODE`（数据合并策略）；旧 `MODE` 仅作为迁移兼容入口。
+- Go 工具链与 lint 配置统一到 Go 1.26；共享 kit 依赖升级到兼容 Fiber v3 的 v2 模块线。
+- Compose 镜像、README 和 release 标签策略统一；稳定标签更新 `latest`，预发布标签不会更新。
 - Docker/Compose 中 Redis 从已 EOL 的 `6.2.4` 升级至受支持的 `7.4-alpine`（Warden 仅使用基础命令，向后兼容）。
 
 ### Removed
 - 从版本库移除误提交的编译二进制 `example/advanced/mock-api/mock-api`，改由 `make mock-api` 或 Docker 构建生成。
 
 ### Added
+- OpenAPI 3.1 契约声明 API Key、Bearer、HMAC v2 与 mTLS 安全方案。
+- HMAC v2、配置拆分和远程加密 v2 迁移指南。
 - `Makefile`：提供 `build`、`mock-api`、`vet`、`test-race`、`govulncheck`、`sbom`、`docker` 等目标。
 - `.github/dependabot.yml`：自动更新 Go 依赖、GitHub Actions 与 Docker 基础镜像。
 - `docs/RELEASE_SECURITY.md`：发布与分支保护建议。

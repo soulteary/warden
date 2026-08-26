@@ -24,7 +24,7 @@
 
 **必須設定**:
 - `API_KEY` 環境変数を設定する必要があります
-- `MODE=production` を設定して本番モードを有効化
+- `ENVIRONMENT=production` を設定して本番モードを有効化
 - `TRUSTED_PROXY_IPS` を設定してクライアント IP を正しく取得
 - `HEALTH_CHECK_IP_WHITELIST` を使用してヘルスチェックアクセスを制限
 

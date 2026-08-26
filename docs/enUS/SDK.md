@@ -167,6 +167,20 @@ opts := warden.DefaultOptions().
 client, err := warden.NewClient(opts)
 ```
 
+### HMAC v2 Request Signing
+
+```go
+opts := warden.DefaultOptions().
+    WithBaseURL("https://warden:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET"))
+
+client, err := warden.NewClient(opts)
+```
+
+The SDK signs the Key ID, timestamp, nonce, path/query, method, and body hash.
+Both Key ID and secret must be configured; a partial pair returns
+`ErrCodeInvalidConfig` instead of sending an unsigned request.
+
 ### Retry Configuration
 
 ```go
@@ -218,6 +232,8 @@ The `Options` struct is used to configure the client:
 - `CacheTTL`: Cache TTL (default 5 minutes)
 - `Logger`: Logger interface (optional, defaults to NoOpLogger)
 - `Transport`: Custom HTTP transport (optional)
+- `HMACKeyID` / `HMACSecret`: HMAC v2 signing pair (both or neither)
+- `TLSConfig`: TLS/mTLS client configuration (optional)
 - `Retry`: Retry configuration (optional, defaults to no retry)
 - `CacheInvalidationChannel`: Channel for event-driven cache invalidation (optional)
 

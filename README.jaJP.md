@@ -135,7 +135,7 @@ wrk ストレステストに基づく（30秒、16スレッド、100接続）：
 - **[開発ガイド](docs/enUS/DEVELOPMENT.md)** - 開発環境のセットアップと貢献ガイド
 - **[セキュリティ](docs/enUS/SECURITY.md)** - セキュリティ機能とベストプラクティス
 - **[SDK](docs/enUS/SDK.md)** - Go SDK の使用ドキュメント
-- **[移行ガイド](docs/migration-config.md)** - 設定移行（`MODE` → `ENVIRONMENT`/`MERGE_MODE`）と[リモート暗号化 v2](docs/migration-encryption-v2.md)
+- **移行ガイド** - [設定](docs/migration-config.md)、[HMAC v2](docs/migration-hmac-v2.md)、[リモート暗号化 v2](docs/migration-encryption-v2.md)
 - **[例](example/README.md)** - クイックスタート例（基本と高度）
 
 ## 📄 ライセンス

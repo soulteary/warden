@@ -23,17 +23,18 @@ This document explains Warden's security features, security configuration, and b
 
 ### 1. Production Environment Configuration
 
-**Required Configuration** (all of the following):
-- **Must** set `API_KEY` environment variable. When unset, main data endpoints return 401, but `/metrics` allows unauthenticated access; production must set API Key to avoid metrics leakage.
-- **Must** set `MODE=production` to enable production mode
+**Required Configuration**:
+- **Must** set `ENVIRONMENT=production` to enable production hardening.
+- **Must** configure at least one service authentication mechanism: `API_KEY`, HMAC v2, or mTLS.
 - **Must** configure `TRUSTED_PROXY_IPS` to correctly obtain client IP
 - **Must** use `HEALTH_CHECK_IP_WHITELIST` to restrict health check access (or restrict `/health`, `/healthcheck` via network/reverse proxy)
-- **Must** restrict `/metrics` access: either set API Key so Prometheus uses it, or restrict the path at reverse proxy/network and do not expose it publicly
+- **Must** restrict `/metrics`: set `WARDEN_METRICS_REQUIRE_AUTH=true`, or restrict the path at the reverse proxy/network layer.
 
 **Configuration Example**:
 ```bash
 export API_KEY="your-strong-api-key-here"
-export MODE=production
+export ENVIRONMENT=production
+export WARDEN_METRICS_REQUIRE_AUTH=true
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"
 ```
@@ -183,7 +184,7 @@ Warden automatically adds the following security-related HTTP response headers:
 
 ### Production Mode
 
-In production mode (`MODE=production` or `MODE=prod`):
+In production mode (`ENVIRONMENT=production`):
 
 - Hide detailed error information to prevent information leakage
 - Return generic error messages
@@ -254,54 +255,36 @@ Use mutual TLS certificates for authentication, providing higher security.
 Use HMAC-SHA256 signature to verify requests, easier to deploy.
 
 **Signature Algorithm**:
-```
-signature = HMAC_SHA256(secret, method + path + timestamp + body_hash)
+```text
+canonical_v2 = METHOD + "\n" + ESCAPED_PATH_AND_QUERY + "\n" + KEY_ID + "\n" +
+               TIMESTAMP + "\n" + NONCE + "\n" + SHA256_HEX(BODY)
+signature = HEX(HMAC_SHA256(secret, canonical_v2))
 ```
 
 **Request Headers**:
 - `X-Signature`: HMAC signature value
 - `X-Timestamp`: Unix timestamp (seconds)
-- `X-Key-Id`: Key ID (for key rotation)
+- `X-Key-Id`: Key ID (included in the signature, for safe key rotation)
+- `X-Nonce`: Unique 128-bit hexadecimal nonce
+- `X-Signature-Version`: `v2`
 
 **Warden Configuration** (Environment Variables):
 ```bash
 export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Timestamp tolerance (seconds), default 60
+export WARDEN_HMAC_ALLOW_V1=false          # Default; set true only during a bounded legacy migration
 ```
 
-**Stargate Calling Example**:
+**Go SDK Example**:
 ```go
-import (
-    "crypto/hmac"
-    "crypto/sha256"
-    "encoding/hex"
-    "fmt"
-    "time"
-)
-
-func signRequest(method, path, body, secret string) (string, int64) {
-    timestamp := time.Now().Unix()
-    bodyHash := sha256.Sum256([]byte(body))
-    bodyHashHex := hex.EncodeToString(bodyHash[:])
-    
-    message := fmt.Sprintf("%s%s%d%s", method, path, timestamp, bodyHashHex)
-    mac := hmac.New(sha256.New, []byte(secret))
-    mac.Write([]byte(message))
-    signature := hex.EncodeToString(mac.Sum(nil))
-    
-    return signature, timestamp
-}
-
-// Use in request
-signature, timestamp := signRequest("GET", "/user?phone=13800138000", "", "your-secret-key")
-req.Header.Set("X-Signature", signature)
-req.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
-req.Header.Set("X-Key-Id", "key-id-1")
+client, err := warden.NewClient(warden.DefaultOptions().
+    WithBaseURL("https://warden:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET")))
 ```
 
 **Verification Rules**:
 - Warden verifies if timestamp is within tolerance range (default ±60 seconds)
-- Warden verifies if signature matches
+- Warden verifies all canonical fields, including Key ID, and rejects reused nonces
 - If signature verification fails, returns `401 Unauthorized`
 
 ### Configuration Priority

@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Warden API
   description: |
@@ -15,14 +15,24 @@ info:
     name: Warden Project
     url: https://github.com/soulteary/warden
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
 
 servers:
   - url: http://localhost:8081
     description: 本地开发服务器
   - url: https://api.example.com
     description: 生产环境服务器
+
+security:
+  - APIKeyHeader: []
+  - BearerAuth: []
+  - HMACSignature: []
+    HMACTimestamp: []
+    HMACKeyID: []
+    HMACNonce: []
+    HMACVersion: []
+  - MutualTLS: []
 
 tags:
   - name: users
@@ -170,6 +180,7 @@ paths:
 
   /health:
     get:
+      security: []
       tags:
         - health
       summary: 健康检查
@@ -214,6 +225,7 @@ paths:
 
   /healthcheck:
     get:
+      security: []
       tags:
         - health
       summary: 健康检查（别名）
@@ -474,6 +486,7 @@ paths:
 
   /v1/health:
     get:
+      security: []
       tags:
         - health
       summary: 健康检查（v1）
@@ -485,12 +498,27 @@ paths:
         '503':
           description: 服务不可用
 
+  /v1/healthcheck:
+    get:
+      security: []
+      tags:
+        - health
+      summary: 健康检查别名（v1）
+      description: 与 GET /healthcheck 相同
+      operationId: healthCheckAliasV1
+      responses:
+        '200':
+          $ref: '#/paths/~1health/get/responses/200'
+        '503':
+          $ref: '#/paths/~1health/get/responses/503'
+
   /metrics:
     get:
+      security: []
       tags:
         - system
       summary: Prometheus 指标
-      description: 返回 Prometheus 格式的监控指标
+      description: 默认匿名返回 Prometheus 指标；设置 WARDEN_METRICS_REQUIRE_AUTH=true 后使用全局认证方案。
       operationId: getMetrics
       responses:
         '200':
@@ -508,6 +536,41 @@ paths:
                   cache_size 100
 
 components:
+  securitySchemes:
+    APIKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+    HMACSignature:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: Hex-encoded HMAC-SHA256 signature over the v2 canonical request.
+    HMACTimestamp:
+      type: apiKey
+      in: header
+      name: X-Timestamp
+    HMACKeyID:
+      type: apiKey
+      in: header
+      name: X-Key-Id
+      description: Key identifier included in the signed v2 canonical request.
+    HMACNonce:
+      type: apiKey
+      in: header
+      name: X-Nonce
+      description: Unique 128-bit hexadecimal nonce used for replay rejection.
+    HMACVersion:
+      type: apiKey
+      in: header
+      name: X-Signature-Version
+      description: Must be v2. Legacy v1 is disabled by default.
+    MutualTLS:
+      type: mutualTLS
+
   schemas:
     AllowListUser:
       type: object

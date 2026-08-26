@@ -24,7 +24,7 @@
 
 **필수 구성**:
 - `API_KEY` 환경 변수를 설정해야 합니다
-- `MODE=production`을 설정하여 프로덕션 모드 활성화
+- `ENVIRONMENT=production`을 설정하여 프로덕션 모드 활성화
 - `TRUSTED_PROXY_IPS`를 구성하여 클라이언트 IP를 올바르게 가져옴
 - `HEALTH_CHECK_IP_WHITELIST`를 사용하여 상태 확인 액세스 제한
 

@@ -24,7 +24,7 @@ Ce document explique les fonctionnalités de sécurité de Warden, la configurat
 
 **Configuration Requise**:
 - Doit définir la variable d'environnement `API_KEY`
-- Définir `MODE=production` pour activer le mode production
+- Définir `ENVIRONMENT=production` pour activer le mode production
 - Configurer `TRUSTED_PROXY_IPS` pour obtenir correctement l'IP du client
 - Utiliser `HEALTH_CHECK_IP_WHITELIST` pour restreindre l'accès à la vérification de santé
 
