@@ -223,6 +223,20 @@ func TestNewApp(t *testing.T) {
 	}
 }
 
+func TestNewApp_HMACKeys(t *testing.T) {
+	t.Run("valid key set", func(t *testing.T) {
+		app := NewApp(&cmd.Config{HMACKeys: `{" key-1 ":"secret"}`})
+		require.NotNil(t, app)
+		assert.Equal(t, map[string]string{"key-1": "secret"}, app.hmacKeys)
+	})
+
+	t.Run("invalid key set is disabled", func(t *testing.T) {
+		app := NewApp(&cmd.Config{HMACKeys: `{"key-1":""}`})
+		require.NotNil(t, app)
+		assert.Nil(t, app.hmacKeys)
+	})
+}
+
 // TestApp_checkDataChanged tests data change detection
 func TestApp_checkDataChanged(t *testing.T) {
 	cfg := &cmd.Config{

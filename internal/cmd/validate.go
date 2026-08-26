@@ -56,6 +56,14 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.environment_invalid", cfg.Environment))
 	}
 
+	// Validate the complete HMAC key set before it reaches authentication middleware.
+	// A configured-but-empty secret must never become an authentication credential.
+	if strings.TrimSpace(cfg.HMACKeys) != "" {
+		if _, err := ParseHMACKeys(cfg.HMACKeys); err != nil {
+			errors = append(errors, fmt.Sprintf("Invalid WARDEN_HMAC_KEYS: %v", err))
+		}
+	}
+
 	if _, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -180,18 +188,38 @@ func hasConfiguredAuth(cfg *Config) bool {
 // hasHMACKeys reports whether the HMAC keys JSON contains at least one key. It
 // parses defensively and never logs the secret material.
 func hasHMACKeys(raw string) bool {
+	keys, err := ParseHMACKeys(raw)
+	return err == nil && len(keys) > 0
+}
+
+// ParseHMACKeys parses and validates the complete key set. Key identifiers are
+// trimmed for stable lookup; secrets are preserved byte-for-byte but may not be
+// empty or whitespace-only. Invalid entries fail the whole set closed.
+func ParseHMACKeys(raw string) (map[string]string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return false
+		return nil, nil
 	}
-	var keys map[string]string
-	if err := json.Unmarshal([]byte(raw), &keys); err != nil {
-		return false
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
-	for id, secret := range keys {
-		if strings.TrimSpace(id) != "" && strings.TrimSpace(secret) != "" {
-			return true
+	if len(parsed) == 0 {
+		return nil, fmt.Errorf("at least one key is required")
+	}
+	keys := make(map[string]string, len(parsed))
+	for id, secret := range parsed {
+		normalizedID := strings.TrimSpace(id)
+		if normalizedID == "" {
+			return nil, fmt.Errorf("key id must not be empty")
 		}
+		if strings.TrimSpace(secret) == "" {
+			return nil, fmt.Errorf("secret for key %q must not be empty", normalizedID)
+		}
+		if _, exists := keys[normalizedID]; exists {
+			return nil, fmt.Errorf("duplicate key id %q after normalization", normalizedID)
+		}
+		keys[normalizedID] = secret
 	}
-	return false
+	return keys, nil
 }

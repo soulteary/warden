@@ -278,6 +278,9 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 		{"mtls_ca_without_require", func(c *Config) { c.TLSCAFile = "/tmp/ca.pem"; c.TLSRequireClientCert = false }, true},
 		{"empty_hmac_json", func(c *Config) { c.HMACKeys = `{}` }, true},
 		{"malformed_hmac_json", func(c *Config) { c.HMACKeys = `{not-json` }, true},
+		{"empty_hmac_secret", func(c *Config) { c.HMACKeys = `{"id1":""}` }, true},
+		{"blank_hmac_secret", func(c *Config) { c.HMACKeys = `{"id1":"   "}` }, true},
+		{"mixed_valid_and_empty_hmac", func(c *Config) { c.HMACKeys = `{"id1":"secret1","id2":""}` }, true},
 		{"blank_api_key", func(c *Config) { c.APIKey = "   " }, true},
 		{"none", func(_ *Config) {}, true},
 	}
@@ -291,6 +294,36 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 			} else {
 				assert.NoError(t, err, "配置了有效认证方式应通过")
 			}
+		})
+	}
+}
+
+func TestParseHMACKeys(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		want    map[string]string
+		wantErr string
+	}{
+		{name: "unset", raw: "   ", want: nil},
+		{name: "valid and normalized", raw: `{" key-1 ":"  secret  "}`, want: map[string]string{"key-1": "  secret  "}},
+		{name: "invalid JSON", raw: `{`, wantErr: "invalid JSON"},
+		{name: "empty set", raw: `{}`, wantErr: "at least one key is required"},
+		{name: "blank id", raw: `{"   ":"secret"}`, wantErr: "key id must not be empty"},
+		{name: "blank secret", raw: `{"key-1":"   "}`, wantErr: `secret for key "key-1" must not be empty`},
+		{name: "normalized collision", raw: `{"key-1":"first"," key-1 ":"second"}`, wantErr: `duplicate key id "key-1" after normalization`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseHMACKeys(tt.raw)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
