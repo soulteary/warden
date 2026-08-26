@@ -473,6 +473,34 @@ func TestOptions_Validate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "HMAC key ID without secret",
+			opts: &Options{
+				BaseURL:   "http://localhost:8081",
+				Timeout:   10 * time.Second,
+				HMACKeyID: "key-1",
+			},
+			wantErr: true,
+		},
+		{
+			name: "HMAC secret without key ID",
+			opts: &Options{
+				BaseURL:    "http://localhost:8081",
+				Timeout:    10 * time.Second,
+				HMACSecret: "secret",
+			},
+			wantErr: true,
+		},
+		{
+			name: "complete HMAC pair",
+			opts: &Options{
+				BaseURL:    "http://localhost:8081",
+				Timeout:    10 * time.Second,
+				HMACKeyID:  "key-1",
+				HMACSecret: "secret",
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
