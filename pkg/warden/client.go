@@ -1,6 +1,7 @@
 package warden
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -506,7 +507,10 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 
 		// Success or non-retryable error - return response
 		// The caller will check the status code
-		c.applyResponseLimit(resp)
+		if err := c.applyResponseLimit(resp); err != nil {
+			_ = resp.Body.Close()
+			return nil, NewError(ErrCodeInvalidResponse, "response body exceeds configured limit", err)
+		}
 		return resp, nil
 	}
 
@@ -530,32 +534,31 @@ func (c *Client) addAuthHeaders(req *http.Request) {
 	}
 }
 
-// applyResponseLimit wraps the response body with an io.LimitReader so decoders
-// cannot be forced to read an unbounded payload. A negative maxResponseBytes
-// disables the limit.
-func (c *Client) applyResponseLimit(resp *http.Response) {
+// applyResponseLimit reads at most limit+1 bytes so an oversized response is
+// rejected explicitly rather than exposed as an ambiguous truncated body.
+func (c *Client) applyResponseLimit(resp *http.Response) error {
 	if resp == nil || resp.Body == nil {
-		return
+		return nil
 	}
 	if c.maxResponseBytes < 0 {
-		return
+		return nil
 	}
 	limit := c.maxResponseBytes
 	if limit == 0 {
 		limit = DefaultMaxResponseBytes
 	}
 	orig := resp.Body
-	resp.Body = &limitedReadCloser{r: io.LimitReader(orig, limit), c: orig}
+	body, err := io.ReadAll(io.LimitReader(orig, limit+1))
+	_ = orig.Close()
+	if err != nil {
+		return err
+	}
+	if int64(len(body)) > limit {
+		return ErrResponseTooLarge
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	return nil
 }
-
-// limitedReadCloser bounds reads while still closing the underlying body.
-type limitedReadCloser struct {
-	r io.Reader
-	c io.Closer
-}
-
-func (l *limitedReadCloser) Read(p []byte) (int, error) { return l.r.Read(p) }
-func (l *limitedReadCloser) Close() error               { return l.c.Close() }
 
 // checkResponseStatus checks the HTTP response status and returns an error if not OK.
 func (c *Client) checkResponseStatus(resp *http.Response) error {

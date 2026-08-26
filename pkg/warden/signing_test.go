@@ -160,7 +160,8 @@ func TestClient_ResponseSizeLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.GetUsers(context.Background())
-	require.Error(t, err, "truncated body must fail to decode rather than read unbounded data")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrResponseTooLarge, "oversized responses must be detected explicitly")
 }
 
 // TestClient_RetryOnlyIdempotent verifies GET retries on 5xx while the retry engine

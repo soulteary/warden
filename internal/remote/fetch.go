@@ -195,12 +195,23 @@ func fetchBody(ctx context.Context, opts *FetchOptions) (body []byte, contentTyp
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("remote fetch: status %d", resp.StatusCode)
 	}
-	body, err = io.ReadAll(io.LimitReader(resp.Body, define.MAX_ENVELOPE_JSON_SIZE))
+	body, err = readLimitedBody(resp.Body, int64(define.MAX_ENVELOPE_JSON_SIZE))
 	if err != nil {
 		return nil, "", fmt.Errorf("remote fetch: read %w", err)
 	}
 	contentType = strings.TrimSpace(strings.ToLower(resp.Header.Get("Content-Type")))
 	return body, contentType, nil
+}
+
+func readLimitedBody(r io.Reader, limit int64) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > limit {
+		return nil, ErrResponseTooLarge
+	}
+	return body, nil
 }
 
 // FetchDecrypted fetches url with optional auth header and optional decryption.
