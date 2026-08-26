@@ -81,6 +81,7 @@ func registerRoutes(app *App) {
 	bodyLimitCfg.TrustedProxyConfig = trustedProxyConfig
 	bodyLimitCfg.Logger = logger.ZerologPtr()
 	bodyLimitMiddleware := middlewarekit.BodyLimitStd(bodyLimitCfg)
+	ipAllowlistMiddleware := middleware.IPWhitelistMiddleware("")
 
 	var tracingMiddleware func(http.Handler) http.Handler
 	if tracing.IsEnabled() {
@@ -102,9 +103,9 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						metricsAuth(
+						ipAllowlistMiddleware(metricsAuth(
 							middleware.MetricsMiddleware(prommetrics.Handler()),
-						),
+						)),
 					),
 				),
 			),
@@ -117,7 +118,7 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						compressMiddleware(
+						ipAllowlistMiddleware(compressMiddleware(
 							bodyLimitMiddleware(
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
@@ -127,7 +128,7 @@ func registerRoutes(app *App) {
 									),
 								),
 							),
-						),
+						)),
 					),
 				),
 			),
@@ -141,7 +142,7 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						compressMiddleware(
+						ipAllowlistMiddleware(compressMiddleware(
 							bodyLimitMiddleware(
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
@@ -151,7 +152,7 @@ func registerRoutes(app *App) {
 									),
 								),
 							),
-						),
+						)),
 					),
 				),
 			),
@@ -164,7 +165,7 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						compressMiddleware(
+						ipAllowlistMiddleware(compressMiddleware(
 							bodyLimitMiddleware(
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
@@ -174,7 +175,7 @@ func registerRoutes(app *App) {
 									),
 								),
 							),
-						),
+						)),
 					),
 				),
 			),
@@ -188,9 +189,9 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.MetricsMiddleware(
+						ipAllowlistMiddleware(middleware.MetricsMiddleware(
 							middlewarekit.NoCacheHeadersStd()(health.Handler(healthAggregator)),
-						),
+						)),
 					),
 				),
 			),
@@ -210,13 +211,13 @@ func registerRoutes(app *App) {
 			securityHeadersMiddleware(
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
-						middleware.MetricsMiddleware(
+						ipAllowlistMiddleware(middleware.MetricsMiddleware(
 							authMiddleware(
 								loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
 									Logger: lkLog,
 								}),
 							),
-						),
+						)),
 					),
 				),
 			),
