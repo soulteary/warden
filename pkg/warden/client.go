@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -436,14 +437,22 @@ func (c *Client) isRetryableError(err error, statusCode int) bool {
 	return false
 }
 
-// calculateRetryDelay calculates the delay for the next retry attempt using exponential backoff.
-func (c *Client) calculateRetryDelay(attempt int) time.Duration {
+// calculateRetryDelay calculates the delay before a retry using exponential
+// backoff. retryIndex is zero-based, so the first retry waits RetryDelay.
+func (c *Client) calculateRetryDelay(retryIndex int) time.Duration {
 	if c.retry == nil {
 		return 0
 	}
 
-	delay := time.Duration(float64(c.retry.RetryDelay) * float64(attempt) * c.retry.BackoffMultiplier)
-	if delay > c.retry.MaxRetryDelay {
+	if retryIndex < 0 {
+		retryIndex = 0
+	}
+	delayFloat := float64(c.retry.RetryDelay) * math.Pow(c.retry.BackoffMultiplier, float64(retryIndex))
+	if delayFloat > float64(math.MaxInt64) {
+		delayFloat = float64(math.MaxInt64)
+	}
+	delay := time.Duration(delayFloat)
+	if c.retry.MaxRetryDelay > 0 && delay > c.retry.MaxRetryDelay {
 		delay = c.retry.MaxRetryDelay
 	}
 

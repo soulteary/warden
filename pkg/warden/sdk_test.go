@@ -1770,15 +1770,20 @@ func TestClient_calculateRetryDelay(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	// Test first attempt (should be 0)
+	// The first retry waits the configured initial delay.
 	delay := client.calculateRetryDelay(0)
-	if delay != 0 {
-		t.Errorf("Expected delay 0 for first attempt, got %v", delay)
+	if delay != 100*time.Millisecond {
+		t.Errorf("Expected delay 100ms for first retry, got %v", delay)
 	}
 
-	// Test second attempt
+	// Subsequent retries grow exponentially.
 	delay = client.calculateRetryDelay(1)
-	expected := 100 * time.Millisecond * 2 // 100ms * 2.0 * 1
+	expected := 200 * time.Millisecond
+	if delay != expected {
+		t.Errorf("Expected delay %v, got %v", expected, delay)
+	}
+	delay = client.calculateRetryDelay(2)
+	expected = 400 * time.Millisecond
 	if delay != expected {
 		t.Errorf("Expected delay %v, got %v", expected, delay)
 	}
