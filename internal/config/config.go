@@ -119,28 +119,30 @@ func LoadFromFile(configPath string) (*Config, error) {
 			return nil, errors.ErrConfigLoad.WithError(err)
 		}
 
-		if _, err := os.Stat(validatedPath); err == nil {
-			// #nosec G304 -- configuration file path has been validated, is safe
-			data, err := os.ReadFile(validatedPath)
-			if err != nil {
-				return nil, errors.ErrConfigLoad.WithError(err)
-			}
+		if _, err := os.Stat(validatedPath); err != nil {
+			return nil, errors.ErrConfigLoad.WithError(err)
+		}
 
-			// Determine format by file extension
-			ext := strings.ToLower(filepath.Ext(validatedPath))
-			switch ext {
-			case ".yaml", ".yml":
-				if err := yaml.Unmarshal(data, cfg); err != nil {
-					return nil, errors.ErrConfigParse.WithError(err)
-				}
-			case ".toml":
-				// TOML support requires additional library, return error message here
-				return nil, errors.ErrConfigParse.WithMessage(i18n.TWithLang(i18n.LangZH, "error.toml_not_supported"))
-			default:
-				// Default to try YAML
-				if err := yaml.Unmarshal(data, cfg); err != nil {
-					return nil, errors.ErrConfigParse.WithError(err)
-				}
+		// #nosec G304 -- configuration file path has been validated, is safe
+		data, err := os.ReadFile(validatedPath)
+		if err != nil {
+			return nil, errors.ErrConfigLoad.WithError(err)
+		}
+
+		// Determine format by file extension
+		ext := strings.ToLower(filepath.Ext(validatedPath))
+		switch ext {
+		case ".yaml", ".yml":
+			if err := yaml.Unmarshal(data, cfg); err != nil {
+				return nil, errors.ErrConfigParse.WithError(err)
+			}
+		case ".toml":
+			// TOML support requires additional library, return error message here
+			return nil, errors.ErrConfigParse.WithMessage(i18n.TWithLang(i18n.LangZH, "error.toml_not_supported"))
+		default:
+			// Default to try YAML
+			if err := yaml.Unmarshal(data, cfg); err != nil {
+				return nil, errors.ErrConfigParse.WithError(err)
 			}
 		}
 	}

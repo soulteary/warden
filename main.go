@@ -680,7 +680,12 @@ func main() {
 	log := logger.GetLoggerKit()
 
 	// Parse configuration
-	cfg := cmd.GetArgs()
+	cfg, err := cmd.GetArgsWithError()
+	if err != nil {
+		log.Fatal().
+			Err(err).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
+	}
 
 	// Validate configuration
 	if err := cmd.ValidateConfig(cfg); err != nil {
@@ -691,7 +696,7 @@ func main() {
 
 	// Load config from file if config file is specified (for tracing config)
 	var tracingCfg *config.Config
-	if cfgFile := os.Getenv("CONFIG_FILE"); cfgFile != "" {
+	if cfgFile := cfg.ConfigFile; cfgFile != "" {
 		if loadedCfg, err := config.LoadFromFile(cfgFile); err == nil {
 			tracingCfg = loadedCfg
 		}

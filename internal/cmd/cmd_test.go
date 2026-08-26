@@ -517,7 +517,7 @@ app:
 	assert.Equal(t, "config-key", cfg.RemoteKey, "未覆盖的配置应该来自配置文件")
 }
 
-// TestGetArgs_WithConfigFile_InvalidFile tests GetArgs with invalid config file
+// TestGetArgs_WithConfigFile_InvalidFile tests fail-closed behavior for an explicit config file.
 func TestGetArgs_WithConfigFile_InvalidFile(t *testing.T) {
 	oldArgs := os.Args
 	defer func() {
@@ -538,11 +538,10 @@ func TestGetArgs_WithConfigFile_InvalidFile(t *testing.T) {
 
 	// Use non-existent config file
 	os.Args = []string{"test", "--config-file", "/nonexistent/config.yaml"}
-	cfg := GetArgs()
+	cfg, err := GetArgsWithError()
 
-	// Should fallback to default values
-	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port, "无效配置文件应该回退到默认值")
-	assert.Equal(t, define.DEFAULT_REDIS, cfg.Redis, "无效配置文件应该回退到默认值")
+	require.Error(t, err)
+	assert.Nil(t, cfg)
 }
 
 // TestLoadConfig tests LoadConfig function
