@@ -2,9 +2,11 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -12,9 +14,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type replaySetNXResult struct {
+	inserted bool
+	err      error
+	key      string
+	ttl      time.Duration
+}
+
+func (f *replaySetNXResult) SetNX(_ context.Context, key string, _ interface{}, expiration time.Duration) *redis.BoolCmd {
+	f.key = key
+	f.ttl = expiration
+	return redis.NewBoolResult(f.inserted, f.err)
+}
 
 // computeHMACv2 builds a v2 signature over the canonical form
 // METHOD\nPATH_AND_QUERY\nTIMESTAMP\nNONCE\nSHA256_HEX(body).
@@ -331,4 +347,22 @@ func TestMemoryReplayGuard_MaxSizeFailsSafe(t *testing.T) {
 	assert.True(t, g.SeenBefore("c", time.Minute))
 	// An already-tracked key still reports replay.
 	assert.True(t, g.SeenBefore("a", time.Minute))
+}
+
+func TestRedisReplayGuard(t *testing.T) {
+	store := &replaySetNXResult{inserted: true}
+	guard := newRedisReplayGuard(store)
+	assert.False(t, guard.SeenBefore("key-id:nonce", 30*time.Second))
+	assert.Equal(t, 30*time.Second, store.ttl)
+	assert.Regexp(t, `^warden:hmac:replay:[0-9a-f]{64}$`, store.key)
+
+	store.inserted = false
+	assert.True(t, guard.SeenBefore("key-id:nonce", 30*time.Second))
+}
+
+func TestRedisReplayGuard_FailsClosed(t *testing.T) {
+	store := &replaySetNXResult{err: errors.New("redis unavailable")}
+	guard := newRedisReplayGuard(store)
+	assert.True(t, guard.SeenBefore("key-id:nonce", time.Minute))
+	assert.True(t, newRedisReplayGuard(nil).SeenBefore("key-id:nonce", time.Minute))
 }
