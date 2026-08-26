@@ -1,0 +1,72 @@
+# 应用配置示例文件
+# 使用方式: ./warden -config-file config.yaml
+
+server:
+  port: "8081"
+  read_timeout: 5s
+  write_timeout: 5s
+  shutdown_timeout: 5s
+  max_header_bytes: 1048576  # 1MB
+  idle_timeout: 120s
+
+redis:
+  addr: "localhost:6379"
+  password: ""  # 建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE
+  password_file: ""  # 密码文件路径（同 YAML 内与 password 二选一时优先；整体优先级：REDIS_PASSWORD 环境变量 > REDIS_PASSWORD_FILE/本项 > password）
+  db: 0
+
+cache:
+  ttl: 3600s
+  update_interval: 5s
+
+rate_limit:
+  rate: 60  # 每分钟请求数
+  window: 1m
+
+http:
+  timeout: 5s
+  max_idle_conns: 100
+  insecure_tls: false  # 仅用于开发环境
+  max_retries: 3
+  retry_delay: 1s
+
+remote:
+  url: "http://localhost:8080/data.json"
+  key: ""
+  mode: "DEFAULT"              # 已弃用：仅作为 MERGE_MODE 别名；生产判断改用 ENVIRONMENT（见 docs/migration-config.md）
+  decrypt_enabled: false       # 是否对远程响应做解密（需配合 rsa_private_key_file 或环境变量 REMOTE_RSA_PRIVATE_KEY_FILE / REMOTE_RSA_PRIVATE_KEY）
+  rsa_private_key_file: ""     # RSA 私钥 PEM 文件路径；也可通过环境变量 REMOTE_RSA_PRIVATE_KEY 提供内联 PEM（生产建议密钥管理器：<set-via-secret-manager>）
+  # 认证信封 v2（AES-256-GCM + RSA-OAEP-SHA256）；以下项通过环境变量配置，详见 docs/migration-encryption-v2.md：
+  #   REMOTE_ENCRYPTION_FORMAT=auto|v2|legacy   # 默认 auto，迁移期同时接受新旧格式
+  #   REMOTE_ENCRYPTION_REQUIRED=true           # 生产建议 fail closed，拒绝明文降级
+
+task:
+  interval: 5s
+
+app:
+  mode: "DEFAULT"  # 已弃用：仅作为数据合并模式（MERGE_MODE）别名；不再用于生产判断
+  # 部署环境与合并模式（推荐通过环境变量配置，详见 docs/migration-config.md）：
+  #   ENVIRONMENT=development|test|production   # 决定安全硬化与生产认证要求（默认 development）
+  #   MERGE_MODE=DEFAULT|REMOTE_FIRST|ONLY_REMOTE|ONLY_LOCAL|LOCAL_FIRST|
+  #              REMOTE_FIRST_ALLOW_REMOTE_FAILED|LOCAL_FIRST_ALLOW_REMOTE_FAILED
+  api_key: ""  # API Key 用于认证（敏感信息，强烈建议使用环境变量 API_KEY=<set-via-secret-manager>）
+  data_file: "./data.json"  # 本地用户数据文件路径
+  data_dir: ""   # 可选：用户数据目录，合并该目录下所有 *.json 文件（可与 data_file 同时使用）
+  response_fields: []  # 可选：API 响应字段白名单，空则返回全部字段；如 ["phone","mail","user_id","status","scope","role","name"]
+  # 身份完整性（通过环境变量配置，详见 docs/migration-config.md）：
+  #   REQUIRE_EXPLICIT_USER_ID=true             # 缺少显式 user_id 时拒绝（不静默派生）
+  #   USER_ID_STRATEGY=legacy|sha256-128        # user_id 派生策略
+
+tracing:
+  enabled: false  # 是否启用 OpenTelemetry 追踪
+  endpoint: ""    # OTLP 端点（如 "http://localhost:4318"），enabled 为 true 时必填
+
+# 服务间鉴权（mTLS / HMAC）仅通过环境变量配置，不在此 YAML 中设置：
+# 生产环境（ENVIRONMENT=production）必须至少配置以下之一：API_KEY / WARDEN_HMAC_KEYS / mTLS，否则启动失败
+#   WARDEN_HMAC_KEYS='{"key-id":"<set-via-secret-manager>"}'  # HMAC 密钥（同时支持 v1 与认证 v2）
+#   WARDEN_HMAC_TIMESTAMP_TOLERANCE=60      # 时间戳容差（秒，含上限）
+#   WARDEN_TLS_CERT=/path/to/warden.crt     # 服务端证书（与 KEY 同时设置则启用 TLS）
+#   WARDEN_TLS_KEY=/path/to/warden.key      # 服务端私钥
+#   WARDEN_TLS_CA=/path/to/ca.crt           # 客户端 CA（mTLS）
+#   WARDEN_TLS_REQUIRE_CLIENT_CERT=true     # 是否要求客户端证书
+#   WARDEN_METRICS_REQUIRE_AUTH=false       # /metrics 默认匿名暴露（仅低基数非敏感指标）；true 则强制认证
