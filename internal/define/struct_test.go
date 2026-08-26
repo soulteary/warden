@@ -133,7 +133,7 @@ func TestAllowListUser_Normalize(t *testing.T) {
 				Status: "",
 			},
 			validate: func(t *testing.T, user AllowListUser) {
-				assert.Equal(t, "active", user.Status, "空status应该设置为active")
+				assert.Equal(t, "inactive", user.Status, "空status应该设置为inactive")
 			},
 		},
 		{

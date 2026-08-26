@@ -98,7 +98,7 @@ Local user data file `data.json` format (refer to `data.example.json`):
 - `phone` (required): User phone number
 - `mail` (required): User email address
 - `user_id` (optional): User unique identifier, auto-generated based on phone or mail if not provided
-- `status` (optional): User status, defaults to "active"
+- `status` (optional): User status; omitted values fail closed as `"inactive"`. Set `"active"` explicitly to allow access.
 - `scope` (optional): User permission scope array, defaults to empty array
 - `role` (optional): User role, defaults to empty string
 

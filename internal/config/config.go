@@ -107,6 +107,20 @@ type TracingConfig struct {
 // Supports YAML and TOML formats (determined by file extension)
 // Priority: configuration file > environment variables > default values
 func LoadFromFile(configPath string) (*Config, error) {
+	cfg, err := ParseFromFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := validate(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// ParseFromFile loads and merges a configuration file without semantic validation.
+// Callers that still need to apply higher-priority CLI values must validate the final
+// merged representation after those overrides are applied.
+func ParseFromFile(configPath string) (*Config, error) {
 	cfg := &Config{}
 
 	// If configuration file exists, attempt to load
@@ -119,28 +133,30 @@ func LoadFromFile(configPath string) (*Config, error) {
 			return nil, errors.ErrConfigLoad.WithError(err)
 		}
 
-		if _, err := os.Stat(validatedPath); err == nil {
-			// #nosec G304 -- configuration file path has been validated, is safe
-			data, err := os.ReadFile(validatedPath)
-			if err != nil {
-				return nil, errors.ErrConfigLoad.WithError(err)
-			}
+		if _, statErr := os.Stat(validatedPath); statErr != nil {
+			return nil, errors.ErrConfigLoad.WithError(statErr)
+		}
 
-			// Determine format by file extension
-			ext := strings.ToLower(filepath.Ext(validatedPath))
-			switch ext {
-			case ".yaml", ".yml":
-				if err := yaml.Unmarshal(data, cfg); err != nil {
-					return nil, errors.ErrConfigParse.WithError(err)
-				}
-			case ".toml":
-				// TOML support requires additional library, return error message here
-				return nil, errors.ErrConfigParse.WithMessage(i18n.TWithLang(i18n.LangZH, "error.toml_not_supported"))
-			default:
-				// Default to try YAML
-				if err := yaml.Unmarshal(data, cfg); err != nil {
-					return nil, errors.ErrConfigParse.WithError(err)
-				}
+		// #nosec G304 -- configuration file path has been validated, is safe
+		data, err := os.ReadFile(validatedPath)
+		if err != nil {
+			return nil, errors.ErrConfigLoad.WithError(err)
+		}
+
+		// Determine format by file extension
+		ext := strings.ToLower(filepath.Ext(validatedPath))
+		switch ext {
+		case ".yaml", ".yml":
+			if err := yaml.Unmarshal(data, cfg); err != nil {
+				return nil, errors.ErrConfigParse.WithError(err)
+			}
+		case ".toml":
+			// TOML support requires additional library, return error message here
+			return nil, errors.ErrConfigParse.WithMessage(i18n.TWithLang(i18n.LangZH, "error.toml_not_supported"))
+		default:
+			// Default to try YAML
+			if err := yaml.Unmarshal(data, cfg); err != nil {
+				return nil, errors.ErrConfigParse.WithError(err)
 			}
 		}
 	}
@@ -150,11 +166,6 @@ func LoadFromFile(configPath string) (*Config, error) {
 
 	// Override configuration from environment variables (priority higher than configuration file)
 	overrideFromEnv(cfg)
-
-	// Validate configuration
-	if err := validate(cfg); err != nil {
-		return nil, err
-	}
 
 	return cfg, nil
 }

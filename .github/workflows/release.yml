@@ -63,7 +63,7 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +%FT%T%z)
-          LDFLAGS="-s -w -X github.com/soulteary/version-kit.Version=${VERSION} -X github.com/soulteary/version-kit.Commit=${COMMIT} -X github.com/soulteary/version-kit.BuildDate=${BUILD_DATE}"
+          LDFLAGS="-s -w -X github.com/soulteary/version-kit/v2.Version=${VERSION} -X github.com/soulteary/version-kit/v2.Commit=${COMMIT} -X github.com/soulteary/version-kit/v2.BuildDate=${BUILD_DATE}"
 
           # 构建多个平台
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/warden-linux-amd64 .
@@ -185,4 +185,3 @@ jobs:
             - SBOM（SPDX）：`warden-image-sbom.spdx.json`
           draft: false
           prerelease: false
-
