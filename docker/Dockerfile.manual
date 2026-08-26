@@ -4,7 +4,7 @@
 # 与 docker/Dockerfile 语义一致，仅额外配置 APK/GOPROXY 镜像源与时区。
 
 # 高保证：将 tag 追加 @sha256:<digest> 以固定不可变镜像。
-FROM golang:1.26.6-alpine3.23 AS builder
+FROM golang:1.27.0-alpine3.23 AS builder
 RUN echo '' > /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.23/main"         >> /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.23/community"    >> /etc/apk/repositories && \
