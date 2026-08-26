@@ -54,14 +54,11 @@ func TestLoadFromFile_EmptyFile(t *testing.T) {
 	assert.NotEmpty(t, cfg.Server.Port)
 }
 
-// TestLoadFromFile_NonExistentFile tests non-existent configuration file (should use default values)
+// TestLoadFromFile_NonExistentFile tests that an explicitly requested file is mandatory.
 func TestLoadFromFile_NonExistentFile(t *testing.T) {
 	cfg, err := LoadFromFile("/nonexistent/config.yaml")
-	require.NoError(t, err, "不存在的文件应该使用默认值")
-	require.NotNil(t, cfg)
-
-	// Should use default values
-	assert.NotEmpty(t, cfg.Server.Port)
+	require.Error(t, err)
+	assert.Nil(t, cfg)
 }
 
 // TestLoadFromFile_InvalidYAML tests invalid YAML file

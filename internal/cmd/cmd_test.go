@@ -517,7 +517,7 @@ app:
 	assert.Equal(t, "config-key", cfg.RemoteKey, "未覆盖的配置应该来自配置文件")
 }
 
-// TestGetArgs_WithConfigFile_InvalidFile tests GetArgs with invalid config file
+// TestGetArgs_WithConfigFile_InvalidFile tests fail-closed behavior for an explicit config file.
 func TestGetArgs_WithConfigFile_InvalidFile(t *testing.T) {
 	oldArgs := os.Args
 	defer func() {
@@ -538,11 +538,10 @@ func TestGetArgs_WithConfigFile_InvalidFile(t *testing.T) {
 
 	// Use non-existent config file
 	os.Args = []string{"test", "--config-file", "/nonexistent/config.yaml"}
-	cfg := GetArgs()
+	cfg, err := GetArgsWithError()
 
-	// Should fallback to default values
-	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port, "无效配置文件应该回退到默认值")
-	assert.Equal(t, define.DEFAULT_REDIS, cfg.Redis, "无效配置文件应该回退到默认值")
+	require.Error(t, err)
+	assert.Nil(t, cfg)
 }
 
 // TestLoadConfig tests LoadConfig function
@@ -663,7 +662,7 @@ func TestLoadConfig_InvalidFile(t *testing.T) {
 	assert.Nil(t, cfg, "无效YAML内容应该返回nil")
 }
 
-// TestLoadConfig_NonExistentFile tests LoadConfig with non-existent file (should use defaults)
+// TestLoadConfig_NonExistentFile tests fail-closed behavior for an explicit file.
 func TestLoadConfig_NonExistentFile(t *testing.T) {
 	oldArgs := os.Args
 	defer func() {
@@ -683,11 +682,32 @@ func TestLoadConfig_NonExistentFile(t *testing.T) {
 	}
 
 	os.Args = []string{"test"}
-	// Non-existent file should not return error, but use defaults
 	cfg, err := LoadConfig("/nonexistent/config.yaml")
-	require.NoError(t, err, "不存在的配置文件不应该返回错误，应该使用默认值")
-	assert.NotNil(t, cfg, "应该返回默认配置")
-	assert.Equal(t, strconv.Itoa(define.DEFAULT_PORT), cfg.Port, "应该使用默认端口")
+	require.Error(t, err)
+	assert.Nil(t, cfg)
+}
+
+func TestGetArgsWithError_CLIOverridesInvalidFileValueBeforeValidation(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	envMgr := testutil.NewEnvManager()
+	defer envMgr.Cleanup()
+	for _, key := range []string{"PORT", "REDIS", "CONFIG", "KEY", "INTERVAL", "MODE", "CONFIG_FILE"} {
+		require.NoError(t, envMgr.Unset(key))
+	}
+
+	tmpFile, err := os.CreateTemp("", "test-config-*.yaml")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, os.Remove(tmpFile.Name())) }() // #nosec G703 -- path from os.CreateTemp
+	_, err = tmpFile.WriteString("task:\n  interval: 500ms\n")
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	os.Args = []string{"test", "--config-file", tmpFile.Name(), "--interval", "10"}
+	cfg, err := GetArgsWithError()
+	require.NoError(t, err)
+	assert.Equal(t, 10, cfg.TaskInterval)
 }
 
 // TestLoadConfig_WithEnvOverride tests LoadConfig with environment variable override

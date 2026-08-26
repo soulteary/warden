@@ -15,6 +15,7 @@
 ## [Unreleased]
 
 ### Security
+- 身份状态：缺失 `status` 的记录不再自动激活，改为按 `inactive` 处理；允许访问必须显式设置 `active`。
 - 容器：运行阶段以非 root 用户（uid/gid 10001）运行；基础镜像固定到明确版本并说明可选 digest 固定；`-trimpath` 构建去除本地路径信息。
 - 容器：UPX 压缩默认关闭，改为显式 build arg `ENABLE_UPX=1`。
 - 构建上下文：收紧 `.dockerignore`，排除源码无关文件、密钥、证书、真实数据与已提交产物。
