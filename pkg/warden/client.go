@@ -508,7 +508,6 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 		// Success or non-retryable error - return response
 		// The caller will check the status code
 		if err := c.applyResponseLimit(resp); err != nil {
-			_ = resp.Body.Close()
 			return nil, NewError(ErrCodeInvalidResponse, "response body exceeds configured limit", err)
 		}
 		return resp, nil
@@ -549,7 +548,9 @@ func (c *Client) applyResponseLimit(resp *http.Response) error {
 	}
 	orig := resp.Body
 	body, err := io.ReadAll(io.LimitReader(orig, limit+1))
-	_ = orig.Close()
+	if closeErr := orig.Close(); closeErr != nil {
+		c.logger.Debugf("Failed to close response body after bounded read: %v", closeErr)
+	}
 	if err != nil {
 		return err
 	}
