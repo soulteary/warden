@@ -46,8 +46,11 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
 # 高保证：可将 tag 追加 @sha256:<digest> 固定运行时基础镜像。
 FROM alpine:3.23
 
-# curl 供 healthcheck 使用；ca-certificates 供出站 TLS 使用。
-RUN apk add --no-cache curl ca-certificates
+# Refresh packages from the pinned Alpine release before adding runtime tools. This
+# keeps the image on the latest patched package revision (including OpenSSL fixes)
+# without changing the selected Alpine release.
+RUN apk upgrade --no-cache && \
+    apk add --no-cache curl ca-certificates
 
 # 运行阶段以非 root 用户运行，降低容器逃逸/文件篡改风险。
 # 固定 uid/gid 便于卷挂载权限管理与审计。
