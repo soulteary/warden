@@ -560,8 +560,12 @@ func (c *Client) applyResponseLimit(resp *http.Response) error {
 	if limit == 0 {
 		limit = DefaultMaxResponseBytes
 	}
+	readLimit := limit
+	if limit < math.MaxInt64 {
+		readLimit = limit + 1
+	}
 	orig := resp.Body
-	body, err := io.ReadAll(io.LimitReader(orig, limit+1))
+	body, err := io.ReadAll(io.LimitReader(orig, readLimit))
 	if closeErr := orig.Close(); closeErr != nil {
 		c.logger.Debugf("Failed to close response body after bounded read: %v", closeErr)
 	}
