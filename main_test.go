@@ -1269,10 +1269,10 @@ func TestApp_loadInitialData_RemoteFirst(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	// Test loading (remote fails, should fallback to local)
+	// Strict REMOTE_FIRST must not treat the local file as a successful refresh.
 	err = app.loadInitialData(tmpFile.Name(), "")
-	assert.NoError(t, err, "远程失败时应该回退到本地文件")
-	assert.Greater(t, app.userCache.Len(), 0, "应该从本地文件加载数据")
+	assert.NoError(t, err, "加载失败由健康状态和日志报告，不应导致启动 panic")
+	assert.Zero(t, app.userCache.Len(), "严格远程模式不应在远程失败时提交本地数据")
 }
 
 // TestApp_backgroundTask_RemoteMode tests background task in remote mode
@@ -1309,11 +1309,26 @@ func TestApp_backgroundTask_RemoteMode(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	// Run background task (will try remote first, then fallback to local)
+	users := []define.AllowListUser{{Phone: "13900139000", Mail: "old@example.com"}}
+	app.userCache.Set(users)
+	loadedAt := time.Now().Add(-2 * time.Minute)
+	app.snapshots.Store(&Snapshot{
+		Users:    users,
+		Count:    len(users),
+		Source:   "remote",
+		Version:  "old-version",
+		LoadedAt: loadedAt,
+	})
+
+	// A strict remote failure must retain the last-known-good snapshot instead
+	// of renewing freshness from the local fallback.
 	app.backgroundTask(tmpFile.Name(), "")
 
-	// Verify task executed without panic
-	assert.True(t, true, "后台任务应该执行完成")
+	snapshot := app.snapshots.Load()
+	require.NotNil(t, snapshot)
+	assert.Equal(t, loadedAt, snapshot.LoadedAt)
+	failures, _ := app.snapshots.RefreshFailure()
+	assert.EqualValues(t, 1, failures)
 }
 
 // TestApp_updateRedisCacheWithRetry_MaxRetries tests retry logic with max retries

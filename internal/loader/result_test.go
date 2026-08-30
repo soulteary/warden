@@ -89,10 +89,10 @@ func TestLoadWithResult_RemoteFailure_Modes(t *testing.T) {
 		wantErr      bool
 		wantDegraded bool
 	}{
-		{ModeLocalFirst, false, false},                 // parser-kit merges local first; remote failure tolerated
-		{ModeLocalFirstAllowRemoteFail, false, false},  // local first, remote failure tolerated
-		{ModeRemoteFirstAllowRemoteFail, false, false}, // parser-kit falls back to local within merge
-		{ModeRemoteFirst, false, false},                // parser-kit merge still yields local; strict handled in decrypt path
+		{ModeLocalFirst, false, false},                // parser-kit merges local first; remote failure tolerated
+		{ModeLocalFirstAllowRemoteFail, false, false}, // local first, remote failure tolerated
+		{ModeRemoteFirstAllowRemoteFail, false, true}, // explicit local fallback is reported as degraded
+		{ModeRemoteFirst, true, false},                // strict mode must preserve the remote failure
 	}
 	for _, tc := range cases {
 		t.Run(tc.mode, func(t *testing.T) {
@@ -108,6 +108,7 @@ func TestLoadWithResult_RemoteFailure_Modes(t *testing.T) {
 			// local fallback kicked in; in all tolerant modes we must have users.
 			require.NoError(t, res.Err)
 			require.NotEmpty(t, res.Users)
+			assert.Equal(t, tc.wantDegraded, res.Degraded)
 		})
 	}
 }
@@ -121,6 +122,35 @@ func TestLoadWithResult_OnlyRemote_StrictFailure(t *testing.T) {
 	res := r.LoadWithResult(context.Background(), "", "", badURL, "")
 	require.Error(t, res.Err, "ONLY_REMOTE must not silently fall back")
 	assert.Equal(t, SourceNone, res.Source)
+}
+
+func TestLoadWithResult_PlainRemoteFirstSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, err := w.Write([]byte(`[{"phone":"13800138000","mail":"remote@example.com"}]`))
+		require.NoError(t, err)
+	}))
+	defer srv.Close()
+
+	cfg := &cmd.Config{HTTPTimeout: 1}
+	r, err := NewRulesLoader(cfg, ModeRemoteFirst)
+	require.NoError(t, err)
+
+	t.Run("remote only", func(t *testing.T) {
+		res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
+		require.NoError(t, res.Err)
+		assert.Equal(t, SourceRemote, res.Source)
+		require.Len(t, res.Users, 1)
+		assert.Equal(t, "remote@example.com", res.Users[0].Mail)
+	})
+
+	t.Run("remote wins merged identity", func(t *testing.T) {
+		path := writeLocal(t, t.TempDir())
+		res := r.LoadWithResult(context.Background(), path, "", srv.URL, "")
+		require.NoError(t, res.Err)
+		assert.Equal(t, SourceMerged, res.Source)
+		require.Len(t, res.Users, 1)
+		assert.Equal(t, "remote@example.com", res.Users[0].Mail)
+	})
 }
 
 func TestLoadWithResult_DecryptPath_StrictModeSurfacesError(t *testing.T) {
