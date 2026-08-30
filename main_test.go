@@ -25,6 +25,16 @@ type stubRefreshLocker struct {
 	locked  bool
 }
 
+type failingRefreshLocker struct{}
+
+func (failingRefreshLocker) Lock(_ string) (bool, error) {
+	return false, assert.AnError
+}
+
+func (failingRefreshLocker) Unlock(_ string) error {
+	return nil
+}
+
 func (l *stubRefreshLocker) Lock(_ string) (bool, error) {
 	return l.locked, nil
 }
@@ -672,6 +682,11 @@ func TestAcquireRedisRefreshWriter(t *testing.T) {
 	assert.False(t, writer)
 	release()
 	assert.Zero(t, held.unlocks)
+
+	app.redisRefreshLocker = failingRefreshLocker{}
+	writer, release = app.acquireRedisRefreshWriter()
+	assert.False(t, writer)
+	release()
 }
 
 // TestApp_updateRedisCacheWithRetry tests Redis cache update retry mechanism

@@ -23,6 +23,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	loggerkit "github.com/soulteary/logger-kit/v2"
 	rediskitclient "github.com/soulteary/redis-kit/client"
+	rediskitlock "github.com/soulteary/redis-kit/lock"
 
 	// Middleware kit
 	middlewarekit "github.com/soulteary/middleware-kit/v2"
@@ -78,6 +79,7 @@ type App struct {
 }
 
 const redisRefreshLockKey = "warden:rules:refresh"
+const redisRefreshLockTTL = time.Minute
 
 // taskIntervalU64 converts task interval to uint64, clamping negative values to 0 to avoid overflow.
 func taskIntervalU64(sec int) uint64 {
@@ -183,7 +185,10 @@ func NewApp(cfg *cmd.Config) *App {
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
 			// Initialize Redis cache
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
-			app.redisRefreshLocker = &cache.Locker{Cache: app.redisClient}
+			// Shared-cache writes must fail closed when Redis is unavailable; the
+			// hybrid locker is intentionally not used because its local fallback
+			// cannot coordinate writers across replicas.
+			app.redisRefreshLocker = rediskitlock.NewRedisLockerWithLockTime(app.redisClient, redisRefreshLockTTL)
 		}
 	} else {
 		// Redis is explicitly disabled
