@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/soulteary/warden/internal/define"
 )
 
 func TestValidateConfig_ValidConfig(t *testing.T) {
@@ -272,6 +274,40 @@ func TestValidateConfig_ProductionRemoteRequiresEncryptionAndTimeout(t *testing.
 
 	err := ValidateConfig(cfg)
 	assert.Error(t, err, "生产环境远程数据源必须设置超时并要求加密")
+}
+
+func TestValidateConfig_ProductionDefaultRemoteRequiresEncryption(t *testing.T) {
+	for _, mode := range []string{"DEFAULT", "ONLY_REMOTE", "REMOTE_FIRST", "LOCAL_FIRST"} {
+		t.Run(mode, func(t *testing.T) {
+			cfg := &Config{
+				Port:         "8081",
+				TaskInterval: 5,
+				Mode:         mode,
+				Environment:  "production",
+				RemoteConfig: define.DEFAULT_REMOTE_CONFIG,
+				HTTPTimeout:  30,
+				APIKey:       "an-api-key",
+			}
+
+			err := ValidateConfig(cfg)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "REMOTE_ENCRYPTION_REQUIRED")
+			assert.Contains(t, err.Error(), "REMOTE_ENCRYPTION_FORMAT=v2")
+		})
+	}
+}
+
+func TestValidateConfig_ProductionOnlyLocalIgnoresDefaultRemote(t *testing.T) {
+	cfg := &Config{
+		Port:         "8081",
+		TaskInterval: 5,
+		Mode:         "ONLY_LOCAL",
+		Environment:  "production",
+		RemoteConfig: define.DEFAULT_REMOTE_CONFIG,
+		APIKey:       "an-api-key",
+	}
+
+	require.NoError(t, ValidateConfig(cfg))
 }
 
 // TestValidateConfig_ProductionRemoteOK ensures a properly hardened production remote
