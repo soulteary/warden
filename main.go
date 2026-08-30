@@ -783,7 +783,10 @@ func main() {
 		scheduler.Clear()
 		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_closed"))
 	}()
-	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, app.dataFile, app.dataDir); err != nil {
+	// Every instance must refresh its process-local snapshot and memory cache.
+	// A distributed lock here would let only the lock winner advance LoadedAt,
+	// eventually making healthy replicas fail the snapshot freshness check.
+	if err := scheduler.Every(app.taskInterval).Seconds().Do(app.backgroundTask, app.dataFile, app.dataDir); err != nil {
 		// Clean up resources before exiting (defer executes on function return, but log.Fatal exits immediately)
 		// So need to manually clean up
 		close(schedulerStopped)
