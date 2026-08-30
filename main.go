@@ -506,7 +506,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 // Redis cache for a refresh cycle. The lock is acquired before loading sources,
 // so an older slow load cannot write after a newer load from another replica.
 // Every replica still loads and applies the result to its process-local state.
-func (app *App) acquireRedisRefreshWriter() (bool, func()) {
+func (app *App) acquireRedisRefreshWriter() (writer bool, release func()) {
 	if app.redisUserCache == nil {
 		return false, func() {}
 	}
