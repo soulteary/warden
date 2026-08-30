@@ -177,7 +177,7 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/v1/lookup", lookupHandler)
 
-	redisCritical := app.redisClient != nil && len(app.hmacKeys) > 0
+	redisCritical := requiresRedisForHMACReplay(app.redisEnabled, app.hmacKeys)
 	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist)
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
@@ -219,6 +219,14 @@ func registerRoutes(app *App) {
 		),
 	)
 	http.Handle("/log/level", logLevelHandler)
+}
+
+// requiresRedisForHMACReplay reports whether Redis is part of the configured
+// authentication contract. Key this off operator intent rather than a successful
+// startup connection: silently falling back to a process-local replay guard when
+// Redis was enabled weakens replay protection in multi-replica deployments.
+func requiresRedisForHMACReplay(redisEnabled bool, hmacKeys map[string]string) bool {
+	return redisEnabled && len(hmacKeys) > 0
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
