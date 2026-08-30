@@ -448,16 +448,21 @@ func (c *Client) calculateRetryDelay(retryIndex int) time.Duration {
 	if retryIndex < 0 {
 		retryIndex = 0
 	}
-	delayFloat := float64(c.retry.RetryDelay) * math.Pow(c.retry.BackoffMultiplier, float64(retryIndex))
-	if delayFloat > float64(math.MaxInt64) {
-		delayFloat = float64(math.MaxInt64)
+	if c.retry.RetryDelay <= 0 {
+		return 0
 	}
-	delay := time.Duration(delayFloat)
-	if c.retry.MaxRetryDelay > 0 && delay > c.retry.MaxRetryDelay {
-		delay = c.retry.MaxRetryDelay
+	delayFloat := float64(c.retry.RetryDelay) * math.Pow(c.retry.BackoffMultiplier, float64(retryIndex))
+	// Apply the configured cap before converting to time.Duration. float64(MaxInt64)
+	// rounds to 2^63, whose conversion can wrap to a negative duration.
+	if c.retry.MaxRetryDelay > 0 && delayFloat >= float64(c.retry.MaxRetryDelay) {
+		return c.retry.MaxRetryDelay
+	}
+	maxSafeFloat := math.Nextafter(float64(math.MaxInt64), 0)
+	if math.IsInf(delayFloat, 1) || delayFloat >= maxSafeFloat {
+		return time.Duration(math.MaxInt64)
 	}
 
-	return delay
+	return time.Duration(delayFloat)
 }
 
 // doRequestWithRetry performs an HTTP request with retry logic.

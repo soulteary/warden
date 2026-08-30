@@ -1821,6 +1821,20 @@ func TestClient_calculateRetryDelay(t *testing.T) {
 	if delay > retryOpts.MaxRetryDelay {
 		t.Errorf("Delay %v should not exceed max %v", delay, retryOpts.MaxRetryDelay)
 	}
+
+	// A very large exponent must saturate at the configured cap before the float
+	// is converted to time.Duration; otherwise it can wrap to a negative value.
+	delay = client.calculateRetryDelay(100)
+	if delay != retryOpts.MaxRetryDelay {
+		t.Errorf("Overflowing delay should equal max %v, got %v", retryOpts.MaxRetryDelay, delay)
+	}
+
+	// Without a configured cap, the largest representable duration is used.
+	retryOpts.MaxRetryDelay = 0
+	delay = client.calculateRetryDelay(10000)
+	if delay != time.Duration(1<<63-1) {
+		t.Errorf("Overflowing uncapped delay should saturate, got %v", delay)
+	}
 }
 
 // TestClient_checkResponseStatus_AllStatusCodes tests all status code handling
