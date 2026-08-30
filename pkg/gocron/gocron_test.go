@@ -491,7 +491,8 @@ func TestDaily(t *testing.T) {
 	if err := dayJob.scheduleNextRun(); err != nil {
 		t.Fatalf("调度下次运行失败: %v", err)
 	}
-	expectedTime = time.Date(twoHoursFromNow.Year(), twoHoursFromNow.Month(), twoHoursFromNow.AddDate(0, 0, 1).Day(), 0, 0, 0, 0, loc)
+	nextDay := twoHoursFromNow.AddDate(0, 0, 1)
+	expectedTime = time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), 0, 0, 0, 0, loc)
 	assert.Equal(t, expectedTime, dayJob.nextRun)
 
 	// At() 2 hours before now
@@ -502,8 +503,8 @@ func TestDaily(t *testing.T) {
 		t.Fatalf("调度下次运行失败: %v", err)
 	}
 
-	expectedTime = time.Date(twoHoursBefore.Year(), twoHoursBefore.Month(),
-		twoHoursBefore.AddDate(0, 0, 1).Day(),
+	nextDay = twoHoursBefore.AddDate(0, 0, 1)
+	expectedTime = time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(),
 		twoHoursBefore.Hour(), twoHoursBefore.Minute(), 0, 0, loc)
 
 	assert.Equal(t, expectedTime, dayJob.nextRun)
@@ -627,7 +628,8 @@ func TestWeekdayAt(t *testing.T) {
 	if err := weekJob.scheduleNextRun(); err != nil {
 		t.Fatalf("调度下次运行失败: %v", err)
 	}
-	exp := time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), hour, minute, 0, 0, loc)
+	nextDay := now.AddDate(0, 0, 1)
+	exp := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), hour, minute, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 
 	// Simulate job run 7 days before
@@ -636,7 +638,7 @@ func TestWeekdayAt(t *testing.T) {
 	if err := weekJob.scheduleNextRun(); err != nil {
 		t.Fatalf("调度下次运行失败: %v", err)
 	}
-	exp = time.Date(now.Year(), now.Month(), now.AddDate(0, 0, 1).Day(), hour, minute, 0, 0, loc)
+	exp = time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), hour, minute, 0, 0, loc)
 	assert.Equal(t, exp, weekJob.nextRun)
 }
 
