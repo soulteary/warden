@@ -156,11 +156,7 @@ const minimumDefaultSnapshotMaxAge = 30 * time.Second
 func ParseSnapshotMaxAge(raw string, taskIntervalSec int) (time.Duration, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		age := time.Duration(taskIntervalSec) * 3 * time.Second
-		if age < minimumDefaultSnapshotMaxAge {
-			age = minimumDefaultSnapshotMaxAge
-		}
-		return age, nil
+		return DefaultSnapshotMaxAge(taskIntervalSec), nil
 	}
 	age, err := time.ParseDuration(raw)
 	if err != nil {
@@ -170,6 +166,16 @@ func ParseSnapshotMaxAge(raw string, taskIntervalSec int) (time.Duration, error)
 		return 0, fmt.Errorf("must be greater than zero")
 	}
 	return age, nil
+}
+
+// DefaultSnapshotMaxAge derives the default freshness threshold from the
+// configured refresh interval while preserving a minimum scheduling margin.
+func DefaultSnapshotMaxAge(taskIntervalSec int) time.Duration {
+	age := time.Duration(taskIntervalSec) * 3 * time.Second
+	if age < minimumDefaultSnapshotMaxAge {
+		age = minimumDefaultSnapshotMaxAge
+	}
+	return age
 }
 
 // ParseHMACAllowV1 parses the legacy HMAC v1 compatibility switch. The empty

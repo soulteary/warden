@@ -111,7 +111,7 @@ func NewApp(cfg *cmd.Config) *App {
 	if snapshotMaxAgeErr != nil {
 		// ValidateConfig rejects this during normal startup. Direct NewApp callers
 		// retain the derived default rather than silently disabling stale detection.
-		app.snapshotMaxAge, _ = cmd.ParseSnapshotMaxAge("", cfg.TaskInterval)
+		app.snapshotMaxAge = cmd.DefaultSnapshotMaxAge(cfg.TaskInterval)
 		app.log.Warn().Err(snapshotMaxAgeErr).Msg("invalid SNAPSHOT_MAX_AGE; using derived default")
 	}
 	if hmacAllowV1Err != nil {
