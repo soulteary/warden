@@ -67,7 +67,7 @@ shipping an unauthenticated production service.
 Configure **at least one** of:
 
 - **API key**: `API_KEY=<set-via-secret-manager>`
-- **HMAC**: `WARDEN_HMAC_KEYS='{"<key-id>":"<set-via-secret-manager>"}'`
+- **HMAC**: `WARDEN_HMAC_KEYS='{"<key-id>":"<at-least-32-byte-secret>"}'`
 - **mTLS**: `WARDEN_TLS_CERT=<path>`, `WARDEN_TLS_KEY=<path>`, `WARDEN_TLS_CA=<path>`, and `WARDEN_TLS_REQUIRE_CLIENT_CERT=true`
 
 Non-production environments (`development`, `test`) remain permissive.
@@ -105,7 +105,7 @@ setting.
 
 | Variable | Values | Purpose |
 |----------|--------|---------|
-| `WARDEN_HMAC_KEYS` | JSON `{"key-id":"secret"}` | HMAC keys (use `<set-via-secret-manager>` for the secret). |
+| `WARDEN_HMAC_KEYS` | JSON `{"key-id":"<at-least-32-byte-secret>"}` | HMAC keys; production secrets must contain at least 32 raw bytes. |
 | `WARDEN_HMAC_TIMESTAMP_TOLERANCE` | seconds | Allowed clock skew for signed requests (bounded upper limit enforced). Default `60`. |
 
 Warden accepts authenticated HMAC v2 by default. Legacy v1 can be enabled

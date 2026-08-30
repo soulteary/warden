@@ -272,10 +272,13 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 
 **Warden 配置**（环境变量）：
 ```bash
-export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # 时间戳容差（秒），默认 60
 export WARDEN_HMAC_ALLOW_V1=false          # 默认值；仅在旧调用方迁移期间临时设为 true
 ```
+
+生产环境要求每个 HMAC secret 至少包含 32 个原始字节。请使用密码学安全随机源生成，
+并存储到密钥管理服务中；不要复用上面的示例值。
 
 **Go SDK 示例**：
 ```go

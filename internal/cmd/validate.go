@@ -216,8 +216,27 @@ func validateProduction(cfg *Config) []string {
 	if !hasConfiguredAuth(cfg) {
 		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_auth_required"))
 	}
+	errs = append(errs, validateProductionHMACStrength(cfg.HMACKeys)...)
 
 	return errs
+}
+
+const minimumProductionHMACSecretBytes = 32
+
+// validateProductionHMACStrength prevents a syntactically valid but low-entropy
+// shared secret from becoming the only production authentication credential.
+// Parse errors are reported by the general key-set validation above.
+func validateProductionHMACStrength(raw string) []string {
+	keys, err := ParseHMACKeys(raw)
+	if err != nil || len(keys) == 0 {
+		return nil
+	}
+	for _, secret := range keys {
+		if len([]byte(secret)) < minimumProductionHMACSecretBytes {
+			return []string{fmt.Sprintf("production HMAC secrets must be at least %d bytes", minimumProductionHMACSecretBytes)}
+		}
+	}
+	return nil
 }
 
 // usesRemoteSource mirrors the loader's source-selection semantics. The built-in

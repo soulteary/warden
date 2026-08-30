@@ -415,10 +415,10 @@ volumes:
 WARDEN_API_KEY=your-warden-api-key-here
 
 # Warden HMAC 密钥（JSON 格式）
-WARDEN_HMAC_KEYS='{"key-id-1":"your-hmac-secret-key-1"}'
+WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 
 # Stargate 使用的 HMAC 密钥（与 WARDEN_HMAC_KEYS 中的密钥对应）
-WARDEN_HMAC_SECRET=your-hmac-secret-key-1
+WARDEN_HMAC_SECRET=0123456789abcdef0123456789abcdef
 ```
 
 ### 网络配置

@@ -221,7 +221,7 @@ export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # Trusted proxy IP list (comma-s
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # Health check endpoint IP whitelist (optional)
 export IP_WHITELIST="192.168.1.0/24"  # Global IP whitelist (optional)
 export LOG_LEVEL="info"                # Log level (optional, default: info, options: trace, debug, info, warn, error, fatal, panic)
-export WARDEN_HMAC_KEYS='{"key-id":"secret"}'  # Service auth: HMAC keys (JSON)
+export WARDEN_HMAC_KEYS='{"key-id":"0123456789abcdef0123456789abcdef"}'  # Production secrets require at least 32 bytes
 export WARDEN_HMAC_ALLOW_V1=false                # Default: false; set true only during a bounded v1 migration
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # HMAC timestamp tolerance (seconds)
 export WARDEN_TLS_CERT=/path/to/warden.crt    # Service auth: server TLS cert (with KEY enables TLS)
@@ -290,7 +290,7 @@ Use HMAC-SHA256 signature for inter-service authentication. **Only environment v
 
 ```bash
 # HMAC keys (JSON format, supports multiple keys for rotation)
-export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef","key-id-2":"abcdef0123456789abcdef0123456789"}'
 
 # Timestamp tolerance (seconds), default 60 when HMAC keys are set
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
@@ -313,7 +313,7 @@ export STARGATE_WARDEN_AUTH_TYPE=hmac
 
 # HMAC configuration (if using HMAC)
 export STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
-export STARGATE_WARDEN_HMAC_SECRET=secret-key-1
+export STARGATE_WARDEN_HMAC_SECRET=0123456789abcdef0123456789abcdef
 
 # mTLS configuration (if using mTLS)
 export STARGATE_WARDEN_TLS_CERT=/path/to/stargate.crt

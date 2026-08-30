@@ -365,7 +365,8 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 		wantErr bool
 	}{
 		{"api_key", func(c *Config) { c.APIKey = "k" }, false},
-		{"hmac_keys", func(c *Config) { c.HMACKeys = `{"id1":"secret1"}` }, false},
+		{"hmac_keys", func(c *Config) { c.HMACKeys = `{"id1":"0123456789abcdef0123456789abcdef"}` }, false},
+		{"weak_hmac_secret", func(c *Config) { c.HMACKeys = `{"id1":"secret1"}` }, true},
 		{"mtls_required", func(c *Config) {
 			c.TLSCertFile = "/tmp/server.crt"
 			c.TLSKeyFile = "/tmp/server.key"
@@ -393,6 +394,16 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateProductionHMACStrength(t *testing.T) {
+	assert.Empty(t, validateProductionHMACStrength(""))
+	assert.Empty(t, validateProductionHMACStrength(`{"key-1":"0123456789abcdef0123456789abcdef"}`))
+
+	errs := validateProductionHMACStrength(`{"key-1":"too-short"}`)
+	require.Len(t, errs, 1)
+	assert.Contains(t, errs[0], "at least 32 bytes")
+	assert.NotContains(t, errs[0], "too-short")
 }
 
 func TestParseHMACKeys(t *testing.T) {
