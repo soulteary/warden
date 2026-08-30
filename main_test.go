@@ -622,6 +622,24 @@ func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 	}, "后台任务应该能够恢复 panic")
 }
 
+func TestApp_backgroundTask_SkipsOverlappingRefresh(t *testing.T) {
+	app := &App{}
+	app.refreshMu.Lock()
+	defer app.refreshMu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		app.backgroundTask("", "")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("overlapping background task should be skipped")
+	}
+}
+
 // TestApp_updateRedisCacheWithRetry tests Redis cache update retry mechanism
 func TestApp_updateRedisCacheWithRetry(t *testing.T) {
 	cfg := &cmd.Config{

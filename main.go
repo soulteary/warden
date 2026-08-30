@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -72,6 +73,7 @@ type App struct {
 	tlsKeyFile           string
 	tlsCAFile            string
 	tlsRequireClientCert bool
+	refreshMu            sync.Mutex
 }
 
 // taskIntervalU64 converts task interval to uint64, clamping negative values to 0 to avoid overflow.
@@ -520,6 +522,14 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 				Msg(i18n.TWithLang(i18n.LangZH, "log.background_task_panic"))
 		}
 	}()
+
+	// The scheduler may start a new goroutine before a slow refresh finishes.
+	// Skip overlapping work within this process so an older result cannot
+	// overwrite a newer cache or snapshot. Each replica owns its own mutex.
+	if !app.refreshMu.TryLock() {
+		return
+	}
+	defer app.refreshMu.Unlock()
 
 	start := time.Now()
 
