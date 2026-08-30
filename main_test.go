@@ -20,6 +20,20 @@ import (
 	"github.com/soulteary/warden/internal/logger"
 )
 
+type stubRefreshLocker struct {
+	unlocks int
+	locked  bool
+}
+
+func (l *stubRefreshLocker) Lock(_ string) (bool, error) {
+	return l.locked, nil
+}
+
+func (l *stubRefreshLocker) Unlock(_ string) error {
+	l.unlocks++
+	return nil
+}
+
 func newFailingRemoteServer(t *testing.T, expectedAuth string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -638,6 +652,26 @@ func TestApp_backgroundTask_SkipsOverlappingRefresh(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("overlapping background task should be skipped")
 	}
+}
+
+func TestAcquireRedisRefreshWriter(t *testing.T) {
+	available := &stubRefreshLocker{locked: true}
+	app := &App{
+		redisUserCache:     &cache.RedisUserCache{},
+		redisRefreshLocker: available,
+	}
+
+	writer, release := app.acquireRedisRefreshWriter()
+	assert.True(t, writer)
+	release()
+	assert.Equal(t, 1, available.unlocks)
+
+	held := &stubRefreshLocker{}
+	app.redisRefreshLocker = held
+	writer, release = app.acquireRedisRefreshWriter()
+	assert.False(t, writer)
+	release()
+	assert.Zero(t, held.unlocks)
 }
 
 // TestApp_updateRedisCacheWithRetry tests Redis cache update retry mechanism

@@ -50,6 +50,7 @@ type App struct {
 	userCache            *cache.SafeUserCache
 	redisUserCache       *cache.RedisUserCache
 	redisClient          *redis.Client
+	redisRefreshLocker   gocron.Locker
 	rateLimiter          *middlewarekit.RateLimiter
 	rulesLoader          *loader.RulesLoader
 	snapshots            *snapshotStore
@@ -75,6 +76,8 @@ type App struct {
 	tlsRequireClientCert bool
 	refreshMu            sync.Mutex
 }
+
+const redisRefreshLockKey = "warden:rules:refresh"
 
 // taskIntervalU64 converts task interval to uint64, clamping negative values to 0 to avoid overflow.
 func taskIntervalU64(sec int) uint64 {
@@ -180,6 +183,7 @@ func NewApp(cfg *cmd.Config) *App {
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
 			// Initialize Redis cache
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
+			app.redisRefreshLocker = &cache.Locker{Cache: app.redisClient}
 		}
 	} else {
 		// Redis is explicitly disabled
@@ -295,6 +299,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
+		writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+		defer releaseRedisWriter()
+
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
 		localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
 		localUsers := localRes.Users
@@ -308,7 +315,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			}
 			app.snapshots.Store(snapshotFromResult(&localRes))
 			app.updateSnapshotMetrics()
-			if app.redisUserCache != nil {
+			if writeRedis {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
 					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 				}
@@ -349,6 +356,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
+	writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+	defer releaseRedisWriter()
+
 	res := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	users := res.Users
 	if res.Err == nil && len(users) > 0 {
@@ -367,7 +377,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 		if res.Degraded {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
 		}
-		if app.redisUserCache != nil {
+		if writeRedis {
 			if err := app.redisUserCache.Set(users); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 			}
@@ -487,6 +497,48 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 	return fmt.Errorf("failed to update Redis cache (retried %d times): %w", define.REDIS_RETRY_MAX_RETRIES, lastErr)
 }
 
+// acquireRedisRefreshWriter elects at most one replica to update the shared
+// Redis cache for a refresh cycle. The lock is acquired before loading sources,
+// so an older slow load cannot write after a newer load from another replica.
+// Every replica still loads and applies the result to its process-local state.
+func (app *App) acquireRedisRefreshWriter() (bool, func()) {
+	if app.redisUserCache == nil {
+		return false, func() {}
+	}
+	if app.redisRefreshLocker == nil {
+		if app.log != nil {
+			app.log.Warn().Msg("Redis refresh lock unavailable; skipping shared cache update")
+		}
+		return false, func() {}
+	}
+
+	locked, err := app.redisRefreshLocker.Lock(redisRefreshLockKey)
+	if err != nil || !locked {
+		if err != nil && app.log != nil {
+			app.log.Warn().Err(err).Msg("failed to acquire Redis refresh lock; skipping shared cache update")
+		}
+		return false, func() {}
+	}
+
+	return true, func() {
+		if err := app.redisRefreshLocker.Unlock(redisRefreshLockKey); err != nil && app.log != nil {
+			app.log.Warn().Err(err).Msg("failed to release Redis refresh lock")
+		}
+	}
+}
+
+func (app *App) updateRedisIfWriter(writer bool, users []define.AllowListUser) {
+	if !writer {
+		return
+	}
+	if err := app.updateRedisCacheWithRetry(users); err != nil {
+		app.log.Warn().
+			Err(err).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
+		prommetrics.BackgroundTaskErrors.Inc()
+	}
+}
+
 // backgroundTask is a background task that periodically updates cache data
 //
 // This function implements intelligent cache update strategy with the following features:
@@ -531,6 +583,9 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	}
 	defer app.refreshMu.Unlock()
 
+	writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+	defer releaseRedisWriter()
+
 	start := time.Now()
 
 	if app.rulesLoader == nil {
@@ -568,6 +623,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
 		// successful refresh clears the failure counter and updates degraded state.
 		app.snapshots.Store(snapshotFromResult(&res))
+		app.updateRedisIfWriter(writeRedis, newUsers)
 		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
@@ -594,14 +650,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	newHash := cache.HashUserList(newUsers)
 	if currentHash != "" && currentHash == newHash {
 		// Data consistent, update Redis cache (if Redis is available)
-		if app.redisUserCache != nil {
-			if err := app.updateRedisCacheWithRetry(newUsers); err != nil {
-				app.log.Warn().
-					Err(err).
-					Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
-				prommetrics.BackgroundTaskErrors.Inc()
-			}
-		}
+		app.updateRedisIfWriter(writeRedis, newUsers)
 	} else {
 		currentLen := app.userCache.Len()
 		app.log.Debug().
