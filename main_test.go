@@ -43,7 +43,7 @@ func TestHealthSnapshotDegradedAfterStrictRefreshFailure(t *testing.T) {
 	})
 	snapshots.RecordRefreshFailure("timeout")
 
-	aggregator := setupHealthChecker(nil, userCache, snapshots, "ONLY_REMOTE", "development", false, "")
+	aggregator := setupHealthChecker(nil, userCache, snapshots, "ONLY_REMOTE", "development", false, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusDegraded, result.Status)
@@ -57,7 +57,7 @@ func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusDegraded, result.Status)
@@ -68,12 +68,24 @@ func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
 func TestHealthRedisUnavailableWithoutDataIsUnhealthy(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusUnhealthy, result.Status)
 	assert.Equal(t, health.StatusUnhealthy, result.Checks["redis"].Status)
 	assert.Equal(t, health.StatusUnhealthy, result.Checks["data"].Status)
+}
+
+func TestHealthRedisUnavailableForHMACReplayIsUnhealthy(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+
+	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, true, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusUnhealthy, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["redis"].Status)
+	assert.Equal(t, health.StatusHealthy, result.Checks["data"].Status)
 }
 
 // TestCalculateHash tests hash calculation function

@@ -177,7 +177,8 @@ func registerRoutes(app *App) {
 	)
 	http.Handle("/v1/lookup", lookupHandler)
 
-	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.appMode, app.environment, app.redisEnabled, healthWhitelist)
+	redisCritical := app.redisClient != nil && len(app.hmacKeys) > 0
+	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist)
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -221,7 +222,7 @@ func registerRoutes(app *App) {
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
-func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, appMode, environment string, redisEnabled bool, ipWhitelist string) *health.Aggregator {
+func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, appMode, environment string, redisEnabled, redisCritical bool, ipWhitelist string) *health.Aggregator {
 	// Production hardening (hide details/checks) keys off the deployment ENVIRONMENT,
 	// never off the data merge mode. isOnlyLocalMode still uses the merge mode.
 	env, _ := config.ParseEnvironment(environment)
@@ -238,15 +239,20 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		}
 	}
 
-	// Redis is non-critical while the in-memory cache can still serve a valid data set.
-	// The critical data check keeps readiness fail-closed before any data is available.
+	// Redis is normally non-critical while the in-memory cache can still serve a valid
+	// data set. It remains critical when HMAC v2 uses Redis for replay protection,
+	// because store failures deliberately fail that authentication path closed.
+	criticalChecks := []string{"data"}
+	if redisCritical {
+		criticalChecks = append(criticalChecks, "redis")
+	}
 	healthConfig := health.DefaultConfig().
 		WithServiceName("warden").
 		WithTimeout(5 * time.Second).
 		WithIPWhitelist(ipList).
 		WithDetails(!isProduction).
 		WithChecks(!isProduction).
-		WithCriticalChecks([]string{"data"})
+		WithCriticalChecks(criticalChecks)
 
 	aggregator := health.NewAggregator(healthConfig)
 
