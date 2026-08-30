@@ -513,6 +513,20 @@ func TestOptions_Validate(t *testing.T) {
 	}
 }
 
+func TestOptionsValidateNormalizesBlankHMACPair(t *testing.T) {
+	opts := DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithAPIKey("valid-api-key").
+		WithHMAC(" \t ", " \n ")
+
+	client, err := NewClient(opts)
+	require.NoError(t, err)
+	require.Empty(t, opts.HMACKeyID)
+	require.Empty(t, opts.HMACSecret)
+	require.Nil(t, client.signer)
+	require.Equal(t, "valid-api-key", client.apiKey)
+}
+
 func TestError(t *testing.T) {
 	err := NewError(ErrCodeRequestFailed, "test error", nil)
 	if err.Error() == "" {

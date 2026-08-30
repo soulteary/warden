@@ -83,10 +83,16 @@ func (o *Options) Validate() error {
 	// partial pair instead of silently constructing an unsigned client.
 	hmacKeyIDSet := strings.TrimSpace(o.HMACKeyID) != ""
 	hmacSecretSet := strings.TrimSpace(o.HMACSecret) != ""
-	if hmacKeyIDSet != hmacSecretSet {
+	switch {
+	case !hmacKeyIDSet && !hmacSecretSet:
+		// Treat a semantically blank pair as disabled. newHMACSigner intentionally
+		// preserves secret bytes, so leaving whitespace here would create a signer
+		// that overrides an otherwise valid API key with unusable HMAC headers.
+		o.HMACKeyID = ""
+		o.HMACSecret = ""
+	case hmacKeyIDSet != hmacSecretSet:
 		return NewError(ErrCodeInvalidConfig, "HMACKeyID and HMACSecret must be configured together", nil)
-	}
-	if hmacKeyIDSet {
+	default:
 		o.HMACKeyID = strings.TrimSpace(o.HMACKeyID)
 	}
 
