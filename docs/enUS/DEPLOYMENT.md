@@ -415,10 +415,10 @@ Create `.env` file:
 WARDEN_API_KEY=your-warden-api-key-here
 
 # Warden HMAC keys (JSON format)
-WARDEN_HMAC_KEYS='{"key-id-1":"your-hmac-secret-key-1"}'
+WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 
 # HMAC secret used by Stargate (corresponds to key in WARDEN_HMAC_KEYS)
-WARDEN_HMAC_SECRET=your-hmac-secret-key-1
+WARDEN_HMAC_SECRET=0123456789abcdef0123456789abcdef
 ```
 
 ### Network Configuration
