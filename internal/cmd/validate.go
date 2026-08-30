@@ -193,7 +193,7 @@ func validateProduction(cfg *Config) []string {
 		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_tls_not_allowed"))
 	}
 
-	hasRemote := cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG
+	hasRemote := usesRemoteSource(cfg)
 	if hasRemote {
 		// 2. Remote fetch must have a bounded timeout.
 		if cfg.HTTPTimeout <= 0 {
@@ -218,6 +218,18 @@ func validateProduction(cfg *Config) []string {
 	}
 
 	return errs
+}
+
+// usesRemoteSource mirrors the loader's source-selection semantics. The built-in
+// remote URL is still a real remote source in every mode except ONLY_LOCAL; treating
+// it as an "unset" sentinel would let production deployments skip encryption checks
+// while the loader still fetches it.
+func usesRemoteSource(cfg *Config) bool {
+	mode, ok := config.ParseMergeMode(cfg.Mode)
+	if !ok {
+		return false
+	}
+	return !mode.IsOnlyLocal() && strings.TrimSpace(cfg.RemoteConfig) != ""
 }
 
 // hasConfiguredAuth reports whether any service authentication mechanism is
