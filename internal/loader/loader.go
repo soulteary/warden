@@ -264,6 +264,14 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 		return r.loadDecryptPath(ctx, rulesFile, dataDir, configURL, auth, mode, now)
 	}
 
+	// parser-kit merge mode intentionally tolerates individual source failures,
+	// which would hide an unreachable remote behind a successful local load.
+	// Resolve remote-first modes explicitly so strict REMOTE_FIRST surfaces the
+	// failure and the tolerant variant records a degraded local fallback.
+	if configURL != "" && (mode == ModeRemoteFirst || mode == ModeRemoteFirstAllowRemoteFail) {
+		return r.loadPlainRemoteFirst(ctx, rulesFile, dataDir, configURL, auth, mode, now)
+	}
+
 	// Non-decrypt path: parser-kit resolves the configured sources.
 	sources := BuildSources(rulesFile, dataDir, configURL, auth, r.appMode)
 	if len(sources) == 0 {
@@ -293,6 +301,55 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 		Users:    users,
 		Source:   sourceForMode(mode, configURL, rulesFile, dataDir),
 		Version:  cache.HashUserList(users),
+		LoadedAt: now,
+	}
+}
+
+func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
+	remoteSources := BuildSources("", "", configURL, auth, ModeOnlyRemote)
+	remoteUsers, remoteErr := r.dl.Load(ctx, remoteSources...)
+	if remoteErr != nil {
+		if !allowsRemoteFailure(mode) {
+			return LoadResult{
+				Source:   SourceNone,
+				LoadedAt: now,
+				Err:      fmt.Errorf("remote load: %w", remoteErr),
+			}
+		}
+
+		localUsers, localErr := r.loadLocalOnly(ctx, rulesFile, dataDir)
+		if localErr != nil || len(localUsers) == 0 {
+			return LoadResult{
+				Source:   SourceNone,
+				LoadedAt: now,
+				Err:      errors.Join(fmt.Errorf("remote load: %w", remoteErr), localErr),
+			}
+		}
+		return LoadResult{
+			Users:          localUsers,
+			Source:         SourceLocal,
+			Version:        cache.HashUserList(localUsers),
+			LoadedAt:       now,
+			Degraded:       true,
+			DegradedReason: "remote_failed",
+		}
+	}
+
+	localUsers, localErr := r.loadLocalOnly(ctx, rulesFile, dataDir)
+	if localErr != nil || len(localUsers) == 0 {
+		return LoadResult{
+			Users:    remoteUsers,
+			Source:   SourceRemote,
+			Version:  cache.HashUserList(remoteUsers),
+			LoadedAt: now,
+		}
+	}
+
+	merged := mergeByMode(remoteUsers, localUsers, mode)
+	return LoadResult{
+		Users:    merged,
+		Source:   SourceMerged,
+		Version:  cache.HashUserList(merged),
 		LoadedAt: now,
 	}
 }

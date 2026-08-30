@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	loggerkit "github.com/soulteary/logger-kit/v2"
 	rediskitclient "github.com/soulteary/redis-kit/client"
+	rediskitlock "github.com/soulteary/redis-kit/lock"
 
 	// Middleware kit
 	middlewarekit "github.com/soulteary/middleware-kit/v2"
@@ -49,6 +51,7 @@ type App struct {
 	userCache            *cache.SafeUserCache
 	redisUserCache       *cache.RedisUserCache
 	redisClient          *redis.Client
+	redisRefreshLocker   gocron.Locker
 	rateLimiter          *middlewarekit.RateLimiter
 	rulesLoader          *loader.RulesLoader
 	snapshots            *snapshotStore
@@ -63,6 +66,7 @@ type App struct {
 	dataDir              string
 	responseFields       []string
 	taskInterval         uint64
+	snapshotMaxAge       time.Duration
 	redisEnabled         bool
 	hmacKeys             map[string]string
 	hmacToleranceSec     int
@@ -71,7 +75,11 @@ type App struct {
 	tlsKeyFile           string
 	tlsCAFile            string
 	tlsRequireClientCert bool
+	refreshMu            sync.Mutex
 }
+
+const redisRefreshLockKey = "warden:rules:refresh"
+const redisRefreshLockTTL = time.Minute
 
 // taskIntervalU64 converts task interval to uint64, clamping negative values to 0 to avoid overflow.
 func taskIntervalU64(sec int) uint64 {
@@ -84,6 +92,7 @@ func taskIntervalU64(sec int) uint64 {
 // NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
 	hmacAllowV1, hmacAllowV1Err := cmd.ParseHMACAllowV1(os.Getenv("WARDEN_HMAC_ALLOW_V1"))
+	snapshotMaxAge, snapshotMaxAgeErr := cmd.ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval)
 	app := &App{
 		port:                 cfg.Port,
 		configURL:            cfg.RemoteConfig,
@@ -94,6 +103,7 @@ func NewApp(cfg *cmd.Config) *App {
 		dataDir:              cfg.DataDir,
 		responseFields:       cfg.ResponseFields,
 		taskInterval:         taskIntervalU64(cfg.TaskInterval),
+		snapshotMaxAge:       snapshotMaxAge,
 		apiKey:               cfg.APIKey,
 		redisEnabled:         cfg.RedisEnabled,
 		log:                  logger.GetLoggerKit(),
@@ -105,6 +115,12 @@ func NewApp(cfg *cmd.Config) *App {
 		tlsRequireClientCert: cfg.TLSRequireClientCert,
 	}
 	app.snapshots = newSnapshotStore()
+	if snapshotMaxAgeErr != nil {
+		// ValidateConfig rejects this during normal startup. Direct NewApp callers
+		// retain the derived default rather than silently disabling stale detection.
+		app.snapshotMaxAge = cmd.DefaultSnapshotMaxAge(cfg.TaskInterval)
+		app.log.Warn().Err(snapshotMaxAgeErr).Msg("invalid SNAPSHOT_MAX_AGE; using derived default")
+	}
 	if hmacAllowV1Err != nil {
 		// ValidateConfig rejects this during normal startup. Keep the fallback secure
 		// for direct NewApp callers as a defense-in-depth measure.
@@ -169,6 +185,10 @@ func NewApp(cfg *cmd.Config) *App {
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
 			// Initialize Redis cache
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
+			// Shared-cache writes must fail closed when Redis is unavailable; the
+			// hybrid locker is intentionally not used because its local fallback
+			// cannot coordinate writers across replicas.
+			app.redisRefreshLocker = rediskitlock.NewRedisLockerWithLockTime(app.redisClient, redisRefreshLockTTL)
 		}
 	} else {
 		// Redis is explicitly disabled
@@ -284,6 +304,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
+		writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+		defer releaseRedisWriter()
+
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
 		localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
 		localUsers := localRes.Users
@@ -297,7 +320,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			}
 			app.snapshots.Store(snapshotFromResult(&localRes))
 			app.updateSnapshotMetrics()
-			if app.redisUserCache != nil {
+			if writeRedis {
 				if err := app.redisUserCache.Set(localUsers); err != nil {
 					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 				}
@@ -338,6 +361,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
+	writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+	defer releaseRedisWriter()
+
 	res := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	users := res.Users
 	if res.Err == nil && len(users) > 0 {
@@ -356,7 +382,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 		if res.Degraded {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
 		}
-		if app.redisUserCache != nil {
+		if writeRedis {
 			if err := app.redisUserCache.Set(users); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 			}
@@ -476,6 +502,48 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 	return fmt.Errorf("failed to update Redis cache (retried %d times): %w", define.REDIS_RETRY_MAX_RETRIES, lastErr)
 }
 
+// acquireRedisRefreshWriter elects at most one replica to update the shared
+// Redis cache for a refresh cycle. The lock is acquired before loading sources,
+// so an older slow load cannot write after a newer load from another replica.
+// Every replica still loads and applies the result to its process-local state.
+func (app *App) acquireRedisRefreshWriter() (writer bool, release func()) {
+	if app.redisUserCache == nil {
+		return false, func() {}
+	}
+	if app.redisRefreshLocker == nil {
+		if app.log != nil {
+			app.log.Warn().Msg("Redis refresh lock unavailable; skipping shared cache update")
+		}
+		return false, func() {}
+	}
+
+	locked, err := app.redisRefreshLocker.Lock(redisRefreshLockKey)
+	if err != nil || !locked {
+		if err != nil && app.log != nil {
+			app.log.Warn().Err(err).Msg("failed to acquire Redis refresh lock; skipping shared cache update")
+		}
+		return false, func() {}
+	}
+
+	return true, func() {
+		if err := app.redisRefreshLocker.Unlock(redisRefreshLockKey); err != nil && app.log != nil {
+			app.log.Warn().Err(err).Msg("failed to release Redis refresh lock")
+		}
+	}
+}
+
+func (app *App) updateRedisIfWriter(writer bool, users []define.AllowListUser) {
+	if !writer {
+		return
+	}
+	if err := app.updateRedisCacheWithRetry(users); err != nil {
+		app.log.Warn().
+			Err(err).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
+		prommetrics.BackgroundTaskErrors.Inc()
+	}
+}
+
 // backgroundTask is a background task that periodically updates cache data
 //
 // This function implements intelligent cache update strategy with the following features:
@@ -511,6 +579,17 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 				Msg(i18n.TWithLang(i18n.LangZH, "log.background_task_panic"))
 		}
 	}()
+
+	// The scheduler may start a new goroutine before a slow refresh finishes.
+	// Skip overlapping work within this process so an older result cannot
+	// overwrite a newer cache or snapshot. Each replica owns its own mutex.
+	if !app.refreshMu.TryLock() {
+		return
+	}
+	defer app.refreshMu.Unlock()
+
+	writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+	defer releaseRedisWriter()
 
 	start := time.Now()
 
@@ -549,6 +628,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
 		// successful refresh clears the failure counter and updates degraded state.
 		app.snapshots.Store(snapshotFromResult(&res))
+		app.updateRedisIfWriter(writeRedis, newUsers)
 		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
@@ -575,14 +655,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	newHash := cache.HashUserList(newUsers)
 	if currentHash != "" && currentHash == newHash {
 		// Data consistent, update Redis cache (if Redis is available)
-		if app.redisUserCache != nil {
-			if err := app.updateRedisCacheWithRetry(newUsers); err != nil {
-				app.log.Warn().
-					Err(err).
-					Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
-				prommetrics.BackgroundTaskErrors.Inc()
-			}
-		}
+		app.updateRedisIfWriter(writeRedis, newUsers)
 	} else {
 		currentLen := app.userCache.Len()
 		app.log.Debug().
@@ -774,7 +847,10 @@ func main() {
 		scheduler.Clear()
 		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.scheduler_closed"))
 	}()
-	if err := scheduler.Every(app.taskInterval).Seconds().Lock().Do(app.backgroundTask, app.dataFile, app.dataDir); err != nil {
+	// Every instance must refresh its process-local snapshot and memory cache.
+	// A distributed lock here would let only the lock winner advance LoadedAt,
+	// eventually making healthy replicas fail the snapshot freshness check.
+	if err := scheduler.Every(app.taskInterval).Seconds().Do(app.backgroundTask, app.dataFile, app.dataDir); err != nil {
 		// Clean up resources before exiting (defer executes on function return, but log.Fatal exits immediately)
 		// So need to manually clean up
 		close(schedulerStopped)

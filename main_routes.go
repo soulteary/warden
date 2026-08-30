@@ -17,6 +17,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/prommetrics"
@@ -178,7 +179,7 @@ func registerRoutes(app *App) {
 	http.Handle("/v1/lookup", lookupHandler)
 
 	redisCritical := requiresRedisForHMACReplay(app.redisEnabled, app.hmacKeys)
-	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist)
+	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.snapshotMaxAge, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist)
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -230,7 +231,7 @@ func requiresRedisForHMACReplay(redisEnabled bool, hmacKeys map[string]string) b
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
-func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, appMode, environment string, redisEnabled, redisCritical bool, ipWhitelist string) *health.Aggregator {
+func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, snapshotMaxAge time.Duration, appMode, environment string, redisEnabled, redisCritical bool, ipWhitelist string) *health.Aggregator {
 	// Production hardening (hide details/checks) keys off the deployment ENVIRONMENT,
 	// never off the data merge mode. isOnlyLocalMode still uses the merge mode.
 	env, _ := config.ParseEnvironment(environment)
@@ -253,6 +254,11 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 	criticalChecks := []string{"data"}
 	if redisCritical {
 		criticalChecks = append(criticalChecks, "redis")
+	}
+	mode, _ := config.ParseMergeMode(appMode)
+	strictRemoteMode := mode == config.MergeOnlyRemote || mode == config.MergeRemoteFirst
+	if strictRemoteMode {
+		criticalChecks = append(criticalChecks, "snapshot_freshness")
 	}
 	healthConfig := health.DefaultConfig().
 		WithServiceName("warden").
@@ -303,7 +309,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 				Status:    health.StatusHealthy,
 				Timestamp: time.Now(),
 			}
-			if snap == nil {
+			if snap == nil || snap.Source == loader.SourceNone {
 				res.Status = health.StatusDegraded
 				res.Message = "no snapshot loaded"
 				res.Metadata = map[string]any{"reason": "no_snapshot"}
@@ -317,6 +323,11 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			}
 			if !snap.LoadedAt.IsZero() {
 				meta["loaded_at"] = snap.LoadedAt.UTC().Format(time.RFC3339)
+				age := time.Since(snap.LoadedAt)
+				if age < 0 {
+					age = 0
+				}
+				meta["age_seconds"] = age.Seconds()
 			}
 			if failures > 0 {
 				if refreshReason == "" {
@@ -336,6 +347,38 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 				res.Message = "serving last-known-good snapshot"
 			}
 			res.Metadata = meta
+			return res
+		}))
+
+		aggregator.AddChecker(health.NewCheckerFunc("snapshot_freshness", func(_ context.Context) health.CheckResult {
+			res := health.CheckResult{
+				Name:      "snapshot_freshness",
+				Status:    health.StatusHealthy,
+				Timestamp: time.Now(),
+			}
+			if snapshotMaxAge <= 0 {
+				return res
+			}
+			snap := snapshots.Load()
+			if snap == nil || snap.Source == loader.SourceNone || snap.LoadedAt.IsZero() {
+				res.Status = health.StatusUnhealthy
+				res.Message = "snapshot provenance unavailable"
+				res.Metadata = map[string]any{"reason": "snapshot_unknown"}
+				return res
+			}
+			age := time.Since(snap.LoadedAt)
+			if age < 0 {
+				age = 0
+			}
+			res.Metadata = map[string]any{
+				"age_seconds":     age.Seconds(),
+				"max_age_seconds": snapshotMaxAge.Seconds(),
+			}
+			if age > snapshotMaxAge {
+				res.Status = health.StatusUnhealthy
+				res.Message = "snapshot exceeded maximum age"
+				res.Metadata["reason"] = "snapshot_stale"
+			}
 			return res
 		}))
 	}

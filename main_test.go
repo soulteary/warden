@@ -20,6 +20,30 @@ import (
 	"github.com/soulteary/warden/internal/logger"
 )
 
+type stubRefreshLocker struct {
+	unlocks int
+	locked  bool
+}
+
+type failingRefreshLocker struct{}
+
+func (failingRefreshLocker) Lock(_ string) (bool, error) {
+	return false, assert.AnError
+}
+
+func (failingRefreshLocker) Unlock(_ string) error {
+	return nil
+}
+
+func (l *stubRefreshLocker) Lock(_ string) (bool, error) {
+	return l.locked, nil
+}
+
+func (l *stubRefreshLocker) Unlock(_ string) error {
+	l.unlocks++
+	return nil
+}
+
 func newFailingRemoteServer(t *testing.T, expectedAuth string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +67,7 @@ func TestHealthSnapshotDegradedAfterStrictRefreshFailure(t *testing.T) {
 	})
 	snapshots.RecordRefreshFailure("timeout")
 
-	aggregator := setupHealthChecker(nil, userCache, snapshots, "ONLY_REMOTE", "development", false, false, "")
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "ONLY_REMOTE", "development", false, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusDegraded, result.Status)
@@ -57,7 +81,7 @@ func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, false, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, time.Minute, "DEFAULT", "development", true, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusDegraded, result.Status)
@@ -68,7 +92,7 @@ func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
 func TestHealthRedisUnavailableWithoutDataIsUnhealthy(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, false, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, time.Minute, "DEFAULT", "development", true, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusUnhealthy, result.Status)
@@ -80,12 +104,66 @@ func TestHealthRedisUnavailableForHMACReplayIsUnhealthy(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, true, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, time.Minute, "DEFAULT", "development", true, true, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusUnhealthy, result.Status)
 	assert.Equal(t, health.StatusUnhealthy, result.Checks["redis"].Status)
 	assert.Equal(t, health.StatusHealthy, result.Checks["data"].Status)
+}
+
+func TestHealthStaleSnapshotIsUnhealthyInStrictMode(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+	snapshots.Store(&Snapshot{
+		Users:    userCache.Get(),
+		Count:    1,
+		Source:   "remote",
+		Version:  "abc123",
+		LoadedAt: time.Now().Add(-2 * time.Minute),
+	})
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "ONLY_REMOTE", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusUnhealthy, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
+	assert.Equal(t, "snapshot_stale", result.Checks["snapshot_freshness"].Metadata["reason"])
+}
+
+func TestHealthStaleSnapshotIsDegradedInTolerantMode(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+	snapshots.Store(&Snapshot{
+		Users:    userCache.Get(),
+		Count:    1,
+		Source:   "local",
+		Version:  "abc123",
+		LoadedAt: time.Now().Add(-2 * time.Minute),
+	})
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "LOCAL_FIRST_ALLOW_REMOTE_FAILED", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusDegraded, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
+}
+
+func TestHealthUnknownSnapshotIsUnhealthyInStrictMode(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "REMOTE_FIRST", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusUnhealthy, result.Status)
+	assert.Equal(t, health.StatusDegraded, result.Checks["snapshot"].Status)
+	assert.Equal(t, "no_snapshot", result.Checks["snapshot"].Metadata["reason"])
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
+	assert.Equal(t, "snapshot_unknown", result.Checks["snapshot_freshness"].Metadata["reason"])
 }
 
 func TestRequiresRedisForHMACReplay(t *testing.T) {
@@ -600,6 +678,49 @@ func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 	assert.NotPanics(t, func() {
 		app.backgroundTask("/invalid/path/that/might/cause/panic", "")
 	}, "后台任务应该能够恢复 panic")
+}
+
+func TestApp_backgroundTask_SkipsOverlappingRefresh(t *testing.T) {
+	app := &App{}
+	app.refreshMu.Lock()
+	defer app.refreshMu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		app.backgroundTask("", "")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("overlapping background task should be skipped")
+	}
+}
+
+func TestAcquireRedisRefreshWriter(t *testing.T) {
+	available := &stubRefreshLocker{locked: true}
+	app := &App{
+		redisUserCache:     &cache.RedisUserCache{},
+		redisRefreshLocker: available,
+	}
+
+	writer, release := app.acquireRedisRefreshWriter()
+	assert.True(t, writer)
+	release()
+	assert.Equal(t, 1, available.unlocks)
+
+	held := &stubRefreshLocker{}
+	app.redisRefreshLocker = held
+	writer, release = app.acquireRedisRefreshWriter()
+	assert.False(t, writer)
+	release()
+	assert.Zero(t, held.unlocks)
+
+	app.redisRefreshLocker = failingRefreshLocker{}
+	writer, release = app.acquireRedisRefreshWriter()
+	assert.False(t, writer)
+	release()
 }
 
 // TestApp_updateRedisCacheWithRetry tests Redis cache update retry mechanism
@@ -1163,10 +1284,10 @@ func TestApp_loadInitialData_RemoteFirst(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	// Test loading (remote fails, should fallback to local)
+	// Strict REMOTE_FIRST must not treat the local file as a successful refresh.
 	err = app.loadInitialData(tmpFile.Name(), "")
-	assert.NoError(t, err, "远程失败时应该回退到本地文件")
-	assert.Greater(t, app.userCache.Len(), 0, "应该从本地文件加载数据")
+	assert.NoError(t, err, "加载失败由健康状态和日志报告，不应导致启动 panic")
+	assert.Zero(t, app.userCache.Len(), "严格远程模式不应在远程失败时提交本地数据")
 }
 
 // TestApp_backgroundTask_RemoteMode tests background task in remote mode
@@ -1203,11 +1324,26 @@ func TestApp_backgroundTask_RemoteMode(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	// Run background task (will try remote first, then fallback to local)
+	users := []define.AllowListUser{{Phone: "13900139000", Mail: "old@example.com"}}
+	app.userCache.Set(users)
+	loadedAt := time.Now().Add(-2 * time.Minute)
+	app.snapshots.Store(&Snapshot{
+		Users:    users,
+		Count:    len(users),
+		Source:   "remote",
+		Version:  "old-version",
+		LoadedAt: loadedAt,
+	})
+
+	// A strict remote failure must retain the last-known-good snapshot instead
+	// of renewing freshness from the local fallback.
 	app.backgroundTask(tmpFile.Name(), "")
 
-	// Verify task executed without panic
-	assert.True(t, true, "后台任务应该执行完成")
+	snapshot := app.snapshots.Load()
+	require.NotNil(t, snapshot)
+	assert.Equal(t, loadedAt, snapshot.LoadedAt)
+	failures, _ := app.snapshots.RefreshFailure()
+	assert.EqualValues(t, 1, failures)
 }
 
 // TestApp_updateRedisCacheWithRetry_MaxRetries tests retry logic with max retries

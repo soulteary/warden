@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	// External packages
 	"github.com/soulteary/cli-kit/validator"
@@ -45,6 +46,9 @@ func ValidateConfig(cfg *Config) error {
 	// Validate task interval
 	if cfg.TaskInterval < 1 {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
+	}
+	if _, err := ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval); err != nil {
+		errors = append(errors, fmt.Sprintf("Invalid SNAPSHOT_MAX_AGE: %v", err))
 	}
 
 	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
@@ -142,6 +146,37 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	return nil
+}
+
+const minimumDefaultSnapshotMaxAge = 30 * time.Second
+
+// ParseSnapshotMaxAge parses the maximum age accepted by health checks. An empty
+// value derives a safe default from the refresh interval, with enough slack for
+// transient scheduling delays. Operators may override it with a Go duration such
+// as "2m"; non-positive values are rejected instead of disabling stale detection.
+func ParseSnapshotMaxAge(raw string, taskIntervalSec int) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return DefaultSnapshotMaxAge(taskIntervalSec), nil
+	}
+	age, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("expected a positive duration such as 30s or 2m: %w", err)
+	}
+	if age <= 0 {
+		return 0, fmt.Errorf("must be greater than zero")
+	}
+	return age, nil
+}
+
+// DefaultSnapshotMaxAge derives the default freshness threshold from the
+// configured refresh interval while preserving a minimum scheduling margin.
+func DefaultSnapshotMaxAge(taskIntervalSec int) time.Duration {
+	age := time.Duration(taskIntervalSec) * 3 * time.Second
+	if age < minimumDefaultSnapshotMaxAge {
+		age = minimumDefaultSnapshotMaxAge
+	}
+	return age
 }
 
 // ParseHMACAllowV1 parses the legacy HMAC v1 compatibility switch. The empty
