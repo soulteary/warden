@@ -54,7 +54,7 @@ type snapshotStore struct {
 // newSnapshotStore returns an empty store with a zero-value initial snapshot.
 func newSnapshotStore() *snapshotStore {
 	s := &snapshotStore{}
-	s.current.Store(&Snapshot{Source: loader.SourceNone, LoadedAt: time.Now()})
+	s.current.Store(&Snapshot{Source: loader.SourceNone})
 	return s
 }
 

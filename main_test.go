@@ -151,6 +151,21 @@ func TestHealthStaleSnapshotIsDegradedInTolerantMode(t *testing.T) {
 	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
 }
 
+func TestHealthUnknownSnapshotIsUnhealthyInStrictMode(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "REMOTE_FIRST", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusUnhealthy, result.Status)
+	assert.Equal(t, health.StatusDegraded, result.Checks["snapshot"].Status)
+	assert.Equal(t, "no_snapshot", result.Checks["snapshot"].Metadata["reason"])
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
+	assert.Equal(t, "snapshot_unknown", result.Checks["snapshot_freshness"].Metadata["reason"])
+}
+
 func TestRequiresRedisForHMACReplay(t *testing.T) {
 	tests := []struct {
 		hmacKeys     map[string]string

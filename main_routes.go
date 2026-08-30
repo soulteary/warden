@@ -17,6 +17,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/prommetrics"
@@ -308,7 +309,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 				Status:    health.StatusHealthy,
 				Timestamp: time.Now(),
 			}
-			if snap == nil {
+			if snap == nil || snap.Source == loader.SourceNone {
 				res.Status = health.StatusDegraded
 				res.Message = "no snapshot loaded"
 				res.Metadata = map[string]any{"reason": "no_snapshot"}
@@ -355,8 +356,14 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 				Status:    health.StatusHealthy,
 				Timestamp: time.Now(),
 			}
+			if snapshotMaxAge <= 0 {
+				return res
+			}
 			snap := snapshots.Load()
-			if snap == nil || snap.LoadedAt.IsZero() || snapshotMaxAge <= 0 {
+			if snap == nil || snap.Source == loader.SourceNone || snap.LoadedAt.IsZero() {
+				res.Status = health.StatusUnhealthy
+				res.Message = "snapshot provenance unavailable"
+				res.Metadata = map[string]any{"reason": "snapshot_unknown"}
 				return res
 			}
 			age := time.Since(snap.LoadedAt)
