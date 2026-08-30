@@ -1,13 +1,39 @@
 package cmd
 
 import (
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/soulteary/warden/internal/define"
 )
+
+func TestParseSnapshotMaxAge(t *testing.T) {
+	defaultAge, err := ParseSnapshotMaxAge("", 5)
+	require.NoError(t, err)
+	assert.Equal(t, 30*time.Second, defaultAge)
+
+	customAge, err := ParseSnapshotMaxAge("2m", 5)
+	require.NoError(t, err)
+	assert.Equal(t, 2*time.Minute, customAge)
+
+	_, err = ParseSnapshotMaxAge("0s", 5)
+	assert.Error(t, err)
+	_, err = ParseSnapshotMaxAge("invalid", 5)
+	assert.Error(t, err)
+}
+
+func TestValidateConfigRejectsInvalidSnapshotMaxAge(t *testing.T) {
+	t.Setenv("SNAPSHOT_MAX_AGE", "invalid")
+	cfg := &Config{Port: "8081", TaskInterval: 5, Mode: "ONLY_LOCAL", Environment: "development"}
+	err := ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SNAPSHOT_MAX_AGE")
+	assert.Equal(t, "invalid", os.Getenv("SNAPSHOT_MAX_AGE"))
+}
 
 func TestValidateConfig_ValidConfig(t *testing.T) {
 	cfg := &Config{

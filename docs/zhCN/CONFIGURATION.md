@@ -47,6 +47,7 @@
 | 其他 | 配置文件路径 | — | `CONFIG_FILE` | 空（用于仅通过环境变量指定 YAML 时加载 tracing 等） |
 | 其他 | 信任代理 IP | — | `TRUSTED_PROXY_IPS` | 空 |
 | 其他 | 健康检查 IP 白名单 | — | `HEALTH_CHECK_IP_WHITELIST` | 空 |
+| 其他 | 快照最大有效时间 | — | `SNAPSHOT_MAX_AGE` | `max(30s, 3 × 任务间隔)`，使用 Go duration（如 `2m`） |
 | 其他 | 全局 IP 白名单 | — | `IP_WHITELIST` | 空 |
 | 其他 | 日志级别 | — | `LOG_LEVEL` | `info` |
 | 服务间鉴权 | HMAC 密钥（JSON） | — | `WARDEN_HMAC_KEYS` | 空 |

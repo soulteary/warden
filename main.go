@@ -63,6 +63,7 @@ type App struct {
 	dataDir              string
 	responseFields       []string
 	taskInterval         uint64
+	snapshotMaxAge       time.Duration
 	redisEnabled         bool
 	hmacKeys             map[string]string
 	hmacToleranceSec     int
@@ -84,6 +85,7 @@ func taskIntervalU64(sec int) uint64 {
 // NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
 	hmacAllowV1, hmacAllowV1Err := cmd.ParseHMACAllowV1(os.Getenv("WARDEN_HMAC_ALLOW_V1"))
+	snapshotMaxAge, snapshotMaxAgeErr := cmd.ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval)
 	app := &App{
 		port:                 cfg.Port,
 		configURL:            cfg.RemoteConfig,
@@ -94,6 +96,7 @@ func NewApp(cfg *cmd.Config) *App {
 		dataDir:              cfg.DataDir,
 		responseFields:       cfg.ResponseFields,
 		taskInterval:         taskIntervalU64(cfg.TaskInterval),
+		snapshotMaxAge:       snapshotMaxAge,
 		apiKey:               cfg.APIKey,
 		redisEnabled:         cfg.RedisEnabled,
 		log:                  logger.GetLoggerKit(),
@@ -105,6 +108,12 @@ func NewApp(cfg *cmd.Config) *App {
 		tlsRequireClientCert: cfg.TLSRequireClientCert,
 	}
 	app.snapshots = newSnapshotStore()
+	if snapshotMaxAgeErr != nil {
+		// ValidateConfig rejects this during normal startup. Direct NewApp callers
+		// retain the derived default rather than silently disabling stale detection.
+		app.snapshotMaxAge, _ = cmd.ParseSnapshotMaxAge("", cfg.TaskInterval)
+		app.log.Warn().Err(snapshotMaxAgeErr).Msg("invalid SNAPSHOT_MAX_AGE; using derived default")
+	}
 	if hmacAllowV1Err != nil {
 		// ValidateConfig rejects this during normal startup. Keep the fallback secure
 		// for direct NewApp callers as a defense-in-depth measure.

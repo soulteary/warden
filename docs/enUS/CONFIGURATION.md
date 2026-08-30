@@ -20,6 +20,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | App | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
 | Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | When using `--config-file`, tracing is not read from that file unless `CONFIG_FILE` is set to the same path |
 | Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
+| Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
 
 ## Running Mode (MODE)
 

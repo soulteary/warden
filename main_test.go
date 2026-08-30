@@ -43,7 +43,7 @@ func TestHealthSnapshotDegradedAfterStrictRefreshFailure(t *testing.T) {
 	})
 	snapshots.RecordRefreshFailure("timeout")
 
-	aggregator := setupHealthChecker(nil, userCache, snapshots, "ONLY_REMOTE", "development", false, false, "")
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "ONLY_REMOTE", "development", false, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusDegraded, result.Status)
@@ -57,7 +57,7 @@ func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, false, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, time.Minute, "DEFAULT", "development", true, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusDegraded, result.Status)
@@ -68,7 +68,7 @@ func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
 func TestHealthRedisUnavailableWithoutDataIsUnhealthy(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, false, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, time.Minute, "DEFAULT", "development", true, false, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusUnhealthy, result.Status)
@@ -80,12 +80,51 @@ func TestHealthRedisUnavailableForHMACReplayIsUnhealthy(t *testing.T) {
 	userCache := cache.NewSafeUserCache()
 	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
 
-	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, true, "")
+	aggregator := setupHealthChecker(nil, userCache, nil, time.Minute, "DEFAULT", "development", true, true, "")
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusUnhealthy, result.Status)
 	assert.Equal(t, health.StatusUnhealthy, result.Checks["redis"].Status)
 	assert.Equal(t, health.StatusHealthy, result.Checks["data"].Status)
+}
+
+func TestHealthStaleSnapshotIsUnhealthyInStrictMode(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+	snapshots.Store(&Snapshot{
+		Users:    userCache.Get(),
+		Count:    1,
+		Source:   "remote",
+		Version:  "abc123",
+		LoadedAt: time.Now().Add(-2 * time.Minute),
+	})
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "ONLY_REMOTE", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusUnhealthy, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
+	assert.Equal(t, "snapshot_stale", result.Checks["snapshot_freshness"].Metadata["reason"])
+}
+
+func TestHealthStaleSnapshotIsDegradedInTolerantMode(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+	snapshots := newSnapshotStore()
+	snapshots.Store(&Snapshot{
+		Users:    userCache.Get(),
+		Count:    1,
+		Source:   "local",
+		Version:  "abc123",
+		LoadedAt: time.Now().Add(-2 * time.Minute),
+	})
+
+	aggregator := setupHealthChecker(nil, userCache, snapshots, time.Minute, "LOCAL_FIRST_ALLOW_REMOTE_FAILED", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusDegraded, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
 }
 
 // TestCalculateHash tests hash calculation function
