@@ -53,6 +53,29 @@ func TestHealthSnapshotDegradedAfterStrictRefreshFailure(t *testing.T) {
 	assert.EqualValues(t, 1, snapshotCheck.Metadata["consecutive_failures"])
 }
 
+func TestHealthRedisUnavailableWithCachedDataIsDegraded(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+	userCache.Set([]define.AllowListUser{{Phone: "13800138000"}})
+
+	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusDegraded, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["redis"].Status)
+	assert.Equal(t, health.StatusHealthy, result.Checks["data"].Status)
+}
+
+func TestHealthRedisUnavailableWithoutDataIsUnhealthy(t *testing.T) {
+	userCache := cache.NewSafeUserCache()
+
+	aggregator := setupHealthChecker(nil, userCache, nil, "DEFAULT", "development", true, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusUnhealthy, result.Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["redis"].Status)
+	assert.Equal(t, health.StatusUnhealthy, result.Checks["data"].Status)
+}
+
 // TestCalculateHash tests hash calculation function
 func TestCalculateHash(t *testing.T) {
 	tests := []struct {

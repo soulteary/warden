@@ -238,13 +238,15 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		}
 	}
 
+	// Redis is non-critical while the in-memory cache can still serve a valid data set.
+	// The critical data check keeps readiness fail-closed before any data is available.
 	healthConfig := health.DefaultConfig().
 		WithServiceName("warden").
 		WithTimeout(5 * time.Second).
 		WithIPWhitelist(ipList).
 		WithDetails(!isProduction).
 		WithChecks(!isProduction).
-		WithCriticalChecks([]string{"redis", "data"})
+		WithCriticalChecks([]string{"data"})
 
 	aggregator := health.NewAggregator(healthConfig)
 
