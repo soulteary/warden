@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -163,6 +164,19 @@ func TestClient_ResponseSizeLimit(t *testing.T) {
 	_, err = client.GetUsers(context.Background())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrResponseTooLarge, "oversized responses must be detected explicitly")
+}
+
+func TestClient_ResponseSizeLimitMaxInt64DoesNotOverflow(t *testing.T) {
+	client, err := NewClient(DefaultOptions().
+		WithBaseURL("http://localhost:8081").
+		WithMaxResponseBytes(math.MaxInt64))
+	require.NoError(t, err)
+
+	resp := &http.Response{Body: io.NopCloser(strings.NewReader("response body"))}
+	require.NoError(t, client.applyResponseLimit(resp))
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "response body", string(body))
 }
 
 // TestClient_RetryOnlyIdempotent verifies GET retries on 5xx while the retry engine
