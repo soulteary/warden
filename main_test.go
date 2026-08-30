@@ -90,8 +90,8 @@ func TestHealthRedisUnavailableForHMACReplayIsUnhealthy(t *testing.T) {
 
 func TestRequiresRedisForHMACReplay(t *testing.T) {
 	tests := []struct {
-		name         string
 		hmacKeys     map[string]string
+		name         string
 		redisEnabled bool
 		want         bool
 	}{
