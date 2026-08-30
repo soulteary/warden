@@ -63,13 +63,13 @@ func TestGetArgs_WithCommandLineArgs(t *testing.T) {
 	}
 
 	// Set command-line arguments
-	os.Args = []string{"test", "--port", "9090", "--redis", "127.0.0.1:6380", "--config", "http://example.com/config", "--key", "test-key", "--mode", "ONLY_LOCAL", "--interval", "10"}
+	os.Args = []string{"test", "--port", "9090", "--redis", "127.0.0.1:6380", "--config", "http://93.184.216.34/config", "--key", "test-key", "--mode", "ONLY_LOCAL", "--interval", "10"}
 
 	cfg := GetArgs()
 
 	assert.Equal(t, "9090", cfg.Port, "端口应该匹配")
 	assert.Equal(t, "127.0.0.1:6380", cfg.Redis, "Redis地址应该匹配")
-	assert.Equal(t, "http://example.com/config", cfg.RemoteConfig, "配置URL应该匹配")
+	assert.Equal(t, "http://93.184.216.34/config", cfg.RemoteConfig, "配置URL应该匹配")
 	assert.Equal(t, "test-key", cfg.RemoteKey, "密钥应该匹配")
 	assert.Equal(t, "ONLY_LOCAL", cfg.Mode, "模式应该匹配")
 	assert.Equal(t, 10, cfg.TaskInterval, "间隔应该匹配")
@@ -424,7 +424,7 @@ func TestGetArgs_WithConfigFile(t *testing.T) {
 redis:
   addr: "localhost:6380"
 remote:
-  url: "http://example.com/config"
+  url: "http://93.184.216.34/config"
   key: "config-key"
   mode: "REMOTE_FIRST"
 app:
@@ -454,7 +454,7 @@ http:
 
 	assert.Equal(t, "8080", cfg.Port, "应该从配置文件读取端口")
 	assert.Equal(t, "localhost:6380", cfg.Redis, "应该从配置文件读取Redis地址")
-	assert.Equal(t, "http://example.com/config", cfg.RemoteConfig, "应该从配置文件读取远程配置URL")
+	assert.Equal(t, "http://93.184.216.34/config", cfg.RemoteConfig, "应该从配置文件读取远程配置URL")
 	assert.Equal(t, "config-key", cfg.RemoteKey, "应该从配置文件读取密钥")
 	assert.Equal(t, "REMOTE_FIRST", cfg.Mode, "应该从配置文件读取模式")
 	assert.Equal(t, "test-api-key", cfg.APIKey, "应该从配置文件读取API密钥")
@@ -488,7 +488,7 @@ func TestGetArgs_WithConfigFile_OverrideByCLI(t *testing.T) {
 redis:
   addr: "localhost:6380"
 remote:
-  url: "http://example.com/config"
+  url: "http://93.184.216.34/config"
   key: "config-key"
 app:
   mode: "REMOTE_FIRST"
@@ -513,7 +513,7 @@ app:
 	assert.Equal(t, "127.0.0.1:6379", cfg.Redis, "CLI参数应该覆盖配置文件中的Redis地址")
 	assert.Equal(t, "ONLY_LOCAL", cfg.Mode, "CLI参数应该覆盖配置文件中的模式")
 	// These should still come from config file
-	assert.Equal(t, "http://example.com/config", cfg.RemoteConfig, "未覆盖的配置应该来自配置文件")
+	assert.Equal(t, "http://93.184.216.34/config", cfg.RemoteConfig, "未覆盖的配置应该来自配置文件")
 	assert.Equal(t, "config-key", cfg.RemoteKey, "未覆盖的配置应该来自配置文件")
 }
 
@@ -568,7 +568,7 @@ func TestLoadConfig(t *testing.T) {
 redis:
   addr: "localhost:6380"
 remote:
-  url: "http://example.com/config"
+  url: "http://93.184.216.34/config"
   key: "config-key"
   mode: "REMOTE_FIRST"
 app:
@@ -599,7 +599,7 @@ http:
 
 	assert.Equal(t, "8080", cfg.Port, "应该从配置文件读取端口")
 	assert.Equal(t, "localhost:6380", cfg.Redis, "应该从配置文件读取Redis地址")
-	assert.Equal(t, "http://example.com/config", cfg.RemoteConfig, "应该从配置文件读取远程配置URL")
+	assert.Equal(t, "http://93.184.216.34/config", cfg.RemoteConfig, "应该从配置文件读取远程配置URL")
 	assert.Equal(t, "config-key", cfg.RemoteKey, "应该从配置文件读取密钥")
 	assert.Equal(t, "REMOTE_FIRST", cfg.Mode, "应该从配置文件读取模式")
 	assert.Equal(t, "test-api-key", cfg.APIKey, "应该从配置文件读取API密钥")
