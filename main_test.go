@@ -151,6 +151,25 @@ func TestHealthStaleSnapshotIsDegradedInTolerantMode(t *testing.T) {
 	assert.Equal(t, health.StatusUnhealthy, result.Checks["snapshot_freshness"].Status)
 }
 
+func TestRequiresRedisForHMACReplay(t *testing.T) {
+	tests := []struct {
+		hmacKeys     map[string]string
+		name         string
+		redisEnabled bool
+		want         bool
+	}{
+		{name: "redis disabled", redisEnabled: false, hmacKeys: map[string]string{"key-1": "secret"}, want: false},
+		{name: "no hmac keys", redisEnabled: true, hmacKeys: nil, want: false},
+		{name: "configured even before client connects", redisEnabled: true, hmacKeys: map[string]string{"key-1": "secret"}, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, requiresRedisForHMACReplay(tt.redisEnabled, tt.hmacKeys))
+		})
+	}
+}
+
 // TestCalculateHash tests hash calculation function
 func TestCalculateHash(t *testing.T) {
 	tests := []struct {

@@ -270,10 +270,14 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 
 **Warden Configuration** (Environment Variables):
 ```bash
-export WARDEN_HMAC_KEYS='{"key-id-1":"secret-key-1","key-id-2":"secret-key-2"}'
+export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Timestamp tolerance (seconds), default 60
 export WARDEN_HMAC_ALLOW_V1=false          # Default; set true only during a bounded legacy migration
 ```
+
+Production configuration requires every HMAC secret to contain at least 32 raw bytes.
+Generate secrets with a cryptographically secure random source and store them in a
+secret manager; do not reuse the illustrative value above.
 
 **Go SDK Example**:
 ```go

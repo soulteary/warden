@@ -39,7 +39,7 @@ func TestValidateConfig_ValidConfig(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/data.json",
+		RemoteConfig: "http://93.184.216.34/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
@@ -53,7 +53,7 @@ func TestValidateConfig_InvalidPort(t *testing.T) {
 	cfg := &Config{
 		Port:         "99999", // 无效端口
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/data.json",
+		RemoteConfig: "http://93.184.216.34/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
@@ -68,7 +68,7 @@ func TestValidateConfig_InvalidRedis(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "invalid", // 无效格式
-		RemoteConfig: "http://example.com/data.json",
+		RemoteConfig: "http://93.184.216.34/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
@@ -98,7 +98,7 @@ func TestValidateConfig_InvalidMode(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/data.json",
+		RemoteConfig: "http://93.184.216.34/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 5,
 		Mode:         "INVALID_MODE", // 无效模式
@@ -113,7 +113,7 @@ func TestValidateConfig_InvalidTaskInterval(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/data.json",
+		RemoteConfig: "http://93.184.216.34/data.json",
 		RemoteKey:    "test-key",
 		TaskInterval: 0, // 无效间隔
 		Mode:         "DEFAULT",
@@ -258,7 +258,7 @@ func TestValidateConfig_InvalidEnvironment(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		Redis:        "localhost:6379",
-		RemoteConfig: "http://example.com/data.json",
+		RemoteConfig: "http://93.184.216.34/data.json",
 		TaskInterval: 5,
 		Mode:         "DEFAULT",
 		Environment:  "staging", // not a recognized environment
@@ -293,7 +293,7 @@ func TestValidateConfig_ProductionRemoteRequiresEncryptionAndTimeout(t *testing.
 		TaskInterval:             5,
 		Mode:                     "DEFAULT",
 		Environment:              "production",
-		RemoteConfig:             "http://example.com/data.json",
+		RemoteConfig:             "http://93.184.216.34/data.json",
 		HTTPTimeout:              0,     // unbounded
 		RemoteEncryptionRequired: false, // not fail-closed
 	}
@@ -345,7 +345,7 @@ func TestValidateConfig_ProductionRemoteOK(t *testing.T) {
 		TaskInterval:             5,
 		Mode:                     "DEFAULT",
 		Environment:              "production",
-		RemoteConfig:             "http://example.com/data.json",
+		RemoteConfig:             "http://93.184.216.34/data.json",
 		HTTPTimeout:              30,
 		RemoteEncryptionRequired: true,
 		RemoteDecryptEnabled:     true,
@@ -391,7 +391,8 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 		wantErr bool
 	}{
 		{"api_key", func(c *Config) { c.APIKey = "k" }, false},
-		{"hmac_keys", func(c *Config) { c.HMACKeys = `{"id1":"secret1"}` }, false},
+		{"hmac_keys", func(c *Config) { c.HMACKeys = `{"id1":"0123456789abcdef0123456789abcdef"}` }, false},
+		{"weak_hmac_secret", func(c *Config) { c.HMACKeys = `{"id1":"secret1"}` }, true},
 		{"mtls_required", func(c *Config) {
 			c.TLSCertFile = "/tmp/server.crt"
 			c.TLSKeyFile = "/tmp/server.key"
@@ -419,6 +420,16 @@ func TestValidateConfig_ProductionAuthMechanisms(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateProductionHMACStrength(t *testing.T) {
+	assert.Empty(t, validateProductionHMACStrength(""))
+	assert.Empty(t, validateProductionHMACStrength(`{"key-1":"0123456789abcdef0123456789abcdef"}`))
+
+	errs := validateProductionHMACStrength(`{"key-1":"too-short"}`)
+	require.Len(t, errs, 1)
+	assert.Contains(t, errs[0], "at least 32 bytes")
+	assert.NotContains(t, errs[0], "too-short")
 }
 
 func TestParseHMACKeys(t *testing.T) {
