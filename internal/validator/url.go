@@ -3,8 +3,21 @@
 package validator
 
 import (
+	"context"
+	"fmt"
+	"net"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/soulteary/cli-kit/validator"
 )
+
+const remoteURLResolveTimeout = 5 * time.Second
+
+type ipResolver interface {
+	LookupIPAddr(context.Context, string) ([]net.IPAddr, error)
+}
 
 // ValidateRemoteURL validates remote configuration URL to prevent SSRF attacks
 //
@@ -22,8 +35,55 @@ import (
 // Returns:
 //   - error: returns error if URL is invalid or has security risks; otherwise returns nil
 func ValidateRemoteURL(urlStr string) error {
-	// Use cli-kit validator with default options (SSRF protection enabled)
-	return validator.ValidateURL(urlStr, nil)
+	return validateRemoteURL(urlStr, net.DefaultResolver)
+}
+
+func validateRemoteURL(urlStr string, resolver ipResolver) error {
+	// First validate syntax, scheme, localhost, and literal IPs without touching
+	// DNS. Hostnames are resolved below through the injected resolver so tests
+	// can exercise the same SSRF checks without external network access.
+	opts := &validator.URLOptions{ResolveHostTimeout: 0}
+	if err := validator.ValidateURL(urlStr, opts); err != nil {
+		return err
+	}
+
+	u, err := url.ParseRequestURI(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL format: %w", err)
+	}
+	host := u.Hostname()
+	if net.ParseIP(host) != nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), remoteURLResolveTimeout)
+	defer cancel()
+	addrs, err := resolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return fmt.Errorf("failed to resolve host %q: %w", host, err)
+	}
+	if len(addrs) == 0 {
+		return fmt.Errorf("host %q resolved to no addresses", host)
+	}
+
+	for _, addr := range addrs {
+		resolved := *u
+		resolved.Host = resolvedURLHost(addr.IP.String(), u.Port())
+		if err := validator.ValidateURL(resolved.String(), opts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func resolvedURLHost(ip, port string) string {
+	if port != "" {
+		return net.JoinHostPort(ip, port)
+	}
+	if strings.Contains(ip, ":") {
+		return "[" + ip + "]"
+	}
+	return ip
 }
 
 // ValidateConfigPath validates configuration file path to prevent path traversal attacks

@@ -1,10 +1,20 @@
 package validator
 
 import (
+	"context"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type staticIPResolver struct {
+	addrs []net.IPAddr
+}
+
+func (r staticIPResolver) LookupIPAddr(_ context.Context, _ string) ([]net.IPAddr, error) {
+	return r.addrs, nil
+}
 
 func TestValidateRemoteURL(t *testing.T) {
 	tests := []struct {
@@ -111,6 +121,16 @@ func TestValidateRemoteURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateRemoteURL_WithHermeticHostnameResolution(t *testing.T) {
+	resolver := staticIPResolver{
+		addrs: []net.IPAddr{{IP: net.ParseIP("93.184.216.34")}},
+	}
+
+	err := validateRemoteURL("https://config.example.test/config.json", resolver)
+
+	assert.NoError(t, err)
 }
 
 func TestValidateConfigPath(t *testing.T) {
