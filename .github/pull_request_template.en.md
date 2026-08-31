@@ -63,7 +63,7 @@ If applicable, add screenshots or GIFs to demonstrate the changes.
 
 Before submitting the PR, please ensure:
 
-- [ ] My code follows the project's code style (refer to [CODE_STYLE.md](../docs/CODE_STYLE.md))
+- [ ] My code follows the project's code style (refer to [CODE_STYLE.md](../docs/enUS/CODE_STYLE.md))
 - [ ] I have performed self-code review
 - [ ] I have added comments, especially for complex logic
 - [ ] My changes do not produce new warnings

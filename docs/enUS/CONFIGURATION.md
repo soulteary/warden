@@ -22,18 +22,37 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
 
-## Running Mode (MODE)
+## Running Mode (MERGE_MODE)
 
-The system supports 6 data merging modes, selected via the `MODE` parameter:
+The system supports 7 data merging modes, selected with `MERGE_MODE` (`MODE` is deprecated):
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `DEFAULT` / `REMOTE_FIRST` | Remote-first, use local data to supplement when remote data doesn't exist | Default mode, suitable for most scenarios |
+| `DEFAULT` | Historical remote-first, tolerant behavior | Backward compatibility for deployments that never selected a mode |
+| `REMOTE_FIRST` | Remote wins when loading succeeds; a remote error is fatal and the last-known-good snapshot is retained | Strict remote-authoritative deployments |
 | `ONLY_REMOTE` | Use only remote data source | Fully dependent on remote configuration |
 | `ONLY_LOCAL` | Use only local configuration file, **Redis disabled by default** (will be enabled if `REDIS` address is explicitly set or `REDIS_ENABLED=true`) | Offline environment or test environment |
 | `LOCAL_FIRST` | Local-first, use remote data to supplement when local data doesn't exist | Local configuration as primary, remote as secondary |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | Remote-first, allow fallback to local when remote fails | High availability scenarios |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | Local-first, allow fallback to remote when local fails | Hybrid mode |
+
+### Snapshot freshness and remote failures
+
+`REMOTE_FIRST` and `ONLY_REMOTE` are strict modes. If a scheduled remote refresh
+fails, Warden keeps serving the last-known-good in-memory snapshot, records the
+refresh failure, and does not advance the snapshot's `loaded_at`. The health
+endpoint returns HTTP 503 after the snapshot exceeds `SNAPSHOT_MAX_AGE` (default
+`max(30s, 3 × task interval)`). Set the value with a Go duration such as `2m`.
+
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED`, `LOCAL_FIRST`, and
+`LOCAL_FIRST_ALLOW_REMOTE_FAILED` permit remote failure. A successful local
+fallback is marked `degraded` and remains serviceable with HTTP 200. `DEFAULT`
+retains the historical tolerant behavior for compatibility; select an explicit
+mode for new production deployments.
+
+In multi-replica deployments every replica refreshes its process-local cache and
+snapshot. A distributed Redis lock elects only the writer of the shared Redis
+cache, so non-writers still advance their own snapshot freshness.
 
 ### Configuration Methods
 
@@ -46,7 +65,8 @@ go run . --mode DEFAULT
 
 **Environment Variables**:
 ```bash
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
+# MODE remains a deprecated compatibility alias.
 ```
 
 **Configuration File**:
@@ -204,7 +224,7 @@ export REDIS_ENABLED=true               # Enable/disable Redis (optional, defaul
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export DATA_FILE=./data.json          # Local user data file path
 export DATA_DIR=                      # Optional: directory to merge all *.json (can be used with DATA_FILE)
 export RESPONSE_FIELDS=               # Optional: API response field whitelist (comma-separated, e.g. phone,mail,user_id,status,name); empty = all

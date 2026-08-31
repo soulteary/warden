@@ -206,7 +206,7 @@ jobs:
 
             ### Docker Image
             ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ```
 
             ### Binaries
@@ -223,7 +223,7 @@ jobs:
             ### Supply-chain 安全
             - 容器镜像已使用 keyless cosign 签名，可验证：
               ```bash
-              cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }} \
+              cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
                 --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
                 --certificate-oidc-issuer https://token.actions.githubusercontent.com
               ```

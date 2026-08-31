@@ -13,7 +13,7 @@
 ## 📋 前置要求
 
 - Docker 和 Docker Compose
-- 或 Go 1.26+ 和 Redis
+- 或 Go 1.27+ 和 Redis
 
 ## 🏗️ 架构说明
 
@@ -90,7 +90,7 @@ curl http://localhost:8081/metrics
 1. **启动 Redis**
 
 ```bash
-docker run -d --name redis -p 6379:6379 redis:6.2.4
+docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 ```
 
 2. **启动 Mock API 服务**
@@ -231,9 +231,11 @@ vim mock-api/data.json
 
 ### 3. 测试不同合并模式
 
-修改 `.env` 中的 `MODE` 参数，测试不同模式：
+修改 `.env` 中的 `MERGE_MODE` 参数测试不同模式（`MODE` 已弃用）：
 
-- `DEFAULT` / `REMOTE_FIRST`: 远程优先
+- `DEFAULT`：保留历史的远程优先、容错行为
+- `REMOTE_FIRST`：严格远程优先；远程刷新失败时保留最后一次成功快照
+- `REMOTE_FIRST_ALLOW_REMOTE_FAILED`：远程优先，允许降级回退到本地
 - `LOCAL_FIRST`: 本地优先
 - `ONLY_REMOTE`: 仅远程
 - `ONLY_LOCAL`: 仅本地
@@ -249,7 +251,7 @@ docker-compose restart warden
 # Prometheus 指标
 curl http://localhost:8081/metrics | grep warden
 
-# 健康检查（包含详细信息）
+# 健康检查（非生产环境包含详情）
 curl http://localhost:8081/health | jq
 ```
 
@@ -376,4 +378,3 @@ wrk -t4 -c100 -d30s \
 - [Warden 主文档](../../README.md)
 - [Docker Compose 文档](https://docs.docker.com/compose/)
 - [Redis 文档](https://redis.io/docs/)
-

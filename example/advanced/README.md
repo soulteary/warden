@@ -13,7 +13,7 @@ This is Warden's complete feature example, demonstrating all core features, incl
 ## 📋 Prerequisites
 
 - Docker and Docker Compose
-- Or Go 1.26+ and Redis
+- Or Go 1.27+ and Redis
 
 ## 🏗️ Architecture Overview
 
@@ -90,7 +90,7 @@ curl http://localhost:8081/metrics
 1. **Start Redis**
 
 ```bash
-docker run -d --name redis -p 6379:6379 redis:6.2.4
+docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 ```
 
 2. **Start Mock API Service**
@@ -231,9 +231,11 @@ vim mock-api/data.json
 
 ### 3. Test Different Merging Modes
 
-Modify `MODE` parameter in `.env` to test different modes:
+Modify `MERGE_MODE` in `.env` to test different modes (`MODE` is deprecated):
 
-- `DEFAULT` / `REMOTE_FIRST`: Remote-first
+- `DEFAULT`: Historical remote-first behavior with tolerant fallback
+- `REMOTE_FIRST`: Strict remote-first; failed remote refresh keeps the last-known-good snapshot
+- `REMOTE_FIRST_ALLOW_REMOTE_FAILED`: Remote-first with a degraded local fallback
 - `LOCAL_FIRST`: Local-first
 - `ONLY_REMOTE`: Remote-only
 - `ONLY_LOCAL`: Local-only
@@ -249,7 +251,7 @@ docker-compose restart warden
 # Prometheus metrics
 curl http://localhost:8081/metrics | grep warden
 
-# Health check (includes detailed information)
+# Health check (details are visible outside production)
 curl http://localhost:8081/health | jq
 ```
 
@@ -376,4 +378,3 @@ Expected results:
 - [Warden Main Documentation](../../README.md)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [Redis Documentation](https://redis.io/docs/)
-

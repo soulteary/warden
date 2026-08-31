@@ -253,16 +253,16 @@ export KEY=Bearer your_token_here
 
 ### Application Mode
 
-#### MODE
+#### MERGE_MODE / MODE
 
 - **CLI Argument**: `--mode <mode>`
-- **Environment Variable**: `MODE`
+- **Environment Variable**: `MERGE_MODE` (`MODE` is a deprecated alias)
 - **Configuration File**: `remote.mode` or `app.mode`
 - **Type**: String
 - **Default Value**: `DEFAULT`
 - **Optional Values**:
   - `DEFAULT` - Default mode (remote first, fallback to local on failure)
-  - `REMOTE_FIRST` - Remote first
+  - `REMOTE_FIRST` - Strict remote first; remote errors fail the refresh
   - `ONLY_REMOTE` - Only remote
   - `ONLY_LOCAL` - Only local
   - `LOCAL_FIRST` - Local first
@@ -275,7 +275,7 @@ export KEY=Bearer your_token_here
 ./warden --mode ONLY_LOCAL
 
 # Environment Variable
-export MODE=ONLY_LOCAL
+export MERGE_MODE=ONLY_LOCAL
 ./warden
 ```
 
@@ -505,7 +505,7 @@ export REDIS=localhost:6379
 export REDIS_PASSWORD=your_password
 export CONFIG=https://api.example.com/data.json
 export KEY=Bearer token123
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export INTERVAL=5
 export API_KEY=your_api_key
 
@@ -650,7 +650,7 @@ export REDIS=${REDIS:-redis:6379}
 export REDIS_PASSWORD_FILE=/run/secrets/redis_password
 export CONFIG=${CONFIG:-https://api.example.com/data.json}
 export KEY=${KEY:-Bearer ${API_TOKEN}}
-export MODE=${MODE:-REMOTE_FIRST}
+export MERGE_MODE=${MERGE_MODE:-REMOTE_FIRST}
 export API_KEY=${WARDEN_API_KEY}
 export HTTP_INSECURE_TLS=false  # Must be false in production
 
@@ -730,6 +730,6 @@ MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ## Related Documentation
 
 - [Architecture Design Documentation](./ARCHITECTURE.md) - Learn about overall architecture
-- [Configuration File Example](../config.example.yaml) - View configuration file format
-- [Code Implementation](../internal/cmd/cmd.go) - View parameter parsing implementation
-- [Environment Variable Check Report](../ENV_CLI_CHECK_REPORT.md) - Learn about parsing mechanism validation
+- [Configuration File Example](../../config.example.yaml) - View configuration file format
+- [Code Implementation](../../internal/cmd/cmd.go) - View parameter parsing implementation
+- [Configuration Migration Guide](../migration-config.md) - Environment and merge-mode migration details

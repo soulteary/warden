@@ -14,6 +14,32 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-31
+
+### Added
+- 健康检查新增 `snapshot` 与 `snapshot_freshness` 检查，暴露低基数的数据来源、版本、加载时间、连续刷新失败次数与稳定原因码。
+- 新增 `SNAPSHOT_MAX_AGE`，用于限制严格远程模式可接受的快照年龄；默认值为 `max(30s, 3 × task interval)`。
+
+### Changed
+- `REMOTE_FIRST` 与 `ONLY_REMOTE` 刷新失败时严格失败并保留最后一次成功快照；`REMOTE_FIRST_ALLOW_REMOTE_FAILED` 才会回退本地数据并将健康状态标记为 `degraded`。
+- 多副本刷新改为每个实例独立刷新进程内缓存与快照，仅共享 Redis 写入使用分布式锁，避免非锁持有实例的快照过期。
+- GitHub Actions 与发布依赖升级；release workflow 支持对已有 tag 手动重跑发布。
+
+### Fixed
+- 配置 Redis 且启用 HMAC v2 时，将 Redis replay guard 保持为关键依赖；Redis 不可用或刷新锁异常时不再静默降低防重放保证。
+- 修正生产默认远程 URL 的启动校验、SDK 空白 HMAC 凭据处理、响应体大小与重试延迟溢出边界。
+- 移除 URL 校验测试的外部 DNS 依赖，并修正调度器跨月测试边界。
+- 修正 Release 正文中的容器镜像标签，使拉取命令与实际生成的无 `v` semver 标签一致。
+
+### Security
+- 生产环境要求每个 HMAC secret 至少包含 32 个原始字节。
+- 严格远程模式的未知或过期快照返回不健康，防止 Redis 引导占位状态被误报为新鲜数据。
+
+## [1.1.0] - 2026-08-26
+
+### Changed
+- Go 工具链与构建镜像升级至 Go 1.27.0。
+
 ## [1.0.0] - 2026-08-26
 
 ### Security

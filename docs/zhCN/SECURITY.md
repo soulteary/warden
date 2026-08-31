@@ -199,7 +199,7 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
 
 ## 安全审计
 
-详细的安全审计报告请参考 [SECURITY_AUDIT.md](../SECURITY_AUDIT.md)（如果存在）。
+发布加固与验证说明请参考[发布安全指南](../RELEASE_SECURITY.md)。
 
 ## 漏洞报告
 

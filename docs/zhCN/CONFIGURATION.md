@@ -77,18 +77,35 @@
 | DATA_DIR | 非空时须存在且为目录 |
 | 远程解密 | `REMOTE_DECRYPT_ENABLED=true` 时须配置 `REMOTE_RSA_PRIVATE_KEY_FILE`（且文件存在可读）或 `REMOTE_RSA_PRIVATE_KEY` 之一 |
 
-## 运行模式 (MODE)
+## 运行模式 (MERGE_MODE)
 
-系统支持 6 种数据合并模式，根据 `MODE` 参数选择：
+系统支持 7 种数据合并模式，通过 `MERGE_MODE` 选择（`MODE` 已弃用）：
 
 | 模式 | 说明 | 使用场景 |
 |------|------|----------|
-| `DEFAULT` / `REMOTE_FIRST` | 远程优先，远程数据不存在时使用本地数据补充 | 默认模式，适合大多数场景 |
+| `DEFAULT` | 保留历史的远程优先、容错行为 | 未显式选择模式的旧部署兼容 |
+| `REMOTE_FIRST` | 远程加载成功时远程数据优先；远程失败时严格失败并保留最后一次成功快照 | 远程数据具有权威性的严格部署 |
 | `ONLY_REMOTE` | 仅使用远程数据源 | 完全依赖远程配置 |
 | `ONLY_LOCAL` | 仅使用本地配置文件，**默认禁用 Redis**（如果显式设置了 `REDIS` 地址或 `REDIS_ENABLED=true`，则会启用 Redis） | 离线环境或测试环境 |
 | `LOCAL_FIRST` | 本地优先，本地数据不存在时使用远程数据补充 | 本地配置为主，远程为辅 |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程优先，允许远程失败时回退到本地 | 高可用场景 |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 本地优先，允许远程失败时回退到本地 | 混合模式 |
+
+### 快照新鲜度与远程失败
+
+`REMOTE_FIRST` 与 `ONLY_REMOTE` 是严格模式。定时远程刷新失败时，Warden
+继续提供最后一次成功的内存快照、记录刷新失败，且不会推进快照的
+`loaded_at`。快照年龄超过 `SNAPSHOT_MAX_AGE` 后，健康检查返回 HTTP 503；
+默认值为 `max(30s, 3 × 任务间隔)`，可使用 `2m` 等 Go duration 设置。
+
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED`、`LOCAL_FIRST` 与
+`LOCAL_FIRST_ALLOW_REMOTE_FAILED` 允许远程失败。成功回退到本地时健康状态
+标记为 `degraded`，服务仍返回 HTTP 200。`DEFAULT` 为兼容旧部署保留历史
+容错行为；新的生产部署应显式选择模式。
+
+多副本部署中，每个实例都会刷新自己的进程内缓存与快照；分布式 Redis
+锁只选举共享 Redis 缓存的写入者，因此未获得锁的实例仍会推进本地快照
+新鲜度。
 
 ### `REDIS_ENABLED` 与 `MODE=ONLY_LOCAL` 交互规则
 
@@ -115,7 +132,8 @@ go run . --mode DEFAULT
 
 **环境变量**:
 ```bash
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
+# MODE 仅作为已弃用的兼容别名。
 ```
 
 **配置文件**:
@@ -321,7 +339,7 @@ export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认:
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5                      # 定时任务间隔（秒）；仅在不使用配置文件时生效（使用 YAML 时 task.interval 来自文件，INTERVAL 不参与覆盖）
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export DATA_FILE=./data.json          # 本地用户数据文件路径
 export DATA_DIR=                      # 可选：用户数据目录，合并该目录下所有 *.json（可与 DATA_FILE 同时使用）
 export RESPONSE_FIELDS=               # 可选：API 响应字段白名单，逗号分隔，如 phone,mail,user_id,status,name；空=全部

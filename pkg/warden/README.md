@@ -376,7 +376,7 @@ The `RetryOptions` struct configures retry behavior:
 
 ## Examples
 
-For complete examples, please refer to the [example](../example) directory.
+For complete examples, please refer to the [example](../../example) directory.
 
 ## License
 

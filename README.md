@@ -1,7 +1,7 @@
 # Warden
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.26+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.27+-blue.svg)](https://golang.org)
 [![codecov](https://codecov.io/gh/soulteary/warden/branch/main/graph/badge.svg)](https://codecov.io/gh/soulteary/warden)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 
@@ -9,7 +9,7 @@
 
 A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
-Warden continues to use Go's `net/http` server. Its shared kit dependencies use their Fiber v3-compatible v2 module lines, so Fiber v2 is no longer present in the module graph. Building from source requires Go 1.26 or later.
+Warden continues to use Go's `net/http` server. Its shared kit dependencies use their Fiber v3-compatible v2 module lines, so Fiber v2 is no longer present in the module graph. Building from source requires Go 1.27 or later.
 
 ![Warden](.github/assets/banner.jpg)
 
@@ -25,7 +25,7 @@ Warden can be used **standalone** or integrated with other services (such as Sta
 
 - 🚀 **High Performance**: 5000+ requests per second with 21ms average latency
 - 🔄 **Multiple Data Sources**: Local configuration files and remote APIs
-- 🎯 **Flexible Strategies**: 6 data merging modes (remote-first, local-first, remote-only, local-only, etc.)
+- 🎯 **Flexible Strategies**: 7 data merging modes (remote-first, local-first, remote-only, local-only, etc.)
 - ⏰ **Scheduled Updates**: Automatic data synchronization with Redis distributed locks
 - 📦 **Containerized Deployment**: Complete Docker support, ready to use out of the box
 - 🌐 **Multi-language Support**: 7 languages with automatic language detection
@@ -61,7 +61,7 @@ docker run -d \
 > 💡 **Tip**: For complete examples with Docker Compose, see the [Examples Directory](example/README.md).
 
 The root `docker-compose.yml` uses the same image by default. Set `WARDEN_IMAGE` to a
-version tag (for example `ghcr.io/soulteary/warden:1.0.0`) or digest for reproducible
+version tag (for example `ghcr.io/soulteary/warden:1.2.0`) or digest for reproducible
 production deployments; `latest` is updated only by stable release tags.
 
 ### Option 2: From Source
@@ -122,6 +122,11 @@ curl -H "X-API-Key: your-key" "http://localhost:8081/"
 # Health check
 curl "http://localhost:8081/health"
 ```
+
+Health returns `degraded` with HTTP 200 while a non-critical fallback remains
+serviceable, and HTTP 503 when a critical check fails. In strict remote modes,
+set `SNAPSHOT_MAX_AGE` to bound how long the last successful snapshot may be
+served; see the [configuration reference](docs/enUS/CONFIGURATION.md#snapshot-freshness-and-remote-failures).
 
 For complete API documentation, see [API Documentation](docs/enUS/API.md) or [OpenAPI Specification](openapi.yaml).
 

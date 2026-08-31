@@ -199,11 +199,12 @@ sequenceDiagram
 
 ## 数据合并策略
 
-系统支持 6 种数据合并模式，根据 `MODE` 参数选择：
+系统支持 7 种数据合并模式，通过 `MERGE_MODE` 选择（`MODE` 已弃用）：
 
 | 模式 | 说明 | 使用场景 |
 |------|------|----------|
-| `DEFAULT` / `REMOTE_FIRST` | 远程优先，远程数据不存在时使用本地数据补充 | 默认模式，适合大多数场景 |
+| `DEFAULT` | 保留历史的远程优先、容错行为 | 向后兼容 |
+| `REMOTE_FIRST` | 远程具有权威性；远程失败时保留最后一次成功快照并记录刷新失败 | 严格远程部署 |
 | `ONLY_REMOTE` | 仅使用远程数据源 | 完全依赖远程配置 |
 | `ONLY_LOCAL` | 仅使用本地配置文件 | 离线环境或测试环境 |
 | `LOCAL_FIRST` | 本地优先，本地数据不存在时使用远程数据补充 | 本地配置为主，远程为辅 |
@@ -219,23 +220,19 @@ sequenceDiagram
 ```mermaid
 graph TB
     App[App 初始化] --> CheckRedis{Redis 启用?}
+    App --> Scheduler[每副本调度器]
     CheckRedis -->|是| TryConnect[尝试连接 Redis]
     CheckRedis -->|否| MemoryOnly[仅内存模式]
     TryConnect --> ConnectSuccess{连接成功?}
     ConnectSuccess -->|是| RedisMode[Redis + 内存模式]
     ConnectSuccess -->|否| Fallback[Fallback 到内存模式]
-    
-    RedisMode --> RedisCache[RedisUserCache]
-    RedisMode --> DistLock[Redis 分布式锁]
-    Fallback --> MemoryCache[SafeUserCache]
-    Fallback --> LocalLock[本地锁]
+    Scheduler --> LocalRefresh[本地快照刷新]
+    LocalRefresh --> MemoryCache[SafeUserCache]
+    RedisMode --> WriterLock[Redis 写入锁]
+    LocalRefresh --> WriterLock
+    WriterLock --> RedisCache[RedisUserCache]
+    Fallback --> MemoryCache
     MemoryOnly --> MemoryCache
-    MemoryOnly --> LocalLock
-    
-    RedisCache --> DataLoad[数据加载]
-    MemoryCache --> DataLoad
-    DistLock --> Scheduler[定时任务调度器]
-    LocalLock --> Scheduler
 ```
 
 ### 设计说明
@@ -261,9 +258,9 @@ graph TB
 #### 2. 锁实现
 
 - **Redis 分布式锁** (`cache.Locker`)
-  - 适用于多实例部署
-  - 基于 Redis SETNX 实现
-  - 支持自动过期，防止死锁
+  - 为共享 Redis 缓存选举单一写入者
+  - 基于 Redis SETNX，并支持自动过期
+  - 不阻止每个副本独立加载数据和刷新进程内快照
 
 - **本地锁** (`cache.LocalLocker`)
   - 适用于单机部署
@@ -280,16 +277,15 @@ graph TB
 
 #### 4. 健康检查状态
 
-健康检查端点 (`/health`) 返回 Redis 状态：
+健康检查端点聚合 `redis`、`data`、`snapshot` 与
+`snapshot_freshness`。非关键检查失败时返回 `degraded` 和 HTTP 200；关键
+检查失败时返回 `unhealthy` 和 HTTP 503。
 
-- `"ok"`: Redis 正常
-- `"unavailable"`: Redis 连接失败（fallback 模式）或 Redis 客户端为 nil
-- `"disabled"`: Redis 被显式禁用
-
-**重要说明**：
-- 在 `ONLY_LOCAL` 模式下，即使 Redis 不可用，健康检查也会返回 `200 OK`（因为该模式不依赖 Redis）
-- 如果数据已加载（`data_loaded: true`），即使 Redis 不可用，服务仍然健康，返回 `200 OK`
-- 只有在非 `ONLY_LOCAL` 模式且数据未加载时，Redis 不可用才会返回 `503 Service Unavailable`
+当 Redis 属于已配置的 HMAC v2 防重放契约时，它是关键依赖。
+`REMOTE_FIRST` 与 `ONLY_REMOTE` 中的快照新鲜度也是关键检查：来源未知或
+年龄超过 `SNAPSHOT_MAX_AGE` 时判定为不健康。容错模式可继续提供已验证的
+本地或最后一次成功快照，并标记为 degraded。生产环境响应只暴露汇总的
+`status` 与 `service`；开发和测试环境额外返回各项检查及低基数快照元数据。
 
 ### 配置参数
 

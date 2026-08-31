@@ -63,7 +63,7 @@ Si applicable, ajoutez des captures d'écran ou des GIF pour démontrer les chan
 
 Avant de soumettre le PR, veuillez vous assurer:
 
-- [ ] Mon code suit le style de code du projet (référez-vous à [CODE_STYLE.md](../docs/CODE_STYLE.md))
+- [ ] Mon code suit le style de code du projet (référez-vous à [CODE_STYLE.md](../docs/frFR/CODE_STYLE.md))
 - [ ] J'ai effectué une auto-révision du code
 - [ ] J'ai ajouté des commentaires, en particulier pour la logique complexe
 - [ ] Mes changements ne produisent pas de nouveaux avertissements

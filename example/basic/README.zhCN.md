@@ -6,7 +6,7 @@
 
 ## 📋 前置要求
 
-- Go 1.26+ 或 Docker
+- Go 1.27+ 或 Docker
 - Redis（用于缓存和分布式锁，即使只使用本地文件也需要）
 
 ## 🚀 快速开始
@@ -48,7 +48,7 @@ go run . \
 **注意**: 如果需要使用 Redis，请先启动它：
 ```bash
 # 使用 Docker 启动 Redis（最简单）
-docker run -d --name redis -p 6379:6379 redis:6.2.4
+docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 
 # 或使用本地 Redis
 redis-server
@@ -145,14 +145,11 @@ curl http://localhost:8081/health
 ```json
 {
     "status": "ok",
-    "details": {
-        "redis": "ok",
-        "data_loaded": true,
-        "user_count": 2
-    },
-    "mode": "ONLY_LOCAL"
+    "service": "warden"
 }
 ```
+
+开发/测试环境还会包含各项检查详情；生产环境隐藏详情，只返回汇总状态和服务名。
 
 ### 2. 获取用户列表
 
@@ -226,4 +223,3 @@ go run . --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
 - 查看 [复杂示例](../advanced/README.md) 了解如何使用远程 API
 - 阅读 [完整文档](../../README.md) 了解更多功能
 - 查看 [API 文档](../../openapi.yaml) 了解所有 API 端点
-

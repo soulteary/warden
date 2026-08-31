@@ -253,16 +253,16 @@ export KEY=Bearer your_token_here
 
 ### 应用模式
 
-#### MODE
+#### MERGE_MODE / MODE
 
 - **CLI 参数**: `--mode <模式>`
-- **环境变量**: `MODE`
+- **环境变量**: `MERGE_MODE`（`MODE` 是已弃用的别名）
 - **配置文件**: `remote.mode` 或 `app.mode`
 - **类型**: 字符串
 - **默认值**: `DEFAULT`
 - **可选值**:
   - `DEFAULT` - 默认模式（远程优先，失败时降级到本地）
-  - `REMOTE_FIRST` - 远程优先
+  - `REMOTE_FIRST` - 严格远程优先；远程错误会使刷新失败
   - `ONLY_REMOTE` - 仅远程
   - `ONLY_LOCAL` - 仅本地
   - `LOCAL_FIRST` - 本地优先
@@ -275,7 +275,7 @@ export KEY=Bearer your_token_here
 ./warden --mode ONLY_LOCAL
 
 # 环境变量
-export MODE=ONLY_LOCAL
+export MERGE_MODE=ONLY_LOCAL
 ./warden
 ```
 
@@ -506,7 +506,7 @@ export REDIS=localhost:6379
 export REDIS_PASSWORD=your_password
 export CONFIG=https://api.example.com/data.json
 export KEY=Bearer token123
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export INTERVAL=5
 export API_KEY=your_api_key
 
@@ -651,7 +651,7 @@ export REDIS=${REDIS:-redis:6379}
 export REDIS_PASSWORD_FILE=/run/secrets/redis_password
 export CONFIG=${CONFIG:-https://api.example.com/data.json}
 export KEY=${KEY:-Bearer ${API_TOKEN}}
-export MODE=${MODE:-REMOTE_FIRST}
+export MERGE_MODE=${MERGE_MODE:-REMOTE_FIRST}
 export API_KEY=${WARDEN_API_KEY}
 export HTTP_INSECURE_TLS=false  # 生产环境必须为 false
 
@@ -731,6 +731,6 @@ MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ## 相关文档
 
 - [架构设计文档](./ARCHITECTURE.md) - 了解整体架构
-- [配置文件示例](../config.example.yaml) - 查看配置文件格式
-- [代码实现](../internal/cmd/cmd.go) - 查看参数解析实现
-- [环境变量检查报告](../ENV_CLI_CHECK_REPORT.md) - 了解解析机制验证
+- [配置文件示例](../../config.example.yaml) - 查看配置文件格式
+- [代码实现](../../internal/cmd/cmd.go) - 查看参数解析实现
+- [配置迁移指南](../migration-config.md) - 查看环境与合并模式迁移细节

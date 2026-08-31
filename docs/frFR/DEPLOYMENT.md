@@ -6,15 +6,15 @@ This document explains how to deploy the Warden service, including Docker deploy
 
 ## Prerequisites
 
-- Go 1.26+ (refer to [go.mod](../go.mod))
+- Go 1.27+ (refer to [go.mod](../../go.mod))
 - Redis (for distributed locks and caching)
 - Docker (optional, for containerized deployment)
 
 ## Docker Deployment
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](../example/README.md) / [示例目录](../example/README.md) for complete Docker Compose configuration examples:
-> - [Simple Example](../example/basic/docker-compose.yml) / [简单示例](../example/basic/docker-compose.yml) - Basic Docker Compose configuration
-> - [Advanced Example](../example/advanced/docker-compose.yml) / [复杂示例](../example/advanced/docker-compose.yml) - Complete configuration including Mock API
+> 🚀 **Quick Deployment**: Check the [Examples Directory](../../example/README.md) / [示例目录](../../example/README.md) for complete Docker Compose configuration examples:
+> - [Simple Example](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - Basic Docker Compose configuration
+> - [Advanced Example](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - Complete configuration including Mock API
 
 ### Using Pre-built Image (Recommended)
 

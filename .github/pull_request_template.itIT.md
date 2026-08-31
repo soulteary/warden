@@ -63,7 +63,7 @@ Se applicabile, aggiungi screenshot o GIF per dimostrare le modifiche.
 
 Prima di inviare il PR, assicurati:
 
-- [ ] Il mio codice segue lo stile di codice del progetto (riferirsi a [CODE_STYLE.md](../docs/CODE_STYLE.md))
+- [ ] Il mio codice segue lo stile di codice del progetto (riferirsi a [CODE_STYLE.md](../docs/itIT/CODE_STYLE.md))
 - [ ] Ho eseguito un'autorevisione del codice
 - [ ] Ho aggiunto commenti, specialmente per la logica complessa
 - [ ] Le mie modifiche non producono nuovi avvisi

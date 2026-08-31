@@ -202,7 +202,7 @@ X-API-Key: your-secret-api-key
 
 ### 健康检查
 
-检查服务健康状态，包括 Redis 连接状态、数据加载状态等。
+检查 Redis、数据缓存、快照来源与快照新鲜度。
 
 **请求**
 ```http
@@ -210,32 +210,59 @@ GET /health
 GET /healthcheck
 ```
 
-**注意**: 此端点不需要认证，但可以通过 `HEALTH_CHECK_IP_WHITELIST` 环境变量限制访问 IP。
+**注意**: 此端点不需要认证，但可以通过 `HEALTH_CHECK_IP_WHITELIST` 环境变量限制访问 IP。生产环境响应会隐藏各项检查详情。
 
 **响应**
 ```json
 {
     "status": "ok",
-    "details": {
-        "redis": "ok",
-        "data_loaded": true,
-        "user_count": 100
+    "service": "warden",
+    "checks": {
+        "redis": {
+            "name": "redis",
+            "status": "ok",
+            "latency_ms": 1,
+            "timestamp": "2026-08-31T00:00:00Z"
+        },
+        "snapshot": {
+            "name": "snapshot",
+            "status": "ok",
+            "latency_ms": 0,
+            "timestamp": "2026-08-31T00:00:00Z",
+            "metadata": {
+                "source": "merged",
+                "version": "a1b2c3d4",
+                "age_seconds": 2.5
+            }
+        }
     },
-    "mode": "DEFAULT"
+    "timestamp": "2026-08-31T00:00:00Z",
+    "total_latency_ms": 1
 }
 ```
 
-**状态码**: `200 OK`
+生产环境响应：
+
+```json
+{"status":"ok","service":"warden"}
+```
+
+**状态码**：
+
+- `200 OK`：汇总状态为 `ok` 或 `degraded`；degraded 表示服务仍可用。
+- `503 Service Unavailable`：关键检查失败。
+- `403 Forbidden`：客户端不在 `HEALTH_CHECK_IP_WHITELIST` 中。
 
 **响应字段说明**:
-- `status`: 服务状态，`"ok"` 表示正常
-- `details.redis`: Redis 连接状态，可能的值：
-  - `"ok"`: Redis 正常
-  - `"unavailable"`: Redis 连接失败（fallback 模式）或 Redis 客户端为 nil
-  - `"disabled"`: Redis 被显式禁用
-- `details.data_loaded`: 数据是否已加载
-- `details.user_count`: 当前用户数量
-- `mode`: 当前运行模式
+- `status`：`ok`、`degraded` 或 `unhealthy`。
+- `service`：服务名（`warden`）。
+- `checks`：仅开发/测试环境返回，包含 `redis`、`data`、`snapshot` 与 `snapshot_freshness`。
+- `checks.snapshot.metadata`：低基数的来源、版本、年龄与稳定刷新原因码；不会暴露远程原始错误、URL 或凭据。
+- `timestamp`、`total_latency_ms`：仅开发/测试环境返回的汇总时间字段。
+
+`REMOTE_FIRST` 与 `ONLY_REMOTE` 中的 `snapshot_freshness` 是关键检查。
+来源未知或年龄超过 `SNAPSHOT_MAX_AGE` 时返回 503；容错模式可提供已验证的
+本地或最后一次成功快照，并以 degraded 状态返回 HTTP 200。
 
 ### 日志级别管理
 
@@ -500,7 +527,7 @@ func main() {
 
 ## 相关文档
 
-- [OpenAPI 规范](../openapi.yaml) - 完整的 OpenAPI 3.0 规范
+- [OpenAPI 规范](../../openapi.yaml) - 完整的 OpenAPI 3.1 规范
 - [配置文档](CONFIGURATION.md) - 了解如何配置 API Key 和其他选项
 - [安全文档](SECURITY.md) - 了解安全特性和最佳实践
 - [架构文档](ARCHITECTURE.md) - 了解服务集成架构
