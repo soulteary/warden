@@ -31,12 +31,12 @@ func TestResolveEnvironmentAndMergeMode(t *testing.T) {
 	defer func() { os.Args = oldArgs }()
 
 	cases := []struct {
+		wantLegacy bool
 		name       string
 		env        map[string]string
 		args       []string
 		wantMode   string
 		wantEnv    string
-		wantLegacy bool
 	}{
 		{
 			name:       "defaults when nothing set",
