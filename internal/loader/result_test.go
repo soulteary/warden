@@ -49,6 +49,7 @@ func unreachableURL(t *testing.T) string {
 
 func TestAllowsRemoteFailure(t *testing.T) {
 	cases := map[string]bool{
+		define.DEFAULT_MODE:            true,
 		ModeOnlyLocal:                  true,
 		ModeOnlyRemote:                 false,
 		ModeRemoteFirst:                false,
@@ -198,15 +199,19 @@ func TestLoadWithResult_DecryptPath_TolerantFallsBackDegraded(t *testing.T) {
 		RemoteEncryptionRequired: true,
 		RemoteEncryptionFormat:   "v2",
 	}
-	r, err := NewRulesLoader(cfg, ModeLocalFirstAllowRemoteFail)
-	require.NoError(t, err)
+	for _, mode := range []string{define.DEFAULT_MODE, ModeLocalFirstAllowRemoteFail} {
+		t.Run(mode, func(t *testing.T) {
+			r, err := NewRulesLoader(cfg, mode)
+			require.NoError(t, err)
 
-	res := r.LoadWithResult(context.Background(), path, "", srv.URL, "")
-	require.NoError(t, res.Err)
-	assert.Equal(t, SourceLocal, res.Source)
-	assert.True(t, res.Degraded)
-	assert.Equal(t, "remote_failed", res.DegradedReason)
-	require.Len(t, res.Users, 1)
+			res := r.LoadWithResult(context.Background(), path, "", srv.URL, "")
+			require.NoError(t, res.Err)
+			assert.Equal(t, SourceLocal, res.Source)
+			assert.True(t, res.Degraded)
+			assert.Equal(t, "remote_failed", res.DegradedReason)
+			require.Len(t, res.Users, 1)
+		})
+	}
 }
 
 func TestLoadWithResult_ConcurrentReads(t *testing.T) {

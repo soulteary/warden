@@ -64,7 +64,7 @@ func normalizeMode(mode string) string {
 // falling back to local/last-known-good and marking the result degraded.
 func allowsRemoteFailure(mode string) bool {
 	switch normalizeMode(mode) {
-	case ModeLocalFirst, ModeLocalFirstAllowRemoteFail, ModeRemoteFirstAllowRemoteFail, ModeOnlyLocal:
+	case define.DEFAULT_MODE, ModeLocalFirst, ModeLocalFirstAllowRemoteFail, ModeRemoteFirstAllowRemoteFail, ModeOnlyLocal:
 		return true
 	default:
 		// ONLY_REMOTE and REMOTE_FIRST are strict: a remote failure is fatal.
