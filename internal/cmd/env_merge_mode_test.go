@@ -32,9 +32,9 @@ func TestResolveEnvironmentAndMergeMode(t *testing.T) {
 
 	cases := []struct {
 		wantLegacy bool
+		useCLI     bool
 		name       string
 		env        map[string]string
-		args       []string
 		wantMode   string
 		wantEnv    string
 	}{
@@ -83,7 +83,7 @@ func TestResolveEnvironmentAndMergeMode(t *testing.T) {
 		{
 			name:       "explicit mode flag overrides MERGE_MODE",
 			env:        map[string]string{"MERGE_MODE": "ONLY_LOCAL"},
-			args:       []string{"--mode", "REMOTE_FIRST"},
+			useCLI:     true,
 			wantMode:   "REMOTE_FIRST",
 			wantEnv:    "development",
 			wantLegacy: false,
@@ -111,7 +111,10 @@ func TestResolveEnvironmentAndMergeMode(t *testing.T) {
 			clearEnvModeVars(t, envMgr)
 			require.NoError(t, envMgr.SetMultiple(tc.env))
 
-			os.Args = append([]string{"test"}, tc.args...)
+			os.Args = []string{"test"}
+			if tc.useCLI {
+				os.Args = append(os.Args, "--mode", "REMOTE_FIRST")
+			}
 			cfg := GetArgs()
 
 			assert.Equal(t, tc.wantMode, cfg.Mode, "merge mode")
