@@ -283,8 +283,10 @@ graph TB
 
 当 Redis 属于已配置的 HMAC v2 防重放契约时，它是关键依赖。
 `REMOTE_FIRST` 与 `ONLY_REMOTE` 中的快照新鲜度也是关键检查：来源未知或
-年龄超过 `SNAPSHOT_MAX_AGE` 时判定为不健康。容错模式可继续提供已验证的
-本地或最后一次成功快照，并标记为 degraded。生产环境响应只暴露汇总的
+年龄超过 `SNAPSHOT_MAX_AGE` 时判定为不健康。
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED` 和加密场景中的容错回退会标记为
+`degraded`；明文本地优先模式在本地主数据成功加载时可保持健康。
+生产环境响应只暴露汇总的
 `status` 与 `service`；开发和测试环境额外返回各项检查及低基数快照元数据。
 
 ### 配置参数

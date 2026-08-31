@@ -44,11 +44,14 @@ refresh failure, and does not advance the snapshot's `loaded_at`. The health
 endpoint returns HTTP 503 after the snapshot exceeds `SNAPSHOT_MAX_AGE` (default
 `max(30s, 3 × task interval)`). Set the value with a Go duration such as `2m`.
 
-`REMOTE_FIRST_ALLOW_REMOTE_FAILED`, `LOCAL_FIRST`, and
-`LOCAL_FIRST_ALLOW_REMOTE_FAILED` permit remote failure. A successful local
-fallback is marked `degraded` and remains serviceable with HTTP 200. `DEFAULT`
-retains the historical tolerant behavior for compatibility; select an explicit
-mode for new production deployments.
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED` explicitly falls back to validated local data,
+marks the snapshot `degraded`, and remains serviceable with HTTP 200.
+`LOCAL_FIRST` and `LOCAL_FIRST_ALLOW_REMOTE_FAILED` can remain healthy when their
+local primary succeeds even if the remote supplement is unavailable. `DEFAULT`
+retains the historical tolerant behavior for compatibility (including this
+plaintext local-success behavior); select an explicit mode for new production
+deployments. Encrypted remote failures that use a local fallback are reported as
+degraded in every tolerant mode.
 
 In multi-replica deployments every replica refreshes its process-local cache and
 snapshot. A distributed Redis lock elects only the writer of the shared Redis

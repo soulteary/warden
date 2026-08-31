@@ -283,10 +283,12 @@ The health endpoint aggregates `redis`, `data`, `snapshot`, and
 
 Redis is critical when it is part of the configured HMAC v2 replay-protection
 contract. Snapshot freshness is critical in `REMOTE_FIRST` and `ONLY_REMOTE`;
-unknown provenance or age beyond `SNAPSHOT_MAX_AGE` is unhealthy. Tolerant modes
-may serve a validated local or last-known-good snapshot as degraded. Production
-responses expose only the aggregate `status` and `service`; development and test
-responses include the individual checks and low-cardinality snapshot metadata.
+unknown provenance or age beyond `SNAPSHOT_MAX_AGE` is unhealthy.
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED` and encrypted tolerant fallbacks report
+`degraded`; a plaintext local-first load may remain healthy when its local
+primary succeeds. Production responses expose only the aggregate `status` and
+`service`; development and test responses include the individual checks and
+low-cardinality snapshot metadata.
 
 ### Configuration Parameters
 

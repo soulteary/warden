@@ -22,8 +22,10 @@ The system supports 7 data merging modes, selected with `MERGE_MODE` (`MODE` is 
 
 `REMOTE_FIRST` and `ONLY_REMOTE` are strict. A failed refresh does not advance
 snapshot freshness, and health returns 503 after `SNAPSHOT_MAX_AGE` (default
-`max(30s, 3 × task interval)`). Tolerant modes may use a validated local
-fallback as `degraded` with HTTP 200. See the current [English configuration
+`max(30s, 3 × task interval)`). `REMOTE_FIRST_ALLOW_REMOTE_FAILED` reports a
+validated local fallback as `degraded` with HTTP 200. Plaintext local-first
+modes can remain healthy when their local primary succeeds; encrypted remote
+failures using local fallback are degraded. See the current [English configuration
 reference](../enUS/CONFIGURATION.md#snapshot-freshness-and-remote-failures).
 
 ### Configuration Methods

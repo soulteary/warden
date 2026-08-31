@@ -98,10 +98,12 @@
 `loaded_at`。快照年龄超过 `SNAPSHOT_MAX_AGE` 后，健康检查返回 HTTP 503；
 默认值为 `max(30s, 3 × 任务间隔)`，可使用 `2m` 等 Go duration 设置。
 
-`REMOTE_FIRST_ALLOW_REMOTE_FAILED`、`LOCAL_FIRST` 与
-`LOCAL_FIRST_ALLOW_REMOTE_FAILED` 允许远程失败。成功回退到本地时健康状态
-标记为 `degraded`，服务仍返回 HTTP 200。`DEFAULT` 为兼容旧部署保留历史
-容错行为；新的生产部署应显式选择模式。
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED` 会显式回退到已验证的本地数据，将快照
+标记为 `degraded`，服务仍返回 HTTP 200。`LOCAL_FIRST` 与
+`LOCAL_FIRST_ALLOW_REMOTE_FAILED` 在本地主数据成功时，即使远程补充不可用
+也可保持健康。`DEFAULT` 为兼容旧部署保留历史容错行为（包括上述明文本地
+成功语义）；新的生产部署应显式选择模式。所有容错模式通过本地数据回退
+加密远程失败时，都会报告 degraded。
 
 多副本部署中，每个实例都会刷新自己的进程内缓存与快照；分布式 Redis
 锁只选举共享 Redis 缓存的写入者，因此未获得锁的实例仍会推进本地快照
