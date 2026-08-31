@@ -154,7 +154,7 @@ X-API-Key: your-secret-api-key
 
 ### Gesundheitsprüfung
 
-Dienststatus prüfen, einschließlich Redis-Verbindungsstatus, Datenladestatus usw.
+Prüft Redis, Datencache, Snapshot-Herkunft und Snapshot-Aktualität.
 
 **Anfrage**
 ```http
@@ -162,32 +162,26 @@ GET /health
 GET /healthcheck
 ```
 
-**Hinweis**: Dieser Endpunkt erfordert keine Authentifizierung, aber Zugriffs-IPs können über die Umgebungsvariable `HEALTH_CHECK_IP_WHITELIST` eingeschränkt werden.
+**Hinweis**: Dieser Endpunkt erfordert keine Authentifizierung, aber Zugriffs-IPs können über `HEALTH_CHECK_IP_WHITELIST` eingeschränkt werden. In Produktion werden Einzelprüfungen ausgeblendet.
 
 **Antwort**
 ```json
 {
     "status": "ok",
-    "details": {
-        "redis": "ok",
-        "data_loaded": true,
-        "user_count": 100
-    },
-    "mode": "DEFAULT"
+    "service": "warden"
 }
 ```
 
-**Statuscode**: `200 OK`
+**Statuscodes**: `200 OK` für `ok` oder weiterhin funktionsfähiges `degraded`; `503 Service Unavailable` bei einer kritischen Prüfung; `403 Forbidden` bei abgewiesener Health-IP.
 
 **Antwortfeldbeschreibungen**:
-- `status`: Dienststatus, `"ok"` zeigt Normalzustand an
-- `details.redis`: Redis-Verbindungsstatus, mögliche Werte:
-  - `"ok"`: Redis ist normal
-  - `"unavailable"`: Redis-Verbindung fehlgeschlagen (Fallback-Modus) oder Redis-Client ist nil
-  - `"disabled"`: Redis ist explizit deaktiviert
-- `details.data_loaded`: Ob Daten geladen wurden
-- `details.user_count`: Aktuelle Benutzeranzahl
-- `mode`: Aktueller Ausführungsmodus
+- `status`: `ok`, `degraded` oder `unhealthy`
+- `service`: Dienstname
+- `checks`, `timestamp`, `total_latency_ms`: Nur in Entwicklung/Test; Prüfungen enthalten `redis`, `data`, `snapshot` und `snapshot_freshness`
+
+In `REMOTE_FIRST` und `ONLY_REMOTE` sind Snapshots mit unbekannter Herkunft oder
+einem Alter über `SNAPSHOT_MAX_AGE` kritische Fehler. Siehe die aktuelle
+[englische API-Referenz](../enUS/API.md#health-check).
 
 ### Protokollierungsstufen-Verwaltung
 
@@ -345,6 +339,6 @@ Alle API-Antworten unterstützen automatische Komprimierung (gzip). Clients kön
 
 ## Verwandte Dokumentation
 
-- [OpenAPI-Spezifikation](../openapi.yaml) - Vollständige OpenAPI 3.0-Spezifikation
+- [OpenAPI-Spezifikation](../../openapi.yaml) - Vollständige OpenAPI-3.1-Spezifikation
 - [Konfigurationsdokumentation](CONFIGURATION.md) - Erfahren Sie, wie Sie API-Key und andere Optionen konfigurieren
 - [Sicherheitsdokumentation](SECURITY.md) - Erfahren Sie mehr über Sicherheitsfunktionen und Best Practices

@@ -6,15 +6,15 @@
 
 ## 前置要求
 
-- Go 1.26+ (参考 [go.mod](../go.mod))
+- Go 1.27+（参考 [go.mod](../../go.mod)）
 - Redis (用于分布式锁和缓存)
 - Docker (可选，用于容器化部署)
 
 ## Docker 部署
 
-> 🚀 **快速部署**: 查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.md) 获取完整的 Docker Compose 配置示例：
-> - [简单示例](../example/basic/docker-compose.yml) / [Simple Example](../example/basic/docker-compose.yml) - 基础 Docker Compose 配置
-> - [复杂示例](../example/advanced/docker-compose.yml) / [Advanced Example](../example/advanced/docker-compose.yml) - 包含 Mock API 的完整配置
+> 🚀 **快速部署**: 查看 [示例目录](../../example/README.md) / [Examples Directory](../../example/README.md) 获取完整的 Docker Compose 配置示例：
+> - [简单示例](../../example/basic/docker-compose.yml) / [Simple Example](../../example/basic/docker-compose.yml) - 基础 Docker Compose 配置
+> - [复杂示例](../../example/advanced/docker-compose.yml) / [Advanced Example](../../example/advanced/docker-compose.yml) - 包含 Mock API 的完整配置
 
 ### 使用预构建镜像（推荐）
 
@@ -68,7 +68,7 @@ docker run -d \
    INTERVAL=5
    
    # 应用模式
-   MODE=DEFAULT
+   MERGE_MODE=DEFAULT
    
    # HTTP 客户端配置（可选）
    # HTTP_TIMEOUT=5
@@ -288,7 +288,7 @@ spec:
 
 - 调整 `HTTP_MAX_IDLE_CONNS` 以优化连接池
 - 配置合适的 `INTERVAL` 以平衡实时性和性能
-- 使用合适的运行模式（`MODE`）
+- 使用合适的数据合并模式（`MERGE_MODE`）
 
 ### 3. 监控和调优
 
@@ -329,7 +329,7 @@ services:
       - PORT=8081
       - REDIS=warden-redis:6379
       - API_KEY=${WARDEN_API_KEY}
-      - MODE=DEFAULT
+      - MERGE_MODE=DEFAULT
       # 服务间鉴权配置（HMAC 示例）
       - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
       - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
@@ -345,7 +345,7 @@ services:
 
   # Warden Redis
   warden-redis:
-    image: redis:6.2.4
+    image: redis:7.4-alpine
     container_name: warden-redis
     networks:
       - auth-network
@@ -390,7 +390,7 @@ services:
 
   # Herald Redis
   herald-redis:
-    image: redis:6.2.4
+    image: redis:7.4-alpine
     container_name: herald-redis
     networks:
       - auth-network

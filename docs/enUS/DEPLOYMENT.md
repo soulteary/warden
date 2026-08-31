@@ -6,15 +6,15 @@ This document explains how to deploy the Warden service, including Docker deploy
 
 ## Prerequisites
 
-- Go 1.26+ (refer to [go.mod](../go.mod))
+- Go 1.27+ (refer to [go.mod](../../go.mod))
 - Redis (for distributed locks and caching)
 - Docker (optional, for containerized deployment)
 
 ## Docker Deployment
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](../example/README.md) / [示例目录](../example/README.md) for complete Docker Compose configuration examples:
-> - [Simple Example](../example/basic/docker-compose.yml) / [简单示例](../example/basic/docker-compose.yml) - Basic Docker Compose configuration
-> - [Advanced Example](../example/advanced/docker-compose.yml) / [复杂示例](../example/advanced/docker-compose.yml) - Complete configuration including Mock API
+> 🚀 **Quick Deployment**: Check the [Examples Directory](../../example/README.md) / [示例目录](../../example/README.md) for complete Docker Compose configuration examples:
+> - [Simple Example](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - Basic Docker Compose configuration
+> - [Advanced Example](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - Complete configuration including Mock API
 
 ### Using Pre-built Image (Recommended)
 
@@ -68,7 +68,7 @@ docker run -d \
    INTERVAL=5
    
    # Application Mode
-   MODE=DEFAULT
+   MERGE_MODE=DEFAULT
    
    # HTTP Client Configuration (optional)
    # HTTP_TIMEOUT=5
@@ -288,7 +288,7 @@ spec:
 
 - Adjust `HTTP_MAX_IDLE_CONNS` to optimize connection pool
 - Configure appropriate `INTERVAL` to balance real-time performance and efficiency
-- Use appropriate running mode (`MODE`)
+- Use an appropriate merge mode (`MERGE_MODE`)
 
 ### 3. Monitoring and Tuning
 
@@ -329,7 +329,7 @@ services:
       - PORT=8081
       - REDIS=warden-redis:6379
       - API_KEY=${WARDEN_API_KEY}
-      - MODE=DEFAULT
+      - MERGE_MODE=DEFAULT
       # Inter-service authentication configuration (HMAC example)
       - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
       - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
@@ -345,7 +345,7 @@ services:
 
   # Warden Redis
   warden-redis:
-    image: redis:6.2.4
+    image: redis:7.4-alpine
     container_name: warden-redis
     networks:
       - auth-network
@@ -390,7 +390,7 @@ services:
 
   # Herald Redis
   herald-redis:
-    image: redis:6.2.4
+    image: redis:7.4-alpine
     container_name: herald-redis
     networks:
       - auth-network

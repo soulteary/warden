@@ -11,7 +11,7 @@ services:
       - PORT=${PORT:-8081}
       - REDIS=warden-redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - MODE=ONLY_LOCAL
+      - MERGE_MODE=ONLY_LOCAL
       - API_KEY=${API_KEY:-your-secret-api-key-here}
       - INTERVAL=5
     volumes:
@@ -50,4 +50,3 @@ volumes:
 networks:
   warden-network:
     driver: bridge
-

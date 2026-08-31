@@ -26,7 +26,7 @@
 ## 2. 容器加固要点
 
 - 运行阶段以非 root 用户运行（uid/gid `10001`）。
-- 基础镜像固定到明确版本（`golang:1.26.6-alpine3.23`、`alpine:3.23`）；高保证场景追加 `@sha256:<digest>` 固定不可变镜像。
+- 基础镜像固定到明确版本（`golang:1.27.0-alpine3.23`、`alpine:3.23`）；高保证场景追加 `@sha256:<digest>` 固定不可变镜像。
 - 多阶段构建，运行镜像不含编译器、源码、私钥或测试数据。
 - 使用 `-trimpath` 去除构建路径信息。
 - UPX 默认关闭；如需开启：`make docker ENABLE_UPX=1` 或 `--build-arg ENABLE_UPX=1`。

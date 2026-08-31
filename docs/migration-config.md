@@ -16,7 +16,7 @@ merge mode only** — it no longer decides production hardening.
 | Variable | Values | Purpose | Default |
 |----------|--------|---------|---------|
 | `ENVIRONMENT` | `development` / `test` / `production` | Deployment environment. Drives security hardening and the production auth requirement. | `development` |
-| `MERGE_MODE` | `DEFAULT`, `REMOTE_FIRST`, `ONLY_REMOTE`, `ONLY_LOCAL`, `LOCAL_FIRST`, `REMOTE_FIRST_ALLOW_REMOTE_FAILED`, `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | How local and remote data are combined and how remote failures fall back. | `DEFAULT` |
+| `MERGE_MODE` | `DEFAULT`, `REMOTE_FIRST`, `ONLY_REMOTE`, `ONLY_LOCAL`, `LOCAL_FIRST`, `REMOTE_FIRST_ALLOW_REMOTE_FAILED`, `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | How local and remote data are combined; `REMOTE_FIRST`/`ONLY_REMOTE` are strict, while the `*_ALLOW_REMOTE_FAILED` modes explicitly permit fallback. | `DEFAULT` |
 
 ### Precedence
 

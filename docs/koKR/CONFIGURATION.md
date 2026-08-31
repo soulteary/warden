@@ -6,18 +6,27 @@
 
 This document provides detailed information about Warden's configuration options, including running modes, configuration file formats, environment variables, etc.
 
-## Running Mode (MODE)
+## Running Mode (MERGE_MODE)
 
-The system supports 6 data merging modes, selected via the `MODE` parameter:
+The system supports 7 data merging modes, selected with `MERGE_MODE` (`MODE` is deprecated):
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `DEFAULT` / `REMOTE_FIRST` | Remote-first, use local data to supplement when remote data doesn't exist | Default mode, suitable for most scenarios |
+| `DEFAULT` | Historical remote-first, tolerant behavior | Backward compatibility |
+| `REMOTE_FIRST` | Remote-authoritative; remote failure retains the last-known-good snapshot | Strict remote deployments |
 | `ONLY_REMOTE` | Use only remote data source | Fully dependent on remote configuration |
 | `ONLY_LOCAL` | Use only local configuration file, **Redis disabled by default** (will be enabled if `REDIS` address is explicitly set or `REDIS_ENABLED=true`) | Offline environment or test environment |
 | `LOCAL_FIRST` | Local-first, use remote data to supplement when local data doesn't exist | Local configuration as primary, remote as secondary |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | Remote-first, allow fallback to local when remote fails | High availability scenarios |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | Local-first, allow fallback to remote when local fails | Hybrid mode |
+
+`REMOTE_FIRST` and `ONLY_REMOTE` are strict. A failed refresh does not advance
+snapshot freshness, and health returns 503 after `SNAPSHOT_MAX_AGE` (default
+`max(30s, 3 × task interval)`). `REMOTE_FIRST_ALLOW_REMOTE_FAILED` reports a
+validated local fallback as `degraded` with HTTP 200. Plaintext local-first
+modes can remain healthy when their local primary succeeds; encrypted remote
+failures using local fallback are degraded. See the current [English configuration
+reference](../enUS/CONFIGURATION.md#snapshot-freshness-and-remote-failures).
 
 ### Configuration Methods
 
@@ -30,7 +39,7 @@ go run . --mode DEFAULT
 
 **Environment Variables**:
 ```bash
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 ```
 
 **Configuration File**:
@@ -135,7 +144,7 @@ app:
 
 **Configuration Priority**: Command line arguments > Environment variables > Configuration file > Default values
 
-Refer to example file: [config.example.yaml](../config.example.yaml)
+Refer to example file: [config.example.yaml](../../config.example.yaml)
 
 ## Command Line Arguments
 
@@ -176,13 +185,14 @@ export REDIS_ENABLED=true               # Enable/disable Redis (optional, defaul
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds)
 export HTTP_MAX_IDLE_CONNS=100         # HTTP maximum idle connections
 export HTTP_INSECURE_TLS=false         # Whether to skip TLS certificate verification (true/false or 1/0)
 export API_KEY="your-secret-api-key"   # API Key for authentication (strongly recommended)
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # Trusted proxy IP list (comma-separated)
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # Health check endpoint IP whitelist (optional)
+export SNAPSHOT_MAX_AGE="2m"        # Maximum snapshot age in strict remote modes
 export IP_WHITELIST="192.168.1.0/24"  # Global IP whitelist (optional)
 export LOG_LEVEL="info"                # Log level (optional, default: info, options: trace, debug, info, warn, error, fatal, panic)
 ```

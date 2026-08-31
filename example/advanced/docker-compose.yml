@@ -14,7 +14,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - CONFIG=${CONFIG:-http://mock-api:8080/api/users}
       - KEY=${KEY:-Bearer mock-token}
-      - MODE=${MODE:-DEFAULT}
+      - MERGE_MODE=${MERGE_MODE:-DEFAULT}
       - INTERVAL=${INTERVAL:-10}
       - API_KEY=${API_KEY:-your-secret-api-key-here}
       - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5}
@@ -91,4 +91,3 @@ networks:
   warden-network:
     driver: bridge
     name: warden-advanced-network
-

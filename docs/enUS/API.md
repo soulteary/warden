@@ -161,7 +161,7 @@ If you choose to integrate with other services (such as Stargate), you can call 
 
 ### Health Check
 
-Check service health status, including Redis connection status, data loading status, etc.
+Check Redis, data cache, snapshot provenance, and snapshot freshness.
 
 **Request**
 ```http
@@ -169,32 +169,59 @@ GET /health
 GET /healthcheck
 ```
 
-**Note**: This endpoint does not require authentication, but access IPs can be restricted via the `HEALTH_CHECK_IP_WHITELIST` environment variable.
+**Note**: This endpoint does not require authentication, but access IPs can be restricted via the `HEALTH_CHECK_IP_WHITELIST` environment variable. Production responses hide individual checks.
 
 **Response**
 ```json
 {
     "status": "ok",
-    "details": {
-        "redis": "ok",
-        "data_loaded": true,
-        "user_count": 100
+    "service": "warden",
+    "checks": {
+        "redis": {
+            "name": "redis",
+            "status": "ok",
+            "latency_ms": 1,
+            "timestamp": "2026-08-31T00:00:00Z"
+        },
+        "snapshot": {
+            "name": "snapshot",
+            "status": "ok",
+            "latency_ms": 0,
+            "timestamp": "2026-08-31T00:00:00Z",
+            "metadata": {
+                "source": "merged",
+                "version": "a1b2c3d4",
+                "age_seconds": 2.5
+            }
+        }
     },
-    "mode": "DEFAULT"
+    "timestamp": "2026-08-31T00:00:00Z",
+    "total_latency_ms": 1
 }
 ```
 
-**Status Code**: `200 OK`
+Production response:
+
+```json
+{"status":"ok","service":"warden"}
+```
+
+**Status codes**:
+
+- `200 OK`: aggregate status is `ok` or `degraded`; degraded means the service is still functional.
+- `503 Service Unavailable`: a critical check failed.
+- `403 Forbidden`: the client is outside `HEALTH_CHECK_IP_WHITELIST`.
 
 **Response Field Descriptions**:
-- `status`: Service status, `"ok"` indicates normal
-- `details.redis`: Redis connection status, possible values:
-  - `"ok"`: Redis is normal
-  - `"unavailable"`: Redis connection failed (fallback mode) or Redis client is nil
-  - `"disabled"`: Redis is explicitly disabled
-- `details.data_loaded`: Whether data has been loaded
-- `details.user_count`: Current user count
-- `mode`: Current running mode
+- `status`: `ok`, `degraded`, or `unhealthy`.
+- `service`: Service name (`warden`).
+- `checks`: Development/test-only map of `redis`, `data`, `snapshot`, and `snapshot_freshness` results.
+- `checks.snapshot.metadata`: Low-cardinality source/version/age and stable refresh reason codes; raw remote errors, URLs, and credentials are never exposed.
+- `timestamp`, `total_latency_ms`: Development/test-only aggregate timing fields.
+
+In `REMOTE_FIRST` and `ONLY_REMOTE`, `snapshot_freshness` is critical. Unknown
+provenance or age beyond `SNAPSHOT_MAX_AGE` returns 503. Tolerant modes can serve
+a validated local or last-known-good snapshot as degraded with HTTP 200.
 
 ### Log Level Management
 
@@ -459,7 +486,7 @@ In optional integration scenarios, the complete login flow might be as follows:
 
 ## Related Documentation
 
-- [OpenAPI Specification](../openapi.yaml) - Complete OpenAPI 3.0 specification
+- [OpenAPI Specification](../../openapi.yaml) - Complete OpenAPI 3.1 specification
 - [Configuration Documentation](CONFIGURATION.md) - Learn how to configure API Key and other options
 - [Security Documentation](SECURITY.md) - Learn about security features and best practices
 - [Architecture Documentation](ARCHITECTURE.md) - Learn about service integration architecture

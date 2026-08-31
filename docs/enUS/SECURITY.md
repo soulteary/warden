@@ -199,7 +199,7 @@ In development mode:
 
 ## Security Audit
 
-For detailed security audit reports, please refer to [SECURITY_AUDIT.md](../SECURITY_AUDIT.md) (if exists).
+For release hardening and verification guidance, see [Release Security](../RELEASE_SECURITY.md).
 
 ## Vulnerability Reporting
 

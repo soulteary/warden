@@ -2,7 +2,7 @@
 
 A clear and concise description of what this PR does.
 
-> 🌐 **Language / 语言**: [English](.github/pull_request_template.en.md) | [中文](.github/pull_request_template.zhCN.md) | [Français](.github/pull_request_template.frFR.md) | [Italiano](.github/pull_request_template.itIT.md) | [日本語](.github/pull_request_template.jaJP.md) | [Deutsch](.github/pull_request_template.deDE.md) | [한국어](.github/pull_request_template.koKR.md)
+> 🌐 **Language / 语言**: [English](pull_request_template.en.md) | [中文](pull_request_template.zhCN.md) | [Français](pull_request_template.frFR.md) | [Italiano](pull_request_template.itIT.md) | [日本語](pull_request_template.jaJP.md) | [Deutsch](pull_request_template.deDE.md) | [한국어](pull_request_template.koKR.md)
 
 ## 🔗 Related Issue
 
@@ -65,7 +65,7 @@ If applicable, add screenshots or GIFs to demonstrate the changes.
 
 Before submitting the PR, please ensure:
 
-- [ ] My code follows the project's code style (refer to [CODE_STYLE.md](../docs/CODE_STYLE.md))
+- [ ] My code follows the project's code style (refer to [CODE_STYLE.md](../docs/enUS/CODE_STYLE.md))
 - [ ] I have performed self-code review
 - [ ] I have added comments, especially for complex logic
 - [ ] My changes do not produce new warnings

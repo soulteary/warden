@@ -154,7 +154,7 @@ X-API-Key: your-secret-api-key
 
 ### Health Check
 
-Check service health status, including Redis connection status, data loading status, etc.
+Check Redis, data cache, snapshot provenance, and snapshot freshness.
 
 **Request**
 ```http
@@ -162,32 +162,25 @@ GET /health
 GET /healthcheck
 ```
 
-**Note**: This endpoint does not require authentication, but access IPs can be restricted via the `HEALTH_CHECK_IP_WHITELIST` environment variable.
+**Note**: This endpoint does not require authentication, but access IPs can be restricted via the `HEALTH_CHECK_IP_WHITELIST` environment variable. Production hides individual checks.
 
 **Response**
 ```json
 {
     "status": "ok",
-    "details": {
-        "redis": "ok",
-        "data_loaded": true,
-        "user_count": 100
-    },
-    "mode": "DEFAULT"
+    "service": "warden"
 }
 ```
 
-**Status Code**: `200 OK`
+**Status Codes**: `200 OK` for `ok` or serviceable `degraded`; `503 Service Unavailable` for a critical failure; `403 Forbidden` for a rejected health-check IP.
 
 **Response Field Descriptions**:
-- `status`: Service status, `"ok"` indicates normal
-- `details.redis`: Redis connection status, possible values:
-  - `"ok"`: Redis is normal
-  - `"unavailable"`: Redis connection failed (fallback mode) or Redis client is nil
-  - `"disabled"`: Redis is explicitly disabled
-- `details.data_loaded`: Whether data has been loaded
-- `details.user_count`: Current user count
-- `mode`: Current running mode
+- `status`: `ok`, `degraded`, or `unhealthy`
+- `service`: Service name
+- `checks`, `timestamp`, `total_latency_ms`: Development/test-only details; checks include `redis`, `data`, `snapshot`, and `snapshot_freshness`
+
+In `REMOTE_FIRST` and `ONLY_REMOTE`, unknown or older-than-`SNAPSHOT_MAX_AGE`
+snapshots are critical failures. See the current [English API reference](../enUS/API.md#health-check).
 
 ### Log Level Management
 
@@ -345,6 +338,6 @@ All API responses support automatic compression (gzip). Clients can enable compr
 
 ## Related Documentation
 
-- [OpenAPI Specification](../openapi.yaml) - Complete OpenAPI 3.0 specification
+- [OpenAPI Specification](../../openapi.yaml) - Complete OpenAPI 3.1 specification
 - [Configuration Documentation](CONFIGURATION.md) - Learn how to configure API Key and other options
 - [Security Documentation](SECURITY.md) - Learn about security features and best practices

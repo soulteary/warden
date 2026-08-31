@@ -6,7 +6,7 @@ This is the simplest Warden usage example, using only local data files, suitable
 
 ## 📋 Prerequisites
 
-- Go 1.26+ or Docker
+- Go 1.27+ or Docker
 - Redis (optional, for caching and distributed locks - disabled by default in ONLY_LOCAL mode)
 
 ## 🚀 Quick Start
@@ -48,7 +48,7 @@ go run . \
 **Note**: If you want to use Redis, start it first:
 ```bash
 # Start Redis using Docker (simplest)
-docker run -d --name redis -p 6379:6379 redis:6.2.4
+docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 
 # Or use local Redis
 redis-server
@@ -79,7 +79,7 @@ cp ../../data.example.json ./data.json
 ```env
 PORT=8081
 REDIS=warden-redis:6379
-MODE=ONLY_LOCAL
+MERGE_MODE=ONLY_LOCAL
 API_KEY=your-secret-api-key-here
 
 # Optional: Docker image configuration
@@ -145,14 +145,12 @@ Expected response:
 ```json
 {
     "status": "ok",
-    "details": {
-        "redis": "ok",
-        "data_loaded": true,
-        "user_count": 2
-    },
-    "mode": "ONLY_LOCAL"
+    "service": "warden"
 }
 ```
+
+Development/test environments also include per-check details. Production hides
+them and returns only the aggregate status and service name.
 
 ### 2. Get User List
 
@@ -226,4 +224,3 @@ go run . --port 8081 --redis localhost:6379 --mode ONLY_LOCAL
 - Check [Advanced Example](../advanced/README.md) to learn how to use remote APIs
 - Read [Complete Documentation](../../README.md) to learn more features
 - Check [API Documentation](../../openapi.yaml) to learn all API endpoints
-

@@ -1,7 +1,7 @@
 # Warden
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.26+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.27+-blue.svg)](https://golang.org)
 [![codecov](https://codecov.io/gh/soulteary/warden/branch/main/graph/badge.svg)](https://codecov.io/gh/soulteary/warden)
 [![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/warden)](https://goreportcard.com/report/github.com/soulteary/warden)
 
@@ -9,7 +9,7 @@
 
 一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
 
-Warden 继续使用 Go 的 `net/http` 服务；其共享 kit 依赖已升级到兼容 Fiber v3 的 v2 模块版本，因此依赖图中不再包含 Fiber v2。从源码构建需要 Go 1.26 或更高版本。
+Warden 继续使用 Go 的 `net/http` 服务；其共享 kit 依赖已升级到兼容 Fiber v3 的 v2 模块版本，因此依赖图中不再包含 Fiber v2。从源码构建需要 Go 1.27 或更高版本。
 
 ![Warden](.github/assets/banner.jpg)
 
@@ -25,7 +25,7 @@ Warden 可以**独立使用**，也可以选择性地与其他服务（如 Starg
 
 - 🚀 **高性能**: 每秒 5000+ 请求，平均延迟 21ms
 - 🔄 **多数据源**: 支持本地配置文件和远程 API
-- 🎯 **灵活策略**: 6 种数据合并模式（远程优先、本地优先、仅远程、仅本地等）
+- 🎯 **灵活策略**: 7 种数据合并模式（远程优先、本地优先、仅远程、仅本地等）
 - ⏰ **定时更新**: 基于 Redis 分布式锁的自动数据同步
 - 📦 **容器化部署**: 完整的 Docker 支持，开箱即用
 - 🌐 **多语言支持**: 支持 7 种语言，自动检测用户语言偏好
@@ -61,7 +61,7 @@ docker run -d \
 > 💡 **提示**: 查看 [示例目录](example/README.zhCN.md) 获取完整的 Docker Compose 配置示例。
 
 根目录的 `docker-compose.yml` 默认使用同一镜像。生产环境可通过 `WARDEN_IMAGE`
-固定版本标签（例如 `ghcr.io/soulteary/warden:1.0.0`）或 digest 以获得可复现部署；
+固定版本标签（例如 `ghcr.io/soulteary/warden:1.2.0`）或 digest 以获得可复现部署；
 `latest` 仅由稳定版本标签更新。
 
 ### 方式二：从源码运行
@@ -122,6 +122,10 @@ curl -H "X-API-Key: your-key" "http://localhost:8081/"
 # 健康检查
 curl "http://localhost:8081/health"
 ```
+
+非关键依赖发生回退但服务仍可用时，健康检查返回 `degraded` 和 HTTP 200；
+关键检查失败时返回 HTTP 503。严格远程模式可通过 `SNAPSHOT_MAX_AGE`
+限制最后一次成功快照的最长服务时间，详见[配置说明](docs/zhCN/CONFIGURATION.md#快照新鲜度与远程失败)。
 
 完整 API 文档请参考 [API 文档](docs/zhCN/API.md) 或 [OpenAPI 规范](openapi.yaml)。
 

@@ -199,11 +199,12 @@ sequenceDiagram
 
 ## Data Merging Strategies
 
-The system supports 6 data merging modes, selected based on the `MODE` parameter:
+The system supports 7 data merging modes, selected with `MERGE_MODE` (`MODE` is deprecated):
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `DEFAULT` / `REMOTE_FIRST` | Remote first, use local data as supplement when remote data is unavailable | Default mode, suitable for most scenarios |
+| `DEFAULT` | Historical remote-first behavior with tolerant fallback | Backward compatibility |
+| `REMOTE_FIRST` | Remote-authoritative; remote failure retains the last-known-good snapshot and records a failed refresh | Strict remote deployments |
 | `ONLY_REMOTE` | Only use remote data source | Completely dependent on remote configuration |
 | `ONLY_LOCAL` | Only use local configuration file | Offline environment or test environment |
 | `LOCAL_FIRST` | Local first, use remote data as supplement when local data is unavailable | Local configuration is primary, remote is secondary |
@@ -219,23 +220,19 @@ For detailed information, please refer to [Configuration Documentation](CONFIGUR
 ```mermaid
 graph TB
     App[App Initialization] --> CheckRedis{Redis Enabled?}
+    App --> Scheduler[Per-replica Scheduler]
     CheckRedis -->|Yes| TryConnect[Try to Connect Redis]
     CheckRedis -->|No| MemoryOnly[Memory Only Mode]
     TryConnect --> ConnectSuccess{Connection Success?}
     ConnectSuccess -->|Yes| RedisMode[Redis + Memory Mode]
     ConnectSuccess -->|No| Fallback[Fallback to Memory Mode]
-    
-    RedisMode --> RedisCache[RedisUserCache]
-    RedisMode --> DistLock[Redis Distributed Lock]
-    Fallback --> MemoryCache[SafeUserCache]
-    Fallback --> LocalLock[Local Lock]
+    Scheduler --> LocalRefresh[Local Snapshot Refresh]
+    LocalRefresh --> MemoryCache[SafeUserCache]
+    RedisMode --> WriterLock[Redis Writer Lock]
+    LocalRefresh --> WriterLock
+    WriterLock --> RedisCache[RedisUserCache]
+    Fallback --> MemoryCache
     MemoryOnly --> MemoryCache
-    MemoryOnly --> LocalLock
-    
-    RedisCache --> DataLoad[Data Loading]
-    MemoryCache --> DataLoad
-    DistLock --> Scheduler[Scheduled Task Scheduler]
-    LocalLock --> Scheduler
 ```
 
 ### Design Description
@@ -261,9 +258,9 @@ The application supports three Redis states:
 #### 2. Lock Implementation
 
 - **Redis Distributed Lock** (`cache.Locker`)
-  - Suitable for multi-instance deployment
-  - Based on Redis SETNX implementation
-  - Supports automatic expiration to prevent deadlocks
+  - Elects one writer for the shared Redis cache
+  - Based on Redis SETNX with automatic expiration
+  - Does not suppress per-replica source loading or process-local snapshot refresh
 
 - **Local Lock** (`cache.LocalLocker`)
   - Suitable for single-machine deployment
@@ -280,16 +277,18 @@ Data loading uses a multi-level fallback strategy:
 
 #### 4. Health Check Status
 
-The health check endpoint (`/health`) returns Redis status:
+The health endpoint aggregates `redis`, `data`, `snapshot`, and
+`snapshot_freshness` checks. Non-critical failures produce `degraded` with HTTP
+200; critical failures produce `unhealthy` with HTTP 503.
 
-- `"ok"`: Redis is normal
-- `"unavailable"`: Redis connection failed (fallback mode) or Redis client is nil
-- `"disabled"`: Redis is explicitly disabled
-
-**Important Notes**:
-- In `ONLY_LOCAL` mode, even if Redis is unavailable, the health check will return `200 OK` (because this mode does not depend on Redis)
-- If data is loaded (`data_loaded: true`), the service is still healthy even if Redis is unavailable, returning `200 OK`
-- Only when not in `ONLY_LOCAL` mode and data is not loaded, Redis unavailability will return `503 Service Unavailable`
+Redis is critical when it is part of the configured HMAC v2 replay-protection
+contract. Snapshot freshness is critical in `REMOTE_FIRST` and `ONLY_REMOTE`;
+unknown provenance or age beyond `SNAPSHOT_MAX_AGE` is unhealthy.
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED` and encrypted tolerant fallbacks report
+`degraded`; a plaintext local-first load may remain healthy when its local
+primary succeeds. Production responses expose only the aggregate `status` and
+`service`; development and test responses include the individual checks and
+low-cardinality snapshot metadata.
 
 ### Configuration Parameters
 

@@ -297,12 +297,11 @@ func processTaskFromFlags(cfg *Config, fs *flag.FlagSet) {
 
 // processEnvironmentAndMergeMode resolves the deployment Environment (security policy)
 // and the data MergeMode as two independent concepts, layered on top of the legacy MODE
-// value that processModeFromFlags already placed in cfg.Mode.
+// value that processModeFromFlags already placed in cfg.Mode. An explicitly set
+// --mode flag retains the documented CLI-over-environment priority.
 //
 // Precedence:
-//   - MergeMode: CLI -mode / MODE (already in cfg.Mode) is the base; MERGE_MODE env, when
-//     set, overrides it. This keeps existing MODE-as-merge-mode deployments working while
-//     letting operators migrate to the explicit MERGE_MODE variable.
+//   - MergeMode: explicit CLI --mode wins, then MERGE_MODE, then legacy MODE.
 //   - Environment: ENVIRONMENT env wins. When ENVIRONMENT is unset but the legacy MODE was
 //     "production"/"prod", we honor it as the environment (with a deprecation signal) so we
 //     never silently drop production hardening during migration. Otherwise defaults to
@@ -310,14 +309,23 @@ func processTaskFromFlags(cfg *Config, fs *flag.FlagSet) {
 //
 // The legacy MODE no longer *directly* drives production security checks; those key off the
 // resolved Environment only.
-func processEnvironmentAndMergeMode(cfg *Config) {
+func processEnvironmentAndMergeMode(cfg *Config, fs *flag.FlagSet) {
 	// Detect a legacy MODE that actually meant "production environment" rather than a
 	// merge mode, before we normalize cfg.Mode for merge purposes.
 	legacyModeRaw := strings.TrimSpace(cfg.Mode)
 	legacyIsProdEnv := strings.EqualFold(legacyModeRaw, "production") || strings.EqualFold(legacyModeRaw, "prod")
 
-	// MergeMode: apply MERGE_MODE override when present.
-	if v := env.GetTrimmed("MERGE_MODE", ""); v != "" {
+	// MergeMode: apply MERGE_MODE only when --mode was not explicitly provided.
+	// processModeFromFlags has already resolved the CLI/legacy MODE base value.
+	modeFlagSet := false
+	if fs != nil {
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "mode" {
+				modeFlagSet = true
+			}
+		})
+	}
+	if v := env.GetTrimmed("MERGE_MODE", ""); v != "" && !modeFlagSet {
 		cfg.Mode = v
 	} else if legacyIsProdEnv {
 		// A legacy MODE=production is not a valid merge mode; fall back to the historical
@@ -518,7 +526,7 @@ func getArgsFromFlags() *Config {
 	// Process each configuration item
 	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
 	processModeFromFlags(cfg, fs)
-	processEnvironmentAndMergeMode(cfg)
+	processEnvironmentAndMergeMode(cfg, fs)
 	processPortFromFlags(cfg, fs)
 	processRedisFromFlags(cfg, fs, flagVals)
 	processRemoteConfigFromFlags(cfg, fs)
@@ -612,7 +620,7 @@ func overrideWithFlags(cfg *config.CmdConfigData) {
 	// Process each configuration item using unified processing functions
 	// Process Mode first, as it may affect other configurations (e.g., Redis in ONLY_LOCAL mode)
 	processModeFromFlags(tempCfg, overrideFs)
-	processEnvironmentAndMergeMode(tempCfg)
+	processEnvironmentAndMergeMode(tempCfg, overrideFs)
 	processPortFromFlags(tempCfg, overrideFs)
 	processRedisFromFlags(tempCfg, overrideFs, flagVals)
 	processRemoteConfigFromFlags(tempCfg, overrideFs)
@@ -713,7 +721,7 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	// Process each configuration item using unified processing functions
 	// Pass nil for flagVals since we're only processing environment variables
 	processModeFromFlags(tempCfg, emptyFs)
-	processEnvironmentAndMergeMode(tempCfg)
+	processEnvironmentAndMergeMode(tempCfg, emptyFs)
 	processPortFromFlags(tempCfg, emptyFs)
 	processRedisFromFlags(tempCfg, emptyFs, nil)
 	processRemoteConfigFromFlags(tempCfg, emptyFs)

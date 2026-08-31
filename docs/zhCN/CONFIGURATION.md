@@ -32,12 +32,12 @@
 | HTTP 客户端 | 重试延迟 | `http.retry_delay` | — | `1s` |
 | 远程 | URL | `remote.url` | `CONFIG` | `http://localhost:8080/data.json` |
 | 远程 | 认证 Key | `remote.key` | `KEY` | 空 |
-| 远程 | 模式 | `remote.mode` / `app.mode` | `MODE` | `DEFAULT` |
+| 远程 | 模式 | `remote.mode` / `app.mode` | `MERGE_MODE` | `DEFAULT` |
 | 远程 | 解密启用 | `remote.decrypt_enabled` | `REMOTE_DECRYPT_ENABLED` | `false` |
 | 远程 | RSA 私钥文件 | `remote.rsa_private_key_file` | `REMOTE_RSA_PRIVATE_KEY_FILE` | 空（推荐用文件） |
 | 远程 | RSA 私钥 PEM（内联） | — | `REMOTE_RSA_PRIVATE_KEY` | 空（当未设置文件时可用，多行 PEM 需保留换行） |
 | 任务 | 间隔 | `task.interval` | `INTERVAL` | `5`（秒） |
-| 应用 | 模式 | `app.mode` | `MODE` | `DEFAULT` |
+| 应用 | 模式 | `app.mode` | `MERGE_MODE` | `DEFAULT` |
 | 应用 | API Key | `app.api_key` | `API_KEY` | 空 |
 | 应用 | 本地数据文件 | `app.data_file` | `DATA_FILE` | `./data.json` |
 | 应用 | 本地数据目录 | `app.data_dir` | `DATA_DIR` | 空（与 data_file 可同时使用，合并目录下所有 \*.json） |
@@ -77,31 +77,50 @@
 | DATA_DIR | 非空时须存在且为目录 |
 | 远程解密 | `REMOTE_DECRYPT_ENABLED=true` 时须配置 `REMOTE_RSA_PRIVATE_KEY_FILE`（且文件存在可读）或 `REMOTE_RSA_PRIVATE_KEY` 之一 |
 
-## 运行模式 (MODE)
+## 运行模式 (MERGE_MODE)
 
-系统支持 6 种数据合并模式，根据 `MODE` 参数选择：
+系统支持 7 种数据合并模式，通过 `MERGE_MODE` 选择（`MODE` 已弃用）：
 
 | 模式 | 说明 | 使用场景 |
 |------|------|----------|
-| `DEFAULT` / `REMOTE_FIRST` | 远程优先，远程数据不存在时使用本地数据补充 | 默认模式，适合大多数场景 |
+| `DEFAULT` | 保留历史的远程优先、容错行为 | 未显式选择模式的旧部署兼容 |
+| `REMOTE_FIRST` | 远程加载成功时远程数据优先；远程失败时严格失败并保留最后一次成功快照 | 远程数据具有权威性的严格部署 |
 | `ONLY_REMOTE` | 仅使用远程数据源 | 完全依赖远程配置 |
 | `ONLY_LOCAL` | 仅使用本地配置文件，**默认禁用 Redis**（如果显式设置了 `REDIS` 地址或 `REDIS_ENABLED=true`，则会启用 Redis） | 离线环境或测试环境 |
 | `LOCAL_FIRST` | 本地优先，本地数据不存在时使用远程数据补充 | 本地配置为主，远程为辅 |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程优先，允许远程失败时回退到本地 | 高可用场景 |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 本地优先，允许远程失败时回退到本地 | 混合模式 |
 
-### `REDIS_ENABLED` 与 `MODE=ONLY_LOCAL` 交互规则
+### 快照新鲜度与远程失败
+
+`REMOTE_FIRST` 与 `ONLY_REMOTE` 是严格模式。定时远程刷新失败时，Warden
+继续提供最后一次成功的内存快照、记录刷新失败，且不会推进快照的
+`loaded_at`。快照年龄超过 `SNAPSHOT_MAX_AGE` 后，健康检查返回 HTTP 503；
+默认值为 `max(30s, 3 × 任务间隔)`，可使用 `2m` 等 Go duration 设置。
+
+`REMOTE_FIRST_ALLOW_REMOTE_FAILED` 会显式回退到已验证的本地数据，将快照
+标记为 `degraded`，服务仍返回 HTTP 200。`LOCAL_FIRST` 与
+`LOCAL_FIRST_ALLOW_REMOTE_FAILED` 在本地主数据成功时，即使远程补充不可用
+也可保持健康。`DEFAULT` 为兼容旧部署保留历史容错行为（包括上述明文本地
+成功语义）；新的生产部署应显式选择模式。所有容错模式通过本地数据回退
+加密远程失败时，都会报告 degraded。
+
+多副本部署中，每个实例都会刷新自己的进程内缓存与快照；分布式 Redis
+锁只选举共享 Redis 缓存的写入者，因此未获得锁的实例仍会推进本地快照
+新鲜度。
+
+### `REDIS_ENABLED` 与 `MERGE_MODE=ONLY_LOCAL` 交互规则
 
 当前实现中，`ONLY_LOCAL` 不等同于“强制关闭 Redis”，而是“默认关闭 Redis”：
 
-1. 当 `MODE=ONLY_LOCAL` 且未显式设置 `REDIS_ENABLED` 与 `REDIS` 地址时，`REDIS_ENABLED` 默认视为 `false`。
-2. 当 `MODE=ONLY_LOCAL` 但显式设置了 `REDIS_ENABLED=true`，则会启用 Redis。
-3. 当 `MODE=ONLY_LOCAL` 且未设置 `REDIS_ENABLED`，但显式设置了 `REDIS=<host:port>`，则会启用 Redis。
+1. 当 `MERGE_MODE=ONLY_LOCAL` 且未显式设置 `REDIS_ENABLED` 与 `REDIS` 地址时，`REDIS_ENABLED` 默认视为 `false`。
+2. 当 `MERGE_MODE=ONLY_LOCAL` 但显式设置了 `REDIS_ENABLED=true`，则会启用 Redis。
+3. 当 `MERGE_MODE=ONLY_LOCAL` 且未设置 `REDIS_ENABLED`，但显式设置了 `REDIS=<host:port>`，则会启用 Redis。
 
 实践建议：
 
-- **离线/轻量测试**：`MODE=ONLY_LOCAL` + `REDIS_ENABLED=false`
-- **本地数据但希望缓存更稳**：`MODE=ONLY_LOCAL` + `REDIS_ENABLED=true` + `REDIS=...`
+- **离线/轻量测试**：`MERGE_MODE=ONLY_LOCAL` + `REDIS_ENABLED=false`
+- **本地数据但希望缓存更稳**：`MERGE_MODE=ONLY_LOCAL` + `REDIS_ENABLED=true` + `REDIS=...`
 - **生产环境**：建议启用 Redis，并显式设置 `REDIS_ENABLED=true`，避免依赖隐式推导
 
 ### 配置方式
@@ -115,7 +134,8 @@ go run . --mode DEFAULT
 
 **环境变量**:
 ```bash
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
+# MODE 仅作为已弃用的兼容别名。
 ```
 
 **配置文件**:
@@ -198,7 +218,7 @@ app:
 除单文件 `DATA_FILE` 外，可配置 `DATA_DIR` 指定一个目录，程序会将该目录下所有 `*.json` 文件（按文件名排序）与单文件一起参与加载与合并。
 
 **与 DATA_FILE 同时存在时的行为**：
-- 数据源顺序由运行模式（MODE）决定：REMOTE_FIRST 时为先远程（若配置）、再目录内文件（按文件名排序）、再单文件；LOCAL_FIRST 时为先目录内文件与单文件、再远程。
+- 数据源顺序由数据合并模式（`MERGE_MODE`）决定：REMOTE_FIRST 时为先远程（若配置）、再目录内文件（按文件名排序）、再单文件；LOCAL_FIRST 时为先目录内文件与单文件、再远程。
 - 同一用户（按 phone/mail 去重）在多文件中出现时，按上述优先级合并，高优先级覆盖低优先级。
 
 **配置方式**：
@@ -219,7 +239,7 @@ app:
 
 - **配置**：`REMOTE_DECRYPT_ENABLED=true`，并设置 `REMOTE_RSA_PRIVATE_KEY_FILE=/path/to/private.pem`（推荐）或 `REMOTE_RSA_PRIVATE_KEY`（内联 PEM，适用于密钥管理服务注入）。
 - **约定**：远程响应需设置 `Content-Type: application/x-warden-encrypted`，body 为 Base64 编码的混合密文：前 256 字节为 RSA(2048) 加密的 AES 密钥+IV，其后为 AES-CTR 密文；解密后为 JSON 数组格式，与本地 `data.json` 结构一致。
-- 启用解密时，远程拉取与解密在 Warden 内完成，再与本地文件源按 MODE 合并。
+- 启用解密时，远程拉取与解密在 Warden 内完成，再与本地文件源按 `MERGE_MODE` 合并。
 
 ### 应用配置文件 (`config.yaml`)
 
@@ -321,7 +341,7 @@ export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认:
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
 export INTERVAL=5                      # 定时任务间隔（秒）；仅在不使用配置文件时生效（使用 YAML 时 task.interval 来自文件，INTERVAL 不参与覆盖）
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export DATA_FILE=./data.json          # 本地用户数据文件路径
 export DATA_DIR=                      # 可选：用户数据目录，合并该目录下所有 *.json（可与 DATA_FILE 同时使用）
 export RESPONSE_FIELDS=               # 可选：API 响应字段白名单，逗号分隔，如 phone,mail,user_id,status,name；空=全部

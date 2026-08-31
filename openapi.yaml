@@ -7,10 +7,10 @@ info:
     ## 核心特性
     - 高性能：支持每秒 5000+ 请求
     - 多数据源：支持本地配置文件和远程 API 两种数据源
-    - 灵活策略：提供 6 种数据合并模式
-    - 定时更新：基于 Redis 分布式锁的定时任务，自动同步数据
+    - 灵活策略：提供 7 种数据合并模式
+    - 定时更新：每个副本独立刷新本地快照，Redis 分布式锁仅协调共享缓存写入
     - 容器化部署：完整的 Docker 支持
-  version: 1.0.0
+  version: 1.2.0
   contact:
     name: Warden Project
     url: https://github.com/soulteary/warden
@@ -185,11 +185,15 @@ paths:
         - health
       summary: 健康检查
       description: |
-        检查服务的健康状态，包括 Redis 连接状态和数据加载状态。
+        检查 Redis、数据缓存、快照来源与快照新鲜度。
         
-        响应内容会根据运行模式（appMode）有所不同：
-        - 生产环境：隐藏详细信息，只返回基本状态
-        - 开发环境：返回详细的诊断信息
+        响应内容会根据 `ENVIRONMENT` 有所不同：
+        - production：只返回 `status` 与 `service`
+        - development/test：额外返回 `checks`、时间戳和耗时
+
+        `degraded` 仍返回 200；关键检查失败时返回 503。严格远程模式
+        (`REMOTE_FIRST` / `ONLY_REMOTE`) 会把未知或超过 `SNAPSHOT_MAX_AGE`
+        的快照视为关键失败。
       operationId: healthCheck
       responses:
         '200':
@@ -203,25 +207,35 @@ paths:
                   summary: 健康状态示例
                   value:
                     status: "ok"
-                    details:
-                      redis: "ok"
-                      data_loaded: true
-                      user_count: 100
-                    mode: "DEFAULT"
-                unhealthy:
-                  summary: 不健康状态示例
+                    service: "warden"
+                    checks:
+                      redis:
+                        name: "redis"
+                        status: "ok"
+                        latency_ms: 1
+                        timestamp: "2026-08-31T00:00:00Z"
+                      snapshot:
+                        name: "snapshot"
+                        status: "ok"
+                        latency_ms: 0
+                        timestamp: "2026-08-31T00:00:00Z"
+                        metadata:
+                          source: "merged"
+                          version: "a1b2c3d4"
+                          age_seconds: 2.5
+                degraded:
+                  summary: 使用本地回退快照
                   value:
-                    status: "redis_unavailable"
-                    details:
-                      redis: "unavailable"
-                      data_loaded: false
-                    mode: "DEFAULT"
+                    status: "degraded"
+                    service: "warden"
         '503':
           description: 服务不可用
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheckResponse'
+        '403':
+          description: 客户端 IP 不在 `HEALTH_CHECK_IP_WHITELIST` 中
 
   /healthcheck:
     get:
@@ -234,6 +248,8 @@ paths:
       responses:
         '200':
           $ref: '#/paths/~1health/get/responses/200'
+        '403':
+          $ref: '#/paths/~1health/get/responses/403'
         '503':
           $ref: '#/paths/~1health/get/responses/503'
 
@@ -680,50 +696,59 @@ components:
       type: object
       required:
         - status
-        - details
+        - service
       properties:
         status:
           type: string
           description: 健康状态
           enum:
             - ok
-            - redis_unavailable
+            - degraded
+            - unhealthy
           example: "ok"
-        details:
-          type: object
-          properties:
-            redis:
-              type: string
-              description: Redis 连接状态
-              enum:
-                - ok
-                - unavailable
-                - not_configured
-              example: "ok"
-            data_loaded:
-              type: boolean
-              description: 数据是否已加载
-              example: true
-            user_count:
-              type: integer
-              description: 用户数量（仅开发环境返回）
-              example: 100
-            data_warning:
-              type: string
-              description: 数据警告信息（仅开发环境返回）
-              example: "no data loaded yet"
-            redis_error:
-              type: string
-              description: Redis 错误信息（仅开发环境返回）
-              example: "connection refused"
-          example:
-            redis: "ok"
-            data_loaded: true
-            user_count: 100
-        mode:
+        service:
           type: string
-          description: 运行模式（仅开发环境返回）
-          example: "DEFAULT"
+          example: "warden"
+        checks:
+          type: object
+          description: 各项检查结果；production 环境不返回
+          additionalProperties:
+            $ref: '#/components/schemas/HealthCheckResult'
+        timestamp:
+          type: string
+          format: date-time
+        total_latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+
+    HealthCheckResult:
+      type: object
+      required:
+        - name
+        - status
+        - latency_ms
+        - timestamp
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy, disabled, unknown]
+        latency_ms:
+          type: integer
+          format: int64
+          minimum: 0
+        message:
+          type: string
+        error:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
 
     LogLevelRequest:
       type: object

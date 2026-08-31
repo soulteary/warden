@@ -63,7 +63,7 @@ Falls zutreffend, fügen Sie Screenshots oder GIFs hinzu, um die Änderungen zu 
 
 Vor dem Einreichen des PR bitte sicherstellen:
 
-- [ ] Mein Code folgt dem Code-Stil des Projekts (siehe [CODE_STYLE.md](../docs/CODE_STYLE.md))
+- [ ] Mein Code folgt dem Code-Stil des Projekts (siehe [CODE_STYLE.md](../docs/deDE/CODE_STYLE.md))
 - [ ] Ich habe eine Selbstprüfung des Codes durchgeführt
 - [ ] Ich habe Kommentare hinzugefügt, insbesondere für komplexe Logik
 - [ ] Meine Änderungen erzeugen keine neuen Warnungen

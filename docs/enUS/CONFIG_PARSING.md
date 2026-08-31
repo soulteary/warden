@@ -253,16 +253,16 @@ export KEY=Bearer your_token_here
 
 ### Application Mode
 
-#### MODE
+#### MERGE_MODE / MODE
 
 - **CLI Argument**: `--mode <mode>`
-- **Environment Variable**: `MODE`
+- **Environment Variable**: `MERGE_MODE` (`MODE` is a deprecated alias)
 - **Configuration File**: `remote.mode` or `app.mode`
 - **Type**: String
 - **Default Value**: `DEFAULT`
 - **Optional Values**:
   - `DEFAULT` - Default mode (remote first, fallback to local on failure)
-  - `REMOTE_FIRST` - Remote first
+  - `REMOTE_FIRST` - Strict remote first; remote errors fail the refresh
   - `ONLY_REMOTE` - Only remote
   - `ONLY_LOCAL` - Only local
   - `LOCAL_FIRST` - Local first
@@ -275,7 +275,7 @@ export KEY=Bearer your_token_here
 ./warden --mode ONLY_LOCAL
 
 # Environment Variable
-export MODE=ONLY_LOCAL
+export MERGE_MODE=ONLY_LOCAL
 ./warden
 ```
 
@@ -505,7 +505,7 @@ export REDIS=localhost:6379
 export REDIS_PASSWORD=your_password
 export CONFIG=https://api.example.com/data.json
 export KEY=Bearer token123
-export MODE=DEFAULT
+export MERGE_MODE=DEFAULT
 export INTERVAL=5
 export API_KEY=your_api_key
 
@@ -613,7 +613,7 @@ services:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - CONFIG=https://api.example.com/data.json
       - KEY=Bearer ${API_TOKEN}
-      - MODE=DEFAULT
+      - MERGE_MODE=DEFAULT
       - API_KEY=${WARDEN_API_KEY}
     secrets:
       - redis_password
@@ -628,7 +628,7 @@ Development environment can use more relaxed configuration:
 PORT=8081
 REDIS=localhost:6379
 CONFIG=http://localhost:8080/data.json
-MODE=ONLY_LOCAL
+MERGE_MODE=ONLY_LOCAL
 HTTP_INSECURE_TLS=true  # Development only
 ```
 
@@ -650,7 +650,7 @@ export REDIS=${REDIS:-redis:6379}
 export REDIS_PASSWORD_FILE=/run/secrets/redis_password
 export CONFIG=${CONFIG:-https://api.example.com/data.json}
 export KEY=${KEY:-Bearer ${API_TOKEN}}
-export MODE=${MODE:-REMOTE_FIRST}
+export MERGE_MODE=${MERGE_MODE:-REMOTE_FIRST}
 export API_KEY=${WARDEN_API_KEY}
 export HTTP_INSECURE_TLS=false  # Must be false in production
 
@@ -700,7 +700,7 @@ export REDIS_ENABLED=false
 1. **Explicitly set Redis address** (Recommended, will automatically enable Redis):
 ```bash
 # Setting REDIS address will automatically enable Redis
-MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
+MERGE_MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
 # Or use command line argument
 ./warden --mode ONLY_LOCAL --redis localhost:6379
 ```
@@ -708,7 +708,7 @@ MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
 2. **Explicitly set REDIS_ENABLED**:
 ```bash
 # Explicitly enable Redis
-MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
+MERGE_MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ```
 
 ### Q6: What happens if configuration file loading fails?
@@ -730,6 +730,6 @@ MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ## Related Documentation
 
 - [Architecture Design Documentation](./ARCHITECTURE.md) - Learn about overall architecture
-- [Configuration File Example](../config.example.yaml) - View configuration file format
-- [Code Implementation](../internal/cmd/cmd.go) - View parameter parsing implementation
-- [Environment Variable Check Report](../ENV_CLI_CHECK_REPORT.md) - Learn about parsing mechanism validation
+- [Configuration File Example](../../config.example.yaml) - View configuration file format
+- [Code Implementation](../../internal/cmd/cmd.go) - View parameter parsing implementation
+- [Configuration Migration Guide](../migration-config.md) - Environment and merge-mode migration details

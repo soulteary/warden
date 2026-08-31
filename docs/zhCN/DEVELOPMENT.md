@@ -126,7 +126,7 @@ golangci-lint run
 
 项目提供了完整的 OpenAPI 3.0 规范文档：
 
-- [openapi.yaml](../openapi.yaml) - OpenAPI 规范文件
+- [openapi.yaml](../../openapi.yaml) - OpenAPI 规范文件
 
 可以使用以下工具查看：
 
@@ -154,7 +154,7 @@ golangci-lint run
 
 ## 参考示例
 
-查看 [示例目录](../example/README.md) / [Examples Directory](../example/README.md) 了解不同使用场景的完整示例代码和配置。
+查看 [示例目录](../../example/README.md) / [Examples Directory](../../example/README.md) 了解不同使用场景的完整示例代码和配置。
 
 ## 性能测试
 
