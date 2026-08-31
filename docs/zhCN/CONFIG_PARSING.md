@@ -614,7 +614,7 @@ services:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - CONFIG=https://api.example.com/data.json
       - KEY=Bearer ${API_TOKEN}
-      - MODE=DEFAULT
+      - MERGE_MODE=DEFAULT
       - API_KEY=${WARDEN_API_KEY}
     secrets:
       - redis_password
@@ -629,7 +629,7 @@ services:
 PORT=8081
 REDIS=localhost:6379
 CONFIG=http://localhost:8080/data.json
-MODE=ONLY_LOCAL
+MERGE_MODE=ONLY_LOCAL
 HTTP_INSECURE_TLS=true  # 仅开发环境
 ```
 
@@ -701,7 +701,7 @@ export REDIS_ENABLED=false
 1. **显式设置 Redis 地址**（推荐，会自动启用 Redis）：
 ```bash
 # 设置 REDIS 地址会自动启用 Redis
-MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
+MERGE_MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
 # 或使用命令行参数
 ./warden --mode ONLY_LOCAL --redis localhost:6379
 ```
@@ -709,7 +709,7 @@ MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
 2. **显式设置 REDIS_ENABLED**：
 ```bash
 # 显式启用 Redis
-MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
+MERGE_MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ```
 
 ### Q6: 配置文件加载失败会怎样？

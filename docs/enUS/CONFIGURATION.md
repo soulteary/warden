@@ -15,7 +15,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Cache | `cache.ttl`, `cache.update_interval` | no env overrides; update_interval default 5s |
 | Rate limit | `rate_limit.rate`, `rate_limit.window` | default 60/min, 1m window |
 | HTTP client | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
-| Remote | `remote.*` / `CONFIG`, `KEY`, `MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
+| Remote | `remote.*` / `CONFIG`, `KEY`, `MERGE_MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
 | Task | `task.interval` | no env override when using config file; use `INTERVAL` only when not using config file |
 | App | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
 | Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | When using `--config-file`, tracing is not read from that file unless `CONFIG_FILE` is set to the same path |

@@ -613,7 +613,7 @@ services:
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
       - CONFIG=https://api.example.com/data.json
       - KEY=Bearer ${API_TOKEN}
-      - MODE=DEFAULT
+      - MERGE_MODE=DEFAULT
       - API_KEY=${WARDEN_API_KEY}
     secrets:
       - redis_password
@@ -628,7 +628,7 @@ Development environment can use more relaxed configuration:
 PORT=8081
 REDIS=localhost:6379
 CONFIG=http://localhost:8080/data.json
-MODE=ONLY_LOCAL
+MERGE_MODE=ONLY_LOCAL
 HTTP_INSECURE_TLS=true  # Development only
 ```
 
@@ -700,7 +700,7 @@ export REDIS_ENABLED=false
 1. **Explicitly set Redis address** (Recommended, will automatically enable Redis):
 ```bash
 # Setting REDIS address will automatically enable Redis
-MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
+MERGE_MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
 # Or use command line argument
 ./warden --mode ONLY_LOCAL --redis localhost:6379
 ```
@@ -708,7 +708,7 @@ MODE=ONLY_LOCAL REDIS=localhost:6379 ./warden
 2. **Explicitly set REDIS_ENABLED**:
 ```bash
 # Explicitly enable Redis
-MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
+MERGE_MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ```
 
 ### Q6: What happens if configuration file loading fails?

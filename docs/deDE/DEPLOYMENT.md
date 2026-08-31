@@ -68,7 +68,7 @@ docker run -d \
    INTERVAL=5
    
    # Application Mode
-   MODE=DEFAULT
+   MERGE_MODE=DEFAULT
    
    # HTTP Client Configuration (optional)
    # HTTP_TIMEOUT=5
@@ -288,7 +288,7 @@ spec:
 
 - Adjust `HTTP_MAX_IDLE_CONNS` to optimize connection pool
 - Configure appropriate `INTERVAL` to balance real-time performance and efficiency
-- Use appropriate running mode (`MODE`)
+- Use an appropriate merge mode (`MERGE_MODE`)
 
 ### 3. Monitoring and Tuning
 

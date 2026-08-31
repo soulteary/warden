@@ -79,7 +79,7 @@ cp ../../data.example.json ./data.json
 ```env
 PORT=8081
 REDIS=warden-redis:6379
-MODE=ONLY_LOCAL
+MERGE_MODE=ONLY_LOCAL
 API_KEY=your-secret-api-key-here
 
 # 可选：Docker 镜像配置

@@ -68,7 +68,7 @@ docker run -d \
    INTERVAL=5
    
    # 应用模式
-   MODE=DEFAULT
+   MERGE_MODE=DEFAULT
    
    # HTTP 客户端配置（可选）
    # HTTP_TIMEOUT=5
@@ -288,7 +288,7 @@ spec:
 
 - 调整 `HTTP_MAX_IDLE_CONNS` 以优化连接池
 - 配置合适的 `INTERVAL` 以平衡实时性和性能
-- 使用合适的运行模式（`MODE`）
+- 使用合适的数据合并模式（`MERGE_MODE`）
 
 ### 3. 监控和调优
 
@@ -329,7 +329,7 @@ services:
       - PORT=8081
       - REDIS=warden-redis:6379
       - API_KEY=${WARDEN_API_KEY}
-      - MODE=DEFAULT
+      - MERGE_MODE=DEFAULT
       # 服务间鉴权配置（HMAC 示例）
       - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
       - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60

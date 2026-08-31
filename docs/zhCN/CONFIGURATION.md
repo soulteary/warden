@@ -32,12 +32,12 @@
 | HTTP 客户端 | 重试延迟 | `http.retry_delay` | — | `1s` |
 | 远程 | URL | `remote.url` | `CONFIG` | `http://localhost:8080/data.json` |
 | 远程 | 认证 Key | `remote.key` | `KEY` | 空 |
-| 远程 | 模式 | `remote.mode` / `app.mode` | `MODE` | `DEFAULT` |
+| 远程 | 模式 | `remote.mode` / `app.mode` | `MERGE_MODE` | `DEFAULT` |
 | 远程 | 解密启用 | `remote.decrypt_enabled` | `REMOTE_DECRYPT_ENABLED` | `false` |
 | 远程 | RSA 私钥文件 | `remote.rsa_private_key_file` | `REMOTE_RSA_PRIVATE_KEY_FILE` | 空（推荐用文件） |
 | 远程 | RSA 私钥 PEM（内联） | — | `REMOTE_RSA_PRIVATE_KEY` | 空（当未设置文件时可用，多行 PEM 需保留换行） |
 | 任务 | 间隔 | `task.interval` | `INTERVAL` | `5`（秒） |
-| 应用 | 模式 | `app.mode` | `MODE` | `DEFAULT` |
+| 应用 | 模式 | `app.mode` | `MERGE_MODE` | `DEFAULT` |
 | 应用 | API Key | `app.api_key` | `API_KEY` | 空 |
 | 应用 | 本地数据文件 | `app.data_file` | `DATA_FILE` | `./data.json` |
 | 应用 | 本地数据目录 | `app.data_dir` | `DATA_DIR` | 空（与 data_file 可同时使用，合并目录下所有 \*.json） |
@@ -109,18 +109,18 @@
 锁只选举共享 Redis 缓存的写入者，因此未获得锁的实例仍会推进本地快照
 新鲜度。
 
-### `REDIS_ENABLED` 与 `MODE=ONLY_LOCAL` 交互规则
+### `REDIS_ENABLED` 与 `MERGE_MODE=ONLY_LOCAL` 交互规则
 
 当前实现中，`ONLY_LOCAL` 不等同于“强制关闭 Redis”，而是“默认关闭 Redis”：
 
-1. 当 `MODE=ONLY_LOCAL` 且未显式设置 `REDIS_ENABLED` 与 `REDIS` 地址时，`REDIS_ENABLED` 默认视为 `false`。
-2. 当 `MODE=ONLY_LOCAL` 但显式设置了 `REDIS_ENABLED=true`，则会启用 Redis。
-3. 当 `MODE=ONLY_LOCAL` 且未设置 `REDIS_ENABLED`，但显式设置了 `REDIS=<host:port>`，则会启用 Redis。
+1. 当 `MERGE_MODE=ONLY_LOCAL` 且未显式设置 `REDIS_ENABLED` 与 `REDIS` 地址时，`REDIS_ENABLED` 默认视为 `false`。
+2. 当 `MERGE_MODE=ONLY_LOCAL` 但显式设置了 `REDIS_ENABLED=true`，则会启用 Redis。
+3. 当 `MERGE_MODE=ONLY_LOCAL` 且未设置 `REDIS_ENABLED`，但显式设置了 `REDIS=<host:port>`，则会启用 Redis。
 
 实践建议：
 
-- **离线/轻量测试**：`MODE=ONLY_LOCAL` + `REDIS_ENABLED=false`
-- **本地数据但希望缓存更稳**：`MODE=ONLY_LOCAL` + `REDIS_ENABLED=true` + `REDIS=...`
+- **离线/轻量测试**：`MERGE_MODE=ONLY_LOCAL` + `REDIS_ENABLED=false`
+- **本地数据但希望缓存更稳**：`MERGE_MODE=ONLY_LOCAL` + `REDIS_ENABLED=true` + `REDIS=...`
 - **生产环境**：建议启用 Redis，并显式设置 `REDIS_ENABLED=true`，避免依赖隐式推导
 
 ### 配置方式
@@ -218,7 +218,7 @@ app:
 除单文件 `DATA_FILE` 外，可配置 `DATA_DIR` 指定一个目录，程序会将该目录下所有 `*.json` 文件（按文件名排序）与单文件一起参与加载与合并。
 
 **与 DATA_FILE 同时存在时的行为**：
-- 数据源顺序由运行模式（MODE）决定：REMOTE_FIRST 时为先远程（若配置）、再目录内文件（按文件名排序）、再单文件；LOCAL_FIRST 时为先目录内文件与单文件、再远程。
+- 数据源顺序由数据合并模式（`MERGE_MODE`）决定：REMOTE_FIRST 时为先远程（若配置）、再目录内文件（按文件名排序）、再单文件；LOCAL_FIRST 时为先目录内文件与单文件、再远程。
 - 同一用户（按 phone/mail 去重）在多文件中出现时，按上述优先级合并，高优先级覆盖低优先级。
 
 **配置方式**：
@@ -239,7 +239,7 @@ app:
 
 - **配置**：`REMOTE_DECRYPT_ENABLED=true`，并设置 `REMOTE_RSA_PRIVATE_KEY_FILE=/path/to/private.pem`（推荐）或 `REMOTE_RSA_PRIVATE_KEY`（内联 PEM，适用于密钥管理服务注入）。
 - **约定**：远程响应需设置 `Content-Type: application/x-warden-encrypted`，body 为 Base64 编码的混合密文：前 256 字节为 RSA(2048) 加密的 AES 密钥+IV，其后为 AES-CTR 密文；解密后为 JSON 数组格式，与本地 `data.json` 结构一致。
-- 启用解密时，远程拉取与解密在 Warden 内完成，再与本地文件源按 MODE 合并。
+- 启用解密时，远程拉取与解密在 Warden 内完成，再与本地文件源按 `MERGE_MODE` 合并。
 
 ### 应用配置文件 (`config.yaml`)
 

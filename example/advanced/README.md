@@ -149,7 +149,7 @@ KEY=Bearer mock-token
 INTERVAL=10
 
 # Running Mode
-MODE=DEFAULT
+MERGE_MODE=DEFAULT
 
 # API Authentication
 API_KEY=your-secret-api-key-here

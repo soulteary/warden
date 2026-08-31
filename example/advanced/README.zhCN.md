@@ -149,7 +149,7 @@ KEY=Bearer mock-token
 INTERVAL=10
 
 # 运行模式
-MODE=DEFAULT
+MERGE_MODE=DEFAULT
 
 # API 认证
 API_KEY=your-secret-api-key-here
