@@ -4,10 +4,10 @@
 # 与 docker/Dockerfile 语义一致，仅额外配置 APK/GOPROXY 镜像源与时区。
 
 # 高保证：将 tag 追加 @sha256:<digest> 以固定不可变镜像。
-FROM golang:1.27.1-alpine3.23 AS builder
+FROM golang:1.27.1-alpine3.24 AS builder
 RUN echo '' > /etc/apk/repositories && \
-    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.23/main"         >> /etc/apk/repositories && \
-    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.23/community"    >> /etc/apk/repositories && \
+    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.24/main"         >> /etc/apk/repositories && \
+    echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.24/community"    >> /etc/apk/repositories && \
     echo "Asia/Shanghai" > /etc/timezone
 RUN apk add --no-cache git bash gcc musl-dev upx tzdata
 ENV TZ=Asia/Shanghai
@@ -45,7 +45,7 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
     fi
 
 
-FROM alpine:3.23
+FROM alpine:3.24
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
     apk upgrade --no-cache && \
