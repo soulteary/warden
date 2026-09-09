@@ -2,7 +2,7 @@
 #
 # 演示用 Mock API：多阶段构建，运行阶段以非 root 用户运行。
 # 二进制在构建期生成，不再提交到版本库（见仓库 .gitignore）。
-FROM golang:1.27.0-alpine3.23 AS builder
+FROM golang:1.27.1-alpine3.23 AS builder
 
 WORKDIR /app
 
