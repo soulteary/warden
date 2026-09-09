@@ -5,7 +5,7 @@
 
 # 高保证：将 tag 追加 @sha256:<digest> 以固定不可变镜像，例如：
 #   FROM golang:1.27.0-alpine3.23@sha256:<digest> AS builder
-FROM golang:1.27.0-alpine3.23 AS builder
+FROM golang:1.27.1-alpine3.23 AS builder
 
 # 仅安装构建期需要的工具；upx 仅在显式开启时使用（见 ENABLE_UPX）。
 RUN apk add --no-cache git bash gcc musl-dev upx
