@@ -4,8 +4,8 @@
 # 基础镜像已固定到明确版本；高保证场景可进一步固定 digest（见下方注释）。
 
 # 高保证：将 tag 追加 @sha256:<digest> 以固定不可变镜像，例如：
-#   FROM golang:1.27.0-alpine3.23@sha256:<digest> AS builder
-FROM golang:1.27.1-alpine3.23 AS builder
+#   FROM golang:1.27.1-alpine3.24@sha256:<digest> AS builder
+FROM golang:1.27.1-alpine3.24 AS builder
 
 # 仅安装构建期需要的工具；upx 仅在显式开启时使用（见 ENABLE_UPX）。
 RUN apk add --no-cache git bash gcc musl-dev upx
@@ -44,7 +44,7 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
 
 
 # 高保证：可将 tag 追加 @sha256:<digest> 固定运行时基础镜像。
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Refresh packages from the pinned Alpine release before adding runtime tools. This
 # keeps the image on the latest patched package revision (including OpenSSL fixes)

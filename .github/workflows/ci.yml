@@ -212,14 +212,14 @@ jobs:
         run: |
           UID_IN_IMAGE=$(docker inspect --format '{{.Config.User}}' warden:test)
           echo "镜像配置用户: ${UID_IN_IMAGE}"
-          if [ "${UID_IN_IMAGE}" = "" ] || [ "${UID_IN_IMAGE}" = "root" ] || [ "${UID_IN_IMAGE}" = "0" ] || [ "${UID_IN_IMAGE}" = "0:0" ]; then
-            echo "::error::镜像必须以非 root 用户运行"
+          if [ "${UID_IN_IMAGE}" != "10001:10001" ]; then
+            echo "::error::镜像必须以固定用户 10001:10001 运行"
             exit 1
           fi
 
       # 容器镜像漏洞扫描（Trivy）；发现 HIGH/CRITICAL 漏洞则失败
       - name: 容器镜像漏洞扫描
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: warden:test
           format: sarif
@@ -227,6 +227,9 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
           ignore-unfixed: true
+          scanners: vuln
+          version: v0.74.0
+          token-setup-trivy: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 上传 Trivy 扫描结果
         if: always()
