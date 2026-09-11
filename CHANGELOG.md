@@ -38,6 +38,10 @@
 - 工具链版本声明统一到 Go 1.27：`.golangci.yml` 的 `run.go` 由 `1.26` 提升为 `1.27`，与 `go.mod` 的
   `go 1.27.0` 一致，避免 linter 按更旧的语言版本分析代码；Issue 模板与贡献指南中的 Go 版本示例
   同步更新。（`go.mod`、Dockerfile、README 徽章与各语言部署文档此前已为 1.27。）
+- 主模块与 `example/advanced/mock-api` 新增 `toolchain go1.27.1` 指令，与构建镜像
+  `golang:1.27.1-alpine3.24` 对齐。`go` 指令仍为 `1.27.0`（最低语言版本），`toolchain` 作为建议下限：
+  本地 Go 更旧时会自动获取 1.27.1，更新时则直接使用本地工具链。使用 `GOTOOLCHAIN=local` 且本地
+  低于 1.27.1 的环境需要自行升级 Go。
 - `/metrics` 文档补充认证矩阵，OpenAPI 契约补充 `401` 响应；此前 API 文档声称该端点「不需要认证」。
 - `/metrics` 认证策略改为按部署环境取默认值：`ENVIRONMENT=production` 默认要求认证，其他环境默认匿名；
   `WARDEN_METRICS_REQUIRE_AUTH` 在两个方向上均可覆盖默认值。此前文档称默认匿名，但匿名分支沿用了服务
