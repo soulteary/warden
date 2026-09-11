@@ -831,6 +831,61 @@ func TestRegisterRoutes_MetricsAuthPolicy(t *testing.T) {
 	t.Run("显式 false 可在生产环境放开匿名抓取", func(t *testing.T) {
 		assert.Equal(t, http.StatusOK, scrape(t, "production", "false", false))
 	})
+	t.Run("拼错的值回落到环境默认而非静默放行", func(t *testing.T) {
+		// A typo must not be read as "false": production keeps requiring authentication
+		// (registerRoutes also logs a warning naming the accepted spellings).
+		assert.Equal(t, http.StatusUnauthorized, scrape(t, "production", "ture", false))
+		assert.Equal(t, http.StatusOK, scrape(t, "development", "ture", false))
+	})
+}
+
+// TestApp_backgroundTask_AllRecordsRejected covers the condition this PR made loud: a load
+// that succeeds with records, none of which survive format validation. The effective set is
+// empty and that empty set is what gets published — keeping the shared cache identical to
+// what this replica serves rather than re-seeding rejected records to peers — so the
+// condition has to be visible above Debug.
+func TestApp_backgroundTask_AllRecordsRejected(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "rules-*.json")
+	require.NoError(t, err)
+	// Every record carries a malformed mail address, so all of them are dropped.
+	_, err = tmpFile.WriteString(`[
+		{"mail":"not-an-email","status":"active"},
+		{"mail":"also-not-an-email","status":"active"}
+	]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	app := NewApp(&cmd.Config{
+		Port:         "8081",
+		RedisEnabled: false,
+		Mode:         "ONLY_LOCAL",
+		APIKey:       "test-key",
+		RemoteConfig: "",
+		TaskInterval: 60,
+		DataFile:     tmpFile.Name(),
+	})
+	require.NotNil(t, app)
+
+	var published [][]define.AllowListUser
+	app.redisUserCache = &cache.RedisUserCache{}
+	app.redisRefreshLocker = &stubRefreshLocker{locked: true}
+	app.publishToRedis = func(users []define.AllowListUser) error {
+		published = append(published, append([]define.AllowListUser(nil), users...))
+		return nil
+	}
+
+	// Clear the baseline so the refresh takes the changed path.
+	app.snapshots = newSnapshotStore()
+	app.backgroundTask(tmpFile.Name(), "")
+
+	assert.Zero(t, app.userCache.Len(), "全部记录被拒时生效集合应为空")
+	require.Len(t, published, 1, "仍应发布一次，使共享缓存与本副本所服务的内容一致")
+	assert.Empty(t, published[0], "发布的必须是空的生效集合，而不是被拒绝的原始记录")
+
+	// A successful-but-empty load is still a successful refresh: it must not be recorded as
+	// a failure, or the snapshot would report a stale-data problem that does not exist.
+	failures, _ := app.snapshots.RefreshFailure()
+	assert.Zero(t, failures)
 }
 
 // TestApp_backgroundTask_PanicRecovery tests panic recovery in background task
