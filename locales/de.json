@@ -36,6 +36,26 @@
   "error.health_check_encode_failed": "Health-Check-Antwort konnte nicht kodiert werden",
   "error.error_response_hidden": "Fehlerantwort (Details ausgeblendet)",
   "error.request_error": "Fehler bei der Verarbeitung der Anfrage",
+  "error.request_cancelled": "Anfrage abgebrochen",
+  "error.toml_not_supported": "TOML-Format wird noch nicht unterstützt, bitte verwenden Sie das YAML-Format",
+
+  "validation.port_invalid": "Ungültige Portnummer: %s (muss eine ganze Zahl zwischen 1 und 65535 sein)",
+  "validation.mode_invalid": "Ungültiger Modus: %s (gültige Werte: DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)",
+  "validation.task_interval_invalid": "Aufgabenintervall muss größer als 0 sein, aktueller Wert: %d",
+  "validation.server_port_empty": "server.port darf nicht leer sein",
+  "validation.redis_addr_empty": "redis.addr darf nicht leer sein",
+  "validation.task_interval_too_short": "task.interval muss mindestens 1 Sekunde betragen",
+  "validation.prod_tls_not_allowed": "Produktionsumgebung erlaubt keine Deaktivierung der TLS-Zertifikatsüberprüfung",
+  "validation.environment_invalid": "Ungültige Bereitstellungsumgebung: %s (gültige Werte: development, test, production)",
+  "validation.prod_remote_timeout_required": "Wenn in der Produktionsumgebung eine Remote-Datenquelle konfiguriert ist, ist ein begrenztes HTTP-Timeout (HTTP_TIMEOUT > 0) erforderlich",
+  "validation.prod_remote_encryption_required": "Wenn in der Produktionsumgebung eine Remote-Datenquelle konfiguriert ist, muss Remote-Verschlüsselung zwingend erforderlich sein (REMOTE_ENCRYPTION_REQUIRED=true, fail closed)",
+  "validation.prod_auth_required": "Produktionsumgebung erfordert mindestens einen Authentifizierungsmechanismus: Setzen Sie API_KEY, WARDEN_HMAC_KEYS oder mTLS (WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true)",
+
+  "log_level.updated": "Log-Level aktualisiert",
+  "log_level.invalid": "Ungültiges Log-Level, unterstützt: trace, debug, info, warn, error, fatal, panic",
+  "log_level.empty": "Log-Level darf nicht leer sein",
+  "log_level.invalid_request_body": "Ungültiger Anfragetext",
+  "log_level.method_not_allowed": "Methode nicht erlaubt, bitte verwenden Sie GET oder POST",
 
   "log.http_tls_disabled": "HTTP TLS-Zertifikatsüberprüfung deaktiviert (nur Entwicklung)",
   "log.prod_tls_required": "Produktionsumgebung erlaubt keine Deaktivierung der TLS-Zertifikatsüberprüfung, Beendigung",
@@ -67,8 +87,8 @@
   "log.background_task_panic": "Panik bei Hintergrundaufgabe aufgetreten, wiederhergestellt",
   "log.data_unchanged": "Daten unverändert, Überspringen der Aktualisierung",
   "log.redis_cache_failed_continue": "Redis-Cache-Update fehlgeschlagen, Fortsetzung mit Speicher-Cache",
-  "log.data_modified_during_update": "Daten während der Aktualisierung geändert, Überspringen der Redis-Aktualisierung",
   "log.background_update": "Hintergrund-Datenaktualisierung",
+  "log.all_records_rejected": "Alle geladenen Datensätze wurden von der Validierung abgelehnt; der wirksame Regelsatz ist leer",
   "log.background_load_failed": "Hintergrundaufgabe konnte Daten nicht laden",
   "log.identity_validation_failed": "Identitätsprüfung fehlgeschlagen: doppelte eindeutige Kennung oder fehlende erforderliche user_id erkannt; letzte gültige Daten werden beibehalten",
   "log.identity_diagnostic_ok": "Schreibgeschützte Identitätsprüfung bestanden: keine doppelten Kennungen oder fehlenden user_id gefunden",
@@ -94,10 +114,10 @@
   "log.request_data_api": "Daten-API anfordern",
   "log.health_check_encode_failed": "Health-Check-Antwort konnte nicht kodiert werden",
 
-  "http.method_not_allowed": "Method not allowed",
-  "http.user_not_found": "User not found",
-  "http.internal_server_error": "Internal server error",
-  "http.unauthorized": "Unauthorized",
-  "http.rate_limit_exceeded": "Rate limit exceeded",
-  "http.invalid_pagination_parameters": "Invalid pagination parameters"
+  "http.method_not_allowed": "Methode nicht erlaubt",
+  "http.user_not_found": "Benutzer nicht gefunden",
+  "http.internal_server_error": "Interner Serverfehler",
+  "http.unauthorized": "Nicht autorisiert",
+  "http.rate_limit_exceeded": "Rate-Limit überschritten",
+  "http.invalid_pagination_parameters": "Ungültige Paginierungsparameter"
 }

@@ -36,6 +36,26 @@
   "error.health_check_encode_failed": "Échec de l'encodage de la réponse de vérification de santé",
   "error.error_response_hidden": "Réponse d'erreur (détails masqués)",
   "error.request_error": "Erreur lors du traitement de la requête",
+  "error.request_cancelled": "Requête annulée",
+  "error.toml_not_supported": "Le format TOML n'est pas encore pris en charge, veuillez utiliser le format YAML",
+
+  "validation.port_invalid": "Numéro de port invalide : %s (doit être un entier entre 1 et 65535)",
+  "validation.mode_invalid": "Mode invalide : %s (valeurs valides : DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)",
+  "validation.task_interval_invalid": "L'intervalle de tâche doit être supérieur à 0, valeur actuelle : %d",
+  "validation.server_port_empty": "server.port ne peut pas être vide",
+  "validation.redis_addr_empty": "redis.addr ne peut pas être vide",
+  "validation.task_interval_too_short": "task.interval doit être d'au moins 1 seconde",
+  "validation.prod_tls_not_allowed": "l'environnement de production n'autorise pas la désactivation de la vérification du certificat TLS",
+  "validation.environment_invalid": "environnement de déploiement invalide : %s (valeurs valides : development, test, production)",
+  "validation.prod_remote_timeout_required": "un délai d'expiration HTTP borné (HTTP_TIMEOUT > 0) est requis lorsqu'une source de données distante est configurée en production",
+  "validation.prod_remote_encryption_required": "le chiffrement distant doit être exigé (REMOTE_ENCRYPTION_REQUIRED=true, fail closed) lorsqu'une source de données distante est configurée en production",
+  "validation.prod_auth_required": "l'environnement de production exige au moins un mécanisme d'authentification : définissez API_KEY, WARDEN_HMAC_KEYS ou mTLS (WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true)",
+
+  "log_level.updated": "Niveau de journalisation mis à jour",
+  "log_level.invalid": "Niveau de journalisation invalide, valeurs prises en charge : trace, debug, info, warn, error, fatal, panic",
+  "log_level.empty": "Le niveau de journalisation ne peut pas être vide",
+  "log_level.invalid_request_body": "Corps de requête invalide",
+  "log_level.method_not_allowed": "Méthode non autorisée, veuillez utiliser GET ou POST",
 
   "log.http_tls_disabled": "Vérification du certificat TLS HTTP désactivée (développement uniquement)",
   "log.prod_tls_required": "L'environnement de production n'autorise pas la désactivation de la vérification du certificat TLS, arrêt",
@@ -67,8 +87,8 @@
   "log.background_task_panic": "Panique de la tâche en arrière-plan survenue, récupérée",
   "log.data_unchanged": "Données inchangées, saut de la mise à jour",
   "log.redis_cache_failed_continue": "Échec de la mise à jour du cache Redis, continuation avec le cache mémoire",
-  "log.data_modified_during_update": "Données modifiées pendant la mise à jour, saut de la mise à jour Redis",
   "log.background_update": "Mise à jour des données en arrière-plan",
+  "log.all_records_rejected": "Tous les enregistrements chargés ont été rejetés par la validation ; l'ensemble de règles effectif est vide",
   "log.background_load_failed": "Échec du chargement des données par la tâche en arrière-plan",
   "log.identity_validation_failed": "Échec de la validation d'identité : identifiant unique en double ou user_id requis manquant détecté ; conservation des dernières données valides",
   "log.identity_diagnostic_ok": "Vérification d'identité en lecture seule réussie : aucun identifiant en double ni user_id manquant",
@@ -94,10 +114,10 @@
   "log.request_data_api": "Requête API de données",
   "log.health_check_encode_failed": "Échec de l'encodage de la réponse de vérification de santé",
 
-  "http.method_not_allowed": "Method not allowed",
-  "http.user_not_found": "User not found",
-  "http.internal_server_error": "Internal server error",
-  "http.unauthorized": "Unauthorized",
-  "http.rate_limit_exceeded": "Rate limit exceeded",
-  "http.invalid_pagination_parameters": "Invalid pagination parameters"
+  "http.method_not_allowed": "Méthode non autorisée",
+  "http.user_not_found": "Utilisateur non trouvé",
+  "http.internal_server_error": "Erreur interne du serveur",
+  "http.unauthorized": "Non autorisé",
+  "http.rate_limit_exceeded": "Limite de débit dépassée",
+  "http.invalid_pagination_parameters": "Paramètres de pagination invalides"
 }

@@ -36,6 +36,26 @@
   "error.health_check_encode_failed": "상태 확인 응답 인코딩 실패",
   "error.error_response_hidden": "오류 응답 (세부 정보 숨김)",
   "error.request_error": "요청 처리 중 오류 발생",
+  "error.request_cancelled": "요청이 취소되었습니다",
+  "error.toml_not_supported": "TOML 형식은 아직 지원되지 않습니다. YAML 형식을 사용하세요",
+
+  "validation.port_invalid": "잘못된 포트 번호: %s (1-65535 사이의 정수여야 합니다)",
+  "validation.mode_invalid": "잘못된 모드: %s (유효한 값: DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)",
+  "validation.task_interval_invalid": "작업 간격은 0보다 커야 합니다. 현재 값: %d",
+  "validation.server_port_empty": "server.port 값은 비워 둘 수 없습니다",
+  "validation.redis_addr_empty": "redis.addr 값은 비워 둘 수 없습니다",
+  "validation.task_interval_too_short": "task.interval은 1초 이상이어야 합니다",
+  "validation.prod_tls_not_allowed": "프로덕션 환경에서는 TLS 인증서 확인을 비활성화할 수 없습니다",
+  "validation.environment_invalid": "잘못된 배포 환경: %s (유효한 값: development, test, production)",
+  "validation.prod_remote_timeout_required": "프로덕션 환경에서 원격 데이터 소스를 구성한 경우 유한한 HTTP 타임아웃을 설정해야 합니다 (HTTP_TIMEOUT > 0)",
+  "validation.prod_remote_encryption_required": "프로덕션 환경에서 원격 데이터 소스를 구성한 경우 원격 암호화를 필수로 설정해야 합니다 (REMOTE_ENCRYPTION_REQUIRED=true, fail closed)",
+  "validation.prod_auth_required": "프로덕션 환경에서는 최소 하나의 인증 방식이 필요합니다: API_KEY, WARDEN_HMAC_KEYS 또는 mTLS (WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true) 중 하나를 설정하세요",
+
+  "log_level.updated": "로그 레벨이 업데이트되었습니다",
+  "log_level.invalid": "잘못된 로그 레벨입니다. 지원되는 값: trace, debug, info, warn, error, fatal, panic",
+  "log_level.empty": "로그 레벨은 비워 둘 수 없습니다",
+  "log_level.invalid_request_body": "잘못된 요청 본문",
+  "log_level.method_not_allowed": "허용되지 않은 메서드입니다. GET 또는 POST를 사용하세요",
 
   "log.http_tls_disabled": "HTTP TLS 인증서 확인이 비활성화되었습니다 (개발 전용)",
   "log.prod_tls_required": "프로덕션 환경에서는 TLS 인증서 확인을 비활성화할 수 없습니다. 종료합니다",
@@ -67,8 +87,8 @@
   "log.background_task_panic": "백그라운드 작업에서 패닉 발생, 복구됨",
   "log.data_unchanged": "데이터 변경 없음, 업데이트 건너뛰기",
   "log.redis_cache_failed_continue": "Redis 캐시 업데이트 실패, 메모리 캐시 계속",
-  "log.data_modified_during_update": "업데이트 중 데이터 수정됨, Redis 업데이트 건너뛰기",
   "log.background_update": "백그라운드 데이터 업데이트",
+  "log.all_records_rejected": "불러온 레코드가 모두 검증에서 거부되었습니다. 유효한 규칙 집합이 비어 있습니다",
   "log.background_load_failed": "백그라운드 작업 데이터 로드 실패",
   "log.identity_validation_failed": "ID 검증 실패: 중복된 고유 식별자 또는 필수 user_id 누락이 감지되어 마지막으로 유효한 데이터를 유지합니다",
   "log.identity_diagnostic_ok": "ID 읽기 전용 검사 통과: 중복 식별자 또는 누락된 user_id가 발견되지 않았습니다",
@@ -94,10 +114,10 @@
   "log.request_data_api": "데이터 API 요청",
   "log.health_check_encode_failed": "상태 확인 응답 인코딩 실패",
 
-  "http.method_not_allowed": "Method not allowed",
-  "http.user_not_found": "User not found",
-  "http.internal_server_error": "Internal server error",
-  "http.unauthorized": "Unauthorized",
-  "http.rate_limit_exceeded": "Rate limit exceeded",
-  "http.invalid_pagination_parameters": "Invalid pagination parameters"
+  "http.method_not_allowed": "허용되지 않은 메서드",
+  "http.user_not_found": "사용자를 찾을 수 없습니다",
+  "http.internal_server_error": "내부 서버 오류",
+  "http.unauthorized": "인증되지 않음",
+  "http.rate_limit_exceeded": "속도 제한 초과",
+  "http.invalid_pagination_parameters": "잘못된 페이지 매김 매개변수"
 }
