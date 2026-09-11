@@ -6,6 +6,7 @@ package define
 
 import (
 	// Standard library
+	"net/http"
 	"strings"
 	"time"
 )
@@ -27,15 +28,107 @@ const DEFAULT_DATA_FILE = "./data.json"
 
 // HTTP path constants. Used for route registration, rate-limit skip paths, and access-log skip paths.
 const (
-	PATH_HEALTH      = "/health"
-	PATH_HEALTHCHECK = "/healthcheck"
-	PATH_METRICS     = "/metrics"
-	PATH_DATA_JSON   = "/data.json" // 与 GET / 行为一致，返回合并后的用户列表 JSON，便于作为“data.json API”消费
+	PATH_ROOT           = "/"
+	PATH_HEALTH         = "/health"
+	PATH_HEALTHCHECK    = "/healthcheck"
+	PATH_METRICS        = "/metrics"
+	PATH_DATA_JSON      = "/data.json" // 与 GET / 行为一致，返回合并后的用户列表 JSON，便于作为“data.json API”消费
+	PATH_USER           = "/user"
+	PATH_LOG_LEVEL      = "/log/level"
+	PATH_V1_USERS       = "/v1/users"
+	PATH_V1_USER        = "/v1/user"
+	PATH_V1_LOOKUP      = "/v1/lookup"
+	PATH_V1_HEALTH      = "/v1/health"
+	PATH_V1_HEALTHCHECK = "/v1/healthcheck"
 )
 
 // SkipPathsHealthAndMetrics is the path list to skip for rate limiting and access logging.
 // Reduces log noise and keeps health/metrics probes from consuming rate limit.
 var SkipPathsHealthAndMetrics = []string{PATH_HEALTH, PATH_HEALTHCHECK, PATH_METRICS}
+
+// KnownRoutePaths is the complete, authoritative set of paths Warden registers. It is the
+// single source of truth shared by route registration and the Prometheus "endpoint" label:
+// a route may not be served unless it appears here, and no other value may ever reach the
+// label. Keep it in sync with registerRoutes (a test asserts the two match exactly).
+var KnownRoutePaths = []string{
+	PATH_ROOT,
+	PATH_DATA_JSON,
+	PATH_HEALTH,
+	PATH_HEALTHCHECK,
+	PATH_METRICS,
+	PATH_USER,
+	PATH_LOG_LEVEL,
+	PATH_V1_USERS,
+	PATH_V1_USER,
+	PATH_V1_LOOKUP,
+	PATH_V1_HEALTH,
+	PATH_V1_HEALTHCHECK,
+}
+
+// LABEL_OTHER is the bucket every unrecognized metric label value collapses into.
+//
+// No Prometheus label may carry attacker-controlled input: the metrics middleware runs
+// before authentication, so labelling series with a raw request value lets an
+// unauthenticated caller mint an unbounded number of time series that persist for the
+// lifetime of the process. Both the request path and the request method are attacker
+// chosen — net/http accepts any valid token as a method and passes it through verbatim —
+// so both collapse into this bucket when unrecognized.
+const LABEL_OTHER = "other"
+
+// KnownHTTPMethods are the request methods that keep their own metric label. Anything else,
+// including a differently-cased spelling, collapses into LABEL_OTHER: HTTP methods are
+// case-sensitive, so "get" is not GET and must not create a second series.
+var KnownHTTPMethods = []string{
+	http.MethodGet,
+	http.MethodHead,
+	http.MethodPost,
+	http.MethodPut,
+	http.MethodPatch,
+	http.MethodDelete,
+	http.MethodConnect,
+	http.MethodOptions,
+	http.MethodTrace,
+}
+
+// knownHTTPMethodSet indexes KnownHTTPMethods for O(1) lookup.
+var knownHTTPMethodSet = func() map[string]struct{} {
+	set := make(map[string]struct{}, len(KnownHTTPMethods))
+	for _, m := range KnownHTTPMethods {
+		set[m] = struct{}{}
+	}
+	return set
+}()
+
+// NormalizeMethodLabel maps a request method onto a bounded metric label value, capping the
+// label at len(KnownHTTPMethods)+1 distinct values.
+func NormalizeMethodLabel(method string) string {
+	if _, ok := knownHTTPMethodSet[method]; ok {
+		return method
+	}
+	return LABEL_OTHER
+}
+
+// knownRoutePathSet indexes KnownRoutePaths for O(1) lookup.
+var knownRoutePathSet = func() map[string]struct{} {
+	set := make(map[string]struct{}, len(KnownRoutePaths))
+	for _, p := range KnownRoutePaths {
+		set[p] = struct{}{}
+	}
+	return set
+}()
+
+// NormalizeEndpointLabel maps a request path onto a bounded metric label value. Known routes
+// keep their own label; everything else — including unmatched paths that the catch-all 404
+// handler serves — collapses into LABEL_OTHER. An empty path is reported as PATH_ROOT.
+func NormalizeEndpointLabel(path string) string {
+	if path == "" {
+		return PATH_ROOT
+	}
+	if _, ok := knownRoutePathSet[path]; ok {
+		return path
+	}
+	return LABEL_OTHER
+}
 
 // ParseTrustedProxyIPs parses comma-separated string (e.g. TRUSTED_PROXY_IPS env), trims each element, drops empty.
 // Used by main and ip_whitelist so env parsing is explicit and consistent.

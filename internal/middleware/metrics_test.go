@@ -1,8 +1,12 @@
 package middleware
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,7 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/prommetrics"
 )
 
 func init() {
@@ -219,4 +225,75 @@ func TestResponseWriter_WriteHeader_MultipleCalls(t *testing.T) {
 	// Second call (should update status code)
 	rw.WriteHeader(http.StatusInternalServerError)
 	assert.Equal(t, http.StatusInternalServerError, rw.statusCode)
+}
+
+// TestMetricsMiddleware_UnknownPathCollapsesLabel proves end-to-end that an attacker-chosen
+// path never reaches the Prometheus endpoint label. This middleware runs before
+// authentication, so a raw-path label lets an unauthenticated caller create one permanent
+// time series per request.
+func TestMetricsMiddleware_UnknownPathCollapsesLabel(t *testing.T) {
+	handler := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	const junk = "warden-cardinality-probe-8f21c0"
+	for _, suffix := range []string{"a", "b", "c"} {
+		req := httptest.NewRequest(http.MethodGet, "/"+junk+"-"+suffix, http.NoBody)
+		handler.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	scrape := httptest.NewRecorder()
+	prommetrics.Handler().ServeHTTP(scrape, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	body := scrape.Body.String()
+
+	assert.NotContains(t, body, junk, "请求路径不得出现在指标标签中")
+	assert.Contains(t, body, `endpoint="`+define.LABEL_OTHER+`"`, "未注册路径应归入 other 标签")
+}
+
+// TestMetricsMiddleware_KnownPathKeepsLabel confirms normalization did not flatten the
+// routes operators actually dashboard on.
+func TestMetricsMiddleware_KnownPathKeepsLabel(t *testing.T) {
+	handler := MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, define.PATH_V1_LOOKUP, http.NoBody)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	scrape := httptest.NewRecorder()
+	prommetrics.Handler().ServeHTTP(scrape, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	assert.Contains(t, scrape.Body.String(), `endpoint="`+define.PATH_V1_LOOKUP+`"`)
+}
+
+// TestMetricsMiddleware_UnknownMethodCollapsesLabel drives a real TCP connection so the
+// request carries a method token that httptest.NewRequest would not let us forge. net/http
+// passes any valid token straight to the handler, so without normalization each bogus
+// method mints a permanent time series.
+func TestMetricsMiddleware_UnknownMethodCollapsesLabel(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.Handle("/", MetricsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})))
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	const junkMethod = "WARDENPROBE"
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	for i := 0; i < 3; i++ {
+		conn, err := net.Dial("tcp", addr)
+		require.NoError(t, err)
+		_, err = fmt.Fprintf(conn, "%s%d /probe HTTP/1.1\r\nHost: warden.test\r\nConnection: close\r\n\r\n", junkMethod, i)
+		require.NoError(t, err)
+		status, err := bufio.NewReader(conn).ReadString('\n')
+		require.NoError(t, err)
+		require.Contains(t, status, "404", "任意方法仍应被服务端处理，从而进入指标中间件")
+		require.NoError(t, conn.Close())
+	}
+
+	scrape := httptest.NewRecorder()
+	prommetrics.Handler().ServeHTTP(scrape, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	body := scrape.Body.String()
+
+	assert.NotContains(t, body, junkMethod, "请求方法不得出现在指标标签中")
+	assert.Contains(t, body, `method="`+define.LABEL_OTHER+`"`, "未知方法应归入 other 标签")
 }
