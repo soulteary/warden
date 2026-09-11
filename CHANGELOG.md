@@ -42,7 +42,10 @@
   `golang:1.27.1-alpine3.24` 对齐。`go` 指令仍为 `1.27.0`（最低语言版本），`toolchain` 作为建议下限：
   本地 Go 更旧时会自动获取 1.27.1，更新时则直接使用本地工具链。使用 `GOTOOLCHAIN=local` 且本地
   低于 1.27.1 的环境需要自行升级 Go。
-- `/metrics` 文档补充认证矩阵，OpenAPI 契约补充 `401` 响应；此前 API 文档声称该端点「不需要认证」。
+- `/metrics` 文档补充认证矩阵；OpenAPI 契约改为同时声明匿名与各认证方案两种形态（此前固定为
+  `security: []`，等于告诉生成的客户端与网关「该端点永不接受凭据」，与生产默认矛盾），并补充 `401` 响应。
+  同时修正该端点的响应示例：原示例中的 `http_requests_total{path=...}`、`cache_size` 与实际导出的
+  `warden_http_requests_total{endpoint=...}`、`warden_user_cache_size` 不符。
 - `/metrics` 认证策略改为按部署环境取默认值：`ENVIRONMENT=production` 默认要求认证，其他环境默认匿名；
   `WARDEN_METRICS_REQUIRE_AUTH` 在两个方向上均可覆盖默认值。此前文档称默认匿名，但匿名分支沿用了服务
   API Key，只要配置了 `API_KEY`，`/metrics` 实际返回 `401`，Prometheus 抓取会静默失败。
