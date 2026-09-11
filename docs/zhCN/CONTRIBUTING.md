@@ -192,7 +192,7 @@ git push origin feature/your-feature-name
 
 **环境信息**
 - OS: [e.g. macOS 12.0]
-- Go 版本: [e.g. 1.26]
+- Go 版本: [e.g. 1.27]
 - Redis 版本: [e.g. 7.0]
 ```
 

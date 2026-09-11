@@ -35,6 +35,9 @@
   再向服务对外的 mux 挂载路由。
 
 ### Changed
+- 工具链版本声明统一到 Go 1.27：`.golangci.yml` 的 `run.go` 由 `1.26` 提升为 `1.27`，与 `go.mod` 的
+  `go 1.27.0` 一致，避免 linter 按更旧的语言版本分析代码；Issue 模板与贡献指南中的 Go 版本示例
+  同步更新。（`go.mod`、Dockerfile、README 徽章与各语言部署文档此前已为 1.27。）
 - `/metrics` 文档补充认证矩阵，OpenAPI 契约补充 `401` 响应；此前 API 文档声称该端点「不需要认证」。
 - `/metrics` 认证策略改为按部署环境取默认值：`ENVIRONMENT=production` 默认要求认证，其他环境默认匿名；
   `WARDEN_METRICS_REQUIRE_AUTH` 在两个方向上均可覆盖默认值。此前文档称默认匿名，但匿名分支沿用了服务

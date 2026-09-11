@@ -10,8 +10,10 @@ run:
   # 要检查的模块（空表示所有）
   modules-download-mode: readonly
 
-  # Go 版本（用于兼容性检查，设置为 golangci-lint 构建时使用的版本）
-  go: "1.26"
+  # Go 版本（用于兼容性检查）。必须与 go.mod 的 go 指令保持一致，否则 linter 会按更旧的
+  # 语言版本分析代码。注意这与 golangci-lint 二进制自身的构建版本无关：用低于本值的 Go
+  # 编译出来的 golangci-lint 会在加载包时直接 panic，此时应升级该二进制而不是下调这里。
+  go: "1.27"
 
 # Linter 配置
 linters:

@@ -194,7 +194,7 @@ Clearly and concisely describe what actually happened.
 
 **Environment Information**
 - OS: [e.g. macOS 12.0]
-- Go Version: [e.g. 1.26]
+- Go Version: [e.g. 1.27]
 - Redis Version: [e.g. 7.0]
 ```
 
