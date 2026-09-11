@@ -748,6 +748,38 @@ func TestApp_backgroundTask_PublishesEffectiveSet(t *testing.T) {
 	assert.Zero(t, failures, "成功刷新后连续失败计数应被清零")
 }
 
+// TestApp_updateRedisIfWriter_FallsBackToRetryingWriter covers the publish seam's default
+// path. publishToRedis exists so tests can observe what a refresh hands to the shared cache;
+// production leaves it pointing at updateRedisCacheWithRetry, and a nil value must fall back
+// to that writer rather than silently skipping the publish.
+func TestApp_updateRedisIfWriter_FallsBackToRetryingWriter(t *testing.T) {
+	users := []define.AllowListUser{{Phone: "13800138000", Mail: "a@example.com"}}
+
+	t.Run("非写入者不发布", func(t *testing.T) {
+		called := false
+		app := &App{log: logger.GetLoggerKit(), publishToRedis: func([]define.AllowListUser) error {
+			called = true
+			return nil
+		}}
+		app.updateRedisIfWriter(false, users)
+		assert.False(t, called, "未当选写入者时不应发布")
+	})
+
+	t.Run("nil 钩子回落到重试写入器并记录错误", func(t *testing.T) {
+		// publishToRedis nil + redisUserCache nil => updateRedisCacheWithRetry returns an
+		// error, which must be handled rather than swallowed or panicking.
+		app := &App{log: logger.GetLoggerKit()}
+		require.NotPanics(t, func() { app.updateRedisIfWriter(true, users) })
+	})
+
+	t.Run("发布失败不影响调用方", func(t *testing.T) {
+		app := &App{log: logger.GetLoggerKit(), publishToRedis: func([]define.AllowListUser) error {
+			return assert.AnError
+		}}
+		require.NotPanics(t, func() { app.updateRedisIfWriter(true, users) })
+	})
+}
+
 // TestRegisterRoutes_MetricsAuthPolicy is the regression guard for P2-a. The fix is the
 // single line optionalAuthCfg.APIKey = "": middleware-kit only honours AllowEmptyKey when no
 // key is configured, so before it an anonymous scrape got 401 in EVERY environment whenever
