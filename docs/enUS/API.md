@@ -30,6 +30,31 @@ Some API endpoints require API Key authentication. You can provide authenticatio
 
 The API Key can be configured via the `API_KEY` environment variable or the `--api-key` command line argument.
 
+## Routing Contract
+
+The endpoints documented below are the complete set of paths Warden serves. Any other
+path returns `404 Not Found` with a JSON body and no user data:
+
+```http
+GET /not-a-route
+X-API-Key: your-secret-api-key
+```
+
+```json
+{
+  "error": "Requested resource does not exist"
+}
+```
+
+> **Behavior change**: the root path `/` used to be registered as a subtree pattern, so
+> every unmatched path (`/foo`, `/user/`, `/v1/`) was served by the user-list handler and
+> returned the **complete allow list**. `/` is now an exact match and unmatched paths get
+> the 404 above. Clients that relied on an arbitrary path returning user data must use `/`,
+> `/data.json` or `/v1/users`.
+
+Note that Go's router path-cleans before matching, so `/metrics/../user` resolves to
+`/user` and redirects there rather than reaching the 404 handler.
+
 ## API Endpoints
 
 ### Get User List
@@ -289,7 +314,17 @@ GET /metrics
 
 **Response**: Prometheus format metrics data
 
-**Note**: This endpoint does not require authentication.
+**Authentication**: depends on the deployment environment.
+
+| `ENVIRONMENT` | Default for `/metrics` |
+| --- | --- |
+| `production` | Authentication required (same schemes as the data endpoints) |
+| `development`, `test`, unset | Anonymous scraping allowed |
+
+`WARDEN_METRICS_REQUIRE_AUTH` overrides the default in both directions. An unauthenticated
+scrape of an endpoint that requires authentication returns `401 Unauthorized`. The response
+carries only low-cardinality, non-sensitive series: the `endpoint` and `method` labels are
+normalized against an allowlist, and unrecognized values collapse into `other`.
 
 **Example Response**:
 ```

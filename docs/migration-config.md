@@ -74,13 +74,28 @@ Non-production environments (`development`, `test`) remain permissive.
 
 ### Metrics / health exposure
 
-`/metrics` is exposed anonymously by default and publishes only
-low-cardinality, non-sensitive series. To require authentication for `/metrics`,
-set:
+`/metrics` publishes only low-cardinality, non-sensitive series. Whether it
+requires authentication now depends on the deployment environment:
+
+| `ENVIRONMENT` | Default for `/metrics` |
+| --- | --- |
+| `production` | Authentication required |
+| `development`, `test`, unset | Anonymous scraping allowed |
+
+`WARDEN_METRICS_REQUIRE_AUTH` overrides the default in **both** directions:
 
 ```env
+# force authentication outside production
 WARDEN_METRICS_REQUIRE_AUTH=true
+# allow anonymous scraping in production (not recommended)
+WARDEN_METRICS_REQUIRE_AUTH=false
 ```
+
+Earlier releases documented `/metrics` as anonymous by default, but the
+anonymous path reused the service API key, so whenever `API_KEY` was set
+`/metrics` answered `401` and Prometheus scrapes failed silently. Anonymous
+mode is now genuinely anonymous, and production defaults to requiring
+authentication instead.
 
 Full user-rules endpoints always require authentication regardless of this
 setting.

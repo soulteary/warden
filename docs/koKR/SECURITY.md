@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](../itIT/SECURITY.md) | [日本語](../jaJP/SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](SECURITY.md)
 
+> ⚠️ **번역 상태**: 이 페이지는 원문보다 갱신이 늦을 수 있습니다. 영어판과 중국어 간체판이 정본이며 먼저 갱신됩니다. 보안 및 설정 관련 중요 항목은 [English](../enUS/SECURITY.md) 또는 [中文](../zhCN/SECURITY.md)도 함께 확인하세요.
+
 이 문서는 Warden의 보안 기능, 보안 구성 및 모범 사례를 설명합니다.
 
 

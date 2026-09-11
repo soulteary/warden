@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/SDK.md) | [中文](../zhCN/SDK.md) | [Français](../frFR/SDK.md) | [Italiano](../itIT/SDK.md) | [日本語](SDK.md) | [Deutsch](../deDE/SDK.md) | [한국어](../koKR/SDK.md)
 
+> ⚠️ **翻訳ステータス**: このページは原文より更新が遅れている場合があります。英語版と簡体字中国語版が正式版であり、先に更新されます。セキュリティおよび設定に関わる重要な項目については、[English](../enUS/SDK.md) または [中文](../zhCN/SDK.md) も併せて確認してください。
+
 Warden provides a Go SDK for easy integration into other projects. The SDK provides a clean API interface with support for caching, authentication, and more.
 
 ## Install SDK

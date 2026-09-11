@@ -21,7 +21,7 @@ ENABLE_UPX ?= 0
 MOCK_API_DIR := example/advanced/mock-api
 
 .PHONY: help build build-mock-api mock-api vet fmt fmt-check test test-race \
-	govulncheck sbom docker docker-manual clean
+	govulncheck sbom docker docker-manual clean docs-parity
 
 help: ## 显示可用目标
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -50,6 +50,9 @@ test: ## 运行测试
 
 test-race: ## 运行竞态检测测试
 	go test -race -coverprofile=coverage.out ./...
+
+docs-parity: ## 报告各语言翻译文档相对 enUS 的滞后程度（信息性，非门禁）
+	@./scripts/check-docs-parity.sh
 
 govulncheck: ## 运行依赖漏洞扫描（需先安装 golang.org/x/vuln/cmd/govulncheck）
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...

@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
+> ⚠️ **État de la traduction** : cette page peut être en retard sur l'original. Les versions anglaise et chinoise simplifiée font foi et sont mises à jour en premier. Pour les réglages critiques de sécurité et de configuration, consultez également [English](../enUS/CONTRIBUTING.md) ou [中文](../zhCN/CONTRIBUTING.md).
+
 Merci de votre intérêt pour le projet Warden ! Nous accueillons toutes les formes de contributions.
 
 

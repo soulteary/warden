@@ -28,7 +28,7 @@
 - **必须**至少配置一种服务鉴权方式：`API_KEY`、HMAC v2 或 mTLS。
 - **必须**配置 `TRUSTED_PROXY_IPS` 以正确获取客户端 IP
 - **必须**使用 `HEALTH_CHECK_IP_WHITELIST` 限制健康检查访问（或通过网络/反向代理限制 `/health`、`/healthcheck`）
-- **必须**限制 `/metrics`：设置 `WARDEN_METRICS_REQUIRE_AUTH=true`，或在反向代理/网络层限制该路径。
+- **必须**限制 `/metrics`。`ENVIRONMENT=production` 下默认即要求认证，请保持该默认值（或在反向代理/网络层限制该路径），**不要**在生产环境设置 `WARDEN_METRICS_REQUIRE_AUTH=false`。
 
 **配置示例**:
 ```bash
