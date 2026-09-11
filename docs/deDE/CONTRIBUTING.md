@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
+> ⚠️ **Übersetzungsstatus**: Diese Seite kann hinter dem Original zurückliegen. Maßgeblich sind die englische und die vereinfacht-chinesische Fassung; sie werden zuerst aktualisiert. Prüfe bei sicherheits- und konfigurationskritischen Einstellungen zusätzlich [English](../enUS/CONTRIBUTING.md) oder [中文](../zhCN/CONTRIBUTING.md).
+
 Vielen Dank für Ihr Interesse am Warden-Projekt! Wir begrüßen alle Formen von Beiträgen.
 
 

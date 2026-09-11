@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](SECURITY.md) | [日本語](../jaJP/SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](../koKR/SECURITY.md)
 
+> ⚠️ **Stato della traduzione**: questa pagina può essere in ritardo rispetto all'originale. Fanno fede le versioni inglese e cinese semplificata, che vengono aggiornate per prime. Per le impostazioni critiche di sicurezza e configurazione consulta anche [English](../enUS/SECURITY.md) o [中文](../zhCN/SECURITY.md).
+
 Questo documento spiega le funzionalità di sicurezza di Warden, la configurazione di sicurezza e le migliori pratiche.
 
 > ⚠️ **Nota**: Questa documentazione è in fase di traduzione. Per la versione completa, consulta la [versione inglese](../enUS/SECURITY.md).

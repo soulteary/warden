@@ -1,6 +1,8 @@
 # Configuration
 
 > 🌐 **Language / 语言**: [English](../enUS/CONFIGURATION.md) | [中文](../zhCN/CONFIGURATION.md) | [Français](../frFR/CONFIGURATION.md) | [Italiano](../itIT/CONFIGURATION.md) | [日本語](../jaJP/CONFIGURATION.md) | [Deutsch](CONFIGURATION.md) | [한국어](../koKR/CONFIGURATION.md)
+
+> ⚠️ **Übersetzungsstatus**: Diese Seite kann hinter dem Original zurückliegen. Maßgeblich sind die englische und die vereinfacht-chinesische Fassung; sie werden zuerst aktualisiert. Prüfe bei sicherheits- und konfigurationskritischen Einstellungen zusätzlich [English](../enUS/CONFIGURATION.md) oder [中文](../zhCN/CONFIGURATION.md).
 >
 > **完整配置项表与校验规则**：请参见 [zhCN](../zhCN/CONFIGURATION.md) 或 [enUS](../enUS/CONFIGURATION.md)。
 

@@ -55,6 +55,7 @@ type App struct {
 	rateLimiter          *middlewarekit.RateLimiter
 	rulesLoader          *loader.RulesLoader
 	snapshots            *snapshotStore
+	publishToRedis       func(users []define.AllowListUser) error
 	log                  *loggerkit.Logger
 	port                 string
 	configURL            string
@@ -115,6 +116,9 @@ func NewApp(cfg *cmd.Config) *App {
 		tlsRequireClientCert: cfg.TLSRequireClientCert,
 	}
 	app.snapshots = newSnapshotStore()
+	// Indirection so tests can observe the exact rule set a refresh publishes to the shared
+	// cache; production always uses the retrying writer.
+	app.publishToRedis = app.updateRedisCacheWithRetry
 	if snapshotMaxAgeErr != nil {
 		// ValidateConfig rejects this during normal startup. Direct NewApp callers
 		// retain the derived default rather than silently disabling stale detection.
@@ -321,7 +325,8 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			app.snapshots.Store(snapshotFromResult(&localRes))
 			app.updateSnapshotMetrics()
 			if writeRedis {
-				if err := app.redisUserCache.Set(localUsers); err != nil {
+				// Seed Redis with the effective cache contents, matching backgroundTask.
+				if err := app.redisUserCache.Set(app.userCache.Get()); err != nil {
 					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 				}
 			}
@@ -383,7 +388,8 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
 		}
 		if writeRedis {
-			if err := app.redisUserCache.Set(users); err != nil {
+			// Seed Redis with the effective cache contents, matching backgroundTask.
+			if err := app.redisUserCache.Set(app.userCache.Get()); err != nil {
 				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
 			}
 		}
@@ -414,49 +420,33 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	return nil
 }
 
-// hasChanged compares if data has changed (optimized using cached hash value)
+// checkDataChanged reports whether a freshly loaded rule set differs from the one behind
+// the current snapshot.
 //
-// This function determines if data has changed by comparing cached hash values, used to optimize cache update strategy.
-// Prioritizes using cached hash values to avoid redundant calculations.
+// It takes the version the loader already computed (loader.LoadResult.Version) rather than
+// re-hashing, and compares it against the snapshot's version — loaded-input hash against
+// loaded-input hash. The previous implementation compared the loaded input against
+// SafeUserCache's length and hash, which describe the *effective* set after invalid records
+// and duplicates have been dropped. A rule set holding even one malformed record therefore
+// never compared equal, so change detection reported "changed" on every cycle and the
+// shared Redis cache was never refreshed again.
 //
 // Parameters:
-//   - oldHash: cached hash value of old data
-//   - newUsers: new user list
+//   - loadedVersion: content hash of the freshly loaded rule set
 //
 // Returns:
 //   - bool: true means data has changed, false means data unchanged
-//
-// Notes:
-//   - This function prioritizes using cached hash values to avoid redundant calculations
-//   - If cached hash value is provided, performance can be significantly improved
-func hasChanged(oldHash string, newUsers []define.AllowListUser) bool {
-	newHash := cache.HashUserList(newUsers)
-	return oldHash != newHash
-}
-
-// checkDataChanged checks if data has changed
-//
-// This function determines if data has changed by comparing cached hash values and length.
-// Prioritizes using cached hash values to avoid redundant calculations.
-//
-// Parameters:
-//   - newUsers: new user list
-//
-// Returns:
-//   - bool: true means data has changed, false means data unchanged
-func (app *App) checkDataChanged(newUsers []define.AllowListUser) bool {
-	oldHash := app.userCache.GetHash()
-	oldLen := app.userCache.Len()
-
-	if oldLen != len(newUsers) {
+func (app *App) checkDataChanged(loadedVersion string) bool {
+	if app.snapshots == nil || loadedVersion == "" {
 		return true
 	}
-
-	if oldHash != "" && !hasChanged(oldHash, newUsers) {
-		return false
+	snap := app.snapshots.Load()
+	if snap == nil || snap.Version == "" {
+		// No known-good baseline yet (fresh start, or data seeded from the Redis cache
+		// before any snapshot was recorded): treat the load as a change.
+		return true
 	}
-
-	return true
+	return snap.Version != loadedVersion
 }
 
 // updateRedisCacheWithRetry updates Redis cache with retry mechanism
@@ -536,7 +526,11 @@ func (app *App) updateRedisIfWriter(writer bool, users []define.AllowListUser) {
 	if !writer {
 		return
 	}
-	if err := app.updateRedisCacheWithRetry(users); err != nil {
+	publish := app.publishToRedis
+	if publish == nil {
+		publish = app.updateRedisCacheWithRetry
+	}
+	if err := publish(users); err != nil {
 		app.log.Warn().
 			Err(err).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_failed_continue"))
@@ -624,11 +618,11 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	}
 
 	// Check if data has changed
-	if !app.checkDataChanged(newUsers) {
+	if !app.checkDataChanged(res.Version) {
 		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
 		// successful refresh clears the failure counter and updates degraded state.
 		app.snapshots.Store(snapshotFromResult(&res))
-		app.updateRedisIfWriter(writeRedis, newUsers)
+		app.updateRedisIfWriter(writeRedis, app.userCache.Get())
 		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
 		return
@@ -650,19 +644,27 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	}
 	app.snapshots.Store(snapshotFromResult(&res))
 
-	// Verify data consistency (optimistic locking strategy)
-	currentHash := app.userCache.GetHash()
-	newHash := cache.HashUserList(newUsers)
-	if currentHash != "" && currentHash == newHash {
-		// Data consistent, update Redis cache (if Redis is available)
-		app.updateRedisIfWriter(writeRedis, newUsers)
-	} else {
-		currentLen := app.userCache.Len()
-		app.log.Debug().
-			Int("expected_count", len(newUsers)).
-			Int("actual_count", currentLen).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.data_modified_during_update"))
+	// Mirror the EFFECTIVE cache contents into the shared Redis cache.
+	//
+	// applyUsers is the single atomic swap point, and refreshMu plus the Redis refresh
+	// lock already serialize writers, so no extra hash gate is needed. Publishing what the
+	// cache actually holds — rather than the raw loaded input — keeps Redis byte-identical
+	// to what this replica serves and stops records rejected by format validation or dedup
+	// from being re-seeded to other replicas. The previous code compared the cache hash
+	// against the raw input hash and skipped the Redis write whenever they differed, which
+	// is exactly what happens when any record is dropped: the shared cache then stopped
+	// being refreshed for the lifetime of the process.
+	applied := app.userCache.Get()
+	if len(newUsers) > 0 && len(applied) == 0 {
+		// Every loaded record failed format validation. The empty set is still published so
+		// the shared cache keeps matching what this replica serves (publishing the rejected
+		// records instead would re-seed bad data to peers), but this is never a normal
+		// steady state, so it must be visible above Debug.
+		app.log.Warn().
+			Int("loaded_count", len(newUsers)).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected"))
 	}
+	app.updateRedisIfWriter(writeRedis, applied)
 
 	// Update metrics
 	duration := time.Since(start).Seconds()
@@ -671,17 +673,25 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	prommetrics.CacheSize.Set(float64(app.userCache.Len()))
 	app.updateSnapshotMetrics()
 
+	// count is the loaded record count and applied_count what survived validation and
+	// dedup. The two legitimately differ, and that difference is the operator-visible
+	// signal that some records are being rejected.
 	app.log.Info().
 		Int("count", len(newUsers)).
+		Int("applied_count", len(applied)).
 		Float64("duration", duration).
 		Msg(i18n.TWithLang(i18n.LangZH, "log.background_update"))
 }
 
-// startServer starts HTTP server. When tlsCertFile and tlsKeyFile are set, TLS (and optional mTLS) is enabled;
-// the caller must use ListenAndServeTLS(certFile, keyFile) instead of ListenAndServe().
-func startServer(port, tlsCertFile, tlsKeyFile, tlsCAFile string, tlsRequireClientCert bool) *http.Server {
+// startServer builds the HTTP server. When tlsCertFile and tlsKeyFile are set, TLS (and
+// optional mTLS) is enabled; the caller must use ListenAndServeTLS(certFile, keyFile)
+// instead of ListenAndServe().
+//
+// handler is installed explicitly so the server never falls back to http.DefaultServeMux.
+func startServer(port string, handler http.Handler, tlsCertFile, tlsKeyFile, tlsCAFile string, tlsRequireClientCert bool) *http.Server {
 	srv := &http.Server{
 		Addr:              ":" + port,
+		Handler:           handler,
 		ReadHeaderTimeout: define.DEFAULT_TIMEOUT * time.Second,
 		ReadTimeout:       define.DEFAULT_TIMEOUT * time.Second,
 		WriteTimeout:      define.DEFAULT_TIMEOUT * time.Second,
@@ -818,8 +828,8 @@ func main() {
 	// Initialize application
 	app := NewApp(cfg)
 
-	// Register routes
-	registerRoutes(app)
+	// Register routes on a dedicated mux (never http.DefaultServeMux)
+	mux := registerRoutes(app)
 
 	// Set up signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -863,7 +873,7 @@ func main() {
 	}
 
 	// Start server (TLS/mTLS when cert and key are set)
-	srv := startServer(app.port, app.tlsCertFile, app.tlsKeyFile, app.tlsCAFile, app.tlsRequireClientCert)
+	srv := startServer(app.port, mux, app.tlsCertFile, app.tlsKeyFile, app.tlsCAFile, app.tlsRequireClientCert)
 	app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.service_listening"), app.port)
 	go func() {
 		var err error

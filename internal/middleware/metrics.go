@@ -9,6 +9,7 @@ import (
 	"time"
 
 	// Internal packages
+	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/prommetrics"
 )
 
@@ -22,17 +23,21 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(rw, r)
 
-		// Record metrics
+		// Record metrics.
+		//
+		// BOTH label values are normalized against an allowlist instead of using the raw
+		// request. This middleware runs BEFORE authentication, so an unauthenticated caller
+		// sending arbitrary paths — or arbitrary method tokens, which net/http accepts and
+		// hands to the handler verbatim — would otherwise create a new, permanent
+		// Prometheus time series per request.
 		duration := time.Since(start).Seconds()
-		endpoint := r.URL.Path
-		if endpoint == "" {
-			endpoint = "/"
-		}
+		endpoint := define.NormalizeEndpointLabel(r.URL.Path)
+		method := define.NormalizeMethodLabel(r.Method)
 
 		status := strconv.Itoa(rw.statusCode)
 
-		prommetrics.HTTPRequestTotal.WithLabelValues(r.Method, endpoint, status).Inc()
-		prommetrics.HTTPRequestDuration.WithLabelValues(r.Method, endpoint).Observe(duration)
+		prommetrics.HTTPRequestTotal.WithLabelValues(method, endpoint, status).Inc()
+		prommetrics.HTTPRequestDuration.WithLabelValues(method, endpoint).Observe(duration)
 	})
 }
 

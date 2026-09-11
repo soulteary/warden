@@ -8,6 +8,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	metricskit "github.com/soulteary/metrics-kit/v2"
+
+	"github.com/soulteary/warden/internal/define"
 )
 
 var (
@@ -161,6 +163,11 @@ func Handler() http.Handler {
 
 // RecordHTTPRequest records an HTTP request
 func RecordHTTPRequest(method, endpoint, status string, duration time.Duration) {
+	// Normalize here as well as in the middleware so the bounded-cardinality invariant
+	// belongs to the metric rather than to one call site: method and endpoint both derive
+	// from attacker-controlled request data.
+	method = define.NormalizeMethodLabel(method)
+	endpoint = define.NormalizeEndpointLabel(endpoint)
 	HTTPRequestTotal.WithLabelValues(method, endpoint, status).Inc()
 	HTTPRequestDuration.WithLabelValues(method, endpoint).Observe(duration.Seconds())
 }

@@ -35,7 +35,7 @@ Relevante Protokolle hier einfügen
 ## 🔧 Umgebungsinformationen
 
 - **OS**: [z.B. macOS 12.0, Ubuntu 22.04, Windows 11]
-- **Go-Version**: [z.B. 1.26]
+- **Go-Version**: [z.B. 1.27]
 - **Redis-Version**: [z.B. 7.0]
 - **Warden-Version**: [z.B. `warden --version` ausführen oder Startprotokolle überprüfen]
 - **Ausführungsmodus**: [z.B. DEFAULT, ONLY_REMOTE, ONLY_LOCAL]

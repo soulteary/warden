@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](../itIT/SECURITY.md) | [日本語](../jaJP/SECURITY.md) | [Deutsch](SECURITY.md) | [한국어](../koKR/SECURITY.md)
 
+> ⚠️ **Übersetzungsstatus**: Diese Seite kann hinter dem Original zurückliegen. Maßgeblich sind die englische und die vereinfacht-chinesische Fassung; sie werden zuerst aktualisiert. Prüfe bei sicherheits- und konfigurationskritischen Einstellungen zusätzlich [English](../enUS/SECURITY.md) oder [中文](../zhCN/SECURITY.md).
+
 Dieses Dokument erläutert die Sicherheitsfunktionen von Warden, die Sicherheitskonfiguration und bewährte Praktiken.
 
 

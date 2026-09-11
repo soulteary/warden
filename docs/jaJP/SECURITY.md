@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](../itIT/SECURITY.md) | [日本語](SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](../koKR/SECURITY.md)
 
+> ⚠️ **翻訳ステータス**: このページは原文より更新が遅れている場合があります。英語版と簡体字中国語版が正式版であり、先に更新されます。セキュリティおよび設定に関わる重要な項目については、[English](../enUS/SECURITY.md) または [中文](../zhCN/SECURITY.md) も併せて確認してください。
+
 このドキュメントは、Warden のセキュリティ機能、セキュリティ設定、ベストプラクティスについて説明します。
 
 

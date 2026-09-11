@@ -87,8 +87,8 @@
   "log.background_task_panic": "后台任务发生 panic，已恢复",
   "log.data_unchanged": "数据未变化，跳过更新",
   "log.redis_cache_failed_continue": "更新 Redis 缓存失败，继续使用内存缓存",
-  "log.data_modified_during_update": "数据在更新过程中被修改，跳过 Redis 更新",
   "log.background_update": "后台更新数据 📦",
+  "log.all_records_rejected": "加载到的记录全部未通过校验，生效规则集为空",
   "log.background_load_failed": "后台任务加载数据失败",
   "log.identity_validation_failed": "身份数据校验失败：检测到唯一标识冲突或缺失必需的 user_id，保留上一份有效数据",
   "log.identity_diagnostic_ok": "身份数据只读校验通过：未发现唯一标识冲突或缺失的 user_id",
@@ -114,10 +114,10 @@
   "log.request_data_api": "请求数据接口 🎩",
   "log.health_check_encode_failed": "健康检查响应编码失败",
 
-  "http.method_not_allowed": "Method not allowed",
-  "http.user_not_found": "User not found",
-  "http.internal_server_error": "Internal server error",
-  "http.unauthorized": "Unauthorized",
-  "http.rate_limit_exceeded": "Rate limit exceeded",
-  "http.invalid_pagination_parameters": "Invalid pagination parameters"
+  "http.method_not_allowed": "不支持的请求方法",
+  "http.user_not_found": "用户未找到",
+  "http.internal_server_error": "内部服务器错误",
+  "http.unauthorized": "未授权",
+  "http.rate_limit_exceeded": "请求过于频繁，请稍后重试",
+  "http.invalid_pagination_parameters": "无效的分页参数"
 }

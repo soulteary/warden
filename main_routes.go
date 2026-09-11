@@ -25,8 +25,20 @@ import (
 	internal_tracing "github.com/soulteary/warden/internal/tracing"
 )
 
-// registerRoutes registers all HTTP routes
-func registerRoutes(app *App) {
+// rootExactPattern matches ONLY the root document. Go's enhanced ServeMux treats a
+// trailing "{$}" as an exact-match anchor, so "/{$}" serves "/" while the separately
+// registered "/" pattern absorbs every unmatched path (see router.NotFound).
+const rootExactPattern = define.PATH_ROOT + "{$}"
+
+// registerRoutes registers all HTTP routes on a dedicated mux and returns it.
+//
+// Routes are registered on an explicit *http.ServeMux rather than http.DefaultServeMux:
+// the global mux makes registration non-idempotent (a second call panics), and any other
+// package linked into the binary — net/http/pprof being the classic example — can publish
+// routes on it without this function knowing. The caller must install the returned mux as
+// the server Handler.
+func registerRoutes(app *App) *http.ServeMux {
+	mux := http.NewServeMux()
 	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
 
@@ -66,8 +78,15 @@ func registerRoutes(app *App) {
 		hmacCfg.ReplayGuard = middleware.NewRedisReplayGuard(app.redisClient)
 	}
 	authMiddleware := middleware.ServiceAuthChain(hmacCfg, apiKeyMiddleware)
+	// Anonymous-scrape config. The API key is deliberately cleared: middleware-kit only
+	// honours AllowEmptyKey when no key is configured, so copying app.apiKey here would
+	// silently demand it and contradict the documented anonymous default. The logger is
+	// cleared too — that code path warns once per request, which would put a log line on
+	// every Prometheus scrape. The single startup line below carries the same information.
 	optionalAuthCfg := authBaseCfg
+	optionalAuthCfg.APIKey = ""
 	optionalAuthCfg.AllowEmptyKey = true
+	optionalAuthCfg.Logger = nil
 	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(optionalAuthCfg)
 
 	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
@@ -85,13 +104,28 @@ func registerRoutes(app *App) {
 
 	healthWhitelist := os.Getenv("HEALTH_CHECK_IP_WHITELIST")
 
-	// Metrics exposure is configurable. By default metrics are exposed anonymously
-	// (optionalAuthMiddleware) for scrape simplicity and expose only low-cardinality,
-	// non-sensitive series. Operators can require authentication for /metrics by setting
-	// WARDEN_METRICS_REQUIRE_AUTH=true, in which case the full service auth chain applies.
+	// Metrics exposure policy. /metrics carries only low-cardinality, non-sensitive series,
+	// so anonymous scraping is the convenient default outside production; in production the
+	// same series still describe a live deployment, so authentication is required by default
+	// there. WARDEN_METRICS_REQUIRE_AUTH overrides the default in BOTH directions.
+	metricsAuthRaw := strings.TrimSpace(os.Getenv("WARDEN_METRICS_REQUIRE_AUTH"))
+	if _, recognized := parseBoolLike(metricsAuthRaw); metricsAuthRaw != "" && !recognized {
+		logger.GetLoggerKit().Warn().
+			Str("value", metricsAuthRaw).
+			Msg("unrecognized WARDEN_METRICS_REQUIRE_AUTH (accepted: true/1/yes/on or false/0/no/off); falling back to the ENVIRONMENT default")
+	}
 	metricsAuth := optionalAuthMiddleware
-	if requireAuthEnv := strings.TrimSpace(os.Getenv("WARDEN_METRICS_REQUIRE_AUTH")); requireAuthEnv == "true" || requireAuthEnv == "1" {
+	if metricsRequireAuth(metricsAuthRaw, app.environment) {
 		metricsAuth = authMiddleware
+		// Prometheus cannot produce an HMAC signature or a client certificate, so a
+		// deployment authenticated only by HMAC/mTLS has no credential to scrape with.
+		logger.GetLoggerKit().Info().
+			Str("path", define.PATH_METRICS).
+			Msg("metrics endpoint requires authentication; if the scraper cannot present a credential, set WARDEN_METRICS_REQUIRE_AUTH=false and restrict the path with IP_WHITELIST or the network layer")
+	} else {
+		logger.GetLoggerKit().Warn().
+			Str("path", define.PATH_METRICS).
+			Msg("metrics endpoint is exposed without authentication; set WARDEN_METRICS_REQUIRE_AUTH=true or restrict it with IP_WHITELIST")
 	}
 	metricsHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
@@ -106,7 +140,7 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle(define.PATH_METRICS, metricsHandler)
+	mux.Handle(define.PATH_METRICS, metricsHandler)
 
 	mainHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
@@ -129,8 +163,32 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle("/", mainHandler)
-	http.Handle(define.PATH_DATA_JSON, mainHandler) // 与 GET / 行为一致，便于作为 data.json API 消费
+	// "/{$}" serves only the root document. Binding mainHandler to the bare "/" pattern
+	// would make every unregistered path return the complete allow list.
+	mux.Handle(rootExactPattern, mainHandler)
+	mux.Handle(define.PATH_DATA_JSON, mainHandler) // 与 GET / 行为一致，便于作为 data.json API 消费
+
+	// Catch-all for unregistered paths. Kept outside the authentication and compression
+	// chains but inside rate limiting so 404 probing is not free, and inside the metrics
+	// middleware so those requests are still counted (collapsed into the "other" label).
+	notFoundHandler := i18nMiddleware(
+		router.AccessLogMiddleware()(
+			securityHeadersMiddleware(
+				errorHandlerMiddleware(
+					wrapWithTracingIfEnabled(tracingMiddleware,
+						ipAllowlistMiddleware(
+							middleware.MetricsMiddleware(
+								rateLimitMiddleware(
+									router.ProcessWithLogger(router.NotFound()),
+								),
+							),
+						),
+					),
+				),
+			),
+		),
+	)
+	mux.Handle(define.PATH_ROOT, notFoundHandler)
 
 	userHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
@@ -153,7 +211,7 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle("/user", userHandler)
+	mux.Handle(define.PATH_USER, userHandler)
 
 	lookupHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
@@ -176,7 +234,7 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle("/v1/lookup", lookupHandler)
+	mux.Handle(define.PATH_V1_LOOKUP, lookupHandler)
 
 	redisCritical := requiresRedisForHMACReplay(app.redisEnabled, app.hmacKeys)
 	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.snapshotMaxAge, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist)
@@ -193,13 +251,13 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle(define.PATH_HEALTH, healthHandler)
-	http.Handle(define.PATH_HEALTHCHECK, healthHandler)
+	mux.Handle(define.PATH_HEALTH, healthHandler)
+	mux.Handle(define.PATH_HEALTHCHECK, healthHandler)
 
-	http.Handle("/v1/users", mainHandler)
-	http.Handle("/v1/user", userHandler)
-	http.Handle("/v1/health", healthHandler)
-	http.Handle("/v1/healthcheck", healthHandler)
+	mux.Handle(define.PATH_V1_USERS, mainHandler)
+	mux.Handle(define.PATH_V1_USER, userHandler)
+	mux.Handle(define.PATH_V1_HEALTH, healthHandler)
+	mux.Handle(define.PATH_V1_HEALTHCHECK, healthHandler)
 
 	lkLog := logger.GetLoggerKit()
 	logLevelHandler := i18nMiddleware(
@@ -219,7 +277,34 @@ func registerRoutes(app *App) {
 			),
 		),
 	)
-	http.Handle("/log/level", logLevelHandler)
+	mux.Handle(define.PATH_LOG_LEVEL, logLevelHandler)
+
+	return mux
+}
+
+// parseBoolLike parses the textual boolean forms accepted for operator-facing toggles.
+// ok reports whether raw was recognized at all, so callers can distinguish "explicitly
+// false" from "typo, fall back to the default".
+func parseBoolLike(raw string) (value, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true", "1", "yes", "on":
+		return true, true
+	case "false", "0", "no", "off":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// metricsRequireAuth decides whether /metrics requires authentication. An explicit
+// WARDEN_METRICS_REQUIRE_AUTH always wins; otherwise production requires authentication
+// and every other environment allows anonymous scraping.
+func metricsRequireAuth(raw, environment string) bool {
+	if value, ok := parseBoolLike(raw); ok {
+		return value
+	}
+	env, _ := config.ParseEnvironment(environment)
+	return env.IsProduction()
 }
 
 // requiresRedisForHMACReplay reports whether Redis is part of the configured

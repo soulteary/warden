@@ -376,6 +376,14 @@ test_endpoint "查询用户（不存在）" "GET" \
     "-H \"X-API-Key: $API_KEY\"" "404"
 echo ""
 
+# 测试 7.5: 未注册路径必须返回 404，而不是完整允许列表
+echo -e "${YELLOW}7.5 未注册路径${NC}"
+test_endpoint "未注册路径（有认证）" "GET" "$BASE_URL/definitely-not-a-route" \
+    "-H \"X-API-Key: $API_KEY\"" "404"
+test_endpoint "带尾斜杠的已知路径" "GET" "$BASE_URL/user/" \
+    "-H \"X-API-Key: $API_KEY\"" "404"
+echo ""
+
 # 测试 8: Prometheus 指标
 echo -e "${YELLOW}8. 监控指标${NC}"
 test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" \

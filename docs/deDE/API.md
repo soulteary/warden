@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/API.md) | [中文](../zhCN/API.md) | [Français](../frFR/API.md) | [Italiano](../itIT/API.md) | [日本語](../jaJP/API.md) | [Deutsch](API.md) | [한국어](../koKR/API.md)
 
+> ⚠️ **Übersetzungsstatus**: Diese Seite kann hinter dem Original zurückliegen. Maßgeblich sind die englische und die vereinfacht-chinesische Fassung; sie werden zuerst aktualisiert. Prüfe bei sicherheits- und konfigurationskritischen Einstellungen zusätzlich [English](../enUS/API.md) oder [中文](../zhCN/API.md).
+
 Dieses Dokument enthält detaillierte Informationen zu allen von Warden bereitgestellten API-Endpunkten.
 
 ## OpenAPI-Dokumentation

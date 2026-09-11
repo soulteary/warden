@@ -9,6 +9,7 @@ Thank you for your interest in the Warden project! We welcome all forms of contr
 - [How to Contribute](#how-to-contribute)
 - [Development Environment Setup](#development-environment-setup)
 - [Code Standards](#code-standards)
+- [Translation Policy](#translation-policy)
 - [Commit Standards](#commit-standards)
 - [Pull Request Process](#pull-request-process)
 - [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
@@ -65,6 +66,34 @@ Please follow these code standards:
 6. **Constant Naming**: All constants must use `ALL_CAPS` (UPPER_SNAKE_CASE) naming style
 
 For detailed code style guidelines, please refer to [CODE_STYLE.md](CODE_STYLE.md).
+
+## 🌐 Translation Policy
+
+Warden ships documentation and runtime messages in seven languages. They are **not** all
+maintained to the same standard, and pretending otherwise is how five locales silently
+drifted 18 translation keys and several documents behind.
+
+**Tiers**
+
+| Tier | Languages | Expectation |
+| --- | --- | --- |
+| Authoritative | English (`enUS`), Simplified Chinese (`zhCN`) | Updated in the same pull request as the change. A PR that changes behavior without updating both is incomplete. |
+| Best effort | `deDE`, `frFR`, `itIT`, `jaJP`, `koKR` | May lag. Each lagging document carries a banner pointing readers at the authoritative versions. |
+
+**Runtime strings are not best effort.** `locales/*.json` is enforced by
+`go test ./locales/`, which fails when any locale:
+
+- is missing a key that `en.json` defines (or defines one it does not),
+- has a different sequence of `printf` verbs (`%s`, `%d`) than the English source, or
+- has a value byte-identical to English (an untranslated string).
+
+Missing keys fall back to English at runtime, so nothing breaks visibly — which is exactly
+why the check exists. When adding a user-facing message, add the key to **all seven**
+locale files in the same commit. If a value is legitimately identical to English (a loan
+word, a protocol name), add it to `intentionallyIdentical` in `locales/locales_test.go`
+with a comment rather than deleting the check.
+
+Run `make docs-parity` to see how far each translated document has drifted from `enUS`.
 
 ## 📦 Commit Standards
 
@@ -165,7 +194,7 @@ Clearly and concisely describe what actually happened.
 
 **Environment Information**
 - OS: [e.g. macOS 12.0]
-- Go Version: [e.g. 1.26]
+- Go Version: [e.g. 1.27]
 - Redis Version: [e.g. 7.0]
 ```
 

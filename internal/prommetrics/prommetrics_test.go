@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/soulteary/warden/internal/define"
 )
 
 func TestHandler(t *testing.T) {
@@ -158,4 +161,23 @@ func TestRecordBackgroundTask(t *testing.T) {
 
 func TestRecordRateLimitHit(t *testing.T) {
 	RecordRateLimitHit("127.0.0.1")
+}
+
+// TestRecordHTTPRequest_NormalizesLabels ensures the exported helper cannot be used to
+// bypass the label allowlist. It currently has no production caller, which is exactly why
+// the invariant has to live inside it rather than at a single call site.
+func TestRecordHTTPRequest_NormalizesLabels(t *testing.T) {
+	const junkPath = "warden-record-probe-path-1f7a"
+	const junkMethod = "WARDENRECORDPROBE"
+
+	RecordHTTPRequest(junkMethod, "/"+junkPath, "404", time.Millisecond)
+
+	rec := httptest.NewRecorder()
+	Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	body := rec.Body.String()
+
+	assert.NotContains(t, body, junkPath, "请求路径不得进入指标标签")
+	assert.NotContains(t, body, junkMethod, "请求方法不得进入指标标签")
+	assert.Contains(t, body, `endpoint="`+define.LABEL_OTHER+`"`)
+	assert.Contains(t, body, `method="`+define.LABEL_OTHER+`"`)
 }

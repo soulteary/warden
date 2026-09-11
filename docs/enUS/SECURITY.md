@@ -28,7 +28,7 @@ This document explains Warden's security features, security configuration, and b
 - **Must** configure at least one service authentication mechanism: `API_KEY`, HMAC v2, or mTLS.
 - **Must** configure `TRUSTED_PROXY_IPS` to correctly obtain client IP
 - **Must** use `HEALTH_CHECK_IP_WHITELIST` to restrict health check access (or restrict `/health`, `/healthcheck` via network/reverse proxy)
-- **Must** restrict `/metrics`: set `WARDEN_METRICS_REQUIRE_AUTH=true`, or restrict the path at the reverse proxy/network layer.
+- **Must** restrict `/metrics`. With `ENVIRONMENT=production` authentication is required by default; keep it that way (or restrict the path at the reverse proxy/network layer) and do **not** set `WARDEN_METRICS_REQUIRE_AUTH=false` in production.
 
 **Configuration Example**:
 ```bash

@@ -14,6 +14,49 @@
 
 ## [Unreleased]
 
+### Fixed
+- 修正后台刷新的变更检测：此前将加载到的原始记录数/哈希与缓存中「经校验去重后」的记录数/哈希比较，
+  只要规则集中存在任意一条被格式校验或去重丢弃的记录，两者就永远不相等，导致每个周期都被判定为
+  「数据已变化」并重复整体换入，且共享 Redis 缓存在启动后不再被刷新。现改为用 loader 已计算的
+  `LoadResult.Version` 与快照版本比较（同为「加载到的原始集合」的哈希）。
+- 后台刷新与启动加载写入共享 Redis 缓存时，改为写入缓存实际持有的生效集合，而不是原始加载结果；
+  被格式校验拒绝的记录不会再被投递到其他副本。
+- 成功刷新日志新增 `applied_count` 字段，与 `count`（加载条数）并列，使记录被丢弃的情况可观测；
+  当加载到的记录全部未通过格式校验时额外输出 Warn 级别日志（此前该状态只在 Debug 级别可见）。
+
+### Security
+- 根路径 `/` 改为精确匹配（`/{$}`），未注册路径由独立的兜底处理器返回本地化 JSON `404`。
+  此前 `/` 为子树通配，任意未匹配路径（如 `/foo`、`/user/`）都会返回完整允许列表。
+- Prometheus `endpoint` 与 `method` 标签改为按白名单归一化，未知取值统一计入 `other`。指标中间件位于
+  认证之前，此前未认证调用方即可通过请求任意路径、或发送任意 HTTP 方法令牌（net/http 会原样透传给
+  处理器），持续创建新的时间序列（标签基数无上界）。
+- 路由注册改用独立的 `*http.ServeMux` 并显式设置为 `http.Server.Handler`，不再使用
+  `http.DefaultServeMux`；注册过程恢复幂等，其他被链接进二进制的包（如 `net/http/pprof`）也无法
+  再向服务对外的 mux 挂载路由。
+
+### Changed
+- 工具链版本声明统一到 Go 1.27：`.golangci.yml` 的 `run.go` 由 `1.26` 提升为 `1.27`，与 `go.mod` 的
+  `go 1.27.0` 一致，避免 linter 按更旧的语言版本分析代码；Issue 模板与贡献指南中的 Go 版本示例
+  同步更新。（`go.mod`、Dockerfile、README 徽章与各语言部署文档此前已为 1.27。）
+- 主模块与 `example/advanced/mock-api` 新增 `toolchain go1.27.1` 指令，与构建镜像
+  `golang:1.27.1-alpine3.24` 对齐。`go` 指令仍为 `1.27.0`（最低语言版本），`toolchain` 作为建议下限：
+  本地 Go 更旧时会自动获取 1.27.1，更新时则直接使用本地工具链。使用 `GOTOOLCHAIN=local` 且本地
+  低于 1.27.1 的环境需要自行升级 Go。
+- `/metrics` 文档补充认证矩阵；OpenAPI 契约改为同时声明匿名与各认证方案两种形态（此前固定为
+  `security: []`，等于告诉生成的客户端与网关「该端点永不接受凭据」，与生产默认矛盾），并补充 `401` 响应。
+  同时修正该端点的响应示例：原示例中的 `http_requests_total{path=...}`、`cache_size` 与实际导出的
+  `warden_http_requests_total{endpoint=...}`、`warden_user_cache_size` 不符。
+- `/metrics` 认证策略改为按部署环境取默认值：`ENVIRONMENT=production` 默认要求认证，其他环境默认匿名；
+  `WARDEN_METRICS_REQUIRE_AUTH` 在两个方向上均可覆盖默认值。此前文档称默认匿名，但匿名分支沿用了服务
+  API Key，只要配置了 `API_KEY`，`/metrics` 实际返回 `401`，Prometheus 抓取会静默失败。
+- 补齐 de/fr/it/ja/ko 五种语言缺失的 18 个翻译键，并翻译此前在所有语言（含中文）中都保持英文原文的
+  6 个 `http.*` 面向用户的错误消息。
+- 新增 `locales` 包的完整性测试：校验各语言键集合与 `en.json` 一致、printf 占位符序列一致、且不存在
+  与英文完全相同的未翻译值。
+
+### Removed
+- 移除已不再使用的翻译键 `log.data_modified_during_update`。
+
 ## [1.2.0] - 2026-08-31
 
 ### Added

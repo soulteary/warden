@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -253,28 +256,6 @@ func TestCalculateHash_DifferentData(t *testing.T) {
 	assert.NotEqual(t, hash1, hash2, "不同数据应该产生不同哈希")
 }
 
-// TestHasChanged tests data change detection
-func TestHasChanged(t *testing.T) {
-	users := []define.AllowListUser{
-		{Phone: "13800138000", Mail: "test@example.com"},
-	}
-
-	oldHash := cache.HashUserList(users)
-
-	// Same data should return false
-	assert.False(t, hasChanged(oldHash, users), "相同数据应该返回 false")
-
-	// Different data should return true
-	newUsers := []define.AllowListUser{
-		{Phone: "13800138000", Mail: "test@example.com"},
-		{Phone: "13900139000", Mail: "test2@example.com"},
-	}
-	assert.True(t, hasChanged(oldHash, newUsers), "不同数据应该返回 true")
-
-	// Empty hash should return true
-	assert.True(t, hasChanged("", users), "空哈希应该返回 true")
-}
-
 // TestNewApp tests application initialization
 func TestNewApp(t *testing.T) {
 	// Save original environment variables
@@ -413,17 +394,25 @@ func TestApp_checkDataChanged(t *testing.T) {
 	users1 := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 	}
+
+	// An empty loaded version carries no information and must count as a change.
+	assert.True(t, app.checkDataChanged(""), "空版本号应视为发生变化")
+
+	// Without a snapshot baseline every load must count as a change.
+	assert.True(t, app.checkDataChanged(cache.HashUserList(users1)), "无快照基线时应视为发生变化")
+
 	app.userCache.Set(users1)
+	app.snapshots.Store(&Snapshot{Version: cache.HashUserList(users1)})
 
 	// Same data should return false
-	assert.False(t, app.checkDataChanged(users1), "相同数据应该返回 false")
+	assert.False(t, app.checkDataChanged(cache.HashUserList(users1)), "相同数据应该返回 false")
 
 	// Different data should return true
 	users2 := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test1@example.com"},
 		{Phone: "13900139000", Mail: "test2@example.com"},
 	}
-	assert.True(t, app.checkDataChanged(users2), "不同数据应该返回 true")
+	assert.True(t, app.checkDataChanged(cache.HashUserList(users2)), "不同数据应该返回 true")
 
 	// Different length should return true
 	users3 := []define.AllowListUser{
@@ -431,17 +420,35 @@ func TestApp_checkDataChanged(t *testing.T) {
 		{Phone: "13900139000", Mail: "test2@example.com"},
 		{Phone: "14000140000", Mail: "test3@example.com"},
 	}
-	assert.True(t, app.checkDataChanged(users3), "长度不同应该返回 true")
+	assert.True(t, app.checkDataChanged(cache.HashUserList(users3)), "长度不同应该返回 true")
+
+	// Regression: a rule set holding a record the cache drops (malformed mail) must still
+	// compare EQUAL when the identical set is loaded again. The previous implementation
+	// compared the cache's post-validation length/hash against the raw input, so a single
+	// malformed record made change detection report "changed" forever and the shared Redis
+	// cache stopped being refreshed for the lifetime of the process.
+	withDropped := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "test1@example.com"},
+		{Mail: "not-an-email"},
+	}
+	require.NoError(t, app.applyUsers(withDropped))
+	app.snapshots.Store(&Snapshot{Version: cache.HashUserList(withDropped)})
+	require.Less(t, app.userCache.Len(), len(withDropped), "格式非法的记录应被缓存丢弃")
+	assert.False(t, app.checkDataChanged(cache.HashUserList(withDropped)), "包含被丢弃记录的数据集再次加载时不应被判定为变化")
 }
 
 // TestStartServer tests server startup configuration
 func TestStartServer(t *testing.T) {
-	srv := startServer("8081", "", "", "", false)
+	mux := http.NewServeMux()
+	srv := startServer("8081", mux, "", "", "", false)
 	require.NotNil(t, srv)
 	assert.Equal(t, ":8081", srv.Addr)
 	assert.NotZero(t, srv.ReadTimeout)
 	assert.NotZero(t, srv.WriteTimeout)
 	assert.NotZero(t, srv.ReadHeaderTimeout)
+	// A nil Handler silently falls back to http.DefaultServeMux, which is exactly the
+	// global-registration coupling this signature exists to prevent.
+	assert.Same(t, mux, srv.Handler, "服务器必须使用显式传入的 mux，不能回落到 DefaultServeMux")
 }
 
 // TestShutdownServer tests server shutdown
@@ -657,6 +664,230 @@ func TestApp_backgroundTask_WithChange(t *testing.T) {
 	assert.Greater(t, app.userCache.Len(), initialLen, "数据有变化时应该更新")
 }
 
+// TestApp_backgroundTask_PublishesEffectiveSet pins the second half of the refresh fix:
+// what backgroundTask hands to the shared Redis cache must be the set the process actually
+// serves, not the raw loaded input. Records rejected by format validation must never be
+// re-seeded to other replicas, and the refresh must not be skipped because of them.
+func TestApp_backgroundTask_PublishesEffectiveSet(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "rules-*.json")
+	require.NoError(t, err)
+	// Three records, one of which the cache drops for a malformed mail address.
+	_, err = tmpFile.WriteString(`[
+		{"phone":"13800138000","mail":"a@example.com","status":"active"},
+		{"mail":"not-an-email","status":"active"},
+		{"phone":"13900139000","mail":"c@example.com","status":"active"}
+	]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	app := NewApp(&cmd.Config{
+		Port:         "8081",
+		RedisEnabled: false,
+		Mode:         "ONLY_LOCAL",
+		APIKey:       "test-key",
+		RemoteConfig: "",
+		TaskInterval: 60,
+		DataFile:     tmpFile.Name(),
+	})
+	require.NotNil(t, app)
+
+	// Elect this instance as the shared-cache writer and capture what it publishes, so the
+	// assertion observes the Redis payload itself rather than only the local cache.
+	var published [][]define.AllowListUser
+	app.redisUserCache = &cache.RedisUserCache{}
+	app.redisRefreshLocker = &stubRefreshLocker{locked: true}
+	app.publishToRedis = func(users []define.AllowListUser) error {
+		published = append(published, append([]define.AllowListUser(nil), users...))
+		return nil
+	}
+
+	// NewApp already loaded the file, so the snapshot baseline matches and a refresh would
+	// take the "unchanged" path. Clear it so this first call exercises the CHANGED path —
+	// the branch that used to be gated behind the broken hash comparison.
+	app.snapshots = newSnapshotStore()
+
+	app.backgroundTask(tmpFile.Name(), "")
+
+	applied := app.userCache.Get()
+	require.Len(t, applied, 2, "格式非法的记录必须被丢弃")
+	for _, u := range applied {
+		assert.NotEqual(t, "not-an-email", u.Mail, "被拒绝的记录不得进入生效集合")
+	}
+
+	// The heart of the fix: the CHANGED path must publish, and must publish the EFFECTIVE
+	// set. Before the fix the hash gate suppressed this write for the life of the process
+	// whenever any record was dropped.
+	require.Len(t, published, 1, "数据变化时必须向共享缓存发布一次")
+	assert.Equal(t, applied, published[0], "发布到共享缓存的必须是生效集合，而不是原始加载结果")
+	for _, u := range published[0] {
+		assert.NotEqual(t, "not-an-email", u.Mail, "被拒绝的记录不得被发布到其他副本")
+	}
+
+	// A second refresh of identical data takes the unchanged path, which must still republish
+	// (it is what keeps the shared cache's TTL alive) and must publish the same effective set.
+	app.backgroundTask(tmpFile.Name(), "")
+	require.Len(t, published, 2, "数据未变化时仍需刷新共享缓存以维持 TTL")
+	assert.Equal(t, applied, published[1], "未变化分支同样必须发布生效集合")
+
+	snap := app.snapshots.Load()
+	require.NotNil(t, snap)
+
+	// Compare the recorded version against one computed independently from the same records,
+	// rather than against itself — the snapshot version must describe the RAW loaded set.
+	expectedRaw := []define.AllowListUser{
+		{Phone: "13800138000", Mail: "a@example.com", Status: "active"},
+		{Mail: "not-an-email", Status: "active"},
+		{Phone: "13900139000", Mail: "c@example.com", Status: "active"},
+	}
+	assert.Equal(t, cache.HashUserList(expectedRaw), snap.Version,
+		"快照版本必须是加载到的原始集合的哈希")
+	assert.False(t, app.checkDataChanged(cache.HashUserList(expectedRaw)),
+		"同一份数据再次加载不应被判定为变化")
+
+	failures, _ := app.snapshots.RefreshFailure()
+	assert.Zero(t, failures, "成功刷新后连续失败计数应被清零")
+}
+
+// TestApp_updateRedisIfWriter_FallsBackToRetryingWriter covers the publish seam's default
+// path. publishToRedis exists so tests can observe what a refresh hands to the shared cache;
+// production leaves it pointing at updateRedisCacheWithRetry, and a nil value must fall back
+// to that writer rather than silently skipping the publish.
+func TestApp_updateRedisIfWriter_FallsBackToRetryingWriter(t *testing.T) {
+	users := []define.AllowListUser{{Phone: "13800138000", Mail: "a@example.com"}}
+
+	t.Run("非写入者不发布", func(t *testing.T) {
+		called := false
+		app := &App{log: logger.GetLoggerKit(), publishToRedis: func([]define.AllowListUser) error {
+			called = true
+			return nil
+		}}
+		app.updateRedisIfWriter(false, users)
+		assert.False(t, called, "未当选写入者时不应发布")
+	})
+
+	t.Run("nil 钩子回落到重试写入器并记录错误", func(t *testing.T) {
+		// publishToRedis nil + redisUserCache nil => updateRedisCacheWithRetry returns an
+		// error, which must be handled rather than swallowed or panicking.
+		app := &App{log: logger.GetLoggerKit()}
+		require.NotPanics(t, func() { app.updateRedisIfWriter(true, users) })
+	})
+
+	t.Run("发布失败不影响调用方", func(t *testing.T) {
+		app := &App{log: logger.GetLoggerKit(), publishToRedis: func([]define.AllowListUser) error {
+			return assert.AnError
+		}}
+		require.NotPanics(t, func() { app.updateRedisIfWriter(true, users) })
+	})
+}
+
+// TestRegisterRoutes_MetricsAuthPolicy is the regression guard for P2-a. The fix is the
+// single line optionalAuthCfg.APIKey = "": middleware-kit only honours AllowEmptyKey when no
+// key is configured, so before it an anonymous scrape got 401 in EVERY environment whenever
+// API_KEY was set, contradicting the documented anonymous default and silently breaking
+// Prometheus. These assertions drive real requests through the mux, not the policy helper.
+func TestRegisterRoutes_MetricsAuthPolicy(t *testing.T) {
+	scrape := func(t *testing.T, environment, requireAuth string, withKey bool) int {
+		t.Helper()
+		t.Setenv("IP_WHITELIST", "")
+		t.Setenv("HEALTH_CHECK_IP_WHITELIST", "")
+		t.Setenv("WARDEN_METRICS_REQUIRE_AUTH", requireAuth)
+
+		app := NewApp(&cmd.Config{
+			Port:         "8081",
+			RedisEnabled: false,
+			Mode:         "DEFAULT",
+			Environment:  environment,
+			APIKey:       "test-key",
+			RemoteConfig: "",
+			TaskInterval: 60,
+		})
+		mux := registerRoutes(app)
+		require.NotNil(t, mux)
+
+		req := httptest.NewRequest(http.MethodGet, define.PATH_METRICS, http.NoBody)
+		if withKey {
+			req.Header.Set("X-API-Key", "test-key")
+		}
+		resp := httptest.NewRecorder()
+		mux.ServeHTTP(resp, req)
+		return resp.Code
+	}
+
+	t.Run("开发环境配置了 API_KEY 时匿名抓取仍应成功", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, scrape(t, "development", "", false))
+	})
+	t.Run("测试环境同样允许匿名抓取", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, scrape(t, "test", "", false))
+	})
+	t.Run("生产环境默认要求认证", func(t *testing.T) {
+		assert.Equal(t, http.StatusUnauthorized, scrape(t, "production", "", false))
+	})
+	t.Run("生产环境带凭据可抓取", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, scrape(t, "production", "", true))
+	})
+	t.Run("显式 true 可在开发环境强制认证", func(t *testing.T) {
+		assert.Equal(t, http.StatusUnauthorized, scrape(t, "development", "true", false))
+	})
+	t.Run("显式 false 可在生产环境放开匿名抓取", func(t *testing.T) {
+		assert.Equal(t, http.StatusOK, scrape(t, "production", "false", false))
+	})
+	t.Run("拼错的值回落到环境默认而非静默放行", func(t *testing.T) {
+		// A typo must not be read as "false": production keeps requiring authentication
+		// (registerRoutes also logs a warning naming the accepted spellings).
+		assert.Equal(t, http.StatusUnauthorized, scrape(t, "production", "ture", false))
+		assert.Equal(t, http.StatusOK, scrape(t, "development", "ture", false))
+	})
+}
+
+// TestApp_backgroundTask_AllRecordsRejected covers the condition this PR made loud: a load
+// that succeeds with records, none of which survive format validation. The effective set is
+// empty and that empty set is what gets published — keeping the shared cache identical to
+// what this replica serves rather than re-seeding rejected records to peers — so the
+// condition has to be visible above Debug.
+func TestApp_backgroundTask_AllRecordsRejected(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "rules-*.json")
+	require.NoError(t, err)
+	// Every record carries a malformed mail address, so all of them are dropped.
+	_, err = tmpFile.WriteString(`[
+		{"mail":"not-an-email","status":"active"},
+		{"mail":"also-not-an-email","status":"active"}
+	]`)
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
+
+	app := NewApp(&cmd.Config{
+		Port:         "8081",
+		RedisEnabled: false,
+		Mode:         "ONLY_LOCAL",
+		APIKey:       "test-key",
+		RemoteConfig: "",
+		TaskInterval: 60,
+		DataFile:     tmpFile.Name(),
+	})
+	require.NotNil(t, app)
+
+	var published [][]define.AllowListUser
+	app.redisUserCache = &cache.RedisUserCache{}
+	app.redisRefreshLocker = &stubRefreshLocker{locked: true}
+	app.publishToRedis = func(users []define.AllowListUser) error {
+		published = append(published, append([]define.AllowListUser(nil), users...))
+		return nil
+	}
+
+	// Clear the baseline so the refresh takes the changed path.
+	app.snapshots = newSnapshotStore()
+	app.backgroundTask(tmpFile.Name(), "")
+
+	assert.Zero(t, app.userCache.Len(), "全部记录被拒时生效集合应为空")
+	require.Len(t, published, 1, "仍应发布一次，使共享缓存与本副本所服务的内容一致")
+	assert.Empty(t, published[0], "发布的必须是空的生效集合，而不是被拒绝的原始记录")
+
+	// A successful-but-empty load is still a successful refresh: it must not be recorded as
+	// a failure, or the snapshot would report a stale-data problem that does not exist.
+	failures, _ := app.snapshots.RefreshFailure()
+	assert.Zero(t, failures)
+}
+
 // TestApp_backgroundTask_PanicRecovery tests panic recovery in background task
 func TestApp_backgroundTask_PanicRecovery(t *testing.T) {
 	cfg := &cmd.Config{
@@ -807,34 +1038,23 @@ func TestRegisterRoutes(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// Save original routes
-	originalDefaultMux := http.DefaultServeMux
-	http.DefaultServeMux = http.NewServeMux()
+	// Routes live on a dedicated mux; http.DefaultServeMux must stay untouched.
+	mux := registerRoutes(app)
+	require.NotNil(t, mux)
 
-	// Register routes
-	registerRoutes(app)
+	// The root document is served by the exact-match pattern, not by a subtree catch-all.
+	_, pattern := mux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: "/"}})
+	assert.Equal(t, rootExactPattern, pattern, "根路由应由精确匹配模式提供")
 
-	// Verify routes are registered
-	_, pattern := http.DefaultServeMux.Handler(&http.Request{
-		Method: "GET",
-		URL:    &url.URL{Path: "/"},
-	})
-	assert.NotEmpty(t, pattern, "根路由应该已注册")
+	_, pattern = mux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: define.PATH_HEALTH}})
+	assert.Equal(t, define.PATH_HEALTH, pattern, "健康检查路由应该已注册")
 
-	_, pattern = http.DefaultServeMux.Handler(&http.Request{
-		Method: "GET",
-		URL:    &url.URL{Path: "/health"},
-	})
-	assert.NotEmpty(t, pattern, "健康检查路由应该已注册")
+	_, pattern = mux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: define.PATH_METRICS}})
+	assert.Equal(t, define.PATH_METRICS, pattern, "指标路由应该已注册")
 
-	_, pattern = http.DefaultServeMux.Handler(&http.Request{
-		Method: "GET",
-		URL:    &url.URL{Path: "/metrics"},
-	})
-	assert.NotEmpty(t, pattern, "指标路由应该已注册")
-
-	// Restore original routes
-	http.DefaultServeMux = originalDefaultMux
+	// registerRoutes must not publish anything on the global mux.
+	_, globalPattern := http.DefaultServeMux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: define.PATH_V1_LOOKUP}})
+	assert.Empty(t, globalPattern, "registerRoutes 不应再向 http.DefaultServeMux 注册路由")
 }
 
 // TestNewApp_WithHTTPInsecureTLS tests enabling insecure TLS for HTTP
@@ -1219,8 +1439,8 @@ func TestApp_checkDataChanged_EmptyHash(t *testing.T) {
 	// Clear cache hash
 	app.userCache.Set([]define.AllowListUser{})
 
-	// Test empty hash scenario
-	assert.True(t, app.checkDataChanged(users), "空哈希时应该返回true")
+	// No snapshot baseline has been recorded yet, so any load counts as a change.
+	assert.True(t, app.checkDataChanged(cache.HashUserList(users)), "无快照基线时应该返回true")
 }
 
 // TestApp_loadInitialData_AllSourcesFailed tests when all data sources fail
@@ -1545,23 +1765,30 @@ func TestCalculateHash_NilScope(t *testing.T) {
 	assert.Equal(t, hash1, hash2, "相同输入应该产生相同哈希")
 }
 
-// TestHasChanged_EmptyOldHash tests hasChanged with empty old hash
-func TestHasChanged_EmptyOldHash(t *testing.T) {
+// TestApp_checkDataChanged_EmptyBaseline covers the no-baseline branch on a bare App:
+// snapshots is nil, which must be treated as "changed" rather than panicking.
+func TestApp_checkDataChanged_EmptyBaseline(t *testing.T) {
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	assert.True(t, hasChanged("", users), "空旧哈希应该返回true")
+	bare := &App{}
+	assert.True(t, bare.checkDataChanged(cache.HashUserList(users)), "snapshots 为 nil 时应返回 true")
+
+	app := NewApp(&cmd.Config{Port: "8081", RedisEnabled: false, Mode: "DEFAULT", TaskInterval: 60})
+	assert.True(t, app.checkDataChanged(cache.HashUserList(users)), "快照版本为空时应返回 true")
 }
 
-// TestHasChanged_SameHash tests hasChanged with same hash
-func TestHasChanged_SameHash(t *testing.T) {
+// TestApp_checkDataChanged_SameVersion covers the unchanged branch.
+func TestApp_checkDataChanged_SameVersion(t *testing.T) {
 	users := []define.AllowListUser{
 		{Phone: "13800138000", Mail: "test@example.com"},
 	}
 
-	hash := cache.HashUserList(users)
-	assert.False(t, hasChanged(hash, users), "相同哈希应该返回false")
+	app := NewApp(&cmd.Config{Port: "8081", RedisEnabled: false, Mode: "DEFAULT", TaskInterval: 60})
+	version := cache.HashUserList(users)
+	app.snapshots.Store(&Snapshot{Version: version})
+	assert.False(t, app.checkDataChanged(version), "相同版本应该返回 false")
 }
 
 // TestRegisterRoutes_AllEndpoints tests all registered endpoints
@@ -1580,25 +1807,31 @@ func TestRegisterRoutes_AllEndpoints(t *testing.T) {
 
 	app := NewApp(cfg)
 
-	// Save original routes
-	originalDefaultMux := http.DefaultServeMux
-	http.DefaultServeMux = http.NewServeMux()
+	mux := registerRoutes(app)
+	require.NotNil(t, mux)
 
-	// Register routes
-	registerRoutes(app)
-
-	// Test all endpoints
-	endpoints := []string{"/", "/data.json", "/user", "/health", "/healthcheck", "/metrics", "/log/level"}
-	for _, endpoint := range endpoints {
-		_, pattern := http.DefaultServeMux.Handler(&http.Request{
-			Method: "GET",
-			URL:    &url.URL{Path: endpoint},
-		})
-		assert.NotEmpty(t, pattern, "端点 %s 应该已注册", endpoint)
+	// Every allowlisted path must resolve to its OWN pattern. Asserting "pattern is not
+	// empty" would be vacuous now that a "/" fallback matches everything.
+	for _, endpoint := range define.KnownRoutePaths {
+		want := endpoint
+		if endpoint == define.PATH_ROOT {
+			want = rootExactPattern
+		}
+		_, pattern := mux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: endpoint}})
+		assert.Equal(t, want, pattern, "端点 %s 应该已注册", endpoint)
 	}
 
-	// Restore original routes
-	http.DefaultServeMux = originalDefaultMux
+	// Unregistered paths must fall through to the catch-all, never to a data handler.
+	for _, endpoint := range []string{"/foo", "/user/", "/v1/", "/definitely-not-a-route", "/v1/lookup/extra"} {
+		_, pattern := mux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: endpoint}})
+		assert.Equal(t, define.PATH_ROOT, pattern, "未注册路径 %s 必须落到 404 兜底", endpoint)
+	}
+
+	// ServeMux path-cleans before matching, so traversal-looking paths resolve to the
+	// cleaned route (and redirect there) rather than reaching the catch-all. Pinned so the
+	// difference between "unmatched" and "cleaned then matched" stays deliberate.
+	_, cleanedPattern := mux.Handler(&http.Request{Method: "GET", URL: &url.URL{Path: "/metrics/../user"}})
+	assert.Equal(t, define.PATH_USER, cleanedPattern, "路径清理后应命中 /user，而不是兜底路由")
 }
 
 func TestRegisterRoutes_GlobalIPAllowlist(t *testing.T) {
@@ -1611,17 +1844,128 @@ func TestRegisterRoutes_GlobalIPAllowlist(t *testing.T) {
 		APIKey:       "test-key",
 	})
 
-	originalDefaultMux := http.DefaultServeMux
-	http.DefaultServeMux = http.NewServeMux()
-	defer func() { http.DefaultServeMux = originalDefaultMux }()
+	mux := registerRoutes(app)
+	require.NotNil(t, mux)
 
-	registerRoutes(app)
-
-	for _, endpoint := range []string{"/", "/user", "/v1/lookup", "/health", "/metrics", "/log/level"} {
+	// The unmatched-path fallback is included deliberately: a bare 404 handler registered
+	// outside ipAllowlistMiddleware would answer blocked clients that get 403 everywhere else.
+	for _, endpoint := range []string{"/", "/user", "/v1/lookup", "/health", "/metrics", "/log/level", "/definitely-not-a-route"} {
 		req := httptest.NewRequest(http.MethodGet, endpoint, http.NoBody)
 		req.RemoteAddr = "198.51.100.20:1234"
 		resp := httptest.NewRecorder()
-		http.DefaultServeMux.ServeHTTP(resp, req)
+		mux.ServeHTTP(resp, req)
 		assert.Equal(t, http.StatusForbidden, resp.Code, "endpoint %s must honor IP_WHITELIST", endpoint)
+	}
+}
+
+// TestRegisterRoutes_UnknownPathReturnsJSON404 pins the behavior change: an unregistered
+// path used to be served by the root catch-all and returned the COMPLETE allow list to any
+// authenticated caller. It must now return a localized JSON 404 and no user data.
+func TestRegisterRoutes_UnknownPathReturnsJSON404(t *testing.T) {
+	app := NewApp(&cmd.Config{
+		Port:         "8081",
+		RedisEnabled: false,
+		Mode:         "DEFAULT",
+		APIKey:       "test-key",
+		RemoteConfig: "",
+		TaskInterval: 60,
+	})
+	app.userCache.Set([]define.AllowListUser{
+		{Phone: "13800138000", Mail: "leak@example.com", Status: "active"},
+	})
+
+	mux := registerRoutes(app)
+	require.NotNil(t, mux)
+
+	for _, path := range []string{"/foo", "/user/", "/v1/", "/%2e%2e/user"} {
+		req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
+		req.Header.Set("X-API-Key", "test-key")
+		resp := httptest.NewRecorder()
+		mux.ServeHTTP(resp, req)
+
+		require.Equal(t, http.StatusNotFound, resp.Code, "未注册路径 %s 必须返回 404", path)
+		assert.NotContains(t, resp.Body.String(), "leak@example.com", "404 响应不得泄漏用户数据")
+
+		var body map[string]string
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body), "404 响应必须是 JSON")
+		assert.NotEmpty(t, body["error"])
+	}
+}
+
+// TestRegisterRoutes_PatternsMatchKnownRoutePaths guards against route/allowlist drift.
+// define.KnownRoutePaths bounds the Prometheus endpoint label, so a route registered
+// without a matching entry would silently reappear as the "other" bucket.
+func TestRegisterRoutes_PatternsMatchKnownRoutePaths(t *testing.T) {
+	src, err := os.ReadFile("main_routes.go")
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(src), "\thttp.Handle(",
+		"路由必须注册到局部 mux，不能回退到 http.DefaultServeMux")
+
+	handleArg := regexp.MustCompile(`mux\.Handle\(\s*([A-Za-z0-9_.]+)\s*,`)
+	matches := handleArg.FindAllStringSubmatch(string(src), -1)
+	require.NotEmpty(t, matches, "未能解析出任何 mux.Handle 调用")
+
+	distinctPathConsts := map[string]struct{}{}
+	for _, m := range matches {
+		arg := m[1]
+		if arg == "rootExactPattern" {
+			continue
+		}
+		require.True(t, strings.HasPrefix(arg, "define.PATH_"),
+			"路由模式必须使用 define.PATH_* 常量，发现: %s", arg)
+		distinctPathConsts[arg] = struct{}{}
+	}
+
+	assert.Len(t, distinctPathConsts, len(define.KnownRoutePaths),
+		"新增路由后必须同步更新 define.KnownRoutePaths（指标标签白名单）")
+}
+
+// TestParseBoolLike pins which spellings count as an explicit setting. The distinction
+// matters: an unrecognized value must fall back to the environment default (and warn),
+// not be silently treated as false.
+func TestParseBoolLike(t *testing.T) {
+	for _, raw := range []string{"true", "TRUE", " 1 ", "yes", "on"} {
+		value, ok := parseBoolLike(raw)
+		assert.True(t, ok, "%q 应被识别", raw)
+		assert.True(t, value, "%q 应解析为 true", raw)
+	}
+	for _, raw := range []string{"false", "FALSE", "0", "no", "off"} {
+		value, ok := parseBoolLike(raw)
+		assert.True(t, ok, "%q 应被识别", raw)
+		assert.False(t, value, "%q 应解析为 false", raw)
+	}
+	for _, raw := range []string{"", "ture", "enabled", "2", "y"} {
+		_, ok := parseBoolLike(raw)
+		assert.False(t, ok, "%q 不应被识别为布尔值", raw)
+	}
+}
+
+// TestMetricsRequireAuth covers the /metrics exposure policy: an explicit setting wins in
+// both directions, otherwise production requires authentication and other environments do not.
+func TestMetricsRequireAuth(t *testing.T) {
+	tests := []struct {
+		name        string
+		raw         string
+		environment string
+		want        bool
+	}{
+		{"未设置-开发环境默认匿名", "", "development", false},
+		{"未设置-测试环境默认匿名", "", "test", false},
+		{"未设置-生产环境默认要求认证", "", "production", true},
+		{"未设置-生产别名 prod", "", "prod", true},
+		{"未设置-空环境按默认(开发)处理", "", "", false},
+		{"显式 true 覆盖开发默认", "true", "development", true},
+		{"显式 1 覆盖开发默认", "1", "development", true},
+		{"显式 false 覆盖生产默认", "false", "production", false},
+		{"显式 0 覆盖生产默认", "0", "production", false},
+		{"大小写与空格不敏感", "  TRUE  ", "development", true},
+		{"无法识别的值回落到环境默认", "maybe", "production", true},
+		{"无法识别的值回落到环境默认-开发", "maybe", "development", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, metricsRequireAuth(tt.raw, tt.environment))
+		})
 	}
 }

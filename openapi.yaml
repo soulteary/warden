@@ -10,6 +10,11 @@ info:
     - 灵活策略：提供 7 种数据合并模式
     - 定时更新：每个副本独立刷新本地快照，Redis 分布式锁仅协调共享缓存写入
     - 容器化部署：完整的 Docker 支持
+
+    ## 路由约定
+    本文档列出的路径即服务注册的全部路径。任何未列出的路径（例如 `/foo`、`/user/`）返回
+    `404` 和 `{"error": "..."}`，不会返回用户数据。此前根路径 `/` 曾作为子树通配，任意
+    未匹配路径都会返回完整允许列表，该行为已移除。
   version: 1.2.0
   contact:
     name: Warden Project
@@ -530,11 +535,30 @@ paths:
 
   /metrics:
     get:
-      security: []
+      # /metrics accepts BOTH shapes, because whether it demands a credential depends on the
+      # deployment: `{}` is the anonymous alternative (the default outside production) and the
+      # remaining entries mirror the document-level schemes (the default under
+      # ENVIRONMENT=production, or with WARDEN_METRICS_REQUIRE_AUTH=true). Declaring only
+      # `security: []` would tell generated clients and gateways that credentials are never
+      # accepted here, which is wrong for a production deployment.
+      security:
+        - {}
+        - APIKeyHeader: []
+        - BearerAuth: []
+        - HMACSignature: []
+          HMACTimestamp: []
+          HMACKeyID: []
+          HMACNonce: []
+          HMACVersion: []
+        - MutualTLS: []
       tags:
         - system
       summary: Prometheus 指标
-      description: 默认匿名返回 Prometheus 指标；设置 WARDEN_METRICS_REQUIRE_AUTH=true 后使用全局认证方案。
+      description: >-
+        返回 Prometheus 指标。是否需要认证取决于部署环境：ENVIRONMENT=production 默认要求认证并使用全局认证方案，
+        development/test 默认匿名。显式设置 WARDEN_METRICS_REQUIRE_AUTH 可在两个方向上覆盖该默认值。
+        endpoint 与 method 标签取值均被限制在白名单内（已注册路由 / 标准 HTTP 方法），未识别的取值统一归入 "other"，
+        因此标签基数有上界，不会被请求内容撑大。
       operationId: getMetrics
       responses:
         '200':
@@ -544,12 +568,17 @@ paths:
               schema:
                 type: string
               example: |
-                  # HELP http_requests_total Total number of HTTP requests
-                  # TYPE http_requests_total counter
-                  http_requests_total{method="GET",path="/"} 1000
-                  # HELP cache_size Current cache size
-                  # TYPE cache_size gauge
-                  cache_size 100
+                # HELP warden_http_requests_total Total number of HTTP requests
+                # TYPE warden_http_requests_total counter
+                warden_http_requests_total{endpoint="/",method="GET",status="200"} 1000
+                warden_http_requests_total{endpoint="other",method="GET",status="404"} 3
+                # HELP warden_user_cache_size Current number of items in cache
+                # TYPE warden_user_cache_size gauge
+                warden_user_cache_size 100
+        '401':
+          description: >-
+            未认证。当部署要求对 /metrics 认证时返回（ENVIRONMENT=production 的默认行为，
+            或显式设置 WARDEN_METRICS_REQUIRE_AUTH=true）。此时请按上面列出的任一认证方案提供凭据。
 
 components:
   securitySchemes:

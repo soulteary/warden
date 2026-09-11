@@ -36,6 +36,26 @@
   "error.health_check_encode_failed": "ヘルスチェックレスポンスのエンコードに失敗しました",
   "error.error_response_hidden": "エラーレスポンス（詳細は非表示）",
   "error.request_error": "リクエストの処理中にエラーが発生しました",
+  "error.request_cancelled": "リクエストがキャンセルされました",
+  "error.toml_not_supported": "TOML 形式は現在サポートされていません。YAML 形式を使用してください",
+
+  "validation.port_invalid": "無効なポート番号：%s（1〜65535 の整数である必要があります）",
+  "validation.mode_invalid": "無効なモード：%s（有効値：DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED）",
+  "validation.task_interval_invalid": "タスク間隔は 0 より大きい必要があります。現在値：%d",
+  "validation.server_port_empty": "server.port を空にすることはできません",
+  "validation.redis_addr_empty": "redis.addr を空にすることはできません",
+  "validation.task_interval_too_short": "task.interval は 1 秒以上である必要があります",
+  "validation.prod_tls_not_allowed": "本番環境ではTLS証明書の検証を無効にすることはできません",
+  "validation.environment_invalid": "無効なデプロイ環境：%s（有効値：development, test, production）",
+  "validation.prod_remote_timeout_required": "本番環境でリモートデータソースを設定する場合は、有限の HTTP タイムアウト（HTTP_TIMEOUT > 0）が必要です",
+  "validation.prod_remote_encryption_required": "本番環境でリモートデータソースを設定する場合は、リモート暗号化を必須にする必要があります（REMOTE_ENCRYPTION_REQUIRED=true、fail closed）",
+  "validation.prod_auth_required": "本番環境では少なくとも 1 つの認証方式を設定する必要があります：API_KEY、WARDEN_HMAC_KEYS、または mTLS（WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true）",
+
+  "log_level.updated": "ログレベルを更新しました",
+  "log_level.invalid": "無効なログレベルです。サポートされている値：trace, debug, info, warn, error, fatal, panic",
+  "log_level.empty": "ログレベルを空にすることはできません",
+  "log_level.invalid_request_body": "無効なリクエストボディ",
+  "log_level.method_not_allowed": "許可されていないメソッドです。GET または POST を使用してください",
 
   "log.http_tls_disabled": "HTTP TLS証明書の検証が無効になっています（開発環境のみ）",
   "log.prod_tls_required": "本番環境ではTLS証明書の検証を無効にすることはできません。終了します",
@@ -67,8 +87,8 @@
   "log.background_task_panic": "バックグラウンドタスクでパニックが発生しました。回復しました",
   "log.data_unchanged": "データに変更がありません。更新をスキップします",
   "log.redis_cache_failed_continue": "Redisキャッシュの更新に失敗しました。メモリキャッシュを続行します",
-  "log.data_modified_during_update": "更新中にデータが変更されました。Redis更新をスキップします",
   "log.background_update": "バックグラウンドデータ更新",
+  "log.all_records_rejected": "読み込んだレコードがすべて検証で拒否されました。有効なルールセットは空です",
   "log.background_load_failed": "バックグラウンドタスクのデータ読み込みに失敗しました",
   "log.identity_validation_failed": "ID 検証に失敗しました：一意識別子の重複または必須の user_id の欠如を検出しました。直近の有効なデータを維持します",
   "log.identity_diagnostic_ok": "ID の読み取り専用チェックに合格：一意識別子の重複や user_id の欠如は見つかりませんでした",
@@ -94,10 +114,10 @@
   "log.request_data_api": "データAPIをリクエスト",
   "log.health_check_encode_failed": "ヘルスチェックレスポンスのエンコードに失敗しました",
 
-  "http.method_not_allowed": "Method not allowed",
-  "http.user_not_found": "User not found",
-  "http.internal_server_error": "Internal server error",
-  "http.unauthorized": "Unauthorized",
-  "http.rate_limit_exceeded": "Rate limit exceeded",
-  "http.invalid_pagination_parameters": "Invalid pagination parameters"
+  "http.method_not_allowed": "許可されていないメソッド",
+  "http.user_not_found": "ユーザーが見つかりません",
+  "http.internal_server_error": "内部サーバーエラー",
+  "http.unauthorized": "認証されていません",
+  "http.rate_limit_exceeded": "レート制限を超えました",
+  "http.invalid_pagination_parameters": "ページネーションパラメータが無効です"
 }

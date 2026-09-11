@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/API.md) | [中文](../zhCN/API.md) | [Français](../frFR/API.md) | [Italiano](../itIT/API.md) | [日本語](../jaJP/API.md) | [Deutsch](../deDE/API.md) | [한국어](API.md)
 
+> ⚠️ **번역 상태**: 이 페이지는 원문보다 갱신이 늦을 수 있습니다. 영어판과 중국어 간체판이 정본이며 먼저 갱신됩니다. 보안 및 설정 관련 중요 항목은 [English](../enUS/API.md) 또는 [中文](../zhCN/API.md)도 함께 확인하세요.
+
 This document provides detailed information about all API endpoints provided by Warden.
 
 ## OpenAPI Documentation

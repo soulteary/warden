@@ -36,6 +36,26 @@
   "error.health_check_encode_failed": "Codifica risposta controllo salute fallita",
   "error.error_response_hidden": "Risposta di errore (dettagli nascosti)",
   "error.request_error": "Errore durante l'elaborazione della richiesta",
+  "error.request_cancelled": "Richiesta annullata",
+  "error.toml_not_supported": "Il formato TOML non è ancora supportato, utilizzare il formato YAML",
+
+  "validation.port_invalid": "Numero di porta non valido: %s (deve essere un intero compreso tra 1 e 65535)",
+  "validation.mode_invalid": "Modalità non valida: %s (valori validi: DEFAULT, REMOTE_FIRST, ONLY_REMOTE, ONLY_LOCAL, LOCAL_FIRST, REMOTE_FIRST_ALLOW_REMOTE_FAILED, LOCAL_FIRST_ALLOW_REMOTE_FAILED)",
+  "validation.task_interval_invalid": "L'intervallo dell'attività deve essere maggiore di 0, valore corrente: %d",
+  "validation.server_port_empty": "server.port non può essere vuoto",
+  "validation.redis_addr_empty": "redis.addr non può essere vuoto",
+  "validation.task_interval_too_short": "task.interval deve essere di almeno 1 secondo",
+  "validation.prod_tls_not_allowed": "l'ambiente di produzione non consente la disabilitazione della verifica del certificato TLS",
+  "validation.environment_invalid": "ambiente di distribuzione non valido: %s (valori validi: development, test, production)",
+  "validation.prod_remote_timeout_required": "è richiesto un timeout HTTP limitato (HTTP_TIMEOUT > 0) quando in produzione è configurata una fonte di dati remota",
+  "validation.prod_remote_encryption_required": "la crittografia remota deve essere obbligatoria (REMOTE_ENCRYPTION_REQUIRED=true, fail closed) quando in produzione è configurata una fonte di dati remota",
+  "validation.prod_auth_required": "l'ambiente di produzione richiede almeno un meccanismo di autenticazione: impostare API_KEY, WARDEN_HMAC_KEYS o mTLS (WARDEN_TLS_CA + WARDEN_TLS_REQUIRE_CLIENT_CERT=true)",
+
+  "log_level.updated": "Livello di log aggiornato",
+  "log_level.invalid": "Livello di log non valido, valori supportati: trace, debug, info, warn, error, fatal, panic",
+  "log_level.empty": "Il livello di log non può essere vuoto",
+  "log_level.invalid_request_body": "Corpo della richiesta non valido",
+  "log_level.method_not_allowed": "Metodo non consentito, utilizzare GET o POST",
 
   "log.http_tls_disabled": "Verifica certificato TLS HTTP disabilitata (solo sviluppo)",
   "log.prod_tls_required": "L'ambiente di produzione non consente la disabilitazione della verifica del certificato TLS, uscita",
@@ -67,8 +87,8 @@
   "log.background_task_panic": "Panico dell'attività in background verificatosi, recuperato",
   "log.data_unchanged": "Dati invariati, salto dell'aggiornamento",
   "log.redis_cache_failed_continue": "Aggiornamento cache Redis fallito, continuazione con cache memoria",
-  "log.data_modified_during_update": "Dati modificati durante l'aggiornamento, salto dell'aggiornamento Redis",
   "log.background_update": "Aggiornamento dati in background",
+  "log.all_records_rejected": "Tutti i record caricati sono stati rifiutati dalla convalida; l'insieme di regole effettivo è vuoto",
   "log.background_load_failed": "Caricamento dati dell'attività in background fallito",
   "log.identity_validation_failed": "Convalida identità fallita: rilevato identificatore univoco duplicato o user_id obbligatorio mancante; mantenuti gli ultimi dati validi",
   "log.identity_diagnostic_ok": "Controllo identità in sola lettura superato: nessun identificatore duplicato o user_id mancante",
@@ -94,10 +114,10 @@
   "log.request_data_api": "Richiesta API dati",
   "log.health_check_encode_failed": "Codifica risposta controllo salute fallita",
 
-  "http.method_not_allowed": "Method not allowed",
-  "http.user_not_found": "User not found",
-  "http.internal_server_error": "Internal server error",
-  "http.unauthorized": "Unauthorized",
-  "http.rate_limit_exceeded": "Rate limit exceeded",
-  "http.invalid_pagination_parameters": "Invalid pagination parameters"
+  "http.method_not_allowed": "Metodo non consentito",
+  "http.user_not_found": "Utente non trovato",
+  "http.internal_server_error": "Errore interno del server",
+  "http.unauthorized": "Non autorizzato",
+  "http.rate_limit_exceeded": "Limite di velocità superato",
+  "http.invalid_pagination_parameters": "Parametri di paginazione non validi"
 }

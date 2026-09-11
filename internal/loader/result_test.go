@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
 )
@@ -231,4 +232,27 @@ func TestLoadWithResult_ConcurrentReads(t *testing.T) {
 	}
 	wg.Wait()
 	_ = define.AllowListUser{}
+}
+
+// TestLoadResultVersionMatchesCacheHash pins the contract App.checkDataChanged depends on:
+// LoadResult.Version must be cache.HashUserList over exactly the slice placed in Users.
+// The refresh path compares that version against the stored snapshot version instead of
+// re-hashing, so the two definitions must never drift apart.
+func TestLoadResultVersionMatchesCacheHash(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rules.json")
+	require.NoError(t, os.WriteFile(path, []byte(`[
+		{"phone":"13800138000","mail":"a@example.com","status":"active"},
+		{"mail":"not-an-email","status":"active"},
+		{"phone":"13900139000","mail":"c@example.com","status":"active"}
+	]`), 0o600))
+
+	rl, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 5}, ModeOnlyLocal)
+	require.NoError(t, err)
+
+	res := rl.LoadWithResult(context.Background(), path, "", "", "")
+	require.NoError(t, res.Err)
+	require.NotEmpty(t, res.Users)
+	assert.Equal(t, cache.HashUserList(res.Users), res.Version,
+		"LoadResult.Version 必须等于 cache.HashUserList(res.Users)")
 }
