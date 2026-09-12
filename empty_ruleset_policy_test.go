@@ -221,3 +221,122 @@ func mustParse(t *testing.T, raw string) []define.AllowListUser {
 	require.NoError(t, json.Unmarshal([]byte(raw), &users))
 	return users
 }
+
+// parseRuleSet turns a rule-set literal into the records a healthy replica would have
+// published to the shared cache.
+func parseRuleSet(t *testing.T, content string) []define.AllowListUser {
+	t.Helper()
+	var users []define.AllowListUser
+	require.NoError(t, json.Unmarshal([]byte(content), &users))
+	return users
+}
+
+// onlyLocalRestartApp simulates a replica restarting in ONLY_LOCAL mode: the in-memory cache
+// starts empty as it does in a fresh process, the local file holds localContent, and shared
+// is what a healthy replica last published to the shared cache (sharedErr makes that read
+// fail instead).
+//
+// ONLY_LOCAL returns before loadInitialData's Redis read, which makes it the one startup path
+// where an all-rejected local file can reach applyUsers and publish the resulting empty set
+// over the shared last known good data.
+//
+// The shared cache is deliberately the zero value: loadInitialData seeds it by calling
+// redisUserCache.Set directly rather than through the publishToRedis seam, and that call
+// panics on a zero-value cache. A write is therefore observable — tests that must prove
+// nothing was published wrap the call in require.NotPanics, and tests that must not write at
+// all elect no writer. If cache-kit ever makes a zero-value Set return an error instead of
+// panicking, those NotPanics assertions stop detecting the write and need a real fake.
+func onlyLocalRestartApp(t *testing.T, policy, localContent string, shared []define.AllowListUser, sharedErr error, electWriter bool) (app *App, dataFile string) {
+	t.Helper()
+
+	dataFile = filepath.Join(t.TempDir(), "rules.json")
+	require.NoError(t, os.WriteFile(dataFile, []byte(goodRuleSet), 0o600))
+
+	app = NewApp(&cmd.Config{
+		Port:               "8081",
+		RedisEnabled:       false,
+		Mode:               "ONLY_LOCAL",
+		APIKey:             "test-key",
+		TaskInterval:       60,
+		DataFile:           dataFile,
+		EmptyRulesetPolicy: policy,
+	})
+	require.NotNil(t, app)
+
+	app.redisUserCache = &cache.RedisUserCache{}
+	app.redisRefreshLocker = &stubRefreshLocker{locked: electWriter}
+	app.loadFromRedis = func() ([]define.AllowListUser, error) { return shared, sharedErr }
+
+	// A restarted process holds nothing in memory; only the shared cache survives.
+	app.userCache.Set(nil)
+	require.Empty(t, app.userCache.Get(), "重启的副本内存中不应有数据")
+	writeRuleSet(t, dataFile, localContent)
+	return app, dataFile
+}
+
+// TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_KeepsSharedRuleSet pins the restart
+// guarantee availability-first makes.
+//
+// ONLY_LOCAL returns before loadInitialData's Redis read, so an all-rejected local file used
+// to be applied directly and the resulting empty cache written straight back to the shared
+// cache. That both started this replica empty and destroyed the last known good set every
+// other replica — and every later restart — bootstraps from, defeating the policy in exactly
+// the scenario it exists to cover.
+func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_KeepsSharedRuleSet(t *testing.T) {
+	shared := parseRuleSet(t, goodRuleSet)
+	app, dataFile := onlyLocalRestartApp(t, "availability-first", rejectedRuleSet, shared, nil, true)
+	require.True(t, app.emptyRulesetPolicy.KeepsLastKnownGood())
+
+	var loadErr error
+	require.NotPanics(t, func() { loadErr = app.loadInitialData(dataFile, "") },
+		"可用性优先绝不能把空集写回共享缓存：那会抹掉其他副本赖以启动的最后一份有效数据")
+	require.NoError(t, loadErr)
+
+	assert.Len(t, app.userCache.Get(), 2, "可用性优先：应从共享缓存引导出上一次有效的规则集，而不是启动为空")
+}
+
+// TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_PreservesUnreadableSharedSet pins the
+// preserve half on its own: when the shared cache cannot be read, the empty result still must
+// not be published. A failed read says nothing about whether the good data is still there.
+func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_PreservesUnreadableSharedSet(t *testing.T) {
+	app, dataFile := onlyLocalRestartApp(t, "availability-first", rejectedRuleSet, nil, assert.AnError, true)
+	require.True(t, app.emptyRulesetPolicy.KeepsLastKnownGood())
+
+	var loadErr error
+	require.NotPanics(t, func() { loadErr = app.loadInitialData(dataFile, "") },
+		"读不到共享缓存时更不能写空集：那份数据可能仍在，只是这次读取失败")
+	require.NoError(t, loadErr)
+
+	assert.Empty(t, app.userCache.Get(), "没有可引导的数据，本副本为空——但共享缓存未被破坏")
+}
+
+// TestApp_loadInitialData_ConsistencyFirst_ONLY_LOCAL_AppliesEmptySet pins that the default
+// keeps its historical startup behavior: the empty effective set is applied rather than
+// kept, and the shared cache is never consulted for a last known good set to fall back on.
+func TestApp_loadInitialData_ConsistencyFirst_ONLY_LOCAL_AppliesEmptySet(t *testing.T) {
+	shared := parseRuleSet(t, goodRuleSet)
+	app, dataFile := onlyLocalRestartApp(t, "consistency-first", rejectedRuleSet, shared, nil, false)
+	require.False(t, app.emptyRulesetPolicy.KeepsLastKnownGood())
+
+	require.NoError(t, app.loadInitialData(dataFile, ""))
+
+	assert.Empty(t, app.userCache.Get(), "一致性优先：生效集合必须为空，且不得回退到共享缓存里的旧数据")
+}
+
+// TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyIsPolicyIndependent pins that a local file
+// genuinely holding zero records never reaches the ambiguity guard — len(localUsers) > 0 gates
+// that branch — so neither policy bootstraps stale data from the shared cache in that case.
+// Without this, moving the guard above the length check would silently make "revoke everyone"
+// impossible under availability-first.
+func TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyIsPolicyIndependent(t *testing.T) {
+	for _, policy := range []string{"consistency-first", "availability-first"} {
+		t.Run(policy, func(t *testing.T) {
+			shared := parseRuleSet(t, goodRuleSet)
+			app, dataFile := onlyLocalRestartApp(t, policy, emptyRuleSet, shared, nil, false)
+
+			require.NoError(t, app.loadInitialData(dataFile, ""))
+
+			assert.Empty(t, app.userCache.Get(), "真正的空数据源不属于歧义场景，不会被当作「全部被拒」而去引导旧数据")
+		})
+	}
+}

@@ -56,6 +56,7 @@ type App struct {
 	rulesLoader          *loader.RulesLoader
 	snapshots            *snapshotStore
 	publishToRedis       func(users []define.AllowListUser) error
+	loadFromRedis        func() ([]define.AllowListUser, error)
 	log                  *loggerkit.Logger
 	port                 string
 	configURL            string
@@ -120,6 +121,7 @@ func NewApp(cfg *cmd.Config) *App {
 	// Indirection so tests can observe the exact rule set a refresh publishes to the shared
 	// cache; production always uses the retrying writer.
 	app.publishToRedis = app.updateRedisCacheWithRetry
+	app.loadFromRedis = app.readRedisUserCache
 	// ValidateConfig rejects an unrecognized policy during normal startup; direct NewApp
 	// callers fall back to the documented default rather than to an undefined value.
 	policy, policyOK := config.ParseEmptyRulesetPolicy(cfg.EmptyRulesetPolicy)
@@ -319,15 +321,55 @@ func (app *App) applyUsers(users []define.AllowListUser) error {
 	return nil
 }
 
+// keepSharedRuleSetAfterAllRejected handles an all-rejected load at startup under
+// availability-first: it publishes nothing, so the shared cache keeps the last known good
+// rule set, and it boots this replica from that set where the set is reachable.
+//
+// Publishing the empty result instead would erase the only surviving copy of the good data
+// — the shared cache is what a restarting replica reads first — turning a transient bad
+// input into an outage that outlives the input being fixed.
+//
+// No snapshot is stored, matching the ONLY_LOCAL load-failure path: no valid load happened,
+// so the version still describes the good data and the next background refresh sees the
+// broken input as a change and retries rather than skipping it as unchanged.
+func (app *App) keepSharedRuleSetAfterAllRejected(loadedCount int) {
+	kept := 0
+	if app.loadFromRedis != nil {
+		if cachedUsers, err := app.loadFromRedis(); err == nil && len(cachedUsers) > 0 {
+			prommetrics.CacheHits.Inc()
+			if applyErr := app.applyUsers(cachedUsers); applyErr == nil {
+				kept = app.userCache.Len()
+				app.log.Info().
+					Int("count", kept).
+					Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
+			} else {
+				prommetrics.CacheMisses.Inc()
+			}
+		} else {
+			prommetrics.CacheMisses.Inc()
+		}
+	}
+	app.log.Warn().
+		Int("loaded_count", loadedCount).
+		Int("kept_count", kept).
+		Str("policy", app.emptyRulesetPolicy.String()).
+		Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected_kept"))
+}
+
 // loadInitialData loads data with multi-level fallback (Redis → parser-kit Load).
 //
-// The empty-ruleset policy deliberately does not apply here. It chooses whether to keep a
-// last known good rule set, and during startup this process has none: the cache is empty
-// either way, so both policies produce the same outcome. The restart case availability-first
-// is meant to cover is already handled by the ordering below — the shared Redis cache is
-// consulted before the upstream, so a replica that restarts while the upstream is broken
-// boots from the set a healthy replica last published. backgroundTask is where the policy
-// matters, because only there is there something to lose.
+// The empty-ruleset policy mostly does not apply here. It chooses whether to keep a last
+// known good rule set, and during startup this process has none in memory: the cache is
+// empty either way, so both policies produce the same outcome. The restart case
+// availability-first is meant to cover is handled by the ordering below — the shared Redis
+// cache is consulted before the upstream, so a replica that restarts while the upstream is
+// broken boots from the set a healthy replica last published.
+//
+// ONLY_LOCAL is the exception, and it is why the policy is honoured explicitly there: that
+// branch returns before the Redis read below, so it would otherwise apply an all-rejected
+// local file and publish the resulting empty set over the shared last known good data —
+// starting this replica empty and erasing what every other restart bootstraps from, in
+// exactly the scenario availability-first exists to protect.
 func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
 	defer cancel()
@@ -344,6 +386,17 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			app.log.Info().
 				Int("count", len(localUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
+			// Decide the all-rejected case BEFORE applyUsers, for the same reason
+			// backgroundTask does: applyUsers is the single atomic swap point, so probing
+			// by applying and undoing would expose an empty rule set to concurrent readers.
+			//
+			// A local file that genuinely holds zero records is not ambiguous and never
+			// reaches here — len(localUsers) > 0 gates this whole branch — so revoking
+			// every user stays possible under both policies.
+			if app.emptyRulesetPolicy.KeepsLastKnownGood() && cache.AcceptableCount(localUsers) == 0 {
+				app.keepSharedRuleSetAfterAllRejected(len(localUsers))
+				return nil
+			}
 			if err := app.applyUsers(localUsers); err != nil {
 				// Conflicting local set: do not overwrite good data; report and abort this load.
 				return err
@@ -473,6 +526,16 @@ func (app *App) checkDataChanged(loadedVersion string) bool {
 		return true
 	}
 	return snap.Version != loadedVersion
+}
+
+// readRedisUserCache reads the rule set held in the shared cache, mirroring
+// updateRedisCacheWithRetry on the write side. Callers reach it through the
+// loadFromRedis seam so tests can exercise the bootstrap paths without a live Redis.
+func (app *App) readRedisUserCache() ([]define.AllowListUser, error) {
+	if app.redisUserCache == nil {
+		return nil, fmt.Errorf("redis cache unavailable")
+	}
+	return app.redisUserCache.Get()
 }
 
 // updateRedisCacheWithRetry updates Redis cache with retry mechanism
