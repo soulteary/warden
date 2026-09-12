@@ -1,44 +1,67 @@
-# API Documentation
+# API ドキュメント
 
 > 🌐 **Language / 语言**: [English](../enUS/API.md) | [中文](../zhCN/API.md) | [Français](../frFR/API.md) | [Italiano](../itIT/API.md) | [日本語](API.md) | [Deutsch](../deDE/API.md) | [한국어](../koKR/API.md)
 
-> ⚠️ **翻訳ステータス**: このページは原文より更新が遅れている場合があります。英語版と簡体字中国語版が正式版であり、先に更新されます。セキュリティおよび設定に関わる重要な項目については、[English](../enUS/API.md) または [中文](../zhCN/API.md) も併せて確認してください。
+本ドキュメントでは、Warden が提供するすべての API エンドポイントについて詳しく説明します。
 
-This document provides detailed information about all API endpoints provided by Warden.
+## OpenAPI ドキュメント
 
-## OpenAPI Documentation
+本プロジェクトは `openapi.yaml` ファイルに完全な OpenAPI 3.0 仕様を用意しています。
 
-The project provides complete OpenAPI 3.0 specification documentation in the `openapi.yaml` file.
+API の閲覧とテストには次のツールを利用できます。
 
-You can use the following tools to view and test the API:
+1. **Swagger UI**: [Swagger Editor](https://editor.swagger.io/) で `openapi.yaml` ファイルを開く
+2. **Postman**: `openapi.yaml` ファイルを Postman にインポートする
+3. **Redoc**: Redoc を使って見やすい API ドキュメントページを生成する
 
-1. **Swagger UI**: Open the `openapi.yaml` file using [Swagger Editor](https://editor.swagger.io/)
-2. **Postman**: Import the `openapi.yaml` file into Postman
-3. **Redoc**: Use Redoc to generate a beautiful API documentation page
+## 認証
 
-## Authentication
+一部の API エンドポイントは API キー認証を必要とします。認証情報は次の 2 つの方法で渡せます。
 
-Some API endpoints require API Key authentication. You can provide authentication information in two ways:
-
-1. **X-API-Key Header**:
+1. **X-API-Key ヘッダー**:
    ```http
    X-API-Key: your-secret-api-key
    ```
 
-2. **Authorization Bearer Header**:
+2. **Authorization Bearer ヘッダー**:
    ```http
    Authorization: Bearer your-secret-api-key
    ```
 
-The API Key can be configured via the `API_KEY` environment variable or the `--api-key` command line argument.
+API キーは環境変数 `API_KEY` またはコマンドライン引数 `--api-key` で設定できます。
 
-## API Endpoints
+## ルーティング契約
 
-### Get User List
+以下に記載するエンドポイントが、Warden が提供するパスのすべてです。それ以外のパスは
+ユーザーデータを一切含まない JSON ボディとともに `404 Not Found` を返します。
 
-Get all users or paginated user list.
+```http
+GET /not-a-route
+X-API-Key: your-secret-api-key
+```
 
-**Request**
+```json
+{
+  "error": "Requested resource does not exist"
+}
+```
+
+> **動作の変更**: ルートパス `/` は以前サブツリーパターンとして登録されていたため、一致
+> しないパス（`/foo`、`/user/`、`/v1/`）はすべてユーザー一覧ハンドラーが処理し、**許可
+> リスト全体**を返していました。現在 `/` は完全一致となり、一致しないパスには上記の 404
+> が返されます。任意のパスでユーザーデータが返ることに依存していたクライアントは、`/`、
+> `/data.json`、`/v1/users` のいずれかを使用してください。
+
+なお Go のルーターは一致処理の前にパスを正規化するため、`/metrics/../user` は `/user` に
+解決されてそちらへリダイレクトされ、404 ハンドラーには到達しません。
+
+## API エンドポイント
+
+### ユーザー一覧の取得
+
+全ユーザー、またはページ分割されたユーザー一覧を取得します。
+
+**リクエスト**
 ```http
 GET /
 X-API-Key: your-secret-api-key
@@ -47,13 +70,13 @@ GET /?page=1&page_size=100
 X-API-Key: your-secret-api-key
 ```
 
-**Query Parameters**:
-- `page` (optional): Page number, starting from 1, defaults to 1
-- `page_size` (optional): Number of items per page, defaults to all data (no pagination)
+**クエリパラメーター**:
+- `page`（任意）: ページ番号。1 から始まり、既定値は 1
+- `page_size`（任意）: 1 ページあたりの件数。既定ではすべてのデータ（ページ分割なし）
 
-**Note**: This endpoint requires API Key authentication.
+**注意**: このエンドポイントは API キー認証が必要です。
 
-**Response (no pagination)**
+**レスポンス（ページ分割なし）**
 ```json
 [
     {
@@ -67,7 +90,7 @@ X-API-Key: your-secret-api-key
 ]
 ```
 
-**Response (with pagination)**
+**レスポンス（ページ分割あり）**
 ```json
 {
     "data": [
@@ -85,15 +108,15 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Status Code**: `200 OK`
+**ステータスコード**: `200 OK`
 
 **Content-Type**: `application/json`
 
-### Get Single User
+### 単一ユーザーの取得
 
-Query a single user by phone number, email, or user ID.
+電話番号、メールアドレス、またはユーザー ID で単一のユーザーを照会します。
 
-**Request**
+**リクエスト**
 ```http
 GET /user?phone=13800138000
 X-API-Key: your-secret-api-key
@@ -105,16 +128,16 @@ GET /user?user_id=user-123
 X-API-Key: your-secret-api-key
 ```
 
-**Query Parameters** (must provide exactly one):
-- `phone`: User phone number
-- `mail`: User email address
-- `user_id`: User unique identifier
+**クエリパラメーター**（ちょうど 1 つを指定する必要があります）:
+- `phone`: ユーザーの電話番号
+- `mail`: ユーザーのメールアドレス
+- `user_id`: ユーザーの一意な識別子
 
-**Note**: 
-- This endpoint requires API Key authentication
-- Only one query parameter (`phone`, `mail`, or `user_id`) is allowed
+**注意**:
+- このエンドポイントは API キー認証が必要です
+- クエリパラメーター（`phone`、`mail`、`user_id`）は 1 つのみ指定できます
 
-**Response (user exists)**
+**レスポンス（ユーザーが存在する場合）**
 ```json
 {
     "phone": "13800138000",
@@ -126,88 +149,130 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Field Descriptions**:
-- `phone`: User phone number
-- `mail`: User email address
-- `user_id`: User unique identifier (auto-generated if not provided)
-- `status`: User status, possible values:
-  - `"active"`: Active status, user can login and access the system
-  - `"inactive"`: Inactive status, user cannot login
-  - `"suspended"`: Suspended status, user cannot login
-  - Defaults to `"inactive"` if not set; `"active"` must be set explicitly to allow login
-- `scope`: User permission scope array (optional), used for fine-grained authorization, e.g., `["read", "write", "admin"]`
-- `role`: User role (optional), e.g., `"admin"`, `"user"`, `"guest"`
+**フィールドの説明**:
+- `phone`: ユーザーの電話番号
+- `mail`: ユーザーのメールアドレス
+- `user_id`: ユーザーの一意な識別子（指定がない場合は自動生成）
+- `status`: ユーザーの状態。取り得る値:
+  - `"active"`: 有効。ユーザーはログインしてシステムを利用できます
+  - `"inactive"`: 無効。ユーザーはログインできません
+  - `"suspended"`: 停止中。ユーザーはログインできません
+  - 未設定の場合の既定値は `"inactive"` です。ログインを許可するには `"active"` を明示的に設定する必要があります
+- `scope`: ユーザーの権限スコープの配列（任意）。きめ細かい認可に使用します。例: `["read", "write", "admin"]`
+- `role`: ユーザーのロール（任意）。例: `"admin"`、`"user"`、`"guest"`
 
-**Notes**:
-- Only users with `status` of `"active"` can pass authentication checks
-- `scope` and `role` fields are used by Stargate to set authorization headers (`X-Auth-Scopes` and `X-Auth-Role`) for downstream services
+**補足**:
+- `status` が `"active"` のユーザーのみが認証チェックを通過します
+- `scope` と `role` は Stargate が下流サービス向けの認可ヘッダー（`X-Auth-Scopes` と `X-Auth-Role`）を設定するために使用します
 
-**Response (user not found)**
-- **Status Code**: `404 Not Found`
-- **Response Body**: `User not found`
+**任意の連携シナリオ**:
+他のサービス（Stargate など）と連携する場合、ログインフローの中でこのエンドポイントを呼び出してユーザー情報を照会できます。
+1. ユーザーが識別子（メール／電話番号／ユーザー名）を入力したら、`GET /user?phone=xxx` または `GET /user?mail=xxx` を呼び出す
+2. Warden がユーザー情報（`user_id`、`mail`、`phone`、`status` を含む）を返す
+3. ユーザーが存在し、状態が `"active"` であれば、後続の認証フローを続行できる
+4. 返された `scope` と `role` は認可ヘッダーの設定に利用できる
 
-**Error Response (missing parameter)**
-- **Status Code**: `400 Bad Request`
-- **Response Body**: `Bad Request: missing identifier (phone, mail, or user_id)`
+**レスポンス（ユーザーが見つからない場合）**
+- **ステータスコード**: `404 Not Found`
+- **レスポンスボディ**: `User not found`
 
-**Error Response (multiple parameters)**
-- **Status Code**: `400 Bad Request`
-- **Response Body**: `Bad Request: only one identifier allowed (phone, mail, or user_id)`
+**エラーレスポンス（パラメーター不足）**
+- **ステータスコード**: `400 Bad Request`
+- **レスポンスボディ**: `Bad Request: missing identifier (phone, mail, or user_id)`
 
-### Health Check
+**エラーレスポンス（パラメーターが複数）**
+- **ステータスコード**: `400 Bad Request`
+- **レスポンスボディ**: `Bad Request: only one identifier allowed (phone, mail, or user_id)`
 
-Check Redis, data cache, snapshot provenance, and snapshot freshness.
+### ヘルスチェック
 
-**Request**
+Redis、データキャッシュ、スナップショットの出所、およびスナップショットの鮮度を確認します。
+
+**リクエスト**
 ```http
 GET /health
 GET /healthcheck
 ```
 
-**Note**: This endpoint does not require authentication, but access IPs can be restricted via the `HEALTH_CHECK_IP_WHITELIST` environment variable. Production hides individual checks.
+**注意**: このエンドポイントは認証を必要としませんが、アクセス元 IP は環境変数 `HEALTH_CHECK_IP_WHITELIST` で制限できます。本番環境のレスポンスでは個々のチェック結果は隠されます。
 
-**Response**
+**レスポンス**
 ```json
 {
     "status": "ok",
-    "service": "warden"
+    "service": "warden",
+    "checks": {
+        "redis": {
+            "name": "redis",
+            "status": "ok",
+            "latency_ms": 1,
+            "timestamp": "2026-08-31T00:00:00Z"
+        },
+        "snapshot": {
+            "name": "snapshot",
+            "status": "ok",
+            "latency_ms": 0,
+            "timestamp": "2026-08-31T00:00:00Z",
+            "metadata": {
+                "source": "merged",
+                "version": "a1b2c3d4",
+                "age_seconds": 2.5
+            }
+        }
+    },
+    "timestamp": "2026-08-31T00:00:00Z",
+    "total_latency_ms": 1
 }
 ```
 
-**Status Codes**: `200 OK` for `ok` or serviceable `degraded`; `503 Service Unavailable` for a critical failure; `403 Forbidden` for a rejected health-check IP.
+本番環境でのレスポンス:
 
-**Response Field Descriptions**:
-- `status`: `ok`, `degraded`, or `unhealthy`
-- `service`: Service name
-- `checks`, `timestamp`, `total_latency_ms`: Development/test-only details; checks include `redis`, `data`, `snapshot`, and `snapshot_freshness`
+```json
+{"status":"ok","service":"warden"}
+```
 
-In `REMOTE_FIRST` and `ONLY_REMOTE`, unknown or older-than-`SNAPSHOT_MAX_AGE`
-snapshots are critical failures. See the current [English API reference](../enUS/API.md#health-check).
+**ステータスコード**:
 
-### Log Level Management
+- `200 OK`: 総合ステータスが `ok` または `degraded`。`degraded` はサービスが依然として機能していることを意味します。
+- `503 Service Unavailable`: 重要なチェックが失敗しました。
+- `403 Forbidden`: クライアントが `HEALTH_CHECK_IP_WHITELIST` の範囲外です。
 
-Dynamically get and set log levels.
+**レスポンスフィールドの説明**:
+- `status`: `ok`、`degraded`、`unhealthy` のいずれか。
+- `service`: サービス名（`warden`）。
+- `checks`: 開発／テスト環境でのみ返されるマップ。`redis`、`data`、`snapshot`、`snapshot_freshness` の結果を含みます。
+- `checks.snapshot.metadata`: 低カーディナリティの出所・バージョン・経過時間と、安定した更新理由コード。生のリモートエラー、URL、資格情報が公開されることはありません。
+- `timestamp`、`total_latency_ms`: 開発／テスト環境でのみ返される総合的な所要時間フィールド。
 
-#### Get Current Log Level
+`REMOTE_FIRST` と `ONLY_REMOTE` では `snapshot_freshness` が重要な項目になります。出所が
+不明な場合や、経過時間が `SNAPSHOT_MAX_AGE` を超えた場合は 503 を返します。寛容なモード
+では、検証済みのローカルデータまたは直前の有効なスナップショットを `degraded` として
+HTTP 200 で提供できます。
 
-**Request**
+### ログレベルの管理
+
+ログレベルを動的に取得・設定します。
+
+#### 現在のログレベルを取得
+
+**リクエスト**
 ```http
 GET /log/level
 X-API-Key: your-secret-api-key
 ```
 
-**Response**
+**レスポンス**
 ```json
 {
     "level": "info"
 }
 ```
 
-**Note**: This endpoint requires API Key authentication.
+**注意**: このエンドポイントは API キー認証が必要です。
 
-#### Set Log Level
+#### ログレベルを設定
 
-**Request**
+**リクエスト**
 ```http
 POST /log/level
 Content-Type: application/json
@@ -218,16 +283,16 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Request Body**:
+**リクエストボディ**:
 ```json
 {
     "level": "debug"
 }
 ```
 
-**Supported Log Levels**: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic`
+**サポートするログレベル**: `trace`、`debug`、`info`、`warn`、`error`、`fatal`、`panic`
 
-**Response**
+**レスポンス**
 ```json
 {
     "level": "debug",
@@ -235,24 +300,34 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Note**: 
-- This endpoint requires API Key authentication
-- All log level modification operations are recorded in security audit logs
+**注意**:
+- このエンドポイントは API キー認証が必要です
+- ログレベルの変更操作はすべてセキュリティ監査ログに記録されます
 
-### Prometheus Metrics
+### Prometheus メトリクス
 
-Get Prometheus format monitoring metrics data.
+Prometheus 形式の監視メトリクスデータを取得します。
 
-**Request**
+**リクエスト**
 ```http
 GET /metrics
 ```
 
-**Response**: Prometheus format metrics data
+**レスポンス**: Prometheus 形式のメトリクスデータ
 
-**Note**: This endpoint does not require authentication.
+**認証**: デプロイ環境によって異なります。
 
-**Example Response**:
+| `ENVIRONMENT` | `/metrics` の既定値 |
+| --- | --- |
+| `production` | 認証が必要（データエンドポイントと同じ方式） |
+| `development`、`test`、未設定 | 匿名のスクレイピングを許可 |
+
+`WARDEN_METRICS_REQUIRE_AUTH` は既定値を双方向に上書きします。認証が必要なエンドポイントに
+未認証でスクレイピングを行うと `401 Unauthorized` が返ります。レスポンスに含まれるのは
+低カーディノリティかつ非機微な系列のみです。`endpoint` と `method` のラベルは許可リストに
+基づいて正規化され、認識されない値はすべて `other` にまとめられます。
+
+**レスポンス例**:
 ```
 # HELP http_requests_total Total number of HTTP requests
 # TYPE http_requests_total counter
@@ -265,13 +340,13 @@ http_request_duration_seconds_bucket{method="GET",path="/",le="0.01"} 1200
 ...
 ```
 
-## Error Responses
+## エラーレスポンス
 
-All API endpoints may return the following error responses:
+すべての API エンドポイントは、以下のエラーレスポンスを返す可能性があります。
 
 ### 401 Unauthorized
 
-Returned when API Key authentication fails:
+API キー認証に失敗した場合に返されます。
 
 ```json
 {
@@ -282,7 +357,7 @@ Returned when API Key authentication fails:
 
 ### 429 Too Many Requests
 
-Returned when requests exceed rate limit:
+リクエストがレート制限を超えた場合に返されます。
 
 ```json
 {
@@ -293,7 +368,7 @@ Returned when requests exceed rate limit:
 
 ### 500 Internal Server Error
 
-Returned when server internal error occurs:
+サーバー内部エラーが発生した場合に返されます。
 
 ```json
 {
@@ -302,44 +377,152 @@ Returned when server internal error occurs:
 }
 ```
 
-In production mode, detailed error information is hidden to prevent information leakage.
+本番モードでは、情報漏えいを防ぐために詳細なエラー情報は隠されます。
 
-## Rate Limiting
+## レート制限
 
-By default, API requests are protected by rate limiting:
+既定では、API リクエストはレート制限によって保護されています。
 
-- **Limit**: 60 requests per minute
-- **Window**: 1 minute
-- **Exceeded**: Returns `429 Too Many Requests`
+- **上限**: 1 分あたり 60 リクエスト
+- **ウィンドウ**: 1 分
+- **超過時**: `429 Too Many Requests` を返します
 
-Rate limiting can be adjusted via configuration file:
+レート制限は設定ファイルで調整できます。
 
 ```yaml
 rate_limit:
-  rate: 60  # Requests per minute
+  rate: 60  # 1 分あたりのリクエスト数
   window: 1m
 ```
 
-## IP Whitelist
+## IP 許可リスト
 
-IP whitelists can be configured via the following environment variables:
+IP 許可リストは以下の環境変数で設定できます。
 
-- `IP_WHITELIST`: Global IP whitelist (restricts access to all endpoints)
-- `HEALTH_CHECK_IP_WHITELIST`: Health check endpoint IP whitelist (only restricts `/health` and `/healthcheck`)
+- `IP_WHITELIST`: グローバル IP 許可リスト（すべてのエンドポイントへのアクセスを制限）
+- `HEALTH_CHECK_IP_WHITELIST`: ヘルスチェックエンドポイントの IP 許可リスト（`/health` と `/healthcheck` のみを制限）
 
-Supports CIDR range format, multiple IPs or ranges separated by commas:
+CIDR 範囲形式に対応しており、複数の IP アドレスや範囲はカンマで区切ります。
 
 ```bash
 export IP_WHITELIST="192.168.1.0/24,10.0.0.0/8"
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 ```
 
-## Response Compression
+## レスポンス圧縮
 
-All API responses support automatic compression (gzip). Clients can enable compression via the `Accept-Encoding: gzip` request header.
+すべての API レスポンスは自動圧縮（gzip）に対応しています。クライアントはリクエストヘッダー `Accept-Encoding: gzip` で圧縮を有効にできます。
 
-## Related Documentation
+## 任意の連携例
 
-- [OpenAPI Specification](../../openapi.yaml) - Complete OpenAPI 3.1 specification
-- [Configuration Documentation](CONFIGURATION.md) - Learn how to configure API Key and other options
-- [Security Documentation](SECURITY.md) - Learn about security features and best practices
+### 他サービスとの連携における呼び出し例（任意）
+
+他のサービス（Stargate など）と連携する必要がある場合、ログインフローの中で Warden の `/user` エンドポイントを呼び出してユーザー情報を照会できます。
+
+**シナリオ 1: 電話番号で照会**
+
+```bash
+# Stargate が Warden を呼び出す
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?phone=13800138000"
+```
+
+**レスポンス例**:
+```json
+{
+    "phone": "13800138000",
+    "mail": "admin@example.com",
+    "user_id": "user-123",
+    "status": "active",
+    "scope": ["read", "write"],
+    "role": "admin"
+}
+```
+
+**シナリオ 2: メールアドレスで照会**
+
+```bash
+# Stargate が Warden を呼び出す
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?mail=admin@example.com"
+```
+
+### Go SDK による連携例
+
+Stargate は Warden の Go SDK を使って連携できます。
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/soulteary/warden/pkg/warden"
+)
+
+func main() {
+    // Warden クライアントを作成
+    opts := warden.DefaultOptions().
+        WithBaseURL("http://warden:8081").
+        WithAPIKey("your-api-key").
+        WithTimeout(10 * time.Second)
+    
+    client, err := warden.NewClient(opts)
+    if err != nil {
+        panic(err)
+    }
+    
+    ctx := context.Background()
+    
+    // ログインフローでユーザーを照会
+    user, err := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+    if err != nil {
+        if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound {
+            // ユーザーが見つからないためログインを拒否
+            fmt.Println("User not found in allowlist")
+            return
+        }
+        panic(err)
+    }
+    
+    // ユーザーの状態を確認
+    if !user.IsActive() {
+        // 状態が有効でないためログインを拒否
+        fmt.Printf("User status is %s, cannot login\n", user.Status)
+        return
+    }
+    
+    // ユーザーが存在し状態も有効なのでログインフローを続行
+    fmt.Printf("User found: %s, Status: %s, Role: %s, Scopes: %v\n",
+        user.UserID, user.Status, user.Role, user.Scope)
+    
+    // 次の手順: Herald を呼び出して確認コードを送信
+    // ...
+}
+```
+
+### ログインフロー全体の例（任意の連携シナリオ）
+
+任意の連携シナリオでは、ログインフロー全体は次のようになります。
+
+1. **ユーザーが識別子を入力** → 認証サービスが受け取る
+2. **認証サービス → Warden**: ユーザー情報を照会
+   ```go
+   user, err := wardenClient.GetUserByIdentifier(ctx, phone, mail, "")
+   ```
+3. **ユーザーの状態を検証**: `user.Status == "active"` を確認
+4. **認証サービス → OTP サービス**: チャレンジを作成し確認コードを送信（任意）
+5. **ユーザーが確認コードを送信** → 認証サービスが受け取る（任意）
+6. **認証サービス → OTP サービス**: 確認コードを検証（任意）
+7. **認証サービス**: セッションを発行し、`user.Scope` と `user.Role` で認可ヘッダーを設定
+
+**注意**: Warden は単独でも利用でき、上記の連携フローは任意です。
+
+## 関連ドキュメント
+
+- [OpenAPI 仕様](../../openapi.yaml) - 完全な OpenAPI 3.1 仕様
+- [設定ドキュメント](CONFIGURATION.md) - API キーやその他のオプションの設定方法
+- [セキュリティドキュメント](SECURITY.md) - セキュリティ機能とベストプラクティス
+- [アーキテクチャドキュメント](ARCHITECTURE.md) - サービス連携のアーキテクチャ

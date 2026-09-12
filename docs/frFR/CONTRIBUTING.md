@@ -1,79 +1,107 @@
-# Guide de Contribution
+# Guide de contribution
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
-> ⚠️ **État de la traduction** : cette page peut être en retard sur l'original. Les versions anglaise et chinoise simplifiée font foi et sont mises à jour en premier. Pour les réglages critiques de sécurité et de configuration, consultez également [English](../enUS/CONTRIBUTING.md) ou [中文](../zhCN/CONTRIBUTING.md).
+Merci de l'intérêt que vous portez au projet Warden ! Toutes les formes de contribution sont les bienvenues.
 
-Merci de votre intérêt pour le projet Warden ! Nous accueillons toutes les formes de contributions.
+## 📋 Table des matières
 
+- [Comment contribuer](#comment-contribuer)
+- [Mise en place de l'environnement de développement](#mise-en-place-de-lenvironnement-de-développement)
+- [Normes de code](#normes-de-code)
+- [Politique de traduction](#politique-de-traduction)
+- [Normes de commit](#normes-de-commit)
+- [Processus de pull request](#processus-de-pull-request)
+- [Rapports de bogues et demandes de fonctionnalités](#rapports-de-bogues-et-demandes-de-fonctionnalités)
 
-## 📋 Table des Matières
+## 🚀 Comment contribuer
 
-- [Comment Contribuer](#comment-contribuer)
-- [Configuration de l'Environnement de Développement](#configuration-de-lenvironnement-de-développement)
-- [Standards de Code](#standards-de-code)
-- [Standards de Commit](#standards-de-commit)
-- [Processus de Pull Request](#processus-de-pull-request)
-- [Rapports de Bugs et Demandes de Fonctionnalités](#rapports-de-bugs-et-demandes-de-fonctionnalités)
+Vous pouvez contribuer des manières suivantes :
 
-## 🚀 Comment Contribuer
+- **Signaler des bogues** : signalez les problèmes dans les GitHub Issues
+- **Proposer des fonctionnalités** : proposez de nouvelles idées dans les GitHub Issues
+- **Soumettre du code** : proposez des améliorations via des Pull Requests
+- **Améliorer la documentation** : aidez à améliorer la documentation du projet
+- **Répondre aux questions** : aidez les autres utilisateurs dans les Issues
 
-Vous pouvez contribuer de plusieurs façons :
+En participant à ce projet, veuillez respecter tous les contributeurs, accepter la critique constructive et vous concentrer sur ce qui est le mieux pour le projet.
 
-- **Signaler des Bugs**: Signaler des problèmes dans GitHub Issues
-- **Suggérer des Fonctionnalités**: Proposer de nouvelles idées de fonctionnalités dans GitHub Issues
-- **Soumettre du Code**: Soumettre des améliorations de code via des Pull Requests
-- **Améliorer la Documentation**: Aider à améliorer la documentation du projet
-- **Répondre aux Questions**: Aider les autres utilisateurs dans les Issues
-
-Lors de la participation à ce projet, veuillez respecter tous les contributeurs, accepter les critiques constructives et vous concentrer sur ce qui est le mieux pour le projet.
-
-## 🛠️ Configuration de l'Environnement de Développement
+## 🛠️ Mise en place de l'environnement de développement
 
 ### Prérequis
 
-- Go 1.27 ou supérieur
+- Go 1.27 ou version supérieure
 - Redis (pour les tests)
 - Git
 
-### Démarrage Rapide
+### Démarrage rapide
 
 ```bash
-# 1. Fork et cloner le projet
+# 1. Forker et cloner le projet
 git clone https://github.com/your-username/warden.git
 cd warden
 
-# 2. Ajouter le dépôt en amont
+# 2. Ajouter le dépôt amont
 git remote add upstream https://github.com/soulteary/warden.git
 
 # 3. Installer les dépendances
 go mod download
 
-# 4. Exécuter les tests
+# 4. Lancer les tests
 go test ./...
 
-# 5. Démarrer le service local (assurez-vous que Redis est en cours d'exécution)
+# 5. Démarrer le service localement (vérifiez que Redis tourne)
 go run .
 ```
 
-## 📝 Standards de Code
+## 📝 Normes de code
 
-Veuillez suivre ces standards de code :
+Veuillez respecter les normes de code suivantes :
 
-1. **Suivre les Standards de Code Officiels de Go**: [Effective Go](https://go.dev/doc/effective_go)
-2. **Formater le Code**: Exécuter `go fmt ./...`
-3. **Vérification du Code**: Utiliser `golangci-lint` ou `go vet ./...`
-4. **Écrire des Tests**: Les nouvelles fonctionnalités doivent inclure des tests
-5. **Ajouter des Commentaires**: Les fonctions et types publics doivent avoir des commentaires de documentation
-6. **Nommage des Constantes**: Toutes les constantes doivent utiliser le style `ALL_CAPS` (UPPER_SNAKE_CASE)
+1. **Suivre les normes officielles de Go** : [Effective Go](https://go.dev/doc/effective_go)
+2. **Formater le code** : exécutez `go fmt ./...`
+3. **Vérifier le code** : utilisez `golangci-lint` ou `go vet ./...`
+4. **Écrire des tests** : les nouvelles fonctionnalités doivent inclure des tests
+5. **Ajouter des commentaires** : les fonctions et types publics doivent avoir des commentaires de documentation
+6. **Nommage des constantes** : toutes les constantes doivent utiliser le style `ALL_CAPS` (UPPER_SNAKE_CASE)
 
-Pour des directives détaillées sur le style de code, veuillez vous référer à [CODE_STYLE.md](CODE_STYLE.md).
+Pour les règles détaillées de style de code, consultez [CODE_STYLE.md](CODE_STYLE.md).
 
-## 📦 Standards de Commit
+## 🌐 Politique de traduction
 
-### Format du Message de Commit
+Warden fournit sa documentation et ses messages d'exécution en sept langues. Elles ne sont
+**pas** toutes maintenues au même niveau d'exigence, et prétendre le contraire est
+précisément la raison pour laquelle cinq locales ont pris silencieusement 18 clés de
+traduction et plusieurs documents de retard.
 
-Nous utilisons le standard [Conventional Commits](https://www.conventionalcommits.org/) :
+**Niveaux**
+
+| Niveau | Langues | Attente |
+| --- | --- | --- |
+| Faisant autorité | Anglais (`enUS`), chinois simplifié (`zhCN`) | Mises à jour dans la même pull request que la modification. Une PR qui change le comportement sans mettre les deux à jour est incomplète. |
+| Au mieux | `deDE`, `frFR`, `itIT`, `jaJP`, `koKR` | Peuvent être en retard. Chaque document en retard porte une bannière renvoyant les lecteurs vers les versions faisant autorité. |
+
+**Les chaînes d'exécution ne relèvent pas du « au mieux ».** `locales/*.json` est contrôlé
+par `go test ./locales/`, qui échoue dès qu'une locale :
+
+- omet une clé définie par `en.json` (ou en définit une qui n'y figure pas),
+- présente une séquence de verbes `printf` (`%s`, `%d`) différente de la source anglaise, ou
+- contient une valeur identique octet pour octet à l'anglaise (une chaîne non traduite).
+
+Les clés manquantes retombent sur l'anglais à l'exécution, si bien que rien ne casse
+visiblement — et c'est exactement pour cela que ce contrôle existe. Lorsque vous ajoutez un
+message visible par l'utilisateur, ajoutez la clé aux **sept** fichiers de locale dans le
+même commit. Si une valeur est légitimement identique à l'anglais (un emprunt, un nom de
+protocole), ajoutez-la à `intentionallyIdentical` dans `locales/locales_test.go` avec un
+commentaire plutôt que de supprimer le contrôle.
+
+Exécutez `make docs-parity` pour voir à quel point chaque document traduit s'est éloigné de `enUS`.
+
+## 📦 Normes de commit
+
+### Format du message de commit
+
+Nous utilisons la norme [Conventional Commits](https://www.conventionalcommits.org/) :
 
 ```
 <type>(<scope>): <subject>
@@ -85,64 +113,117 @@ Nous utilisons le standard [Conventional Commits](https://www.conventionalcommit
 
 ### Types
 
-- `feat`: Nouvelle fonctionnalité
-- `fix`: Correction de bug
-- `docs`: Mise à jour de la documentation
-- `style`: Ajustement du format de code (n'affecte pas l'exécution du code)
-- `refactor`: Refactorisation du code
-- `perf`: Optimisation des performances
-- `test`: Relatif aux tests
-- `chore`: Changements dans le processus de build ou les outils auxiliaires
+- `feat` : nouvelle fonctionnalité
+- `fix` : correction de bogue
+- `docs` : mise à jour de la documentation
+- `style` : ajustement du formatage du code (sans incidence sur l'exécution)
+- `refactor` : refactorisation du code
+- `perf` : optimisation des performances
+- `test` : relatif aux tests
+- `chore` : modifications du processus de build ou des outils auxiliaires
 
-## 🔄 Processus de Pull Request
+### Exemples
 
-### Créer une Pull Request
+```
+feat(cache): Add Redis cache support
+
+Implemented Redis-based distributed cache, supporting data persistence and multi-instance sharing.
+
+Closes #123
+```
+
+```
+fix(router): Fix pagination parameter validation issue
+
+Fixed the issue where incorrect status code was returned when page_size exceeds maximum value.
+
+Fixes #456
+```
+
+## 🔄 Processus de pull request
+
+### Créer une pull request
 
 ```bash
 # 1. Créer une branche de fonctionnalité
 git checkout -b feature/your-feature-name
 
-# 2. Faire des modifications et commiter
+# 2. Apporter les modifications et committer
 git add .
-git commit -m "feat: Ajouter une nouvelle fonctionnalité"
+git commit -m "feat: Add new feature"
 
-# 3. Synchroniser le code en amont
+# 3. Synchroniser le code amont
 git fetch upstream
 git rebase upstream/main
 
-# 4. Pousser la branche et créer une PR
+# 4. Pousser la branche et créer la PR
 git push origin feature/your-feature-name
 ```
 
-### Liste de Vérification de Pull Request
+### Liste de vérification de la pull request
 
-Avant de soumettre une Pull Request, assurez-vous que :
+Avant de soumettre une Pull Request, veuillez vous assurer que :
 
-- [ ] Le code suit les standards de code du projet
+- [ ] Le code respecte les normes de code du projet
 - [ ] Tous les tests passent (`go test ./...`)
 - [ ] Le code est formaté (`go fmt ./...`)
-- [ ] Les tests nécessaires sont ajoutés
-- [ ] La documentation associée est mise à jour
-- [ ] Le message de commit suit les [Standards de Commit](#standards-de-commit)
-- [ ] Le code passe les vérifications lint
+- [ ] Les tests nécessaires ont été ajoutés
+- [ ] La documentation associée a été mise à jour
+- [ ] Le message de commit respecte les [normes de commit](#normes-de-commit)
+- [ ] Le code passe les vérifications de lint
 
-Toutes les Pull Requests nécessitent une révision de code. Veuillez répondre rapidement aux commentaires de révision.
+Toutes les Pull Requests font l'objet d'une revue de code. Merci de répondre rapidement aux commentaires de revue.
 
-## 🐛 Rapports de Bugs et Demandes de Fonctionnalités
+## 🐛 Rapports de bogues et demandes de fonctionnalités
 
-Avant de créer une Issue, veuillez rechercher les Issues existantes pour confirmer que le problème ou la fonctionnalité n'a pas été signalé.
+Avant de créer une Issue, recherchez parmi les Issues existantes afin de vérifier que le problème ou la fonctionnalité n'a pas déjà été signalé.
 
-## 🎯 Pour Commencer
+### Modèle de rapport de bogue
 
-Si vous souhaitez contribuer mais ne savez pas par où commencer, vous pouvez vous concentrer sur :
+```markdown
+**Description**
+Décrivez le bogue de façon claire et concise.
 
-- Les Issues étiquetées `good first issue`
-- Les Issues étiquetées `help wanted`
+**Étapes de reproduction**
+1. Exécuter '...'
+2. Constater l'erreur
+
+**Comportement attendu**
+Décrivez de façon claire et concise ce que vous attendiez.
+
+**Comportement observé**
+Décrivez de façon claire et concise ce qui s'est réellement passé.
+
+**Informations d'environnement**
+- Système d'exploitation : [par ex. macOS 12.0]
+- Version de Go : [par ex. 1.27]
+- Version de Redis : [par ex. 7.0]
+```
+
+### Modèle de demande de fonctionnalité
+
+```markdown
+**Description de la fonctionnalité**
+Décrivez de façon claire et concise la fonctionnalité souhaitée.
+
+**Description du problème**
+Quel problème cette fonctionnalité résout-elle ? Pourquoi est-elle nécessaire ?
+
+**Solution proposée**
+Décrivez de façon claire et concise comment vous envisagez sa mise en œuvre.
+```
+
+## 🎯 Pour commencer
+
+Si vous souhaitez contribuer mais ne savez pas par où commencer, vous pouvez vous intéresser à :
+
+- Les Issues portant l'étiquette `good first issue`
+- Les Issues portant l'étiquette `help wanted`
 - Les commentaires `TODO` dans le code
-- Les améliorations de documentation (corriger les fautes de frappe, améliorer la clarté, ajouter des exemples)
+- Les améliorations de la documentation (corriger des fautes, clarifier, ajouter des exemples)
 
-Si vous avez des questions, veuillez consulter les Issues et Pull Requests existantes, ou poser des questions dans les Issues pertinentes.
+En cas de question, consultez les Issues et Pull Requests existantes, ou posez votre question dans l'Issue concernée.
 
 ---
 
-Merci encore de contribuer au projet Warden ! 🎉
+Merci encore pour votre contribution au projet Warden ! 🎉
