@@ -14,6 +14,19 @@
 
 ## [Unreleased]
 
+### Changed
+- CI 覆盖率报告改用 `soulteary/go-test-report-action` 取代 Codecov：该 action 自行运行测试、
+  统计覆盖率并执行 80% 阈值门禁，同时产出 Markdown 报告、SVG 徽章与 JSON。PR 分支只校验不回写；
+  默认分支由新增的 `.github/workflows/go-test-report.yml` 回写 `.github/go-test-report.md` 与
+  `.github/coverage.svg`，与仓库既有的 `go-reportcard.yml` 分工一致。各语言 README 的覆盖率徽章
+  改为指向仓库内的 `.github/coverage.svg`，不再依赖外部服务与 `CODECOV_TOKEN`。
+
+### Fixed
+- 修正 `pkg/gocron` 中 `TestScheduler_WeekdaysTodayAfter` 的时间依赖缺陷：它用 `now.Minute()-1`
+  构造「今天已过去的时刻」，在 00:00 这一分钟内该运算会回退到前一天 23:59，从而改变星期并使前提
+  失效（23:59 今天尚未到来），导致每天有一分钟窗口必然失败。现改为在时刻上做减法，并按调度器契约
+  （今天这个星期几、该时刻的第一个严格晚于当前时间的 occurrence）推导期望值，而不是硬编码「+7 天」。
+
 ### Fixed
 - 修正后台刷新的变更检测：此前将加载到的原始记录数/哈希与缓存中「经校验去重后」的记录数/哈希比较，
   只要规则集中存在任意一条被格式校验或去重丢弃的记录，两者就永远不相等，导致每个周期都被判定为

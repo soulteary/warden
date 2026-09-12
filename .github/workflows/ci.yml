@@ -71,14 +71,6 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: 设置 Go 环境
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: 'go.mod'
-
-      - name: 下载依赖
-        run: go mod download
-
       - name: 等待 Redis 就绪
         run: |
           echo "检查 Redis 连接..."
@@ -93,34 +85,39 @@ jobs:
           echo "Redis 启动超时"
           exit 1
 
-      - name: 运行测试
-        run: go test -v -race -coverprofile=coverage.out ./...
+      # 该 action 自行安装 Go、运行测试、统计覆盖率并执行阈值门禁，
+      # 同时产出 Markdown 报告、SVG 徽章与 JSON。此处 commit 为 false：
+      # PR 分支只校验不回写，回写由 go-test-report.yml 在默认分支完成。
+      - name: 运行测试并生成报告
+        id: test
+        uses: soulteary/go-test-report-action@a5e77d563843af6c7a0cc3c573640fc2cd94934a # v1.1.0
+        with:
+          directory: "."
+          go_version_file: "go.mod"
+          packages: "./..."
+          race: "true"
+          cover_mode: "atomic"
+          coverage_threshold: "80"
+          commit: "false"
 
-      - name: 生成覆盖率报告
-        run: go tool cover -html=coverage.out -o coverage.html
+      - name: 显示测试摘要
+        if: always()
+        run: |
+          echo "状态: ${{ steps.test.outputs.status }}"
+          echo "覆盖率: ${{ steps.test.outputs.coverage }}%（门槛 80%）"
+          echo "用例: 共 ${{ steps.test.outputs.tests }}，通过 ${{ steps.test.outputs.passed }}，失败 ${{ steps.test.outputs.failed }}，跳过 ${{ steps.test.outputs.skipped }}"
 
-      - name: 上传覆盖率报告
+      - name: 上传测试报告
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: coverage-report
-          path: coverage.html
-
-      - name: 显示覆盖率摘要
-        run: go tool cover -func=coverage.out
-
-      - name: 检查覆盖率门槛
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
-          awk -v coverage="${COVERAGE}" 'BEGIN { if (coverage + 0 < 80) { printf "coverage %.1f%% is below 80%%\n", coverage; exit 1 } }'
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
+          name: go-test-report-${{ github.run_id }}
+          path: |
+            .github/go-test-report.md
+            .github/go-test-report.json
+            .github/coverage.svg
+            .github/test-results/
+          retention-days: 14
 
   # 代码质量检查（使用 golangci-lint）
   lint:

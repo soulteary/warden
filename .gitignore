@@ -18,6 +18,11 @@
 
 coverage.*
 
+# go-test-report-action 的产物：徽章与 Markdown/JSON 报告需要入库（README 徽章指向仓库内
+# 相对路径，与 goreportcard 徽章的做法一致）；原始结果目录只作为 CI 工件上传，不入库。
+!.github/coverage.svg
+.github/test-results/
+
 # 配置文件（可能包含敏感信息，如 Redis 密码等）
 # 注意：请使用 config.example.yaml 作为模板，不要提交实际配置文件
 config.yaml
