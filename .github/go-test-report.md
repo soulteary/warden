@@ -4,22 +4,22 @@
 
 | Metric | Value |
 | --- | --- |
-| Total | 600 |
-| Passed | 600 |
+| Total | 635 |
+| Passed | 635 |
 | Failed | 0 |
 | Skipped | 0 |
-| Coverage | 87.78% |
+| Coverage | 88.05% |
 | Threshold | 80.00% |
 
 ### Packages
 
 | Package | Status | Tests | Failed | Coverage |
 | --- | --- | --- | --- | --- |
-| . | pass | 63 | 0 | 78.64% |
+| . | pass | 84 | 0 | 80.72% |
 | internal/auditlog | pass | 2 | 0 | 82.61% |
-| internal/cache | pass | 32 | 0 | 97.86% |
-| internal/cmd | pass | 62 | 0 | 94.03% |
-| internal/config | pass | 24 | 0 | 86.40% |
+| internal/cache | pass | 36 | 0 | 96.91% |
+| internal/cmd | pass | 66 | 0 | 94.08% |
+| internal/config | pass | 30 | 0 | 86.93% |
 | internal/define | pass | 15 | 0 | 96.67% |
 | internal/di | pass | 20 | 0 | 95.36% |
 | internal/errors | pass | 19 | 0 | 96.97% |
