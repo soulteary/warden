@@ -321,6 +321,29 @@ func (app *App) applyUsers(users []define.AllowListUser) error {
 	return nil
 }
 
+// shouldKeepLastKnownGood reports whether a non-empty load would be reduced to an empty
+// effective rule set and availability-first therefore needs to preserve the current data.
+//
+// Identity validation deliberately takes precedence over the all-records-rejected
+// classification. A set can contain malformed phone/mail values and also violate a
+// collection-wide identity constraint. In that case the latter is the actionable root
+// cause, so return its typed error instead of hiding it behind all_records_rejected. The
+// check is read-only; the live cache is not touched until the caller chooses to apply data.
+func (app *App) shouldKeepLastKnownGood(users []define.AllowListUser) (bool, error) {
+	if !app.emptyRulesetPolicy.KeepsLastKnownGood() || len(users) == 0 || cache.AcceptableCount(users) != 0 {
+		return false, nil
+	}
+
+	opts := identity.Options{RequireExplicitUserID: define.RequireExplicitUserID()}
+	if _, err := identity.ValidateAndIndexUsers(users, opts); err != nil {
+		app.log.Warn().
+			Err(err).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.identity_validation_failed"))
+		return false, err
+	}
+	return true, nil
+}
+
 // keepSharedRuleSetAfterAllRejected handles an all-rejected load at startup under
 // availability-first: it publishes nothing, so the shared cache keeps the last known good
 // rule set, and it boots this replica from that set where the set is reachable.
@@ -358,18 +381,15 @@ func (app *App) keepSharedRuleSetAfterAllRejected(loadedCount int) {
 
 // loadInitialData loads data with multi-level fallback (Redis → parser-kit Load).
 //
-// The empty-ruleset policy mostly does not apply here. It chooses whether to keep a last
-// known good rule set, and during startup this process has none in memory: the cache is
-// empty either way, so both policies produce the same outcome. The restart case
-// availability-first is meant to cover is handled by the ordering below — the shared Redis
-// cache is consulted before the upstream, so a replica that restarts while the upstream is
-// broken boots from the set a healthy replica last published.
+// Startup normally consults the shared Redis cache before loading upstream/local data.
+// That ordering handles the common availability-first restart case, but a cache read can
+// fail transiently even while Redis still holds the last-known-good set. If the fallback
+// source then returns a non-empty, all-rejected set, availability-first must neither apply
+// nor publish the resulting empty set. It retries the shared read after writer election;
+// if Redis is still unreadable this replica remains empty, but the shared data is preserved.
 //
-// ONLY_LOCAL is the exception, and it is why the policy is honoured explicitly there: that
-// branch returns before the Redis read below, so it would otherwise apply an all-rejected
-// local file and publish the resulting empty set over the shared last known good data —
-// starting this replica empty and erasing what every other restart bootstraps from, in
-// exactly the scenario availability-first exists to protect.
+// ONLY_LOCAL follows the same guard explicitly because it intentionally skips the normal
+// Redis-first bootstrap path.
 func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
 	defer cancel()
@@ -393,7 +413,11 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			// A local file that genuinely holds zero records is not ambiguous and never
 			// reaches here — len(localUsers) > 0 gates this whole branch — so revoking
 			// every user stays possible under both policies.
-			if app.emptyRulesetPolicy.KeepsLastKnownGood() && cache.AcceptableCount(localUsers) == 0 {
+			keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(localUsers)
+			if identityErr != nil {
+				return identityErr
+			}
+			if keepLastKnownGood {
 				app.keepSharedRuleSetAfterAllRejected(len(localUsers))
 				return nil
 			}
@@ -427,8 +451,8 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	}
 
 	// 1. Try to load from Redis cache (if Redis is available)
-	if app.redisUserCache != nil {
-		if cachedUsers, err := app.redisUserCache.Get(); err == nil && len(cachedUsers) > 0 {
+	if app.redisUserCache != nil && app.loadFromRedis != nil {
+		if cachedUsers, err := app.loadFromRedis(); err == nil && len(cachedUsers) > 0 {
 			prommetrics.CacheHits.Inc()
 			app.log.Info().
 				Int("count", len(cachedUsers)).
@@ -456,6 +480,21 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			Str("source", string(res.Source)).
 			Bool("degraded", res.Degraded).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
+		keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(users)
+		if identityErr != nil {
+			// Identity failures take precedence over the all-rejected policy. The helper
+			// already emitted the specific validation diagnostic; retain the existing
+			// startup summary and leave both local and shared caches untouched.
+			app.log.Warn().Err(identityErr).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
+			return nil
+		}
+		if keepLastKnownGood {
+			// The initial Redis read may have failed transiently. Retry after writer
+			// election so a recovered shared cache can still bootstrap this replica;
+			// never publish the empty fallback result if the retry also fails.
+			app.keepSharedRuleSetAfterAllRejected(len(users))
+			return nil
+		}
 		if err := app.applyUsers(users); err != nil {
 			// Conflicting rule set: keep last-known-good and report all sources failed below.
 			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
@@ -737,7 +776,19 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	//
 	// A load that genuinely returns zero records is NOT ambiguous and always propagates, or
 	// revoking every user would become impossible.
-	if app.emptyRulesetPolicy.KeepsLastKnownGood() && len(newUsers) > 0 && cache.AcceptableCount(newUsers) == 0 {
+	keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(newUsers)
+	if identityErr != nil {
+		failures := app.snapshots.RecordRefreshFailure(reasonIdentityConflict)
+		app.updateSnapshotMetrics()
+		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonIdentityConflict).Inc()
+		app.log.Warn().
+			Err(identityErr).
+			Str("reason", reasonIdentityConflict).
+			Int64("consecutive_failures", failures).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
+		return
+	}
+	if keepLastKnownGood {
 		failures := app.snapshots.RecordRefreshFailure(reasonAllRecordsRejected)
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonAllRecordsRejected).Inc()

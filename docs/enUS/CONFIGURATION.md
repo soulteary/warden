@@ -98,25 +98,22 @@ obvious, and immediately noticed.
 - **A load that genuinely returns zero records** is not ambiguous and always
   takes effect under both policies. Otherwise revoking every user would become
   impossible.
-- **Startup** (`loadInitialData`) usually does not consult the policy: the process
-  has no last known good rule set in memory to preserve yet, so both policies
-  behave identically. The restart case availability-first exists for is covered by
-  the load ordering — the shared Redis cache is consulted before the upstream, so a
-  replica restarting while the upstream is broken boots from the set a healthy
-  replica last published.
+- **Startup** (`loadInitialData`) normally bootstraps from the shared Redis cache
+  first, but one transient read failure does not mean its last-known-good set has
+  disappeared. If the subsequent upstream/local load is non-empty but every record
+  fails format validation, availability-first retries Redis after acquiring the
+  writer lock. A recovered cache bootstraps the replica; if it remains unreadable,
+  this replica stays empty but never writes an empty replacement over data that may
+  still exist in Redis.
 
-  **The exception is `MERGE_MODE=ONLY_LOCAL` with Redis enabled** (a supported
-  combination, see above): that branch returns before the Redis read, so startup
-  honours the policy explicitly there. When every record in the local file fails
-  format validation, availability-first does **not** write the empty set to the
-  shared cache; it boots from the last known good set held there instead.
-  Otherwise a single startup would both leave this replica empty and erase the
-  data every other replica — and every later restart — bootstraps from, which is
-  precisely what the policy exists to prevent. consistency-first keeps its
-  historical behavior here: the empty set is applied and published.
+  `MERGE_MODE=ONLY_LOCAL` skips the normal Redis-first read, so it enters the same
+  guarded flow directly. consistency-first keeps its historical startup behavior
+  on every path: apply and publish the result after per-record validation.
 - **Identity validation failures** (conflicts, missing `user_id`) are unrelated to
   this policy: under both values they keep the last known good data and record a
-  refresh failure.
+  refresh failure. If a set has both identity conflicts and per-record format
+  errors, the identity-integrity failure takes precedence and is not classified as
+  `all_records_rejected`.
 
 #### Observability
 

@@ -29,6 +29,10 @@ const (
 		{"phone":"13-800-138-000","mail":"a(at)example.com","status":"active"},
 		{"phone":"13/900/139/000","mail":"c(at)example.com","status":"active"}
 	]`
+	rejectedConflictingRuleSet = `[
+		{"phone":"13-800-138-000","mail":"a(at)example.com","status":"active"},
+		{"phone":"13-800-138-000","mail":"c(at)example.com","status":"active"}
+	]`
 	emptyRuleSet = `[]`
 )
 
@@ -157,6 +161,28 @@ func TestApp_backgroundTask_AvailabilityFirst_RetriesAndRecovers(t *testing.T) {
 	assert.Equal(t, app.userCache.Get(), (*published)[2])
 }
 
+// TestApp_backgroundTask_AvailabilityFirst_IdentityFailureTakesPrecedence covers a set
+// that fails both validation layers: every record has an invalid format, and the records
+// also share an identity. The collection-wide identity error is the root cause and must
+// not be hidden behind the availability policy's all_records_rejected classification.
+func TestApp_backgroundTask_AvailabilityFirst_IdentityFailureTakesPrecedence(t *testing.T) {
+	app, dataFile, published := policyTestApp(t, "availability-first")
+	before := app.userCache.Get()
+	require.Len(t, before, 2)
+
+	writeRuleSet(t, dataFile, rejectedConflictingRuleSet)
+	app.backgroundTask(dataFile, "")
+
+	assert.Equal(t, before, app.userCache.Get(),
+		"身份冲突必须保留上一次有效集合，且不能先按全量格式拒绝分类")
+	assert.Empty(t, *published, "身份冲突不是可续期的全量格式拒绝，不应发布共享缓存")
+
+	failures, reason := app.snapshots.RefreshFailure()
+	assert.EqualValues(t, 1, failures)
+	assert.Equal(t, reasonIdentityConflict, reason,
+		"同时存在身份冲突与格式错误时，身份完整性错误必须优先")
+}
+
 // TestApp_backgroundTask_GenuinelyEmptyLoadAlwaysPropagates is the safety property that
 // keeps availability-first from becoming a security hole: a load that really returns zero
 // records is not ambiguous, so revoking every user must still work under BOTH policies.
@@ -274,6 +300,39 @@ func onlyLocalRestartApp(t *testing.T, policy, localContent string, shared []def
 	return app, dataFile
 }
 
+// redisFirstRestartApp simulates a fresh non-ONLY_LOCAL replica while keeping Redis calls
+// controllable. NewApp first establishes a working loader from a valid local file; the
+// helper then clears process-local state to the same empty state as a restart and installs
+// a zero-value shared cache whose accidental Set would panic. loadFromRedis supplies the
+// scripted bootstrap/retry behavior without requiring a live Redis server.
+func redisFirstRestartApp(t *testing.T, policy, localContent string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
+	t.Helper()
+
+	dataFile = filepath.Join(t.TempDir(), "rules.json")
+	require.NoError(t, os.WriteFile(dataFile, []byte(goodRuleSet), 0o600))
+
+	app = NewApp(&cmd.Config{
+		Port:               "8081",
+		RedisEnabled:       false,
+		Mode:               "DEFAULT",
+		APIKey:             "test-key",
+		TaskInterval:       60,
+		DataFile:           dataFile,
+		EmptyRulesetPolicy: policy,
+	})
+	require.NotNil(t, app)
+
+	app.redisUserCache = &cache.RedisUserCache{}
+	app.redisRefreshLocker = &stubRefreshLocker{locked: true}
+	app.loadFromRedis = loadFromRedis
+	app.userCache.Set(nil)
+	app.snapshots = newSnapshotStore()
+	require.Empty(t, app.userCache.Get(), "重启的副本内存中不应有数据")
+
+	writeRuleSet(t, dataFile, localContent)
+	return app, dataFile
+}
+
 // TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_KeepsSharedRuleSet pins the restart
 // guarantee availability-first makes.
 //
@@ -308,6 +367,51 @@ func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_PreservesUnreadableSha
 	require.NoError(t, loadErr)
 
 	assert.Empty(t, app.userCache.Get(), "没有可引导的数据，本副本为空——但共享缓存未被破坏")
+}
+
+// TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError pins the
+// non-ONLY_LOCAL restart race: the first Redis read fails, the fallback source returns a
+// non-empty set that format validation would erase, and Redis recovers after writer
+// election. Startup must retry and bootstrap from the shared good set rather than overwrite
+// it with the empty fallback result.
+func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t *testing.T) {
+	shared := parseRuleSet(t, goodRuleSet)
+	reads := 0
+	app, dataFile := redisFirstRestartApp(t, "availability-first", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+		reads++
+		if reads == 1 {
+			return nil, assert.AnError
+		}
+		return shared, nil
+	})
+
+	var loadErr error
+	require.NotPanics(t, func() { loadErr = app.loadInitialData(dataFile, "") },
+		"Redis 引导读取暂时失败后，不能把全量拒绝产生的空集写回共享缓存")
+	require.NoError(t, loadErr)
+
+	assert.Equal(t, 2, reads, "获得写入者锁后应重试一次共享缓存读取")
+	assert.Len(t, app.userCache.Get(), 2, "Redis 恢复后应从共享的最后有效集合完成启动")
+}
+
+// TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors covers
+// the same restart race when Redis remains unreadable. The replica has no data to serve,
+// but a failed read is not evidence that the shared set is gone, so startup must leave it
+// untouched instead of publishing an empty replacement.
+func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors(t *testing.T) {
+	reads := 0
+	app, dataFile := redisFirstRestartApp(t, "availability-first", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+		reads++
+		return nil, assert.AnError
+	})
+
+	var loadErr error
+	require.NotPanics(t, func() { loadErr = app.loadInitialData(dataFile, "") },
+		"共享缓存持续不可读时仍不得写入空集，因为最后有效数据可能仍然存在")
+	require.NoError(t, loadErr)
+
+	assert.Equal(t, 2, reads, "启动读取与锁内重试都应发生")
+	assert.Empty(t, app.userCache.Get(), "无可引导数据时本副本保持为空，但共享集合不得被覆盖")
 }
 
 // TestApp_loadInitialData_ConsistencyFirst_ONLY_LOCAL_AppliesEmptySet pins that the default
