@@ -349,8 +349,9 @@ func (app *App) shouldKeepLastKnownGood(users []define.AllowListUser) (bool, err
 // bootstrapFromRedis tries to adopt a valid rule set from the shared cache and records
 // usable snapshot provenance for it. Redis Get returns an empty slice both for a missing
 // key and a deliberately stored [], so Exists disambiguates those cases: only the latter
-// is a known-good empty snapshot. For non-empty data, at least one record must also survive
-// the current validator before the shared set can become this process's baseline.
+// is a known-good empty snapshot. A non-empty Redis payload that current format validation
+// reduces to zero follows the configured empty-ruleset policy: availability-first rejects
+// it as a bootstrap baseline, while consistency-first adopts the effective empty set.
 func (app *App) bootstrapFromRedis() bool {
 	if app.loadFromRedis == nil {
 		return false
@@ -370,9 +371,12 @@ func (app *App) bootstrapFromRedis() bool {
 			prommetrics.CacheMisses.Inc()
 			return false
 		}
-	} else if cache.AcceptableCount(cachedUsers) == 0 {
-		prommetrics.CacheMisses.Inc()
-		return false
+	} else {
+		keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(cachedUsers)
+		if identityErr != nil || keepLastKnownGood {
+			prommetrics.CacheMisses.Inc()
+			return false
+		}
 	}
 	if err := app.applyUsers(cachedUsers); err != nil {
 		prommetrics.CacheMisses.Inc()
@@ -380,8 +384,10 @@ func (app *App) bootstrapFromRedis() bool {
 	}
 
 	applied := app.userCache.Get()
-	if len(cachedUsers) > 0 && len(applied) == 0 {
-		// Defensive guard in case cache validation and AcceptableCount ever drift.
+	if app.emptyRulesetPolicy.KeepsLastKnownGood() && len(cachedUsers) > 0 && len(applied) == 0 {
+		// Defensive availability-first guard in case cache validation and
+		// AcceptableCount ever drift. Consistency-first intentionally adopts this
+		// effective empty set.
 		prommetrics.CacheMisses.Inc()
 		return false
 	}

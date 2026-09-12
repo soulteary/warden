@@ -300,10 +300,9 @@ func onlyLocalRestartApp(t *testing.T, policy, localContent string, shared []def
 // controllable. NewApp first establishes a working loader from a valid local file; the
 // helper then clears process-local state to the same empty state as a restart and installs
 // a zero-value shared cache whose accidental Set would panic. loadFromRedis supplies the
-// scripted bootstrap/retry behavior without requiring a live Redis server. The policy is
-// fixed to availability-first because only that policy performs the protected retry; mode,
+// scripted bootstrap/retry behavior without requiring a live Redis server. Policy, mode,
 // local content, and Redis behavior vary across callers.
-func redisFirstRestartApp(t *testing.T, mode, localContent string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
+func redisFirstRestartApp(t *testing.T, policy, mode, localContent string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
 	t.Helper()
 
 	dataFile = filepath.Join(t.TempDir(), "rules.json")
@@ -316,7 +315,7 @@ func redisFirstRestartApp(t *testing.T, mode, localContent string, loadFromRedis
 		APIKey:             "test-key",
 		TaskInterval:       60,
 		DataFile:           dataFile,
-		EmptyRulesetPolicy: "availability-first",
+		EmptyRulesetPolicy: policy,
 	})
 	require.NotNil(t, app)
 
@@ -375,7 +374,7 @@ func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_PreservesUnreadableSha
 func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t *testing.T) {
 	shared := mustParse(t, goodRuleSet)
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
 		reads++
 		if reads == 1 {
 			return nil, assert.AnError
@@ -403,7 +402,7 @@ func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t
 // snapshot_unknown immediately after a successful restart.
 func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *testing.T) {
 	shared := mustParse(t, goodRuleSet)
-	app, dataFile := redisFirstRestartApp(t, "ONLY_REMOTE", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "ONLY_REMOTE", rejectedRuleSet, func() ([]define.AllowListUser, error) {
 		return shared, nil
 	})
 
@@ -421,13 +420,53 @@ func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *te
 		"严格模式成功从 Redis 恢复后不应立即返回 503")
 }
 
+// TestApp_loadInitialData_RedisBootstrapAllRejectedHonorsPolicy pins the same policy
+// distinction for data restored from Redis. A legacy non-empty entry can become an
+// effective empty set under newer format validation: consistency-first must adopt that
+// result instead of falling back to stale local users, while availability-first keeps its
+// protective miss behavior and continues to the configured source.
+func TestApp_loadInitialData_RedisBootstrapAllRejectedHonorsPolicy(t *testing.T) {
+	tests := []struct {
+		name       string
+		policy     string
+		wantCount  int
+		wantSource loader.Source
+	}{
+		{name: "consistency-first", policy: "consistency-first", wantCount: 0, wantSource: loader.SourceRedis},
+		{name: "availability-first", policy: "availability-first", wantCount: 2, wantSource: loader.SourceLocal},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cached := mustParse(t, rejectedRuleSet)
+			app, dataFile := redisFirstRestartApp(t, tt.policy, "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
+				return append([]define.AllowListUser(nil), cached...), nil
+			})
+			app.redisRefreshLocker = &stubRefreshLocker{locked: false}
+
+			require.NoError(t, app.loadInitialData(dataFile, ""))
+
+			assert.Len(t, app.userCache.Get(), tt.wantCount)
+			require.True(t, app.hasKnownGoodSnapshot())
+			snap := app.snapshots.Load()
+			require.NotNil(t, snap)
+			assert.Equal(t, tt.wantSource, snap.Source)
+			assert.Equal(t, tt.wantCount, snap.Count)
+			if tt.policy == "consistency-first" {
+				assert.Equal(t, cache.HashUserList(nil), snap.Version,
+					"一致性优先应记录 Redis 经格式校验后的有效空集，而不是回退到陈旧本地用户")
+			}
+		})
+	}
+}
+
 // TestApp_loadInitialData_RedisBootstrapAcceptsKnownEmptySet distinguishes a deliberately
 // stored [] from a missing Redis key. The known empty set is an authoritative mass
 // revocation: it must preempt stale fallback data, create Redis provenance, and remain a
 // healthy data/snapshot_freshness state even though the effective cache length is zero.
 func TestApp_loadInitialData_RedisBootstrapAcceptsKnownEmptySet(t *testing.T) {
 	existsCalls := 0
-	app, dataFile := redisFirstRestartApp(t, "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
 		return []define.AllowListUser{}, nil
 	})
 	app.redisCacheExists = func() (bool, error) {
@@ -458,7 +497,7 @@ func TestApp_loadInitialData_RedisBootstrapAcceptsKnownEmptySet(t *testing.T) {
 // returns [] for a missing key, but Exists=false must let normal sources load rather than
 // inventing an authoritative empty Redis snapshot.
 func TestApp_loadInitialData_RedisBootstrapTreatsAbsentEmptyAsMiss(t *testing.T) {
-	app, dataFile := redisFirstRestartApp(t, "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
 		return []define.AllowListUser{}, nil
 	})
 	app.redisCacheExists = func() (bool, error) { return false, nil }
@@ -478,7 +517,7 @@ func TestApp_loadInitialData_RedisBootstrapTreatsAbsentEmptyAsMiss(t *testing.T)
 // error, while assuming a miss only falls back to this replica's own sources, which is what
 // startup does without Redis anyway. The unprovable empty set is never taken as authority.
 func TestApp_loadInitialData_RedisBootstrapTreatsExistsErrorAsMiss(t *testing.T) {
-	app, dataFile := redisFirstRestartApp(t, "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
 		return []define.AllowListUser{}, nil
 	})
 	app.redisCacheExists = func() (bool, error) { return false, assert.AnError }
@@ -497,7 +536,7 @@ func TestApp_loadInitialData_RedisBootstrapTreatsExistsErrorAsMiss(t *testing.T)
 // untouched instead of publishing an empty replacement.
 func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors(t *testing.T) {
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
 		reads++
 		return nil, assert.AnError
 	})
@@ -530,7 +569,7 @@ func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadEr
 func TestApp_backgroundTask_AvailabilityFirst_RecoversRedisAfterStartupMisses(t *testing.T) {
 	shared := mustParse(t, goodRuleSet)
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
 		reads++
 		if reads <= 3 {
 			return nil, assert.AnError

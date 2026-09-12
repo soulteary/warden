@@ -114,7 +114,10 @@ obvious, and immediately noticed.
   `SNAPSHOT_MAX_AGE` from adoption instead of returning 503 immediately because the
   source is `none`. If startup never obtains valid data, the first background refresh
   retries Redis and still skips publishing the process's zero-value empty cache if the
-  retry fails.
+  retry fails. If a legacy non-empty Redis payload is reduced to zero by current format
+  validation, the configured policy still applies: consistency-first adopts the effective
+  empty set, while availability-first rejects it as a bootstrap baseline and continues to
+  the configured sources.
 - **A genuinely empty successful startup load** is applied, snapshotted, and published
   to Redis immediately; a mass revocation does not wait for the first background cycle.
   On restart, Redis `Get` returning an empty slice is followed by `Exists` to distinguish
