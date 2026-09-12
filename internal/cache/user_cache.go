@@ -74,43 +74,104 @@ func NewSafeUserCache() *SafeUserCache {
 	}
 }
 
-// validateUser validates user data using cli-kit validator.
-// At least one of phone or mail must be non-empty (email-only users are supported).
+// Stable, non-PII reason codes for a record rejected by per-record format validation.
+const (
+	reasonBothIdentifiersEmpty = "both_identifiers_empty"
+	reasonInvalidPhone         = "invalid_phone"
+	reasonInvalidMail          = "invalid_email"
+)
+
+// checkUser applies the per-record format rules and returns a stable reason code plus the
+// underlying validator error. It logs nothing, so it can also answer "would this record be
+// accepted?" for callers that must not emit a second round of rejection warnings — see
+// AcceptableCount. validateUser is the logging wrapper used as the cache's ValidateFunc,
+// which keeps a single definition of the rules for both callers.
 //
-//nolint:gocritic // hugeParam: function signature must match cache.ValidateFunc interface
-func validateUser(user define.AllowListUser) error {
+//nolint:gocritic // hugeParam: mirrors the cache.ValidateFunc signature used by validateUser
+func checkUser(user define.AllowListUser) (reason string, err error) {
 	phoneTrim := strings.TrimSpace(user.Phone)
 	mailTrim := strings.TrimSpace(user.Mail)
 	if phoneTrim == "" && mailTrim == "" {
-		log.Warn().Msg("Skipping user with both phone and mail empty")
-		return errBothIdentifierEmpty
+		return reasonBothIdentifiersEmpty, errBothIdentifierEmpty
 	}
 	phoneOpts := &validator.PhoneOptions{AllowEmpty: true}
 	emailOpts := &validator.EmailOptions{AllowEmpty: true}
 
 	if err := validator.ValidatePhone(user.Phone, phoneOpts); err != nil {
-		// NOTE: the validator error message can embed the raw phone value (e.g. "%q
-		// does not match"), so we must NOT log err directly. Log a stable, non-PII
-		// reason code plus masked identifiers only.
-		log.Warn().
-			Str("reason", "invalid_phone").
-			Str("phone", identity.MaskPhone(user.Phone)).
-			Str("mail", identity.MaskMail(user.Mail)).
-			Str("field", "phone").
-			Msg("Skipping invalid user data")
-		return err
+		return reasonInvalidPhone, err
 	}
 	if err := validator.ValidateEmail(user.Mail, emailOpts); err != nil {
-		// See phone note above: the email validator error can embed the raw address.
-		log.Warn().
-			Str("reason", "invalid_email").
-			Str("phone", identity.MaskPhone(user.Phone)).
-			Str("mail", identity.MaskMail(user.Mail)).
-			Str("field", "email").
-			Msg("Skipping invalid user data")
+		return reasonInvalidMail, err
+	}
+	return "", nil
+}
+
+// validateUser validates user data using cli-kit validator and logs rejections.
+// At least one of phone or mail must be non-empty (email-only users are supported).
+//
+//nolint:gocritic // hugeParam: function signature must match cache.ValidateFunc interface
+func validateUser(user define.AllowListUser) error {
+	reason, err := checkUser(user)
+	if err == nil {
+		return nil
+	}
+	if reason == reasonBothIdentifiersEmpty {
+		log.Warn().Msg("Skipping user with both phone and mail empty")
 		return err
 	}
-	return nil
+	// NOTE: the validator error message can embed the raw phone/mail value (e.g. "%q
+	// does not match"), so we must NOT log err directly. Log a stable, non-PII reason
+	// code plus masked identifiers only.
+	field := "phone"
+	if reason == reasonInvalidMail {
+		field = "email"
+	}
+	log.Warn().
+		Str("reason", reason).
+		Str("phone", identity.MaskPhone(user.Phone)).
+		Str("mail", identity.MaskMail(user.Mail)).
+		Str("field", field).
+		Msg("Skipping invalid user data")
+	return err
+}
+
+// AcceptableCount reports how many records of users would survive a Set: how large the
+// effective rule set becomes once empty-identifier records are dropped, per-record format
+// validation has run, and duplicates sharing a primary key have collapsed.
+//
+// It exists so a caller can learn "this load would leave the cache empty" BEFORE mutating
+// the cache. Set is the single atomic swap point, so probing by writing and inspecting the
+// result would expose an empty rule set to concurrent readers for as long as the caller
+// takes to undo it. AcceptableCount answers the same question with no window at all.
+//
+// It deliberately stays silent: the records it inspects are validated again for real by
+// Set, which logs every rejection. Counting here must not duplicate those warnings.
+//
+// The steps mirror SafeUserCache.Set and the cache-kit Set it delegates to, in the same
+// order (normalize, validate, primary key, dedup); acceptable_count_test.go pins the two
+// against each other so they cannot drift apart.
+func AcceptableCount(users []define.AllowListUser) int {
+	if len(users) == 0 {
+		return 0
+	}
+	accepted := make(map[string]struct{}, len(users))
+	for i := range users {
+		// Set drops records whose raw primary key is empty before handing the rest to
+		// cache-kit; mirror that first so both filters are represented.
+		if primaryKeyForUser(users[i]) == "" {
+			continue
+		}
+		normalized := normalizeUser(users[i])
+		if _, err := checkUser(normalized); err != nil {
+			continue
+		}
+		key := primaryKeyForUser(normalized)
+		if key == "" {
+			continue
+		}
+		accepted[key] = struct{}{}
+	}
+	return len(accepted)
 }
 
 // normalizeUser normalizes user data
