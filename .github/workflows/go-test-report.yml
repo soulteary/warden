@@ -1,0 +1,74 @@
+# 默认分支上重新生成并回写测试报告与覆盖率徽章。
+#
+# 与 CI 中的 test job 的分工：CI 在 PR 上只运行测试并执行覆盖率门禁（commit: false，
+# 只读权限）；本工作流只在默认分支运行，用 contents: write 把 Markdown 报告、SVG 徽章
+# 与 JSON 写回仓库，README 的覆盖率徽章即指向仓库内的 .github/coverage.svg。
+# 该分工与仓库既有的 go-reportcard.yml 保持一致。
+name: Go Test Report
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: go-test-report-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: 生成测试报告
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      REDIS: localhost:6379
+      REDIS_ENABLED: "true"
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: 等待 Redis 就绪
+        run: |
+          echo "检查 Redis 连接..."
+          for i in {1..30}; do
+            if docker run --rm --network host redis:8-alpine redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG; then
+              echo "Redis 已就绪"
+              exit 0
+            fi
+            echo "等待 Redis 启动... ($i/30)"
+            sleep 1
+          done
+          echo "Redis 启动超时"
+          exit 1
+
+      - name: 运行测试并回写报告
+        id: test
+        uses: soulteary/go-test-report-action@a5e77d563843af6c7a0cc3c573640fc2cd94934a # v1.1.0
+        with:
+          directory: "."
+          go_version_file: "go.mod"
+          packages: "./..."
+          race: "true"
+          cover_mode: "atomic"
+          coverage_threshold: "80"
+          commit: "true"
+          commit_message: "chore: update Go test report [skip ci]"
+
+      - name: 显示结果
+        run: |
+          echo "覆盖率 ${{ steps.test.outputs.coverage }}%，状态 ${{ steps.test.outputs.status }}"
+          echo "报告已提交: ${{ steps.test.outputs.committed }}"
