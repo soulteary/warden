@@ -168,7 +168,7 @@ X-API-Key: your-secret-api-key
 **선택적 연동 시나리오**:
 다른 서비스(예: Stargate)와 연동하기로 했다면, 로그인 흐름에서 이 엔드포인트를 호출하여 사용자 정보를 조회할 수 있습니다.
 1. 사용자가 식별자(이메일/전화번호/사용자명)를 입력하면 `GET /user?phone=xxx` 또는 `GET /user?mail=xxx`를 호출합니다
-2. Warden이 사용자 정보(`user_id`, `email`, `phone`, `status` 포함)를 반환합니다
+2. Warden이 사용자 정보(`user_id`, `mail`, `phone`, `status` 포함)를 반환합니다
 3. 사용자가 존재하고 상태가 `"active"`이면 이후 인증 흐름을 계속 진행할 수 있습니다
 4. 반환된 `scope`와 `role`은 인가 헤더 설정에 사용할 수 있습니다
 

@@ -170,7 +170,7 @@ X-API-Key: your-secret-api-key
 **Scenario di integrazione facoltativo**:
 Se si sceglie di integrarsi con altri servizi (come Stargate), è possibile chiamare questo endpoint per interrogare le informazioni utente nel flusso di accesso:
 1. Dopo che l'utente ha inserito un identificatore (e-mail/telefono/nome utente), chiamare `GET /user?phone=xxx` oppure `GET /user?mail=xxx`
-2. Warden restituisce le informazioni utente (inclusi `user_id`, `email`, `phone`, `status`)
+2. Warden restituisce le informazioni utente (inclusi `user_id`, `mail`, `phone`, `status`)
 3. Se l'utente esiste e lo stato è `"active"`, è possibile proseguire con il flusso di autenticazione
 4. I valori `scope` e `role` restituiti possono essere usati per impostare le intestazioni di autorizzazione
 
