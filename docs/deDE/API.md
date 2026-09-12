@@ -169,7 +169,7 @@ X-API-Key: your-secret-api-key
 **Optionales Integrationsszenario**:
 Wenn Sie eine Integration mit anderen Diensten (etwa Stargate) wählen, können Sie diesen Endpunkt aufrufen, um im Anmeldeablauf Benutzerinformationen abzufragen:
 1. Nachdem der Benutzer eine Kennung eingegeben hat (E-Mail/Telefon/Benutzername), rufen Sie `GET /user?phone=xxx` oder `GET /user?mail=xxx` auf
-2. Warden liefert die Benutzerinformationen zurück (einschließlich `user_id`, `email`, `phone`, `status`)
+2. Warden liefert die Benutzerinformationen zurück (einschließlich `user_id`, `mail`, `phone`, `status`)
 3. Wenn der Benutzer existiert und der Status `"active"` ist, können Sie den weiteren Authentifizierungsablauf fortsetzen
 4. Die zurückgegebenen Werte `scope` und `role` können zum Setzen der Autorisierungs-Header verwendet werden
 

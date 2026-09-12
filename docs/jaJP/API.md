@@ -168,7 +168,7 @@ X-API-Key: your-secret-api-key
 **任意の連携シナリオ**:
 他のサービス（Stargate など）と連携する場合、ログインフローの中でこのエンドポイントを呼び出してユーザー情報を照会できます。
 1. ユーザーが識別子（メール／電話番号／ユーザー名）を入力したら、`GET /user?phone=xxx` または `GET /user?mail=xxx` を呼び出す
-2. Warden がユーザー情報（`user_id`、`email`、`phone`、`status` を含む）を返す
+2. Warden がユーザー情報（`user_id`、`mail`、`phone`、`status` を含む）を返す
 3. ユーザーが存在し、状態が `"active"` であれば、後続の認証フローを続行できる
 4. 返された `scope` と `role` は認可ヘッダーの設定に利用できる
 
