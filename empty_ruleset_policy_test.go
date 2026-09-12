@@ -426,14 +426,17 @@ func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *te
 // result instead of falling back to stale local users, while availability-first keeps its
 // protective miss behavior and continues to the configured source.
 func TestApp_loadInitialData_RedisBootstrapAllRejectedHonorsPolicy(t *testing.T) {
+	// Field order is load-bearing for govet's fieldalignment check: loader.Source is a
+	// string, so keeping the int last leaves the three string headers contiguous and the
+	// struct's pointer data at 40 bytes instead of 48.
 	tests := []struct {
 		name       string
 		policy     string
-		wantCount  int
 		wantSource loader.Source
+		wantCount  int
 	}{
-		{name: "consistency-first", policy: "consistency-first", wantCount: 0, wantSource: loader.SourceRedis},
-		{name: "availability-first", policy: "availability-first", wantCount: 2, wantSource: loader.SourceLocal},
+		{name: "consistency-first", policy: "consistency-first", wantSource: loader.SourceRedis, wantCount: 0},
+		{name: "availability-first", policy: "availability-first", wantSource: loader.SourceLocal, wantCount: 2},
 	}
 
 	for _, tt := range tests {
