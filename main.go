@@ -62,6 +62,7 @@ type App struct {
 	authorizationHeader  string
 	appMode              string
 	environment          string
+	emptyRulesetPolicy   config.EmptyRulesetPolicy
 	apiKey               string
 	dataFile             string
 	dataDir              string
@@ -119,6 +120,22 @@ func NewApp(cfg *cmd.Config) *App {
 	// Indirection so tests can observe the exact rule set a refresh publishes to the shared
 	// cache; production always uses the retrying writer.
 	app.publishToRedis = app.updateRedisCacheWithRetry
+	// ValidateConfig rejects an unrecognized policy during normal startup; direct NewApp
+	// callers fall back to the documented default rather than to an undefined value.
+	policy, policyOK := config.ParseEmptyRulesetPolicy(cfg.EmptyRulesetPolicy)
+	if !policyOK {
+		app.log.Warn().
+			Str("value", cfg.EmptyRulesetPolicy).
+			Msg("Unknown EMPTY_RULESET_POLICY; falling back to consistency-first")
+	}
+	app.emptyRulesetPolicy = policy
+	if policy.KeepsLastKnownGood() {
+		// A deliberate, security-relevant opt-out: confirm it took effect and name the
+		// trade-off once at startup, so it is never an invisible setting.
+		app.log.Info().
+			Str("empty_ruleset_policy", policy.String()).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.empty_ruleset_policy_availability_first"))
+	}
 	if snapshotMaxAgeErr != nil {
 		// ValidateConfig rejects this during normal startup. Direct NewApp callers
 		// retain the derived default rather than silently disabling stale detection.
@@ -276,6 +293,7 @@ func (app *App) reportIdentityDiagnostics() {
 	ev := app.log.Info().
 		Str("user_id_strategy", string(define.GetUserIDStrategy())).
 		Bool("require_explicit_user_id", define.RequireExplicitUserID()).
+		Str("empty_ruleset_policy", app.emptyRulesetPolicy.String()).
 		Int("conflicts", res.ConflictCount).
 		Int("missing_user_id", res.MissingIDCount)
 	if res.ConflictCount > 0 || res.MissingIDCount > 0 {
@@ -302,6 +320,14 @@ func (app *App) applyUsers(users []define.AllowListUser) error {
 }
 
 // loadInitialData loads data with multi-level fallback (Redis → parser-kit Load).
+//
+// The empty-ruleset policy deliberately does not apply here. It chooses whether to keep a
+// last known good rule set, and during startup this process has none: the cache is empty
+// either way, so both policies produce the same outcome. The restart case availability-first
+// is meant to cover is already handled by the ordering below — the shared Redis cache is
+// consulted before the upstream, so a replica that restarts while the upstream is broken
+// boots from the set a healthy replica last published. backgroundTask is where the policy
+// matters, because only there is there something to lose.
 func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
 	defer cancel()
@@ -628,16 +654,58 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		return
 	}
 
+	// Decide the all-rejected case BEFORE touching the cache.
+	//
+	// A load can succeed, return records, and still leave the effective rule set empty:
+	// identity validation runs over the whole set, but per-record format validation lives
+	// in the cache and drops the records it rejects. An upstream that changes its phone
+	// formatting invalidates every record at once while still reporting success.
+	//
+	// That state is ambiguous — "the upstream revoked everyone" and "the upstream changed
+	// format" look identical from here — so which reading to assume is an operator choice.
+	// Under availability-first the refresh is treated as failed and the last known good set
+	// survives in memory and in Redis. Under consistency-first (the default) the empty set
+	// is applied and published, exactly as before this policy existed.
+	//
+	// The check must run before applyUsers because applyUsers is the single atomic swap
+	// point: probing by applying and then undoing would expose an empty rule set to every
+	// concurrent reader for the length of that window. AcceptableCount answers the same
+	// question without writing anything.
+	//
+	// A load that genuinely returns zero records is NOT ambiguous and always propagates, or
+	// revoking every user would become impossible.
+	if app.emptyRulesetPolicy.KeepsLastKnownGood() && len(newUsers) > 0 && cache.AcceptableCount(newUsers) == 0 {
+		failures := app.snapshots.RecordRefreshFailure(reasonAllRecordsRejected)
+		app.updateSnapshotMetrics()
+		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonAllRecordsRejected).Inc()
+		// Republish what this replica still serves, exactly as the unchanged-data path
+		// does. Entries in the shared cache carry define.REDIS_CACHE_TTL, so simply
+		// skipping the write would let the last known good set expire there while the
+		// upstream stays broken — and a replica restarting after that expiry is precisely
+		// the case availability-first exists to cover: it reads Redis first and would find
+		// nothing. The snapshot is deliberately NOT stored, so its version still describes
+		// the good data: the next cycle sees the broken load as a change and retries,
+		// snapshot age keeps growing, and health reports degraded.
+		app.updateRedisIfWriter(writeRedis, app.userCache.Get())
+		app.log.Warn().
+			Int("loaded_count", len(newUsers)).
+			Int("kept_count", app.userCache.Len()).
+			Str("reason", reasonAllRecordsRejected).
+			Int64("consecutive_failures", failures).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected_kept"))
+		return
+	}
+
 	// Update memory cache and swap in the new immutable snapshot atomically. Validation
 	// happens inside applyUsers; on a conflict we keep the last-known-good snapshot and
 	// record a refresh failure instead of overwriting good data with a bad set.
 	if err := app.applyUsers(newUsers); err != nil {
-		failures := app.snapshots.RecordRefreshFailure("identity_conflict")
+		failures := app.snapshots.RecordRefreshFailure(reasonIdentityConflict)
 		app.updateSnapshotMetrics()
-		prommetrics.RefreshFailuresTotal.WithLabelValues("identity_conflict").Inc()
+		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonIdentityConflict).Inc()
 		app.log.Warn().
 			Err(err).
-			Str("reason", "identity_conflict").
+			Str("reason", reasonIdentityConflict).
 			Int64("consecutive_failures", failures).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
 		return
@@ -656,12 +724,14 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	// being refreshed for the lifetime of the process.
 	applied := app.userCache.Get()
 	if len(newUsers) > 0 && len(applied) == 0 {
-		// Every loaded record failed format validation. The empty set is still published so
-		// the shared cache keeps matching what this replica serves (publishing the rejected
-		// records instead would re-seed bad data to peers), but this is never a normal
-		// steady state, so it must be visible above Debug.
+		// Every loaded record failed format validation, and the active policy is
+		// consistency-first (availability-first returned above). The empty set is still
+		// published so the shared cache keeps matching what this replica serves —
+		// publishing the rejected records instead would re-seed bad data to peers — but
+		// this is never a normal steady state, so it must be visible above Debug.
 		app.log.Warn().
 			Int("loaded_count", len(newUsers)).
+			Str("policy", app.emptyRulesetPolicy.String()).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected"))
 	}
 	app.updateRedisIfWriter(writeRedis, applied)

@@ -62,6 +62,13 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.environment_invalid", cfg.Environment))
 	}
 
+	// Validate the empty-ruleset policy. An unrecognized value must fail startup rather
+	// than silently fall back: an operator who set availability-first and got
+	// consistency-first would keep a failure mode they explicitly opted out of.
+	if _, ok := config.ParseEmptyRulesetPolicy(cfg.EmptyRulesetPolicy); !ok {
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.empty_ruleset_policy_invalid", cfg.EmptyRulesetPolicy))
+	}
+
 	// Validate the complete HMAC key set before it reaches authentication middleware.
 	// A configured-but-empty secret must never become an authentication credential.
 	if strings.TrimSpace(cfg.HMACKeys) != "" {

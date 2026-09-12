@@ -21,6 +21,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | When using `--config-file`, tracing is not read from that file unless `CONFIG_FILE` is set to the same path |
 | Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
+| Data policy | — / `EMPTY_RULESET_POLICY` | What a refresh does when every loaded record is rejected; `consistency-first` (default) or `availability-first`, see [Empty ruleset policy](#empty-ruleset-policy) |
 
 ## Running Mode (MERGE_MODE)
 
@@ -56,6 +57,70 @@ degraded in every tolerant mode.
 In multi-replica deployments every replica refreshes its process-local cache and
 snapshot. A distributed Redis lock elects only the writer of the shared Redis
 cache, so non-writers still advance their own snapshot freshness.
+
+### Empty ruleset policy
+
+Warden filters records in two layers. **Identity validation** (duplicate
+identifiers, missing `user_id`) runs over the whole set: one bad record fails the
+entire refresh and the last known good data is kept. **Per-record format
+validation** (phone and mail format) lives in the cache: it silently drops the
+records it rejects and keeps the rest.
+
+Together they produce one peculiar state: **a load succeeds, returns records, and
+not a single one of them reaches the effective rule set.** The usual cause is an
+upstream format change — `13800138000` becoming `138-0013-8000`, say. The
+upstream is perfectly healthy, the load reports success, and every record is
+discarded one layer down.
+
+From inside Warden that state is **ambiguous**, and the two readings are
+indistinguishable from the data alone:
+
+| Reading | Correct response |
+|---------|------------------|
+| "the upstream revoked everyone" | the empty set is correct and must take effect now |
+| "the upstream changed format" | the empty set is an artifact and must not take effect |
+
+Since Warden cannot tell them apart, the operator chooses, via the
+`EMPTY_RULESET_POLICY` environment variable:
+
+| Value | Behavior | When to choose it |
+|-------|----------|-------------------|
+| `consistency-first` (default) | Apply and publish the empty set: the in-memory cache empties, the shared Redis cache is updated to match, and the refresh counts as successful | The upstream is the single source of truth and **divergence is worse than unavailability**: a legitimate mass revocation propagates immediately, and an upstream format regression surfaces at once as "everything is denied" instead of hiding behind stale data |
+| `availability-first` | Treat it as a failed refresh: keep the last known good rule set in memory, renew the same data in the shared cache, advance the failure counter, let snapshot age keep growing, and report degraded health | **The availability loss outweighs the risk of wrongly allowing**: with an unstable data source and replicas that restart often, one upstream glitch would otherwise empty every replica and leave restarted ones with nothing to bootstrap from |
+
+The default preserves the historical behavior. It is also the right bias for an
+allow list: continuing to admit users the source of truth no longer contains is a
+**security** failure, while denying users is an **availability** failure — loud,
+obvious, and immediately noticed.
+
+#### What the policy does not change
+
+- **A load that genuinely returns zero records** is not ambiguous and always
+  takes effect under both policies. Otherwise revoking every user would become
+  impossible.
+- **Startup** (`loadInitialData`) does not consult the policy: the process has no
+  last known good rule set to preserve yet, so both policies behave identically.
+  The restart case availability-first exists for is already covered by the load
+  ordering — the shared Redis cache is consulted before the upstream, so a replica
+  restarting while the upstream is broken boots from the set a healthy replica
+  last published.
+- **Identity validation failures** (conflicts, missing `user_id`) are unrelated to
+  this policy: under both values they keep the last known good data and record a
+  refresh failure.
+
+#### Observability
+
+| Policy | Log | `warden_refresh_failures_total{reason}` |
+|--------|-----|------------------------------------------|
+| `consistency-first` | `WARN` with `loaded_count` / `policy` | not counted (the refresh is successful) |
+| `availability-first` | `WARN` with `loaded_count` / `kept_count` / `consecutive_failures` | `reason="all_records_rejected"` |
+
+Under availability-first the snapshot version is deliberately not advanced, so the
+next cycle still sees the broken load as a change and retries; once the upstream
+recovers, the first successful refresh clears the failure counter and applies the
+new data normally. Meanwhile snapshot age keeps growing and the health endpoint
+returns 503 past `SNAPSHOT_MAX_AGE` — "still serving, but the data is stale" stays
+visible rather than being silently papered over.
 
 ### Configuration Methods
 

@@ -110,6 +110,20 @@ func snapshotFromResult(res *loader.LoadResult) *Snapshot {
 	}
 }
 
+// Refresh failure reasons that are not derived from a load error. They share the same
+// stable, low-cardinality label space as classifyRefreshReason, which is what keeps the
+// reason label on refresh_failures_total bounded.
+const (
+	// reasonIdentityConflict: identity validation rejected the set (duplicate identifier
+	// or a record missing a required user_id).
+	reasonIdentityConflict = "identity_conflict"
+	// reasonAllRecordsRejected: the load succeeded and returned records, but every one of
+	// them failed per-record validation. Only recorded as a failure under the
+	// availability-first empty-ruleset policy; consistency-first applies the empty set and
+	// counts the refresh as successful.
+	reasonAllRecordsRejected = "all_records_rejected"
+)
+
 // classifyRefreshReason maps a load error to a stable, low-cardinality, non-sensitive
 // reason code suitable for logs and metric labels. It never includes error contents,
 // URLs, keys, or user data.
