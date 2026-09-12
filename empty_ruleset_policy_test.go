@@ -252,15 +252,6 @@ func mustParse(t *testing.T, raw string) []define.AllowListUser {
 	return users
 }
 
-// parseRuleSet turns a rule-set literal into the records a healthy replica would have
-// published to the shared cache.
-func parseRuleSet(t *testing.T, content string) []define.AllowListUser {
-	t.Helper()
-	var users []define.AllowListUser
-	require.NoError(t, json.Unmarshal([]byte(content), &users))
-	return users
-}
-
 // onlyLocalRestartApp simulates a replica restarting in ONLY_LOCAL mode: the in-memory cache
 // starts empty as it does in a fresh process, the local file holds localContent, and shared
 // is what a healthy replica last published to the shared cache (sharedErr makes that read
@@ -310,7 +301,15 @@ func onlyLocalRestartApp(t *testing.T, policy, localContent string, shared []def
 // helper then clears process-local state to the same empty state as a restart and installs
 // a zero-value shared cache whose accidental Set would panic. loadFromRedis supplies the
 // scripted bootstrap/retry behavior without requiring a live Redis server.
-func redisFirstRestartApp(t *testing.T, policy, mode, localContent string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
+//
+// Two inputs are fixed rather than parameters, because varying either would leave the
+// helper testing something else entirely: the policy is availability-first, since the
+// bootstrap retry this helper scripts only exists under it (consistency-first applies and
+// publishes whatever it loaded, so there is no second Redis read to script and no shared set
+// to protect), and the local file holds rejectedRuleSet, since the all-rejected load is the
+// ambiguity that sends startup down that retry path in the first place. Only mode and the
+// scripted Redis behavior differ between callers.
+func redisFirstRestartApp(t *testing.T, mode string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
 	t.Helper()
 
 	dataFile = filepath.Join(t.TempDir(), "rules.json")
@@ -323,7 +322,7 @@ func redisFirstRestartApp(t *testing.T, policy, mode, localContent string, loadF
 		APIKey:             "test-key",
 		TaskInterval:       60,
 		DataFile:           dataFile,
-		EmptyRulesetPolicy: policy,
+		EmptyRulesetPolicy: "availability-first",
 	})
 	require.NotNil(t, app)
 
@@ -334,7 +333,7 @@ func redisFirstRestartApp(t *testing.T, policy, mode, localContent string, loadF
 	app.snapshots = newSnapshotStore()
 	require.Empty(t, app.userCache.Get(), "重启的副本内存中不应有数据")
 
-	writeRuleSet(t, dataFile, localContent)
+	writeRuleSet(t, dataFile, rejectedRuleSet)
 	return app, dataFile
 }
 
@@ -347,7 +346,7 @@ func redisFirstRestartApp(t *testing.T, policy, mode, localContent string, loadF
 // other replica — and every later restart — bootstraps from, defeating the policy in exactly
 // the scenario it exists to cover.
 func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_KeepsSharedRuleSet(t *testing.T) {
-	shared := parseRuleSet(t, goodRuleSet)
+	shared := mustParse(t, goodRuleSet)
 	app, dataFile := onlyLocalRestartApp(t, "availability-first", rejectedRuleSet, shared, nil, true)
 	require.True(t, app.emptyRulesetPolicy.KeepsLastKnownGood())
 
@@ -380,9 +379,9 @@ func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_PreservesUnreadableSha
 // election. Startup must retry and bootstrap from the shared good set rather than overwrite
 // it with the empty fallback result.
 func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t *testing.T) {
-	shared := parseRuleSet(t, goodRuleSet)
+	shared := mustParse(t, goodRuleSet)
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "DEFAULT", func() ([]define.AllowListUser, error) {
 		reads++
 		if reads == 1 {
 			return nil, assert.AnError
@@ -409,8 +408,8 @@ func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t
 // adoption must establish source/time provenance so snapshot_freshness does not report
 // snapshot_unknown immediately after a successful restart.
 func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *testing.T) {
-	shared := parseRuleSet(t, goodRuleSet)
-	app, dataFile := redisFirstRestartApp(t, "availability-first", "ONLY_REMOTE", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	shared := mustParse(t, goodRuleSet)
+	app, dataFile := redisFirstRestartApp(t, "ONLY_REMOTE", func() ([]define.AllowListUser, error) {
 		return shared, nil
 	})
 
@@ -434,7 +433,7 @@ func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *te
 // untouched instead of publishing an empty replacement.
 func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors(t *testing.T) {
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "DEFAULT", func() ([]define.AllowListUser, error) {
 		reads++
 		return nil, assert.AnError
 	})
@@ -465,9 +464,9 @@ func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadEr
 // scheduled retry fail, Redis then recovers while the source remains all-invalid. The next
 // refresh must adopt the shared set before renewal without resetting the source-failure run.
 func TestApp_backgroundTask_AvailabilityFirst_RecoversRedisAfterStartupMisses(t *testing.T) {
-	shared := parseRuleSet(t, goodRuleSet)
+	shared := mustParse(t, goodRuleSet)
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "DEFAULT", func() ([]define.AllowListUser, error) {
 		reads++
 		if reads <= 3 {
 			return nil, assert.AnError
@@ -507,7 +506,7 @@ func TestApp_backgroundTask_AvailabilityFirst_RecoversRedisAfterStartupMisses(t 
 // keeps its historical startup behavior: the empty effective set is applied rather than
 // kept, and the shared cache is never consulted for a last known good set to fall back on.
 func TestApp_loadInitialData_ConsistencyFirst_ONLY_LOCAL_AppliesEmptySet(t *testing.T) {
-	shared := parseRuleSet(t, goodRuleSet)
+	shared := mustParse(t, goodRuleSet)
 	app, dataFile := onlyLocalRestartApp(t, "consistency-first", rejectedRuleSet, shared, nil, false)
 	require.False(t, app.emptyRulesetPolicy.KeepsLastKnownGood())
 
@@ -524,7 +523,7 @@ func TestApp_loadInitialData_ConsistencyFirst_ONLY_LOCAL_AppliesEmptySet(t *test
 func TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyIsPolicyIndependent(t *testing.T) {
 	for _, policy := range []string{"consistency-first", "availability-first"} {
 		t.Run(policy, func(t *testing.T) {
-			shared := parseRuleSet(t, goodRuleSet)
+			shared := mustParse(t, goodRuleSet)
 			app, dataFile := onlyLocalRestartApp(t, policy, emptyRuleSet, shared, nil, false)
 
 			require.NoError(t, app.loadInitialData(dataFile, ""))
@@ -541,7 +540,7 @@ func TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyIsPolicyIndependent(t *tes
 func TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyPublishesImmediately(t *testing.T) {
 	for _, policy := range []string{"consistency-first", "availability-first"} {
 		t.Run(policy, func(t *testing.T) {
-			shared := parseRuleSet(t, goodRuleSet)
+			shared := mustParse(t, goodRuleSet)
 			app, dataFile := onlyLocalRestartApp(t, policy, emptyRuleSet, shared, nil, true)
 			published := make([][]define.AllowListUser, 0, 1)
 			app.publishToRedis = func(users []define.AllowListUser) error {
