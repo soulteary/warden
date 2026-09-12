@@ -372,6 +372,15 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			return errors.New("cache not initialized")
 		}
 		if userCache.Len() == 0 {
+			// An empty cache is healthy when a successful load explicitly produced an
+			// empty snapshot (mass revocation). Keep treating the zero-value cache as
+			// "not loaded" when provenance is absent or claims non-empty data.
+			if snapshots != nil {
+				snap := snapshots.Load()
+				if isKnownGoodSnapshot(snap) && snap.Count == 0 {
+					return nil
+				}
+			}
 			if isOnlyLocalMode {
 				return nil
 			}

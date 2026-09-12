@@ -64,6 +64,20 @@ func (s *snapshotStore) Load() *Snapshot {
 	return s.current.Load()
 }
 
+// HasKnownGood reports whether the store contains a successfully loaded snapshot. Count
+// is deliberately not part of the check: an empty allow list can be a valid mass
+// revocation, while SourceNone/zero LoadedAt represent a process that has loaded nothing.
+func (s *snapshotStore) HasKnownGood() bool {
+	if s == nil {
+		return false
+	}
+	return isKnownGoodSnapshot(s.current.Load())
+}
+
+func isKnownGoodSnapshot(snap *Snapshot) bool {
+	return snap != nil && snap.Source != loader.SourceNone && !snap.LoadedAt.IsZero()
+}
+
 // Store atomically replaces the current snapshot and resets failure counters.
 func (s *snapshotStore) Store(snap *Snapshot) {
 	s.current.Store(snap)
@@ -141,11 +155,7 @@ func snapshotFromRedis(users []define.AllowListUser) *Snapshot {
 // distinction, yet it determines whether publishing an empty slice to Redis is a valid
 // renewal or could erase a shared last-known-good set after a bootstrap failure.
 func (app *App) hasKnownGoodSnapshot() bool {
-	if app.snapshots == nil {
-		return false
-	}
-	snap := app.snapshots.Load()
-	return snap != nil && snap.Source != loader.SourceNone && !snap.LoadedAt.IsZero()
+	return app.snapshots.HasKnownGood()
 }
 
 // Refresh failure reasons that are not derived from a load error. They share the same

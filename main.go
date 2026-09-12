@@ -57,6 +57,7 @@ type App struct {
 	snapshots            *snapshotStore
 	publishToRedis       func(users []define.AllowListUser) error
 	loadFromRedis        func() ([]define.AllowListUser, error)
+	redisCacheExists     func() (bool, error)
 	log                  *loggerkit.Logger
 	port                 string
 	configURL            string
@@ -122,6 +123,7 @@ func NewApp(cfg *cmd.Config) *App {
 	// cache; production always uses the retrying writer.
 	app.publishToRedis = app.updateRedisCacheWithRetry
 	app.loadFromRedis = app.readRedisUserCache
+	app.redisCacheExists = app.readRedisUserCacheExists
 	// ValidateConfig rejects an unrecognized policy during normal startup; direct NewApp
 	// callers fall back to the documented default rather than to an undefined value.
 	policy, policyOK := config.ParseEmptyRulesetPolicy(cfg.EmptyRulesetPolicy)
@@ -344,16 +346,31 @@ func (app *App) shouldKeepLastKnownGood(users []define.AllowListUser) (bool, err
 	return true, nil
 }
 
-// bootstrapFromRedis tries to adopt a non-empty, valid rule set from the shared cache and
-// records usable snapshot provenance for it. A successful Redis Get is not enough: older
-// deployments or corrupted shared data may still contain records rejected by the current
-// validator, so the effective in-memory result must also be non-empty.
+// bootstrapFromRedis tries to adopt a valid rule set from the shared cache and records
+// usable snapshot provenance for it. Redis Get returns an empty slice both for a missing
+// key and a deliberately stored [], so Exists disambiguates those cases: only the latter
+// is a known-good empty snapshot. For non-empty data, at least one record must also survive
+// the current validator before the shared set can become this process's baseline.
 func (app *App) bootstrapFromRedis() bool {
 	if app.loadFromRedis == nil {
 		return false
 	}
 	cachedUsers, err := app.loadFromRedis()
-	if err != nil || len(cachedUsers) == 0 || cache.AcceptableCount(cachedUsers) == 0 {
+	if err != nil {
+		prommetrics.CacheMisses.Inc()
+		return false
+	}
+	if len(cachedUsers) == 0 {
+		if app.redisCacheExists == nil {
+			prommetrics.CacheMisses.Inc()
+			return false
+		}
+		exists, existsErr := app.redisCacheExists()
+		if existsErr != nil || !exists {
+			prommetrics.CacheMisses.Inc()
+			return false
+		}
+	} else if cache.AcceptableCount(cachedUsers) == 0 {
 		prommetrics.CacheMisses.Inc()
 		return false
 	}
@@ -363,7 +380,7 @@ func (app *App) bootstrapFromRedis() bool {
 	}
 
 	applied := app.userCache.Get()
-	if len(applied) == 0 {
+	if len(cachedUsers) > 0 && len(applied) == 0 {
 		// Defensive guard in case cache validation and AcceptableCount ever drift.
 		prommetrics.CacheMisses.Inc()
 		return false
@@ -574,6 +591,15 @@ func (app *App) readRedisUserCache() ([]define.AllowListUser, error) {
 		return nil, fmt.Errorf("redis cache unavailable")
 	}
 	return app.redisUserCache.Get()
+}
+
+// readRedisUserCacheExists distinguishes a deliberately stored empty rule set from a
+// cache miss. RedisUserCache.Get intentionally returns [] with nil error for both cases.
+func (app *App) readRedisUserCacheExists() (bool, error) {
+	if app.redisUserCache == nil {
+		return false, fmt.Errorf("redis cache unavailable")
+	}
+	return app.redisUserCache.Exists()
 }
 
 // updateRedisCacheWithRetry updates Redis cache with retry mechanism

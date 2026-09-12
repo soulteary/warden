@@ -117,6 +117,11 @@ obvious, and immediately noticed.
   retry fails.
 - **A genuinely empty successful startup load** is applied, snapshotted, and published
   to Redis immediately; a mass revocation does not wait for the first background cycle.
+  On restart, Redis `Get` returning an empty slice is followed by `Exists` to distinguish
+  a stored valid empty set from a missing key. The former becomes a known-good
+  `source=redis` snapshot and preempts possibly stale upstream/local fallbacks; only the
+  latter continues to other sources. Health checks use the same snapshot provenance to
+  distinguish a legitimate empty set from data that has never loaded.
 - **Identity validation failures** (conflicts, missing `user_id`) are unrelated to
   this policy: under both values they keep the last known good data and record a
   refresh failure. If a set has both identity conflicts and per-record format
