@@ -137,23 +137,43 @@ func TestScheduler_Weekdays(t *testing.T) {
 
 // This ensures that if you schedule a job for today's weekday, but the time is already passed, it will be scheduled for
 // next week at the requested time.
+//
+// The expected instant is derived from the scheduler's contract rather than hard-coded as
+// "today + 7 days": scheduleNextRun advances by one period until nextRun is strictly After
+// now, so the answer is the first occurrence of today's weekday at the requested time that
+// lies in the future. Hard-coding +7d made this test fail for one minute every day — during
+// 00:00 the minute-field arithmetic below rolls back to 23:59 of the PREVIOUS day, which
+// changes the weekday and inverts the premise, since 23:59 today has not passed yet.
 func TestScheduler_WeekdaysTodayAfter(t *testing.T) {
 	scheduler := NewScheduler()
 
 	now := time.Now()
-	timeToSchedule := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute()-1, 0, 0, time.Local)
+	// Subtract on the instant, not on the minute field, so the value stays a real point in
+	// time instead of relying on time.Date to normalize an out-of-range minute.
+	timeToSchedule := now.Add(-time.Minute)
 
 	job := callTodaysWeekday(scheduler.Every(1)).At(fmt.Sprintf("%02d:%02d", timeToSchedule.Hour(), timeToSchedule.Minute()))
 	if err := job.Do(task); err != nil {
 		t.Fatalf("调度任务失败: %v", err)
 	}
-	t.Logf("job is scheduled for %s", job.NextScheduledTime())
-	if job.NextScheduledTime().Weekday() != timeToSchedule.Weekday() {
-		t.Errorf("Job scheduled for current weekday for earlier time, should still be scheduled for current weekday (but next week)")
+	t.Logf("now=%s, requested at=%02d:%02d, job is scheduled for %s",
+		now, timeToSchedule.Hour(), timeToSchedule.Minute(), job.NextScheduledTime())
+
+	if job.NextScheduledTime().Weekday() != now.Weekday() {
+		t.Errorf("Job scheduled for today's weekday must stay on that weekday.\nGot %v, expected %v",
+			job.NextScheduledTime().Weekday(), now.Weekday())
 	}
-	nextWeek := time.Date(now.Year(), now.Month(), now.Day()+7, now.Hour(), now.Minute()-1, 0, 0, time.Local)
-	if !job.NextScheduledTime().Equal(nextWeek) {
-		t.Errorf("Job should be scheduled for the correct time next week.\nGot %+v, expected %+v", job.NextScheduledTime(), nextWeek)
+
+	// First occurrence of today's weekday at the requested time that is strictly after now.
+	// In all but the 00:00 minute that is next week, which is the case this test exists for.
+	want := time.Date(now.Year(), now.Month(), now.Day(),
+		timeToSchedule.Hour(), timeToSchedule.Minute(), 0, 0, time.Local)
+	for !want.After(now) {
+		want = want.Add(7 * 24 * time.Hour)
+	}
+	if !job.NextScheduledTime().Equal(want) {
+		t.Errorf("Job should be scheduled for the next future occurrence.\nGot %+v, expected %+v",
+			job.NextScheduledTime(), want)
 	}
 }
 

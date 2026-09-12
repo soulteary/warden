@@ -36,6 +36,10 @@
   被格式校验拒绝的记录不会再被投递到其他副本。
 - 成功刷新日志新增 `applied_count` 字段，与 `count`（加载条数）并列，使记录被丢弃的情况可观测；
   当加载到的记录全部未通过格式校验时额外输出 Warn 级别日志（此前该状态只在 Debug 级别可见）。
+- 修正 `pkg/gocron` 中 `TestScheduler_WeekdaysTodayAfter` 的时间依赖缺陷：它用 `now.Minute()-1`
+  构造「今天已过去的时刻」，在 00:00 这一分钟内该运算会回退到前一天 23:59，从而改变星期并使前提
+  失效（23:59 今天尚未到来），导致每天有一分钟窗口必然失败。现改为在时刻上做减法，并按调度器契约
+  （今天这个星期几、该时刻的第一个严格晚于当前时间的 occurrence）推导期望值，而不是硬编码「+7 天」。
 
 ### Security
 - 根路径 `/` 改为精确匹配（`/{$}`），未注册路径由独立的兜底处理器返回本地化 JSON `404`。
@@ -66,6 +70,11 @@
   6 个 `http.*` 面向用户的错误消息。
 - 新增 `locales` 包的完整性测试：校验各语言键集合与 `en.json` 一致、printf 占位符序列一致、且不存在
   与英文完全相同的未翻译值。
+- CI 覆盖率报告改用 `soulteary/go-test-report-action` 取代 Codecov：该 action 自行运行测试、
+  统计覆盖率并执行 80% 阈值门禁，同时产出 Markdown 报告、SVG 徽章与 JSON。PR 分支只校验不回写；
+  默认分支由新增的 `.github/workflows/go-test-report.yml` 回写 `.github/go-test-report.md` 与
+  `.github/coverage.svg`，与仓库既有的 `go-reportcard.yml` 分工一致。各语言 README 的覆盖率徽章
+  改为指向仓库内的 `.github/coverage.svg`，不再依赖外部服务与 `CODECOV_TOKEN`。
 
 ### Removed
 - 移除已不再使用的翻译键 `log.data_modified_during_update`。
