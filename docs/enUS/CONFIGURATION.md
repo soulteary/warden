@@ -124,7 +124,11 @@ obvious, and immediately noticed.
   a stored valid empty set from a missing key. The former becomes a known-good
   `source=redis` snapshot and preempts possibly stale upstream/local fallbacks; only the
   latter continues to other sources. Health checks use the same snapshot provenance to
-  distinguish a legitimate empty set from data that has never loaded.
+  distinguish a legitimate empty set from data that has never loaded. Because `Get` and
+  `Exists` are two round-trips taken before writer election, the value is re-read after
+  `Exists` confirms presence: otherwise a peer publishing a rule set between the two calls
+  would leave this replica pairing the pre-write empty slice with a post-write existence and
+  serving an empty allow list until the next refresh.
 - **Identity validation failures** (conflicts, missing `user_id`) are unrelated to
   this policy: under both values they keep the last known good data and record a
   refresh failure. If a set has both identity conflicts and per-record format

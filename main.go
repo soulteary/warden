@@ -362,16 +362,14 @@ func (app *App) bootstrapFromRedis() bool {
 		return false
 	}
 	if len(cachedUsers) == 0 {
-		if app.redisCacheExists == nil {
+		resolved, ok := app.resolveEmptyRedisRead()
+		if !ok {
 			prommetrics.CacheMisses.Inc()
 			return false
 		}
-		exists, existsErr := app.redisCacheExists()
-		if existsErr != nil || !exists {
-			prommetrics.CacheMisses.Inc()
-			return false
-		}
-	} else {
+		cachedUsers = resolved
+	}
+	if len(cachedUsers) > 0 {
 		keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(cachedUsers)
 		if identityErr != nil || keepLastKnownGood {
 			prommetrics.CacheMisses.Inc()
@@ -398,6 +396,41 @@ func (app *App) bootstrapFromRedis() bool {
 		Int("count", len(applied)).
 		Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
 	return true
+}
+
+// resolveEmptyRedisRead decides what an empty Get actually stands for, and returns the value
+// bootstrap should adopt. The bool is false when there is nothing stored to adopt.
+//
+// Get returns the same empty slice for a missing key and for a deliberately stored [], so
+// Exists is needed to separate them. But Get and Exists are two round-trips, and this runs
+// before acquireRedisRefreshWriter, so nothing serializes them against a peer: if the key is
+// absent during Get and a peer publishes a non-empty set before Exists, we would be holding
+// the pre-write empty slice while Exists truthfully reports "something is stored". Adopting
+// that combination hands out an empty allow list — denying everyone until the next refresh —
+// on the strength of an existence that belongs to data we never read.
+//
+// So the value is re-read after Exists: whatever we adopt was observed no earlier than the
+// existence we trusted. A non-empty re-read rejoins the normal non-empty path in the caller.
+//
+// This converges rather than being atomic — the key could still be deleted between Exists
+// and the re-read, leaving us adopting an empty set for a key that just vanished. That
+// residual is the far milder direction (it lands on the stored-empty-set semantics we
+// already implement, instead of discarding a freshly published rule set), and closing it
+// properly needs a combined presence-and-contents operation that the shared cache does not
+// expose today.
+func (app *App) resolveEmptyRedisRead() ([]define.AllowListUser, bool) {
+	if app.redisCacheExists == nil || app.loadFromRedis == nil {
+		return nil, false
+	}
+	exists, err := app.redisCacheExists()
+	if err != nil || !exists {
+		return nil, false
+	}
+	reread, err := app.loadFromRedis()
+	if err != nil {
+		return nil, false
+	}
+	return reread, true
 }
 
 // keepSharedRuleSetAfterAllRejected handles an all-rejected load at startup under

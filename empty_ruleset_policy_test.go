@@ -496,6 +496,64 @@ func TestApp_loadInitialData_RedisBootstrapAcceptsKnownEmptySet(t *testing.T) {
 	assert.NotEqual(t, health.StatusUnhealthy, result.Status)
 }
 
+// TestApp_loadInitialData_RedisBootstrapRereadsAfterExists pins the Get/Exists race.
+//
+// Get and Exists are two round-trips, and bootstrap runs before acquireRedisRefreshWriter,
+// so nothing serializes them against a peer. The scripted sequence here is the dangerous
+// interleaving: the key is absent during the first Get, a peer publishes a rule set, and
+// Exists then truthfully reports that something is stored. Pairing the pre-write empty slice
+// with that post-write existence would make this replica adopt an empty allow list and
+// return — denying every user until the next refresh — while the real data sat in Redis all
+// along. Re-reading after Exists is what keeps the adopted value and the trusted existence
+// from belonging to two different points in time.
+func TestApp_loadInitialData_RedisBootstrapRereadsAfterExists(t *testing.T) {
+	published := mustParse(t, goodRuleSet)
+	reads := 0
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", goodRuleSet,
+		func() ([]define.AllowListUser, error) {
+			reads++
+			if reads == 1 {
+				// Key still absent: Get cannot distinguish this from a stored [].
+				return nil, nil
+			}
+			// A peer published between Get and Exists.
+			return append([]define.AllowListUser(nil), published...), nil
+		})
+	app.redisCacheExists = func() (bool, error) { return true, nil }
+
+	require.NoError(t, app.loadInitialData(dataFile, ""))
+
+	assert.Equal(t, 2, reads, "确认键存在之后必须重新读取，而不是沿用读到的空切片")
+	assert.Len(t, app.userCache.Get(), 2,
+		"必须采纳同伴刚发布的规则集，而不是竞态窗口里那个空集")
+	snap := app.snapshots.Load()
+	require.NotNil(t, snap)
+	assert.Equal(t, loader.SourceRedis, snap.Source)
+	assert.Equal(t, 2, snap.Count)
+}
+
+// TestApp_loadInitialData_RedisBootstrapRereadErrorIsAMiss keeps the re-read on the same
+// fail-safe footing as the rest of the bootstrap: a value that cannot be read back is not
+// adopted on the strength of Exists alone.
+func TestApp_loadInitialData_RedisBootstrapRereadErrorIsAMiss(t *testing.T) {
+	reads := 0
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", goodRuleSet,
+		func() ([]define.AllowListUser, error) {
+			reads++
+			if reads == 1 {
+				return nil, nil
+			}
+			return nil, assert.AnError
+		})
+	app.redisCacheExists = func() (bool, error) { return true, nil }
+	app.redisRefreshLocker = &stubRefreshLocker{locked: false}
+
+	require.NoError(t, app.loadInitialData(dataFile, ""))
+
+	assert.Len(t, app.userCache.Get(), 2, "重读失败时应按未命中处理，继续加载数据源")
+	assert.Equal(t, loader.SourceLocal, app.snapshots.Load().Source)
+}
+
 // TestApp_loadInitialData_RedisBootstrapTreatsAbsentEmptyAsMiss is the converse: Get also
 // returns [] for a missing key, but Exists=false must let normal sources load rather than
 // inventing an authoritative empty Redis snapshot.
