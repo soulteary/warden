@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/prommetrics"
@@ -63,12 +64,34 @@ func (s *snapshotStore) Load() *Snapshot {
 	return s.current.Load()
 }
 
+// HasKnownGood reports whether the store contains a successfully loaded snapshot. Count
+// is deliberately not part of the check: an empty allow list can be a valid mass
+// revocation, while SourceNone/zero LoadedAt represent a process that has loaded nothing.
+func (s *snapshotStore) HasKnownGood() bool {
+	if s == nil {
+		return false
+	}
+	return isKnownGoodSnapshot(s.current.Load())
+}
+
+func isKnownGoodSnapshot(snap *Snapshot) bool {
+	return snap != nil && snap.Source != loader.SourceNone && !snap.LoadedAt.IsZero()
+}
+
 // Store atomically replaces the current snapshot and resets failure counters.
 func (s *snapshotStore) Store(snap *Snapshot) {
 	s.current.Store(snap)
 	s.refreshFailures.Store(0)
 	empty := ""
 	s.lastRefreshReason.Store(&empty)
+}
+
+// StorePreservingFailures adopts a newly recovered last-known-good baseline without
+// treating the current source refresh as successful. This is used when Redis becomes
+// readable during an all-rejected refresh: the cache recovery supplies provenance, but
+// the rejected upstream/local load must remain part of the consecutive failure sequence.
+func (s *snapshotStore) StorePreservingFailures(snap *Snapshot) {
+	s.current.Store(snap)
 }
 
 // RecordRefreshFailure increments the failure counter and records a reason code,
@@ -109,6 +132,45 @@ func snapshotFromResult(res *loader.LoadResult) *Snapshot {
 		DegradedReason: res.DegradedReason,
 	}
 }
+
+// snapshotFromRedis builds provenance for a rule set restored from the shared cache.
+// Redis currently stores the effective users but not the original source timestamp, so
+// LoadedAt records when this replica successfully verified and adopted the cached set.
+// Marking it degraded keeps the fallback visible while giving strict modes a bounded
+// freshness window instead of treating a usable bootstrap as SourceNone immediately.
+func snapshotFromRedis(users []define.AllowListUser) *Snapshot {
+	return &Snapshot{
+		Users:          users,
+		Count:          len(users),
+		Source:         loader.SourceRedis,
+		Version:        cache.HashUserList(users),
+		LoadedAt:       time.Now(),
+		Degraded:       true,
+		DegradedReason: "redis_bootstrap",
+	}
+}
+
+// hasKnownGoodSnapshot distinguishes a legitimately empty effective rule set from a
+// process that has never obtained any valid data. Cache length alone cannot make that
+// distinction, yet it determines whether publishing an empty slice to Redis is a valid
+// renewal or could erase a shared last-known-good set after a bootstrap failure.
+func (app *App) hasKnownGoodSnapshot() bool {
+	return app.snapshots.HasKnownGood()
+}
+
+// Refresh failure reasons that are not derived from a load error. They share the same
+// stable, low-cardinality label space as classifyRefreshReason, which is what keeps the
+// reason label on refresh_failures_total bounded.
+const (
+	// reasonIdentityConflict: identity validation rejected the set (duplicate identifier
+	// or a record missing a required user_id).
+	reasonIdentityConflict = "identity_conflict"
+	// reasonAllRecordsRejected: the load succeeded and returned records, but every one of
+	// them failed per-record validation. Only recorded as a failure under the
+	// availability-first empty-ruleset policy; consistency-first applies the empty set and
+	// counts the refresh as successful.
+	reasonAllRecordsRejected = "all_records_rejected"
+)
 
 // classifyRefreshReason maps a load error to a stable, low-cardinality, non-sensitive
 // reason code suitable for logs and metric labels. It never includes error contents,

@@ -45,6 +45,7 @@ type Config struct {
 	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
 	UserIDStrategy           string   // env USER_ID_STRATEGY: legacy|sha256-128 (default legacy)
 	RequireExplicitUserID    bool     // env REQUIRE_EXPLICIT_USER_ID: reject records without user_id
+	EmptyRulesetPolicy       string   // env EMPTY_RULESET_POLICY: consistency-first|availability-first
 	TaskInterval             int      // 8 bytes
 	HTTPTimeout              int      // 8 bytes
 	HTTPMaxIdleConns         int      // 8 bytes
@@ -448,6 +449,17 @@ func processIdentityFromEnv(cfg *Config) {
 	}
 }
 
+// processDataPolicyFromEnv reads EMPTY_RULESET_POLICY from env. It decides what a refresh
+// does when a load succeeds, returns records, and every one of them is rejected by
+// per-record validation, leaving the effective rule set empty. There is no CLI flag: the
+// choice is a deployment property, like USER_ID_STRATEGY. An empty value keeps the
+// historical consistency-first behavior.
+func processDataPolicyFromEnv(cfg *Config) {
+	if v := env.GetTrimmed("EMPTY_RULESET_POLICY", ""); v != "" {
+		cfg.EmptyRulesetPolicy = strings.ToLower(v)
+	}
+}
+
 // processServiceAuthFromEnv reads service-to-service auth config from env (no CLI flags).
 const (
 	defaultHMACToleranceSec = 60
@@ -538,6 +550,7 @@ func getArgsFromFlags() *Config {
 	processResponseFieldsFromEnv(cfg)
 	processRemoteDecryptFromEnv(cfg)
 	processIdentityFromEnv(cfg)
+	processDataPolicyFromEnv(cfg)
 	processServiceAuthFromEnv(cfg)
 
 	return cfg
@@ -566,6 +579,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		RemoteEncryptionFormat:   cfg.RemoteEncryptionFormat,
 		UserIDStrategy:           cfg.UserIDStrategy,
 		RequireExplicitUserID:    cfg.RequireExplicitUserID,
+		EmptyRulesetPolicy:       cfg.EmptyRulesetPolicy,
 		HTTPTimeout:              cfg.HTTPTimeout,
 		HTTPMaxIdleConns:         cfg.HTTPMaxIdleConns,
 		HTTPInsecureTLS:          cfg.HTTPInsecureTLS,

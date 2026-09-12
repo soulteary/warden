@@ -21,6 +21,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | When using `--config-file`, tracing is not read from that file unless `CONFIG_FILE` is set to the same path |
 | Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
+| Data policy | — / `EMPTY_RULESET_POLICY` | What a refresh does when every loaded record is rejected; `consistency-first` (default) or `availability-first`, see [Empty ruleset policy](#empty-ruleset-policy) |
 
 ## Running Mode (MERGE_MODE)
 
@@ -56,6 +57,97 @@ degraded in every tolerant mode.
 In multi-replica deployments every replica refreshes its process-local cache and
 snapshot. A distributed Redis lock elects only the writer of the shared Redis
 cache, so non-writers still advance their own snapshot freshness.
+
+### Empty ruleset policy
+
+Warden filters records in two layers. **Identity validation** (duplicate
+identifiers, missing `user_id`) runs over the whole set: one bad record fails the
+entire refresh and the last known good data is kept. **Per-record format
+validation** (phone and mail format) lives in the cache: it silently drops the
+records it rejects and keeps the rest.
+
+Together they produce one peculiar state: **a load succeeds, returns records, and
+not a single one of them reaches the effective rule set.** The usual cause is an
+upstream format change — `13800138000` becoming `138-0013-8000`, say. The
+upstream is perfectly healthy, the load reports success, and every record is
+discarded one layer down.
+
+From inside Warden that state is **ambiguous**, and the two readings are
+indistinguishable from the data alone:
+
+| Reading | Correct response |
+|---------|------------------|
+| "the upstream revoked everyone" | the empty set is correct and must take effect now |
+| "the upstream changed format" | the empty set is an artifact and must not take effect |
+
+Since Warden cannot tell them apart, the operator chooses, via the
+`EMPTY_RULESET_POLICY` environment variable:
+
+| Value | Behavior | When to choose it |
+|-------|----------|-------------------|
+| `consistency-first` (default) | Apply and publish the empty set: the in-memory cache empties, the shared Redis cache is updated to match, and the refresh counts as successful | The upstream is the single source of truth and **divergence is worse than unavailability**: a legitimate mass revocation propagates immediately, and an upstream format regression surfaces at once as "everything is denied" instead of hiding behind stale data |
+| `availability-first` | Treat it as a failed refresh: keep the last known good rule set in memory; renew the shared cache only when this replica has a proven known-good snapshot, otherwise retry Redis or skip the write; advance the failure counter, let snapshot age keep growing, and report degraded health | **The availability loss outweighs the risk of wrongly allowing**: with an unstable data source and replicas that restart often, one upstream glitch would otherwise empty every replica and leave restarted ones with nothing to bootstrap from |
+
+The default preserves the historical behavior. It is also the right bias for an
+allow list: continuing to admit users the source of truth no longer contains is a
+**security** failure, while denying users is an **availability** failure — loud,
+obvious, and immediately noticed.
+
+#### What the policy does not change
+
+- **A load that genuinely returns zero records** is not ambiguous and always
+  takes effect under both policies. Otherwise revoking every user would become
+  impossible.
+- **Startup** (`loadInitialData`) normally bootstraps from the shared Redis cache
+  first, but one transient read failure does not mean its last-known-good set has
+  disappeared. If the subsequent upstream/local load is non-empty but every record
+  fails format validation, availability-first retries Redis after acquiring the
+  writer lock. A recovered cache bootstraps the replica; if it remains unreadable,
+  this replica stays empty but never writes an empty replacement over data that may
+  still exist in Redis.
+
+  `MERGE_MODE=ONLY_LOCAL` skips the normal Redis-first read, so it enters the same
+  guarded flow directly. consistency-first keeps its historical startup behavior
+  on every path: apply and publish the result after per-record validation.
+- **A successful Redis bootstrap** creates a degraded snapshot with `source=redis`,
+  load time, and content version. Strict remote modes can therefore measure
+  `SNAPSHOT_MAX_AGE` from adoption instead of returning 503 immediately because the
+  source is `none`. If startup never obtains valid data, the first background refresh
+  retries Redis and still skips publishing the process's zero-value empty cache if the
+  retry fails. If a legacy non-empty Redis payload is reduced to zero by current format
+  validation, the configured policy still applies: consistency-first adopts the effective
+  empty set, while availability-first rejects it as a bootstrap baseline and continues to
+  the configured sources.
+- **A genuinely empty successful startup load** is applied, snapshotted, and published
+  to Redis immediately; a mass revocation does not wait for the first background cycle.
+  On restart, Redis `Get` returning an empty slice is followed by `Exists` to distinguish
+  a stored valid empty set from a missing key. The former becomes a known-good
+  `source=redis` snapshot and preempts possibly stale upstream/local fallbacks; only the
+  latter continues to other sources. Health checks use the same snapshot provenance to
+  distinguish a legitimate empty set from data that has never loaded. Because `Get` and
+  `Exists` are two round-trips taken before writer election, the value is re-read after
+  `Exists` confirms presence: otherwise a peer publishing a rule set between the two calls
+  would leave this replica pairing the pre-write empty slice with a post-write existence and
+  serving an empty allow list until the next refresh.
+- **Identity validation failures** (conflicts, missing `user_id`) are unrelated to
+  this policy: under both values they keep the last known good data and record a
+  refresh failure. If a set has both identity conflicts and per-record format
+  errors, the identity-integrity failure takes precedence and is not classified as
+  `all_records_rejected`.
+
+#### Observability
+
+| Policy | Log | `warden_refresh_failures_total{reason}` |
+|--------|-----|------------------------------------------|
+| `consistency-first` | `WARN` with `loaded_count` / `policy` | not counted (the refresh is successful) |
+| `availability-first` | `WARN` with `loaded_count` / `kept_count` / `has_known_good` / `consecutive_failures` | `reason="all_records_rejected"` |
+
+Under availability-first the snapshot version is deliberately not advanced, so the
+next cycle still sees the broken load as a change and retries; once the upstream
+recovers, the first successful refresh clears the failure counter and applies the
+new data normally. Meanwhile snapshot age keeps growing and the health endpoint
+returns 503 past `SNAPSHOT_MAX_AGE` — "still serving, but the data is stale" stays
+visible rather than being silently papered over.
 
 ### Configuration Methods
 

@@ -540,6 +540,7 @@ type CmdConfigData struct {
 	RemoteEncryptionRequired bool     // env REMOTE_ENCRYPTION_REQUIRED: fail closed on plaintext
 	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
 	UserIDStrategy           string   // env USER_ID_STRATEGY: legacy|sha256-128
+	EmptyRulesetPolicy       string   // env EMPTY_RULESET_POLICY: consistency-first|availability-first
 	RequireExplicitUserID    bool     // env REQUIRE_EXPLICIT_USER_ID: reject records without user_id
 	TaskInterval             int      // 8 bytes
 	HTTPTimeout              int      // 8 bytes
@@ -637,6 +638,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		remoteEncFormat = strings.ToLower(v)
 	}
 	userIDStrategy := strings.ToLower(strings.TrimSpace(os.Getenv("USER_ID_STRATEGY")))
+	emptyRulesetPolicy := strings.ToLower(strings.TrimSpace(os.Getenv("EMPTY_RULESET_POLICY")))
 	requireExplicitUserID := false
 	if v := strings.TrimSpace(os.Getenv("REQUIRE_EXPLICIT_USER_ID")); v != "" {
 		requireExplicitUserID = strings.EqualFold(v, "true") || v == "1"
@@ -662,6 +664,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		RemoteEncryptionFormat:   remoteEncFormat,
 		UserIDStrategy:           userIDStrategy,
 		RequireExplicitUserID:    requireExplicitUserID,
+		EmptyRulesetPolicy:       emptyRulesetPolicy,
 		HTTPTimeout:              int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:          c.HTTP.InsecureTLS,

@@ -56,6 +56,10 @@ app:
   # 身份完整性（通过环境变量配置，详见 docs/migration-config.md）：
   #   REQUIRE_EXPLICIT_USER_ID=true             # 缺少显式 user_id 时拒绝（不静默派生）
   #   USER_ID_STRATEGY=legacy|sha256-128        # user_id 派生策略
+  # 空规则集策略（通过环境变量配置，详见 docs/zhCN/CONFIGURATION.md#空规则集策略）：
+  #   EMPTY_RULESET_POLICY=consistency-first|availability-first
+  #     consistency-first   加载到的记录全部被拒时，应用并发布空集（默认，保持历史行为）
+  #     availability-first  加载到的记录全部被拒时，保留上一次有效的规则集
 
 tracing:
   enabled: false  # 是否启用 OpenTelemetry 追踪

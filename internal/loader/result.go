@@ -17,6 +17,10 @@ const (
 	SourceLocal Source = "local"
 	// SourceMerged indicates the rules came from a merge of remote and local.
 	SourceMerged Source = "merged"
+	// SourceRedis indicates the rules were restored from the shared Redis cache during
+	// process bootstrap or recovery. The original upstream provenance is unavailable,
+	// but the cache still provides a usable last-known-good baseline.
+	SourceRedis Source = "redis"
 	// SourceNone indicates no rules were loaded.
 	SourceNone Source = "none"
 )
