@@ -86,7 +86,7 @@ Since Warden cannot tell them apart, the operator chooses, via the
 | Value | Behavior | When to choose it |
 |-------|----------|-------------------|
 | `consistency-first` (default) | Apply and publish the empty set: the in-memory cache empties, the shared Redis cache is updated to match, and the refresh counts as successful | The upstream is the single source of truth and **divergence is worse than unavailability**: a legitimate mass revocation propagates immediately, and an upstream format regression surfaces at once as "everything is denied" instead of hiding behind stale data |
-| `availability-first` | Treat it as a failed refresh: keep the last known good rule set in memory, renew the same data in the shared cache, advance the failure counter, let snapshot age keep growing, and report degraded health | **The availability loss outweighs the risk of wrongly allowing**: with an unstable data source and replicas that restart often, one upstream glitch would otherwise empty every replica and leave restarted ones with nothing to bootstrap from |
+| `availability-first` | Treat it as a failed refresh: keep the last known good rule set in memory; renew the shared cache only when this replica has a proven known-good snapshot, otherwise retry Redis or skip the write; advance the failure counter, let snapshot age keep growing, and report degraded health | **The availability loss outweighs the risk of wrongly allowing**: with an unstable data source and replicas that restart often, one upstream glitch would otherwise empty every replica and leave restarted ones with nothing to bootstrap from |
 
 The default preserves the historical behavior. It is also the right bias for an
 allow list: continuing to admit users the source of truth no longer contains is a
@@ -109,6 +109,14 @@ obvious, and immediately noticed.
   `MERGE_MODE=ONLY_LOCAL` skips the normal Redis-first read, so it enters the same
   guarded flow directly. consistency-first keeps its historical startup behavior
   on every path: apply and publish the result after per-record validation.
+- **A successful Redis bootstrap** creates a degraded snapshot with `source=redis`,
+  load time, and content version. Strict remote modes can therefore measure
+  `SNAPSHOT_MAX_AGE` from adoption instead of returning 503 immediately because the
+  source is `none`. If startup never obtains valid data, the first background refresh
+  retries Redis and still skips publishing the process's zero-value empty cache if the
+  retry fails.
+- **A genuinely empty successful startup load** is applied, snapshotted, and published
+  to Redis immediately; a mass revocation does not wait for the first background cycle.
 - **Identity validation failures** (conflicts, missing `user_id`) are unrelated to
   this policy: under both values they keep the last known good data and record a
   refresh failure. If a set has both identity conflicts and per-record format
@@ -120,7 +128,7 @@ obvious, and immediately noticed.
 | Policy | Log | `warden_refresh_failures_total{reason}` |
 |--------|-----|------------------------------------------|
 | `consistency-first` | `WARN` with `loaded_count` / `policy` | not counted (the refresh is successful) |
-| `availability-first` | `WARN` with `loaded_count` / `kept_count` / `consecutive_failures` | `reason="all_records_rejected"` |
+| `availability-first` | `WARN` with `loaded_count` / `kept_count` / `has_known_good` / `consecutive_failures` | `reason="all_records_rejected"` |
 
 Under availability-first the snapshot version is deliberately not advanced, so the
 next cycle still sees the broken load as a change and retries; once the upstream

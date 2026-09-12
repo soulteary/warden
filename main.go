@@ -344,6 +344,39 @@ func (app *App) shouldKeepLastKnownGood(users []define.AllowListUser) (bool, err
 	return true, nil
 }
 
+// bootstrapFromRedis tries to adopt a non-empty, valid rule set from the shared cache and
+// records usable snapshot provenance for it. A successful Redis Get is not enough: older
+// deployments or corrupted shared data may still contain records rejected by the current
+// validator, so the effective in-memory result must also be non-empty.
+func (app *App) bootstrapFromRedis() bool {
+	if app.loadFromRedis == nil {
+		return false
+	}
+	cachedUsers, err := app.loadFromRedis()
+	if err != nil || len(cachedUsers) == 0 || cache.AcceptableCount(cachedUsers) == 0 {
+		prommetrics.CacheMisses.Inc()
+		return false
+	}
+	if err := app.applyUsers(cachedUsers); err != nil {
+		prommetrics.CacheMisses.Inc()
+		return false
+	}
+
+	applied := app.userCache.Get()
+	if len(applied) == 0 {
+		// Defensive guard in case cache validation and AcceptableCount ever drift.
+		prommetrics.CacheMisses.Inc()
+		return false
+	}
+	app.snapshots.StorePreservingFailures(snapshotFromRedis(applied))
+	app.updateSnapshotMetrics()
+	prommetrics.CacheHits.Inc()
+	app.log.Info().
+		Int("count", len(applied)).
+		Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
+	return true
+}
+
 // keepSharedRuleSetAfterAllRejected handles an all-rejected load at startup under
 // availability-first: it publishes nothing, so the shared cache keeps the last known good
 // rule set, and it boots this replica from that set where the set is reachable.
@@ -352,29 +385,14 @@ func (app *App) shouldKeepLastKnownGood(users []define.AllowListUser) (bool, err
 // — the shared cache is what a restarting replica reads first — turning a transient bad
 // input into an outage that outlives the input being fixed.
 //
-// No snapshot is stored, matching the ONLY_LOCAL load-failure path: no valid load happened,
-// so the version still describes the good data and the next background refresh sees the
-// broken input as a change and retries rather than skipping it as unchanged.
+// The rejected input is never stored as a snapshot. If Redis can be restored, its verified
+// effective set receives redis bootstrap provenance; otherwise the snapshot remains unknown
+// and a later background refresh is forbidden from publishing this replica's empty cache.
 func (app *App) keepSharedRuleSetAfterAllRejected(loadedCount int) {
-	kept := 0
-	if app.loadFromRedis != nil {
-		if cachedUsers, err := app.loadFromRedis(); err == nil && len(cachedUsers) > 0 {
-			prommetrics.CacheHits.Inc()
-			if applyErr := app.applyUsers(cachedUsers); applyErr == nil {
-				kept = app.userCache.Len()
-				app.log.Info().
-					Int("count", kept).
-					Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
-			} else {
-				prommetrics.CacheMisses.Inc()
-			}
-		} else {
-			prommetrics.CacheMisses.Inc()
-		}
-	}
+	app.bootstrapFromRedis()
 	app.log.Warn().
 		Int("loaded_count", loadedCount).
-		Int("kept_count", kept).
+		Int("kept_count", app.userCache.Len()).
 		Str("policy", app.emptyRulesetPolicy.String()).
 		Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected_kept"))
 }
@@ -402,7 +420,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
 		localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
 		localUsers := localRes.Users
-		if localRes.Err == nil && len(localUsers) > 0 {
+		if localRes.Err == nil {
 			app.log.Info().
 				Int("count", len(localUsers)).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
@@ -410,9 +428,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			// backgroundTask does: applyUsers is the single atomic swap point, so probing
 			// by applying and undoing would expose an empty rule set to concurrent readers.
 			//
-			// A local file that genuinely holds zero records is not ambiguous and never
-			// reaches here — len(localUsers) > 0 gates this whole branch — so revoking
-			// every user stays possible under both policies.
+			// A local file that genuinely holds zero records is not ambiguous:
+			// shouldKeepLastKnownGood returns false for it, so the empty set continues
+			// through the normal apply/snapshot/publish path under both policies.
 			keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(localUsers)
 			if identityErr != nil {
 				return identityErr
@@ -427,12 +445,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			}
 			app.snapshots.Store(snapshotFromResult(&localRes))
 			app.updateSnapshotMetrics()
-			if writeRedis {
-				// Seed Redis with the effective cache contents, matching backgroundTask.
-				if err := app.redisUserCache.Set(app.userCache.Get()); err != nil {
-					app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
-				}
-			}
+			// Seed Redis with the effective cache contents, including a legitimate empty
+			// set. This uses the same retrying/testable writer as background refreshes.
+			app.seedRedisIfWriter(writeRedis, app.userCache.Get())
 			return nil
 		}
 		if dataDir == "" {
@@ -451,21 +466,8 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	}
 
 	// 1. Try to load from Redis cache (if Redis is available)
-	if app.redisUserCache != nil && app.loadFromRedis != nil {
-		if cachedUsers, err := app.loadFromRedis(); err == nil && len(cachedUsers) > 0 {
-			prommetrics.CacheHits.Inc()
-			app.log.Info().
-				Int("count", len(cachedUsers)).
-				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_redis"))
-			if err := app.applyUsers(cachedUsers); err != nil {
-				// Redis held a conflicting set; fall through to remote/local sources.
-				prommetrics.CacheMisses.Inc()
-			} else {
-				return nil
-			}
-		} else {
-			prommetrics.CacheMisses.Inc()
-		}
+	if app.redisUserCache != nil && app.bootstrapFromRedis() {
+		return nil
 	}
 
 	// 2. Try to load from parser-kit (remote + local by mode)
@@ -474,7 +476,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 
 	res := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	users := res.Users
-	if res.Err == nil && len(users) > 0 {
+	if res.Err == nil {
 		app.log.Info().
 			Int("count", len(users)).
 			Str("source", string(res.Source)).
@@ -505,12 +507,9 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 		if res.Degraded {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
 		}
-		if writeRedis {
-			// Seed Redis with the effective cache contents, matching backgroundTask.
-			if err := app.redisUserCache.Set(app.userCache.Get()); err != nil {
-				app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
-			}
-		}
+		// Seed Redis with the effective cache contents, including a legitimate empty
+		// set. This uses the same retrying/testable writer as background refreshes.
+		app.seedRedisIfWriter(writeRedis, app.userCache.Get())
 		return nil
 	}
 
@@ -666,6 +665,23 @@ func (app *App) updateRedisIfWriter(writer bool, users []define.AllowListUser) {
 	}
 }
 
+// seedRedisIfWriter publishes an initial rule set through the same retrying/test seam as
+// background updates while retaining startup-specific logging and metrics semantics.
+func (app *App) seedRedisIfWriter(writer bool, users []define.AllowListUser) {
+	if !writer {
+		return
+	}
+	publish := app.publishToRedis
+	if publish == nil {
+		publish = app.updateRedisCacheWithRetry
+	}
+	if err := publish(users); err != nil {
+		app.log.Warn().
+			Err(err).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_update_failed"))
+	}
+}
+
 // backgroundTask is a background task that periodically updates cache data
 //
 // This function implements intelligent cache update strategy with the following features:
@@ -789,21 +805,31 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		return
 	}
 	if keepLastKnownGood {
+		// A startup may have reached this first refresh without ever obtaining valid
+		// process-local data (for example, both Redis bootstrap reads failed). Retry the
+		// shared cache before deciding whether renewal is safe. Publishing userCache.Get
+		// while snapshot provenance is still unknown could overwrite a recovered shared
+		// last-known-good set with this replica's never-initialized empty cache.
+		if !app.hasKnownGoodSnapshot() {
+			app.bootstrapFromRedis()
+		}
+		hasKnownGood := app.hasKnownGoodSnapshot()
 		failures := app.snapshots.RecordRefreshFailure(reasonAllRecordsRejected)
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonAllRecordsRejected).Inc()
-		// Republish what this replica still serves, exactly as the unchanged-data path
-		// does. Entries in the shared cache carry define.REDIS_CACHE_TTL, so simply
-		// skipping the write would let the last known good set expire there while the
-		// upstream stays broken — and a replica restarting after that expiry is precisely
-		// the case availability-first exists to cover: it reads Redis first and would find
-		// nothing. The snapshot is deliberately NOT stored, so its version still describes
-		// the good data: the next cycle sees the broken load as a change and retries,
-		// snapshot age keeps growing, and health reports degraded.
-		app.updateRedisIfWriter(writeRedis, app.userCache.Get())
+		// Republish only a rule set this process knows is valid. Entries in the shared
+		// cache carry define.REDIS_CACHE_TTL, so a known-good set is renewed while the
+		// upstream stays broken. With no provenance, skipping the write is essential:
+		// Redis may have recovered with valid data after startup, while this process still
+		// holds only its zero-value empty cache. The snapshot version is deliberately not
+		// advanced to the rejected load, so the next cycle retries and age keeps growing.
+		if hasKnownGood {
+			app.updateRedisIfWriter(writeRedis, app.userCache.Get())
+		}
 		app.log.Warn().
 			Int("loaded_count", len(newUsers)).
 			Int("kept_count", app.userCache.Len()).
+			Bool("has_known_good", hasKnownGood).
 			Str("reason", reasonAllRecordsRejected).
 			Int64("consecutive_failures", failures).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected_kept"))

@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	health "github.com/soulteary/health-kit/v2"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
+	"github.com/soulteary/warden/internal/loader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -295,6 +299,7 @@ func onlyLocalRestartApp(t *testing.T, policy, localContent string, shared []def
 
 	// A restarted process holds nothing in memory; only the shared cache survives.
 	app.userCache.Set(nil)
+	app.snapshots = newSnapshotStore()
 	require.Empty(t, app.userCache.Get(), "重启的副本内存中不应有数据")
 	writeRuleSet(t, dataFile, localContent)
 	return app, dataFile
@@ -305,7 +310,7 @@ func onlyLocalRestartApp(t *testing.T, policy, localContent string, shared []def
 // helper then clears process-local state to the same empty state as a restart and installs
 // a zero-value shared cache whose accidental Set would panic. loadFromRedis supplies the
 // scripted bootstrap/retry behavior without requiring a live Redis server.
-func redisFirstRestartApp(t *testing.T, policy, localContent string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
+func redisFirstRestartApp(t *testing.T, policy, mode, localContent string, loadFromRedis func() ([]define.AllowListUser, error)) (app *App, dataFile string) {
 	t.Helper()
 
 	dataFile = filepath.Join(t.TempDir(), "rules.json")
@@ -314,7 +319,7 @@ func redisFirstRestartApp(t *testing.T, policy, localContent string, loadFromRed
 	app = NewApp(&cmd.Config{
 		Port:               "8081",
 		RedisEnabled:       false,
-		Mode:               "DEFAULT",
+		Mode:               mode,
 		APIKey:             "test-key",
 		TaskInterval:       60,
 		DataFile:           dataFile,
@@ -377,7 +382,7 @@ func TestApp_loadInitialData_AvailabilityFirst_ONLY_LOCAL_PreservesUnreadableSha
 func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t *testing.T) {
 	shared := parseRuleSet(t, goodRuleSet)
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "availability-first", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
 		reads++
 		if reads == 1 {
 			return nil, assert.AnError
@@ -392,6 +397,35 @@ func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t
 
 	assert.Equal(t, 2, reads, "获得写入者锁后应重试一次共享缓存读取")
 	assert.Len(t, app.userCache.Get(), 2, "Redis 恢复后应从共享的最后有效集合完成启动")
+	snap := app.snapshots.Load()
+	require.NotNil(t, snap)
+	assert.Equal(t, loader.SourceRedis, snap.Source, "共享缓存引导必须留下明确的快照来源")
+	assert.False(t, snap.LoadedAt.IsZero(), "共享缓存引导必须建立可计算新鲜度的时间基线")
+	assert.Equal(t, "redis_bootstrap", snap.DegradedReason)
+}
+
+// TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness verifies that a
+// strict remote replica serving shared last-known-good data is degraded but usable. Redis
+// adoption must establish source/time provenance so snapshot_freshness does not report
+// snapshot_unknown immediately after a successful restart.
+func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *testing.T) {
+	shared := parseRuleSet(t, goodRuleSet)
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "ONLY_REMOTE", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+		return shared, nil
+	})
+
+	require.NoError(t, app.loadInitialData(dataFile, ""))
+	require.True(t, app.hasKnownGoodSnapshot())
+	assert.Equal(t, loader.SourceRedis, app.snapshots.Load().Source)
+
+	aggregator := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute,
+		"ONLY_REMOTE", "development", false, false, "")
+	result := aggregator.Check(context.Background())
+
+	assert.Equal(t, health.StatusHealthy, result.Checks["snapshot_freshness"].Status,
+		"Redis 引导出的有效集合应从启动时开始计算新鲜度，而不是立即报告来源未知")
+	assert.NotEqual(t, health.StatusUnhealthy, result.Status,
+		"严格模式成功从 Redis 恢复后不应立即返回 503")
 }
 
 // TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors covers
@@ -400,7 +434,7 @@ func TestApp_loadInitialData_AvailabilityFirst_RetriesRedisAfterBootstrapError(t
 // untouched instead of publishing an empty replacement.
 func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors(t *testing.T) {
 	reads := 0
-	app, dataFile := redisFirstRestartApp(t, "availability-first", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
 		reads++
 		return nil, assert.AnError
 	})
@@ -412,6 +446,61 @@ func TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadEr
 
 	assert.Equal(t, 2, reads, "启动读取与锁内重试都应发生")
 	assert.Empty(t, app.userCache.Get(), "无可引导数据时本副本保持为空，但共享集合不得被覆盖")
+	assert.False(t, app.hasKnownGoodSnapshot(), "两次读取失败后不得伪造已知有效快照")
+
+	published := make([][]define.AllowListUser, 0, 1)
+	app.publishToRedis = func(users []define.AllowListUser) error {
+		published = append(published, append([]define.AllowListUser(nil), users...))
+		return nil
+	}
+	app.backgroundTask(dataFile, "")
+
+	assert.Equal(t, 3, reads, "首次后台刷新应再次尝试恢复共享的最后有效集合")
+	assert.Empty(t, published,
+		"仍无已知有效快照时绝不能续期进程的零值空缓存，否则会覆盖 Redis 中可能已恢复的数据")
+}
+
+// TestApp_backgroundTask_AvailabilityFirst_RecoversRedisAfterStartupMisses covers the
+// other half of the startup-to-refresh transition: both startup reads and the first
+// scheduled retry fail, Redis then recovers while the source remains all-invalid. The next
+// refresh must adopt the shared set before renewal without resetting the source-failure run.
+func TestApp_backgroundTask_AvailabilityFirst_RecoversRedisAfterStartupMisses(t *testing.T) {
+	shared := parseRuleSet(t, goodRuleSet)
+	reads := 0
+	app, dataFile := redisFirstRestartApp(t, "availability-first", "DEFAULT", rejectedRuleSet, func() ([]define.AllowListUser, error) {
+		reads++
+		if reads <= 3 {
+			return nil, assert.AnError
+		}
+		return shared, nil
+	})
+
+	require.NoError(t, app.loadInitialData(dataFile, ""))
+	require.Empty(t, app.userCache.Get())
+	require.False(t, app.hasKnownGoodSnapshot())
+
+	published := make([][]define.AllowListUser, 0, 1)
+	app.publishToRedis = func(users []define.AllowListUser) error {
+		published = append(published, append([]define.AllowListUser(nil), users...))
+		return nil
+	}
+	app.backgroundTask(dataFile, "")
+	require.Empty(t, app.userCache.Get(), "首次后台重读仍失败时不得伪造有效数据")
+	require.Empty(t, published, "没有已知有效集合时必须跳过共享缓存写入")
+	firstFailures, _ := app.snapshots.RefreshFailure()
+	require.EqualValues(t, 1, firstFailures)
+
+	app.backgroundTask(dataFile, "")
+
+	assert.Equal(t, 4, reads, "每次后台刷新都应重读尚未成功引导的 Redis")
+	assert.Len(t, app.userCache.Get(), 2, "Redis 恢复后应采用共享的最后有效集合")
+	require.Len(t, published, 1, "恢复出的已知有效集合可以安全续期")
+	assert.Equal(t, app.userCache.Get(), published[0])
+	assert.True(t, app.hasKnownGoodSnapshot())
+	assert.Equal(t, loader.SourceRedis, app.snapshots.Load().Source)
+	failures, reason := app.snapshots.RefreshFailure()
+	assert.EqualValues(t, 2, failures, "Redis 恢复只补回基线，不能清零仍在连续失败的源刷新")
+	assert.Equal(t, reasonAllRecordsRejected, reason)
 }
 
 // TestApp_loadInitialData_ConsistencyFirst_ONLY_LOCAL_AppliesEmptySet pins that the default
@@ -441,6 +530,32 @@ func TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyIsPolicyIndependent(t *tes
 			require.NoError(t, app.loadInitialData(dataFile, ""))
 
 			assert.Empty(t, app.userCache.Get(), "真正的空数据源不属于歧义场景，不会被当作「全部被拒」而去引导旧数据")
+		})
+	}
+}
+
+// TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyPublishesImmediately pins the startup
+// revocation guarantee end to end. A successful [] file is valid data, not a load failure:
+// it must replace process memory, establish an empty-but-known-good snapshot, and clear the
+// shared cache immediately rather than waiting for the first scheduled refresh.
+func TestApp_loadInitialData_ONLY_LOCAL_GenuinelyEmptyPublishesImmediately(t *testing.T) {
+	for _, policy := range []string{"consistency-first", "availability-first"} {
+		t.Run(policy, func(t *testing.T) {
+			shared := parseRuleSet(t, goodRuleSet)
+			app, dataFile := onlyLocalRestartApp(t, policy, emptyRuleSet, shared, nil, true)
+			published := make([][]define.AllowListUser, 0, 1)
+			app.publishToRedis = func(users []define.AllowListUser) error {
+				published = append(published, append([]define.AllowListUser(nil), users...))
+				return nil
+			}
+
+			require.NoError(t, app.loadInitialData(dataFile, ""))
+
+			assert.Empty(t, app.userCache.Get())
+			require.Len(t, published, 1, "启动时的合法全员撤权必须立即传播到共享缓存")
+			assert.Empty(t, published[0])
+			assert.True(t, app.hasKnownGoodSnapshot(), "合法空集与从未加载数据必须可区分")
+			assert.Equal(t, loader.SourceLocal, app.snapshots.Load().Source)
 		})
 	}
 }

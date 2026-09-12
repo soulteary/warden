@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/prommetrics"
@@ -71,6 +72,14 @@ func (s *snapshotStore) Store(snap *Snapshot) {
 	s.lastRefreshReason.Store(&empty)
 }
 
+// StorePreservingFailures adopts a newly recovered last-known-good baseline without
+// treating the current source refresh as successful. This is used when Redis becomes
+// readable during an all-rejected refresh: the cache recovery supplies provenance, but
+// the rejected upstream/local load must remain part of the consecutive failure sequence.
+func (s *snapshotStore) StorePreservingFailures(snap *Snapshot) {
+	s.current.Store(snap)
+}
+
 // RecordRefreshFailure increments the failure counter and records a reason code,
 // keeping the existing last-known-good snapshot untouched.
 func (s *snapshotStore) RecordRefreshFailure(reason string) int64 {
@@ -108,6 +117,35 @@ func snapshotFromResult(res *loader.LoadResult) *Snapshot {
 		Degraded:       res.Degraded,
 		DegradedReason: res.DegradedReason,
 	}
+}
+
+// snapshotFromRedis builds provenance for a rule set restored from the shared cache.
+// Redis currently stores the effective users but not the original source timestamp, so
+// LoadedAt records when this replica successfully verified and adopted the cached set.
+// Marking it degraded keeps the fallback visible while giving strict modes a bounded
+// freshness window instead of treating a usable bootstrap as SourceNone immediately.
+func snapshotFromRedis(users []define.AllowListUser) *Snapshot {
+	return &Snapshot{
+		Users:          users,
+		Count:          len(users),
+		Source:         loader.SourceRedis,
+		Version:        cache.HashUserList(users),
+		LoadedAt:       time.Now(),
+		Degraded:       true,
+		DegradedReason: "redis_bootstrap",
+	}
+}
+
+// hasKnownGoodSnapshot distinguishes a legitimately empty effective rule set from a
+// process that has never obtained any valid data. Cache length alone cannot make that
+// distinction, yet it determines whether publishing an empty slice to Redis is a valid
+// renewal or could erase a shared last-known-good set after a bootstrap failure.
+func (app *App) hasKnownGoodSnapshot() bool {
+	if app.snapshots == nil {
+		return false
+	}
+	snap := app.snapshots.Load()
+	return snap != nil && snap.Source != loader.SourceNone && !snap.LoadedAt.IsZero()
 }
 
 // Refresh failure reasons that are not derived from a load error. They share the same
