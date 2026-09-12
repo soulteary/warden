@@ -1,32 +1,30 @@
-# Deployment Documentation
+# Bereitstellungsdokumentation
 
 > 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](../jaJP/DEPLOYMENT.md) | [Deutsch](DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
-> ⚠️ **Übersetzungsstatus**: Diese Seite kann hinter dem Original zurückliegen. Maßgeblich sind die englische und die vereinfacht-chinesische Fassung; sie werden zuerst aktualisiert. Prüfe bei sicherheits- und konfigurationskritischen Einstellungen zusätzlich [English](../enUS/DEPLOYMENT.md) oder [中文](../zhCN/DEPLOYMENT.md).
+Dieses Dokument erklärt, wie der Warden-Dienst bereitgestellt wird – per Docker, lokal und mehr.
 
-This document explains how to deploy the Warden service, including Docker deployment, local deployment, etc.
+## Voraussetzungen
 
-## Prerequisites
+- Go 1.27+ (siehe [go.mod](../../go.mod))
+- Redis (für verteilte Locks und Caching)
+- Docker (optional, für die Bereitstellung im Container)
 
-- Go 1.27+ (refer to [go.mod](../../go.mod))
-- Redis (for distributed locks and caching)
-- Docker (optional, for containerized deployment)
+## Bereitstellung mit Docker
 
-## Docker Deployment
+> 🚀 **Schnelle Bereitstellung**: Im [Beispielverzeichnis](../../example/README.md) / [示例目录](../../example/README.md) finden Sie vollständige Beispielkonfigurationen für Docker Compose:
+> - [Einfaches Beispiel](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) – Grundlegende Docker-Compose-Konfiguration
+> - [Fortgeschrittenes Beispiel](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) – Vollständige Konfiguration inklusive Mock-API
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](../../example/README.md) / [示例目录](../../example/README.md) for complete Docker Compose configuration examples:
-> - [Simple Example](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - Basic Docker Compose configuration
-> - [Advanced Example](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - Complete configuration including Mock API
+### Vorgefertigtes Image verwenden (empfohlen)
 
-### Using Pre-built Image (Recommended)
-
-Warden provides pre-built Docker images that can be pulled directly from GitHub Container Registry (GHCR), no manual build required:
+Warden stellt vorgefertigte Docker-Images bereit, die sich direkt aus der GitHub Container Registry (GHCR) beziehen lassen – ein manueller Build ist nicht nötig:
 
 ```bash
-# Pull the latest version image
+# Image der neuesten Version beziehen
 docker pull ghcr.io/soulteary/warden:latest
 
-# Run container
+# Container starten
 docker run -d \
   -p 8081:8081 \
   -v $(pwd)/data.json:/app/data.json:ro \
@@ -38,72 +36,72 @@ docker run -d \
   ghcr.io/soulteary/warden:latest
 ```
 
-> 💡 **Tip**: Using pre-built images allows you to get started quickly without a local build environment. Images are automatically updated to ensure you're using the latest version.
+> 💡 **Tipp**: Mit vorgefertigten Images können Sie ohne lokale Build-Umgebung sofort loslegen. Die Images werden automatisch aktualisiert, sodass Sie stets die neueste Version verwenden.
 
-### Using Docker Compose
+### Docker Compose verwenden
 
-1. **Prepare environment variable file**
+1. **Datei mit Umgebungsvariablen vorbereiten**
    
-   If a `.env.example` file exists in the project root directory, you can copy it:
+   Existiert im Projektstammverzeichnis eine Datei `.env.example`, können Sie diese kopieren:
    ```bash
    cp .env.example .env
    ```
    
-   If the `.env.example` file doesn't exist, you can manually create a `.env` file with the following content:
+   Fehlt die Datei `.env.example`, können Sie eine `.env`-Datei mit folgendem Inhalt anlegen:
    ```env
-   # Server Configuration
+   # Serverkonfiguration
    PORT=8081
    
-   # Redis Configuration
+   # Redis-Konfiguration
    REDIS=warden-redis:6379
-   # Redis password (optional, recommend using environment variables instead of config file)
+   # Redis-Passwort (optional, Umgebungsvariablen statt Konfigurationsdatei empfohlen)
    # REDIS_PASSWORD=your-redis-password
-   # Or use password file (more secure)
+   # Oder Passwortdatei verwenden (sicherer)
    # REDIS_PASSWORD_FILE=/path/to/redis-password.txt
    
-   # Remote Data API
+   # Entfernte Daten-API
    CONFIG=http://example.com/api/data.json
-   # Remote configuration API authentication key
+   # Authentifizierungsschlüssel der Remote-Konfigurations-API
    KEY=Bearer your-token-here
    
-   # Task Configuration
+   # Task-Konfiguration
    INTERVAL=5
    
-   # Application Mode
+   # Anwendungsmodus
    MERGE_MODE=DEFAULT
    
-   # HTTP Client Configuration (optional)
+   # Konfiguration des HTTP-Clients (optional)
    # HTTP_TIMEOUT=5
    # HTTP_MAX_IDLE_CONNS=100
    # HTTP_INSECURE_TLS=false
    
-   # API Key (for API authentication, required in production)
+   # API-Key (für die API-Authentifizierung, in der Produktion erforderlich)
    API_KEY=your-api-key-here
    
-   # Health Check IP Whitelist (optional, comma-separated)
+   # IP-Allow-Liste für den Health-Check (optional, kommagetrennt)
    # HEALTH_CHECK_IP_WHITELIST=127.0.0.1,::1,10.0.0.0/8
    
-   # Trusted Proxy IP List (optional, comma-separated, for reverse proxy environments)
+   # Liste vertrauenswürdiger Proxy-IPs (optional, kommagetrennt, für Reverse-Proxy-Umgebungen)
    # TRUSTED_PROXY_IPS=127.0.0.1,10.0.0.1
    
-   # Log Level (optional)
+   # Log-Level (optional)
    # LOG_LEVEL=info
    ```
    
-   > ⚠️ **Security Note**: The `.env` file contains sensitive information. Do not commit it to version control. The `.env` file is already ignored by `.gitignore`. Please use the above content as a template to create the `.env` file.
+   > ⚠️ **Sicherheitshinweis**: Die Datei `.env` enthält vertrauliche Informationen. Committen Sie sie nicht in die Versionsverwaltung. Die Datei `.env` wird bereits von `.gitignore` ignoriert. Verwenden Sie den obigen Inhalt als Vorlage für Ihre `.env`-Datei.
 
-2. **Start the service**
+2. **Dienst starten**
 ```bash
 docker-compose up -d
 ```
 
-### Manual Image Build
+### Image manuell bauen
 
 ```bash
 docker build -f docker/Dockerfile -t warden-release .
 ```
 
-### Run Container
+### Container starten
 
 ```bash
 docker run -d \
@@ -116,24 +114,24 @@ docker run -d \
   warden-release
 ```
 
-## Local Deployment
+## Lokale Bereitstellung
 
-### 1. Clone the project
+### 1. Projekt klonen
 
 ```bash
 git clone <repository-url>
 cd warden
 ```
 
-### 2. Install dependencies
+### 2. Abhängigkeiten installieren
 
 ```bash
 go mod download
 ```
 
-### 3. Configure local data file
+### 3. Lokale Datendatei konfigurieren
 
-Create a `data.json` file (refer to `data.example.json`):
+Legen Sie eine Datei `data.json` an (siehe `data.example.json`):
 ```json
 [
     {
@@ -143,29 +141,29 @@ Create a `data.json` file (refer to `data.example.json`):
 ]
 ```
 
-**Note**: The `data.json` file supports the following fields:
-- `phone` (required): User phone number
-- `mail` (required): User email address
-- `user_id` (optional): User unique identifier, auto-generated if not provided
-- `status` (optional): User status, such as "active", "inactive", "suspended"; omitted values default to "inactive"
-- `scope` (optional): User permission scope array, such as `["read", "write"]`
-- `role` (optional): User role, such as "admin", "user"
+**Hinweis**: Die Datei `data.json` unterstützt die folgenden Felder:
+- `phone` (erforderlich): Telefonnummer des Benutzers
+- `mail` (erforderlich): E-Mail-Adresse des Benutzers
+- `user_id` (optional): Eindeutige Kennung des Benutzers, wird automatisch erzeugt, wenn nicht angegeben
+- `status` (optional): Benutzerstatus, etwa „active“, „inactive“, „suspended“; fehlende Werte gelten standardmäßig als „inactive“
+- `scope` (optional): Array der Berechtigungsbereiche des Benutzers, etwa `["read", "write"]`
+- `role` (optional): Rolle des Benutzers, etwa „admin“, „user“
 
-For a complete example, please refer to the `data.example.json` file.
+Ein vollständiges Beispiel finden Sie in der Datei `data.example.json`.
 
-### 4. Run the service
+### 4. Dienst starten
 
 ```bash
 go run .
 ```
 
-## Production Environment Deployment Recommendations
+## Empfehlungen für die Bereitstellung in der Produktion
 
-### 1. Use Reverse Proxy
+### 1. Reverse Proxy verwenden
 
-It is recommended to use a reverse proxy such as Nginx or Traefik in production:
+In der Produktion empfiehlt sich ein Reverse Proxy wie Nginx oder Traefik:
 
-**Nginx Configuration Example**:
+**Beispielkonfiguration für Nginx**:
 ```nginx
 upstream warden {
     server localhost:8081;
@@ -185,29 +183,29 @@ server {
 }
 ```
 
-### 2. Use HTTPS
+### 2. HTTPS verwenden
 
-Production environments must use HTTPS. This can be achieved by:
+Produktionsumgebungen müssen HTTPS verwenden. Das lässt sich erreichen durch:
 
-- Using Let's Encrypt free certificates
-- Using a reverse proxy (such as Nginx) to handle SSL/TLS
-- Configuring the `TRUSTED_PROXY_IPS` environment variable to correctly obtain client real IP
+- Kostenlose Zertifikate von Let's Encrypt
+- Einen Reverse Proxy (etwa Nginx), der SSL/TLS übernimmt
+- Konfiguration der Umgebungsvariable `TRUSTED_PROXY_IPS`, damit die echte Client-IP korrekt ermittelt wird
 
-### 3. Configure Monitoring
+### 3. Monitoring einrichten
 
-- Use Prometheus to collect metrics (via `/metrics` endpoint)
-- Configure health checks (via `/health` endpoint)
-- Set up log collection and analysis
+- Prometheus zum Sammeln von Metriken verwenden (über den Endpunkt `/metrics`)
+- Health-Checks konfigurieren (über den Endpunkt `/health`)
+- Logsammlung und -auswertung einrichten
 
-### 4. High Availability Deployment
+### 4. Hochverfügbare Bereitstellung
 
-- Deploy multiple instances, use load balancer to distribute requests
-- Use shared Redis instance to ensure data consistency
-- Configure automatic restart and failover
+- Mehrere Instanzen bereitstellen und Anfragen per Load Balancer verteilen
+- Eine gemeinsame Redis-Instanz verwenden, um Datenkonsistenz sicherzustellen
+- Automatischen Neustart und Failover konfigurieren
 
-### 5. Resource Limits
+### 5. Ressourcenbegrenzungen
 
-Configure resource limits in Docker Compose or Kubernetes:
+Konfigurieren Sie Ressourcenbegrenzungen in Docker Compose oder Kubernetes:
 
 ```yaml
 services:
@@ -222,9 +220,9 @@ services:
           memory: 256M
 ```
 
-## Kubernetes Deployment
+## Bereitstellung mit Kubernetes
 
-### Basic Deployment
+### Grundlegende Bereitstellung
 
 ```yaml
 apiVersion: apps/v1
@@ -278,23 +276,23 @@ spec:
   type: LoadBalancer
 ```
 
-## Performance Optimization
+## Leistungsoptimierung
 
-### 1. Redis Configuration
+### 1. Redis-Konfiguration
 
-- Use Redis persistence (RDB or AOF)
-- Configure appropriate Redis memory limits
-- Use Redis cluster (if needed)
+- Redis-Persistenz verwenden (RDB oder AOF)
+- Passende Speichergrenzen für Redis konfigurieren
+- Redis-Cluster verwenden (falls erforderlich)
 
-### 2. Application Configuration
+### 2. Anwendungskonfiguration
 
-- Adjust `HTTP_MAX_IDLE_CONNS` to optimize connection pool
-- Configure appropriate `INTERVAL` to balance real-time performance and efficiency
-- Use an appropriate merge mode (`MERGE_MODE`)
+- `HTTP_MAX_IDLE_CONNS` anpassen, um den Verbindungspool zu optimieren
+- Ein passendes `INTERVAL` konfigurieren, um Aktualität und Effizienz auszubalancieren
+- Einen geeigneten Zusammenführungsmodus (`MERGE_MODE`) verwenden
 
-### 3. Monitoring and Tuning
+### 3. Monitoring und Feinabstimmung
 
-Based on wrk stress test results (30-second test, 16 threads, 100 connections):
+Basierend auf Lasttestergebnissen mit wrk (30 Sekunden, 16 Threads, 100 Verbindungen):
 
 ```
 Requests/sec:   5038.81
@@ -303,10 +301,222 @@ Average Latency: 21.30ms
 Max Latency:     226.09ms
 ```
 
-Adjust configuration parameters based on actual load.
+Passen Sie die Konfigurationsparameter an die tatsächliche Last an.
 
-## Related Documentation
+## Optionale Bereitstellung mit Integration (mit Stargate/Herald)
 
-- [Configuration Documentation](CONFIGURATION.md) - Learn about detailed configuration options
-- [Security Documentation](SECURITY.md) - Learn about security configuration and best practices
-- [Architecture Design Documentation](ARCHITECTURE.md) - Understand system architecture
+Warden kann eigenständig bereitgestellt und betrieben oder optional mit Stargate und Herald integriert werden. Nachfolgend Beispielkonfigurationen für eine optionale Integrationsbereitstellung.
+
+**Hinweis**: Die folgenden Integrationsszenarien sind optional; Warden lässt sich vollständig unabhängig bereitstellen und nutzen.
+
+### Beispiel für die Integration mit Docker Compose
+
+Vollständige Bereitstellungskonfiguration für die Integration von Stargate + Warden + Herald:
+
+```yaml
+version: '3.8'
+
+services:
+  # Warden-Dienst
+  warden:
+    image: ghcr.io/soulteary/warden:latest
+    container_name: warden
+    ports:
+      - "8081:8081"
+    networks:
+      - auth-network
+    environment:
+      - PORT=8081
+      - REDIS=warden-redis:6379
+      - API_KEY=${WARDEN_API_KEY}
+      - MERGE_MODE=DEFAULT
+      # Konfiguration der Authentifizierung zwischen Diensten (HMAC-Beispiel)
+      - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
+      - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+    volumes:
+      - ./warden-data.json:/app/data.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    depends_on:
+      - warden-redis
+
+  # Redis für Warden
+  warden-redis:
+    image: redis:7.4-alpine
+    container_name: warden-redis
+    networks:
+      - auth-network
+    volumes:
+      - warden-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+
+  # Stargate-Dienst (Beispielkonfiguration)
+  stargate:
+    image: ghcr.io/soulteary/stargate:latest
+    container_name: stargate
+    ports:
+      - "8080:8080"
+    networks:
+      - auth-network
+    environment:
+      - STARGATE_WARDEN_BASE_URL=http://warden:8081
+      - STARGATE_WARDEN_AUTH_TYPE=hmac
+      - STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
+      - STARGATE_WARDEN_HMAC_SECRET=${WARDEN_HMAC_SECRET}
+      - STARGATE_HERALD_BASE_URL=http://herald:8082
+    depends_on:
+      - warden
+      - herald
+
+  # Herald-Dienst (Beispielkonfiguration)
+  herald:
+    image: ghcr.io/soulteary/herald:latest
+    container_name: herald
+    ports:
+      - "8082:8082"
+    networks:
+      - auth-network
+    environment:
+      - HERALD_REDIS_URL=redis://herald-redis:6379
+    depends_on:
+      - herald-redis
+
+  # Redis für Herald
+  herald-redis:
+    image: redis:7.4-alpine
+    container_name: herald-redis
+    networks:
+      - auth-network
+    volumes:
+      - herald-redis-data:/data
+
+networks:
+  auth-network:
+    driver: bridge
+
+volumes:
+  warden-redis-data:
+  herald-redis-data:
+```
+
+### Konfiguration der Umgebungsvariablen
+
+Legen Sie eine `.env`-Datei an:
+
+```bash
+# API-Key von Warden
+WARDEN_API_KEY=your-warden-api-key-here
+
+# HMAC-Schlüssel von Warden (JSON-Format)
+WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
+
+# Von Stargate verwendetes HMAC-Geheimnis (entspricht dem Schlüssel in WARDEN_HMAC_KEYS)
+WARDEN_HMAC_SECRET=0123456789abcdef0123456789abcdef
+```
+
+### Netzwerkkonfiguration
+
+Alle Dienste sollten sich im selben Docker-Netzwerk befinden, damit sie miteinander kommunizieren können:
+
+- **Warden**: lauscht auf Port `8081`, wird von Stargate aufgerufen
+- **Stargate**: lauscht auf Port `8080`, dient als forwardAuth-Dienst für Traefik
+- **Herald**: lauscht auf Port `8082`, wird von Stargate aufgerufen
+
+### Abhängigkeiten der Dienste
+
+- **Stargate** hängt von **Warden** und **Herald** ab
+- **Warden** hängt von **warden-redis** ab (optional, falls Redis aktiviert ist)
+- **Herald** hängt von **herald-redis** ab
+
+### Health-Checks
+
+Alle Dienste sollten Health-Checks konfigurieren, um den ordnungsgemäßen Betrieb sicherzustellen:
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+  interval: 10s
+  timeout: 1s
+  retries: 3
+```
+
+### Empfehlungen für die Produktionsumgebung
+
+1. **Eigenständige Redis-Instanzen verwenden**: Warden und Herald sollten eigenständige Redis-Instanzen verwenden, um Datenkonflikte zu vermeiden
+2. **Authentifizierung zwischen Diensten konfigurieren**: In der Produktion müssen mTLS oder HMAC-Signaturen konfiguriert sein
+3. **Dienste zur Schlüsselverwaltung nutzen**: Verwenden Sie HashiCorp Vault oder vergleichbare Dienste zur Verwaltung von Schlüsseln und Zertifikaten
+4. **Netzwerkisolation**: Beschränken Sie den Zugriff zwischen Diensten über Docker-Netzwerkrichtlinien
+5. **Monitoring und Logging**: Richten Sie einheitliche Monitoring- und Logsammelsysteme ein
+
+### Integrationsbereitstellung mit Kubernetes
+
+Für die Bereitstellung in Kubernetes empfiehlt sich Folgendes:
+
+1. **Services verwenden**: Legen Sie für jeden Dienst einen Kubernetes-Service an
+2. **ConfigMap und Secret verwenden**: Konfiguration und Schlüssel dort ablegen
+3. **NetworkPolicy verwenden**: Netzwerkzugriffe zwischen Diensten einschränken
+4. **Ingress verwenden**: Traefik-Ingress so konfigurieren, dass er auf Stargate routet
+
+Beispielkonfiguration für Kubernetes:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: warden
+spec:
+  selector:
+    app: warden
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warden
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: warden
+  template:
+    metadata:
+      labels:
+        app: warden
+    spec:
+      containers:
+      - name: warden
+        image: ghcr.io/soulteary/warden:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: PORT
+          value: "8081"
+        - name: REDIS
+          value: "warden-redis:6379"
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: api-key
+        - name: WARDEN_HMAC_KEYS
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: hmac-keys
+```
+
+## Verwandte Dokumentation
+
+- [Konfigurationsdokumentation](CONFIGURATION.md) – Erfahren Sie mehr über die ausführlichen Konfigurationsoptionen
+- [Sicherheitsdokumentation](SECURITY.md) – Erfahren Sie mehr über Sicherheitskonfiguration und Best Practices
+- [Architekturdokument](ARCHITECTURE.md) – Verstehen Sie die Systemarchitektur
+- [API-Dokumentation](API.md) – Erfahren Sie mehr über die API-Schnittstellen und Integrationsbeispiele

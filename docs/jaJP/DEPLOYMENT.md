@@ -1,32 +1,30 @@
-# Deployment Documentation
+# デプロイドキュメント
 
 > 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](DEPLOYMENT.md) | [Deutsch](../deDE/DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
-> ⚠️ **翻訳ステータス**: このページは原文より更新が遅れている場合があります。英語版と簡体字中国語版が正式版であり、先に更新されます。セキュリティおよび設定に関わる重要な項目については、[English](../enUS/DEPLOYMENT.md) または [中文](../zhCN/DEPLOYMENT.md) も併せて確認してください。
+本ドキュメントでは、Docker によるデプロイやローカルデプロイなど、Warden サービスのデプロイ方法を説明します。
 
-This document explains how to deploy the Warden service, including Docker deployment, local deployment, etc.
+## 前提条件
 
-## Prerequisites
+- Go 1.27 以上（[go.mod](../../go.mod) を参照）
+- Redis（分散ロックとキャッシュ用）
+- Docker（任意。コンテナでデプロイする場合）
 
-- Go 1.27+ (refer to [go.mod](../../go.mod))
-- Redis (for distributed locks and caching)
-- Docker (optional, for containerized deployment)
+## Docker によるデプロイ
 
-## Docker Deployment
+> 🚀 **クイックデプロイ**: 完全な Docker Compose 設定例は[サンプルディレクトリ](../../example/README.md) / [示例目录](../../example/README.md) を参照してください。
+> - [シンプルな例](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - 基本的な Docker Compose 設定
+> - [応用例](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - モック API を含む完全な設定
 
-> 🚀 **Quick Deployment**: Check the [Examples Directory](../../example/README.md) / [示例目录](../../example/README.md) for complete Docker Compose configuration examples:
-> - [Simple Example](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - Basic Docker Compose configuration
-> - [Advanced Example](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - Complete configuration including Mock API
+### ビルド済みイメージを使う（推奨）
 
-### Using Pre-built Image (Recommended)
-
-Warden provides pre-built Docker images that can be pulled directly from GitHub Container Registry (GHCR), no manual build required:
+Warden はビルド済みの Docker イメージを提供しており、GitHub Container Registry（GHCR）から直接取得できます。手動でのビルドは不要です。
 
 ```bash
-# Pull the latest version image
+# 最新バージョンのイメージを取得
 docker pull ghcr.io/soulteary/warden:latest
 
-# Run container
+# コンテナを実行
 docker run -d \
   -p 8081:8081 \
   -v $(pwd)/data.json:/app/data.json:ro \
@@ -38,72 +36,72 @@ docker run -d \
   ghcr.io/soulteary/warden:latest
 ```
 
-> 💡 **Tip**: Using pre-built images allows you to get started quickly without a local build environment. Images are automatically updated to ensure you're using the latest version.
+> 💡 **ヒント**: ビルド済みイメージを使えば、ローカルにビルド環境がなくてもすぐに始められます。イメージは自動的に更新されるため、常に最新バージョンを利用できます。
 
-### Using Docker Compose
+### Docker Compose を使う
 
-1. **Prepare environment variable file**
+1. **環境変数ファイルを準備する**
    
-   If a `.env.example` file exists in the project root directory, you can copy it:
+   プロジェクトのルートディレクトリに `.env.example` ファイルがある場合は、コピーできます。
    ```bash
    cp .env.example .env
    ```
    
-   If the `.env.example` file doesn't exist, you can manually create a `.env` file with the following content:
+   `.env.example` ファイルがない場合は、次の内容で `.env` ファイルを手動作成できます。
    ```env
-   # Server Configuration
+   # サーバー設定
    PORT=8081
    
-   # Redis Configuration
+   # Redis 設定
    REDIS=warden-redis:6379
-   # Redis password (optional, recommend using environment variables instead of config file)
+   # Redis パスワード（任意。設定ファイルではなく環境変数の利用を推奨）
    # REDIS_PASSWORD=your-redis-password
-   # Or use password file (more secure)
+   # またはパスワードファイルを使用（より安全）
    # REDIS_PASSWORD_FILE=/path/to/redis-password.txt
    
-   # Remote Data API
+   # リモートデータ API
    CONFIG=http://example.com/api/data.json
-   # Remote configuration API authentication key
+   # リモート設定 API の認証キー
    KEY=Bearer your-token-here
    
-   # Task Configuration
+   # タスク設定
    INTERVAL=5
    
-   # Application Mode
+   # アプリケーションモード
    MERGE_MODE=DEFAULT
    
-   # HTTP Client Configuration (optional)
+   # HTTP クライアント設定（任意）
    # HTTP_TIMEOUT=5
    # HTTP_MAX_IDLE_CONNS=100
    # HTTP_INSECURE_TLS=false
    
-   # API Key (for API authentication, required in production)
+   # API キー（API 認証用。本番環境では必須）
    API_KEY=your-api-key-here
    
-   # Health Check IP Whitelist (optional, comma-separated)
+   # ヘルスチェックの IP 許可リスト（任意。カンマ区切り）
    # HEALTH_CHECK_IP_WHITELIST=127.0.0.1,::1,10.0.0.0/8
    
-   # Trusted Proxy IP List (optional, comma-separated, for reverse proxy environments)
+   # 信頼するプロキシ IP のリスト（任意。カンマ区切り。リバースプロキシ環境向け）
    # TRUSTED_PROXY_IPS=127.0.0.1,10.0.0.1
    
-   # Log Level (optional)
+   # ログレベル（任意）
    # LOG_LEVEL=info
    ```
    
-   > ⚠️ **Security Note**: The `.env` file contains sensitive information. Do not commit it to version control. The `.env` file is already ignored by `.gitignore`. Please use the above content as a template to create the `.env` file.
+   > ⚠️ **セキュリティに関する注意**: `.env` ファイルには機微な情報が含まれます。バージョン管理にコミットしないでください。`.env` ファイルはすでに `.gitignore` で除外されています。上記の内容をテンプレートとして `.env` ファイルを作成してください。
 
-2. **Start the service**
+2. **サービスを起動する**
 ```bash
 docker-compose up -d
 ```
 
-### Manual Image Build
+### イメージを手動でビルドする
 
 ```bash
 docker build -f docker/Dockerfile -t warden-release .
 ```
 
-### Run Container
+### コンテナを実行する
 
 ```bash
 docker run -d \
@@ -116,24 +114,24 @@ docker run -d \
   warden-release
 ```
 
-## Local Deployment
+## ローカルデプロイ
 
-### 1. Clone the project
+### 1. プロジェクトをクローンする
 
 ```bash
 git clone <repository-url>
 cd warden
 ```
 
-### 2. Install dependencies
+### 2. 依存関係をインストールする
 
 ```bash
 go mod download
 ```
 
-### 3. Configure local data file
+### 3. ローカルデータファイルを設定する
 
-Create a `data.json` file (refer to `data.example.json`):
+`data.json` ファイルを作成します（`data.example.json` を参照）。
 ```json
 [
     {
@@ -143,29 +141,29 @@ Create a `data.json` file (refer to `data.example.json`):
 ]
 ```
 
-**Note**: The `data.json` file supports the following fields:
-- `phone` (required): User phone number
-- `mail` (required): User email address
-- `user_id` (optional): User unique identifier, auto-generated if not provided
-- `status` (optional): User status, such as "active", "inactive", "suspended"; omitted values default to "inactive"
-- `scope` (optional): User permission scope array, such as `["read", "write"]`
-- `role` (optional): User role, such as "admin", "user"
+**注意**: `data.json` ファイルは次のフィールドに対応しています。
+- `phone`（必須）: ユーザーの電話番号
+- `mail`（必須）: ユーザーのメールアドレス
+- `user_id`（任意）: ユーザーの一意な識別子。指定がない場合は自動生成されます
+- `status`（任意）: ユーザーの状態。「active」「inactive」「suspended」など。値を省略した場合の既定値は「inactive」です
+- `scope`（任意）: ユーザーの権限スコープの配列。例: `["read", "write"]`
+- `role`（任意）: ユーザーのロール。「admin」「user」など
 
-For a complete example, please refer to the `data.example.json` file.
+完全な例については `data.example.json` ファイルを参照してください。
 
-### 4. Run the service
+### 4. サービスを起動する
 
 ```bash
 go run .
 ```
 
-## Production Environment Deployment Recommendations
+## 本番環境へのデプロイに関する推奨事項
 
-### 1. Use Reverse Proxy
+### 1. リバースプロキシを使う
 
-It is recommended to use a reverse proxy such as Nginx or Traefik in production:
+本番環境では Nginx や Traefik などのリバースプロキシの利用を推奨します。
 
-**Nginx Configuration Example**:
+**Nginx の設定例**:
 ```nginx
 upstream warden {
     server localhost:8081;
@@ -185,29 +183,29 @@ server {
 }
 ```
 
-### 2. Use HTTPS
+### 2. HTTPS を使う
 
-Production environments must use HTTPS. This can be achieved by:
+本番環境では必ず HTTPS を使用してください。次の方法で実現できます。
 
-- Using Let's Encrypt free certificates
-- Using a reverse proxy (such as Nginx) to handle SSL/TLS
-- Configuring the `TRUSTED_PROXY_IPS` environment variable to correctly obtain client real IP
+- Let's Encrypt の無料証明書を利用する
+- リバースプロキシ（Nginx など）で SSL/TLS を処理する
+- 環境変数 `TRUSTED_PROXY_IPS` を設定し、クライアントの実 IP を正しく取得する
 
-### 3. Configure Monitoring
+### 3. 監視を設定する
 
-- Use Prometheus to collect metrics (via `/metrics` endpoint)
-- Configure health checks (via `/health` endpoint)
-- Set up log collection and analysis
+- Prometheus でメトリクスを収集する（`/metrics` エンドポイント経由）
+- ヘルスチェックを設定する（`/health` エンドポイント経由）
+- ログの収集と分析の仕組みを整える
 
-### 4. High Availability Deployment
+### 4. 高可用性デプロイ
 
-- Deploy multiple instances, use load balancer to distribute requests
-- Use shared Redis instance to ensure data consistency
-- Configure automatic restart and failover
+- 複数のインスタンスをデプロイし、ロードバランサーでリクエストを分散する
+- 共有 Redis インスタンスを使用してデータの一貫性を確保する
+- 自動再起動とフェイルオーバーを設定する
 
-### 5. Resource Limits
+### 5. リソース制限
 
-Configure resource limits in Docker Compose or Kubernetes:
+Docker Compose または Kubernetes でリソース制限を設定します。
 
 ```yaml
 services:
@@ -222,9 +220,9 @@ services:
           memory: 256M
 ```
 
-## Kubernetes Deployment
+## Kubernetes によるデプロイ
 
-### Basic Deployment
+### 基本的なデプロイ
 
 ```yaml
 apiVersion: apps/v1
@@ -278,23 +276,23 @@ spec:
   type: LoadBalancer
 ```
 
-## Performance Optimization
+## パフォーマンス最適化
 
-### 1. Redis Configuration
+### 1. Redis の設定
 
-- Use Redis persistence (RDB or AOF)
-- Configure appropriate Redis memory limits
-- Use Redis cluster (if needed)
+- Redis の永続化を使用する（RDB または AOF）
+- 適切な Redis のメモリ上限を設定する
+- 必要に応じて Redis クラスターを使用する
 
-### 2. Application Configuration
+### 2. アプリケーションの設定
 
-- Adjust `HTTP_MAX_IDLE_CONNS` to optimize connection pool
-- Configure appropriate `INTERVAL` to balance real-time performance and efficiency
-- Use an appropriate merge mode (`MERGE_MODE`)
+- `HTTP_MAX_IDLE_CONNS` を調整して接続プールを最適化する
+- 適切な `INTERVAL` を設定し、即時性と効率のバランスを取る
+- 適切なマージモード（`MERGE_MODE`）を使用する
 
-### 3. Monitoring and Tuning
+### 3. 監視とチューニング
 
-Based on wrk stress test results (30-second test, 16 threads, 100 connections):
+wrk による負荷試験の結果（30 秒間、16 スレッド、100 コネクション）:
 
 ```
 Requests/sec:   5038.81
@@ -303,10 +301,222 @@ Average Latency: 21.30ms
 Max Latency:     226.09ms
 ```
 
-Adjust configuration parameters based on actual load.
+実際の負荷に応じて設定パラメーターを調整してください。
 
-## Related Documentation
+## 任意の連携デプロイ（Stargate／Herald との組み合わせ）
 
-- [Configuration Documentation](CONFIGURATION.md) - Learn about detailed configuration options
-- [Security Documentation](SECURITY.md) - Learn about security configuration and best practices
-- [Architecture Design Documentation](ARCHITECTURE.md) - Understand system architecture
+Warden は単独でデプロイして利用することも、任意で Stargate や Herald と連携させることもできます。以下は任意の連携デプロイの設定例です。
+
+**注意**: 以下の連携デプロイのシナリオは任意であり、Warden は完全に単独でデプロイして利用できます。
+
+### Docker Compose による連携例
+
+Stargate + Warden + Herald を連携させる完全なデプロイ設定:
+
+```yaml
+version: '3.8'
+
+services:
+  # Warden サービス
+  warden:
+    image: ghcr.io/soulteary/warden:latest
+    container_name: warden
+    ports:
+      - "8081:8081"
+    networks:
+      - auth-network
+    environment:
+      - PORT=8081
+      - REDIS=warden-redis:6379
+      - API_KEY=${WARDEN_API_KEY}
+      - MERGE_MODE=DEFAULT
+      # サービス間認証の設定（HMAC の例）
+      - WARDEN_HMAC_KEYS=${WARDEN_HMAC_KEYS}
+      - WARDEN_HMAC_TIMESTAMP_TOLERANCE=60
+    volumes:
+      - ./warden-data.json:/app/data.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+    depends_on:
+      - warden-redis
+
+  # Warden 用 Redis
+  warden-redis:
+    image: redis:7.4-alpine
+    container_name: warden-redis
+    networks:
+      - auth-network
+    volumes:
+      - warden-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 1s
+      retries: 3
+
+  # Stargate サービス（設定例）
+  stargate:
+    image: ghcr.io/soulteary/stargate:latest
+    container_name: stargate
+    ports:
+      - "8080:8080"
+    networks:
+      - auth-network
+    environment:
+      - STARGATE_WARDEN_BASE_URL=http://warden:8081
+      - STARGATE_WARDEN_AUTH_TYPE=hmac
+      - STARGATE_WARDEN_HMAC_KEY_ID=key-id-1
+      - STARGATE_WARDEN_HMAC_SECRET=${WARDEN_HMAC_SECRET}
+      - STARGATE_HERALD_BASE_URL=http://herald:8082
+    depends_on:
+      - warden
+      - herald
+
+  # Herald サービス（設定例）
+  herald:
+    image: ghcr.io/soulteary/herald:latest
+    container_name: herald
+    ports:
+      - "8082:8082"
+    networks:
+      - auth-network
+    environment:
+      - HERALD_REDIS_URL=redis://herald-redis:6379
+    depends_on:
+      - herald-redis
+
+  # Herald 用 Redis
+  herald-redis:
+    image: redis:7.4-alpine
+    container_name: herald-redis
+    networks:
+      - auth-network
+    volumes:
+      - herald-redis-data:/data
+
+networks:
+  auth-network:
+    driver: bridge
+
+volumes:
+  warden-redis-data:
+  herald-redis-data:
+```
+
+### 環境変数の設定
+
+`.env` ファイルを作成します。
+
+```bash
+# Warden の API キー
+WARDEN_API_KEY=your-warden-api-key-here
+
+# Warden の HMAC キー（JSON 形式）
+WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
+
+# Stargate が使用する HMAC シークレット（WARDEN_HMAC_KEYS のキーに対応）
+WARDEN_HMAC_SECRET=0123456789abcdef0123456789abcdef
+```
+
+### ネットワーク設定
+
+相互に通信できるよう、すべてのサービスを同じ Docker ネットワークに配置してください。
+
+- **Warden**: ポート `8081` で待ち受け、Stargate から呼び出されます
+- **Stargate**: ポート `8080` で待ち受け、Traefik の forwardAuth サービスとして機能します
+- **Herald**: ポート `8082` で待ち受け、Stargate から呼び出されます
+
+### サービスの依存関係
+
+- **Stargate** は **Warden** と **Herald** に依存します
+- **Warden** は **warden-redis** に依存します（Redis を有効にしている場合。任意）
+- **Herald** は **herald-redis** に依存します
+
+### ヘルスチェック
+
+正常な稼働を確認するため、すべてのサービスでヘルスチェックを設定してください。
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl --fail http://localhost:8081/healthcheck || exit 1"]
+  interval: 10s
+  timeout: 1s
+  retries: 3
+```
+
+### 本番環境に関する推奨事項
+
+1. **独立した Redis インスタンスを使う**: データの競合を避けるため、Warden と Herald は独立した Redis インスタンスを使用してください
+2. **サービス間認証を設定する**: 本番環境では mTLS または HMAC 署名の設定が必須です
+3. **鍵管理サービスを使う**: HashiCorp Vault などのサービスで鍵と証明書を管理してください
+4. **ネットワーク分離**: Docker のネットワークポリシーでサービス間のアクセスを制限してください
+5. **監視とログ**: 統一された監視とログ収集の仕組みを整えてください
+
+### Kubernetes での連携デプロイ
+
+Kubernetes にデプロイする場合は、次を推奨します。
+
+1. **Service を使う**: サービスごとに Kubernetes Service を作成する
+2. **ConfigMap と Secret を使う**: 設定と鍵を保存する
+3. **NetworkPolicy を使う**: サービス間のネットワークアクセスを制限する
+4. **Ingress を使う**: Traefik Ingress を設定して Stargate へルーティングする
+
+Kubernetes の設定例:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: warden
+spec:
+  selector:
+    app: warden
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warden
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: warden
+  template:
+    metadata:
+      labels:
+        app: warden
+    spec:
+      containers:
+      - name: warden
+        image: ghcr.io/soulteary/warden:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: PORT
+          value: "8081"
+        - name: REDIS
+          value: "warden-redis:6379"
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: api-key
+        - name: WARDEN_HMAC_KEYS
+          valueFrom:
+            secretKeyRef:
+              name: warden-secrets
+              key: hmac-keys
+```
+
+## 関連ドキュメント
+
+- [設定ドキュメント](CONFIGURATION.md) - 詳細な設定オプション
+- [セキュリティドキュメント](SECURITY.md) - セキュリティ設定とベストプラクティス
+- [アーキテクチャ設計ドキュメント](ARCHITECTURE.md) - システムアーキテクチャの理解
+- [API ドキュメント](API.md) - API インターフェースと連携例
