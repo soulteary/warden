@@ -1,44 +1,69 @@
-# API Documentation
+# Documentation de l'API
 
 > 🌐 **Language / 语言**: [English](../enUS/API.md) | [中文](../zhCN/API.md) | [Français](API.md) | [Italiano](../itIT/API.md) | [日本語](../jaJP/API.md) | [Deutsch](../deDE/API.md) | [한국어](../koKR/API.md)
 
-> ⚠️ **État de la traduction** : cette page peut être en retard sur l'original. Les versions anglaise et chinoise simplifiée font foi et sont mises à jour en premier. Pour les réglages critiques de sécurité et de configuration, consultez également [English](../enUS/API.md) ou [中文](../zhCN/API.md).
+Ce document fournit des informations détaillées sur tous les points de terminaison d'API proposés par Warden.
 
-This document provides detailed information about all API endpoints provided by Warden.
+## Documentation OpenAPI
 
-## OpenAPI Documentation
+Le projet fournit une spécification OpenAPI 3.0 complète dans le fichier `openapi.yaml`.
 
-The project provides complete OpenAPI 3.0 specification documentation in the `openapi.yaml` file.
+Vous pouvez utiliser les outils suivants pour consulter et tester l'API :
 
-You can use the following tools to view and test the API:
+1. **Swagger UI** : ouvrez le fichier `openapi.yaml` avec [Swagger Editor](https://editor.swagger.io/)
+2. **Postman** : importez le fichier `openapi.yaml` dans Postman
+3. **Redoc** : utilisez Redoc pour générer une belle page de documentation d'API
 
-1. **Swagger UI**: Open the `openapi.yaml` file using [Swagger Editor](https://editor.swagger.io/)
-2. **Postman**: Import the `openapi.yaml` file into Postman
-3. **Redoc**: Use Redoc to generate a beautiful API documentation page
+## Authentification
 
-## Authentication
+Certains points de terminaison exigent une authentification par clé d'API. Vous pouvez fournir les informations d'authentification de deux manières :
 
-Some API endpoints require API Key authentication. You can provide authentication information in two ways:
-
-1. **X-API-Key Header**:
+1. **En-tête X-API-Key** :
    ```http
    X-API-Key: your-secret-api-key
    ```
 
-2. **Authorization Bearer Header**:
+2. **En-tête Authorization Bearer** :
    ```http
    Authorization: Bearer your-secret-api-key
    ```
 
-The API Key can be configured via the `API_KEY` environment variable or the `--api-key` command line argument.
+La clé d'API se configure via la variable d'environnement `API_KEY` ou l'argument de ligne de commande `--api-key`.
 
-## API Endpoints
+## Contrat de routage
 
-### Get User List
+Les points de terminaison documentés ci-dessous constituent l'ensemble complet des chemins
+servis par Warden. Tout autre chemin renvoie `404 Not Found` avec un corps JSON et sans
+aucune donnée utilisateur :
 
-Get all users or paginated user list.
+```http
+GET /not-a-route
+X-API-Key: your-secret-api-key
+```
 
-**Request**
+```json
+{
+  "error": "Requested resource does not exist"
+}
+```
+
+> **Changement de comportement** : le chemin racine `/` était auparavant enregistré comme
+> motif de sous-arbre, si bien que tout chemin non apparié (`/foo`, `/user/`, `/v1/`) était
+> servi par le gestionnaire de la liste des utilisateurs et renvoyait la **liste
+> d'autorisation complète**. `/` est désormais une correspondance exacte et les chemins non
+> appariés reçoivent le 404 ci-dessus. Les clients qui comptaient sur un chemin arbitraire
+> pour obtenir des données utilisateur doivent utiliser `/`, `/data.json` ou `/v1/users`.
+
+Notez que le routeur de Go nettoie le chemin avant l'appariement : `/metrics/../user` est
+donc résolu en `/user` et redirigé vers celui-ci plutôt que d'atteindre le gestionnaire 404.
+
+## Points de terminaison de l'API
+
+### Obtenir la liste des utilisateurs
+
+Obtenir tous les utilisateurs ou une liste paginée.
+
+**Requête**
 ```http
 GET /
 X-API-Key: your-secret-api-key
@@ -47,13 +72,13 @@ GET /?page=1&page_size=100
 X-API-Key: your-secret-api-key
 ```
 
-**Query Parameters**:
-- `page` (optional): Page number, starting from 1, defaults to 1
-- `page_size` (optional): Number of items per page, defaults to all data (no pagination)
+**Paramètres de requête** :
+- `page` (facultatif) : numéro de page, à partir de 1, valeur par défaut 1
+- `page_size` (facultatif) : nombre d'éléments par page, par défaut toutes les données (pas de pagination)
 
-**Note**: This endpoint requires API Key authentication.
+**Remarque** : ce point de terminaison exige une authentification par clé d'API.
 
-**Response (no pagination)**
+**Réponse (sans pagination)**
 ```json
 [
     {
@@ -67,7 +92,7 @@ X-API-Key: your-secret-api-key
 ]
 ```
 
-**Response (with pagination)**
+**Réponse (avec pagination)**
 ```json
 {
     "data": [
@@ -85,15 +110,15 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Status Code**: `200 OK`
+**Code de statut** : `200 OK`
 
-**Content-Type**: `application/json`
+**Content-Type** : `application/json`
 
-### Get Single User
+### Obtenir un utilisateur unique
 
-Query a single user by phone number, email, or user ID.
+Interroger un utilisateur unique par numéro de téléphone, adresse e-mail ou identifiant d'utilisateur.
 
-**Request**
+**Requête**
 ```http
 GET /user?phone=13800138000
 X-API-Key: your-secret-api-key
@@ -105,16 +130,16 @@ GET /user?user_id=user-123
 X-API-Key: your-secret-api-key
 ```
 
-**Query Parameters** (must provide exactly one):
-- `phone`: User phone number
-- `mail`: User email address
-- `user_id`: User unique identifier
+**Paramètres de requête** (exactement un doit être fourni) :
+- `phone` : numéro de téléphone de l'utilisateur
+- `mail` : adresse e-mail de l'utilisateur
+- `user_id` : identifiant unique de l'utilisateur
 
-**Note**: 
-- This endpoint requires API Key authentication
-- Only one query parameter (`phone`, `mail`, or `user_id`) is allowed
+**Remarque** :
+- Ce point de terminaison exige une authentification par clé d'API
+- Un seul paramètre de requête (`phone`, `mail` ou `user_id`) est autorisé
 
-**Response (user exists)**
+**Réponse (l'utilisateur existe)**
 ```json
 {
     "phone": "13800138000",
@@ -126,88 +151,130 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Field Descriptions**:
-- `phone`: User phone number
-- `mail`: User email address
-- `user_id`: User unique identifier (auto-generated if not provided)
-- `status`: User status, possible values:
-  - `"active"`: Active status, user can login and access the system
-  - `"inactive"`: Inactive status, user cannot login
-  - `"suspended"`: Suspended status, user cannot login
-  - Defaults to `"inactive"` if not set; `"active"` must be set explicitly to allow login
-- `scope`: User permission scope array (optional), used for fine-grained authorization, e.g., `["read", "write", "admin"]`
-- `role`: User role (optional), e.g., `"admin"`, `"user"`, `"guest"`
+**Description des champs** :
+- `phone` : numéro de téléphone de l'utilisateur
+- `mail` : adresse e-mail de l'utilisateur
+- `user_id` : identifiant unique de l'utilisateur (généré automatiquement s'il n'est pas fourni)
+- `status` : statut de l'utilisateur, valeurs possibles :
+  - `"active"` : actif, l'utilisateur peut se connecter et accéder au système
+  - `"inactive"` : inactif, l'utilisateur ne peut pas se connecter
+  - `"suspended"` : suspendu, l'utilisateur ne peut pas se connecter
+  - La valeur par défaut est `"inactive"` si rien n'est défini ; `"active"` doit être défini explicitement pour autoriser la connexion
+- `scope` : tableau des portées de permission de l'utilisateur (facultatif), pour une autorisation fine, par exemple `["read", "write", "admin"]`
+- `role` : rôle de l'utilisateur (facultatif), par exemple `"admin"`, `"user"`, `"guest"`
 
-**Notes**:
-- Only users with `status` of `"active"` can pass authentication checks
-- `scope` and `role` fields are used by Stargate to set authorization headers (`X-Auth-Scopes` and `X-Auth-Role`) for downstream services
+**Remarques** :
+- Seuls les utilisateurs dont le `status` vaut `"active"` passent les contrôles d'authentification
+- Les champs `scope` et `role` sont utilisés par Stargate pour définir les en-têtes d'autorisation (`X-Auth-Scopes` et `X-Auth-Role`) destinés aux services en aval
 
-**Response (user not found)**
-- **Status Code**: `404 Not Found`
-- **Response Body**: `User not found`
+**Scénario d'intégration facultatif** :
+Si vous choisissez de vous intégrer à d'autres services (comme Stargate), vous pouvez appeler ce point de terminaison pour interroger les informations utilisateur dans le flux de connexion :
+1. Après que l'utilisateur a saisi un identifiant (e-mail/téléphone/nom d'utilisateur), appelez `GET /user?phone=xxx` ou `GET /user?mail=xxx`
+2. Warden renvoie les informations utilisateur (y compris `user_id`, `email`, `phone`, `status`)
+3. Si l'utilisateur existe et que son statut est `"active"`, vous pouvez poursuivre le flux d'authentification
+4. Les valeurs `scope` et `role` renvoyées peuvent servir à définir les en-têtes d'autorisation
 
-**Error Response (missing parameter)**
-- **Status Code**: `400 Bad Request`
-- **Response Body**: `Bad Request: missing identifier (phone, mail, or user_id)`
+**Réponse (utilisateur introuvable)**
+- **Code de statut** : `404 Not Found`
+- **Corps de la réponse** : `User not found`
 
-**Error Response (multiple parameters)**
-- **Status Code**: `400 Bad Request`
-- **Response Body**: `Bad Request: only one identifier allowed (phone, mail, or user_id)`
+**Réponse d'erreur (paramètre manquant)**
+- **Code de statut** : `400 Bad Request`
+- **Corps de la réponse** : `Bad Request: missing identifier (phone, mail, or user_id)`
 
-### Health Check
+**Réponse d'erreur (paramètres multiples)**
+- **Code de statut** : `400 Bad Request`
+- **Corps de la réponse** : `Bad Request: only one identifier allowed (phone, mail, or user_id)`
 
-Check Redis, data cache, snapshot provenance, and snapshot freshness.
+### Contrôle de santé
 
-**Request**
+Vérifie Redis, le cache de données, la provenance de l'instantané et sa fraîcheur.
+
+**Requête**
 ```http
 GET /health
 GET /healthcheck
 ```
 
-**Note**: This endpoint does not require authentication, but access IPs can be restricted via the `HEALTH_CHECK_IP_WHITELIST` environment variable. Production hides individual checks.
+**Remarque** : ce point de terminaison n'exige pas d'authentification, mais les adresses IP autorisées peuvent être restreintes via la variable d'environnement `HEALTH_CHECK_IP_WHITELIST`. En production, les réponses masquent les contrôles individuels.
 
-**Response**
+**Réponse**
 ```json
 {
     "status": "ok",
-    "service": "warden"
+    "service": "warden",
+    "checks": {
+        "redis": {
+            "name": "redis",
+            "status": "ok",
+            "latency_ms": 1,
+            "timestamp": "2026-08-31T00:00:00Z"
+        },
+        "snapshot": {
+            "name": "snapshot",
+            "status": "ok",
+            "latency_ms": 0,
+            "timestamp": "2026-08-31T00:00:00Z",
+            "metadata": {
+                "source": "merged",
+                "version": "a1b2c3d4",
+                "age_seconds": 2.5
+            }
+        }
+    },
+    "timestamp": "2026-08-31T00:00:00Z",
+    "total_latency_ms": 1
 }
 ```
 
-**Status Codes**: `200 OK` for `ok` or serviceable `degraded`; `503 Service Unavailable` for a critical failure; `403 Forbidden` for a rejected health-check IP.
+Réponse en production :
 
-**Response Field Descriptions**:
-- `status`: `ok`, `degraded`, or `unhealthy`
-- `service`: Service name
-- `checks`, `timestamp`, `total_latency_ms`: Development/test-only details; checks include `redis`, `data`, `snapshot`, and `snapshot_freshness`
+```json
+{"status":"ok","service":"warden"}
+```
 
-In `REMOTE_FIRST` and `ONLY_REMOTE`, unknown or older-than-`SNAPSHOT_MAX_AGE`
-snapshots are critical failures. See the current [English API reference](../enUS/API.md#health-check).
+**Codes de statut** :
 
-### Log Level Management
+- `200 OK` : le statut global est `ok` ou `degraded` ; `degraded` signifie que le service reste fonctionnel.
+- `503 Service Unavailable` : un contrôle critique a échoué.
+- `403 Forbidden` : le client est en dehors de `HEALTH_CHECK_IP_WHITELIST`.
 
-Dynamically get and set log levels.
+**Description des champs de réponse** :
+- `status` : `ok`, `degraded` ou `unhealthy`.
+- `service` : nom du service (`warden`).
+- `checks` : table présente uniquement en développement/test, contenant les résultats de `redis`, `data`, `snapshot` et `snapshot_freshness`.
+- `checks.snapshot.metadata` : source, version et âge à faible cardinalité, plus des codes de raison stables pour les rafraîchissements ; les erreurs distantes brutes, les URL et les identifiants ne sont jamais exposés.
+- `timestamp`, `total_latency_ms` : champs de chronométrage global présents uniquement en développement/test.
 
-#### Get Current Log Level
+En `REMOTE_FIRST` et `ONLY_REMOTE`, `snapshot_freshness` est critique. Une provenance
+inconnue ou un âge supérieur à `SNAPSHOT_MAX_AGE` renvoie 503. Les modes tolérants peuvent
+servir un instantané local validé ou le dernier instantané valide connu en état `degraded`
+avec un HTTP 200.
 
-**Request**
+### Gestion du niveau de journalisation
+
+Obtenir et définir dynamiquement les niveaux de journalisation.
+
+#### Obtenir le niveau de journalisation actuel
+
+**Requête**
 ```http
 GET /log/level
 X-API-Key: your-secret-api-key
 ```
 
-**Response**
+**Réponse**
 ```json
 {
     "level": "info"
 }
 ```
 
-**Note**: This endpoint requires API Key authentication.
+**Remarque** : ce point de terminaison exige une authentification par clé d'API.
 
-#### Set Log Level
+#### Définir le niveau de journalisation
 
-**Request**
+**Requête**
 ```http
 POST /log/level
 Content-Type: application/json
@@ -218,16 +285,16 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Request Body**:
+**Corps de la requête** :
 ```json
 {
     "level": "debug"
 }
 ```
 
-**Supported Log Levels**: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic`
+**Niveaux de journalisation pris en charge** : `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `panic`
 
-**Response**
+**Réponse**
 ```json
 {
     "level": "debug",
@@ -235,24 +302,35 @@ X-API-Key: your-secret-api-key
 }
 ```
 
-**Note**: 
-- This endpoint requires API Key authentication
-- All log level modification operations are recorded in security audit logs
+**Remarque** :
+- Ce point de terminaison exige une authentification par clé d'API
+- Toutes les opérations de modification du niveau de journalisation sont enregistrées dans les journaux d'audit de sécurité
 
-### Prometheus Metrics
+### Métriques Prometheus
 
-Get Prometheus format monitoring metrics data.
+Obtenir les données de métriques de supervision au format Prometheus.
 
-**Request**
+**Requête**
 ```http
 GET /metrics
 ```
 
-**Response**: Prometheus format metrics data
+**Réponse** : données de métriques au format Prometheus
 
-**Note**: This endpoint does not require authentication.
+**Authentification** : dépend de l'environnement de déploiement.
 
-**Example Response**:
+| `ENVIRONMENT` | Valeur par défaut pour `/metrics` |
+| --- | --- |
+| `production` | Authentification requise (mêmes schémas que pour les points de terminaison de données) |
+| `development`, `test`, non défini | Collecte anonyme autorisée |
+
+`WARDEN_METRICS_REQUIRE_AUTH` remplace la valeur par défaut dans les deux sens. Une collecte
+non authentifiée d'un point de terminaison qui exige une authentification renvoie
+`401 Unauthorized`. La réponse ne contient que des séries à faible cardinalité et non
+sensibles : les étiquettes `endpoint` et `method` sont normalisées selon une liste
+d'autorisation et les valeurs non reconnues sont regroupées sous `other`.
+
+**Exemple de réponse** :
 ```
 # HELP http_requests_total Total number of HTTP requests
 # TYPE http_requests_total counter
@@ -265,13 +343,13 @@ http_request_duration_seconds_bucket{method="GET",path="/",le="0.01"} 1200
 ...
 ```
 
-## Error Responses
+## Réponses d'erreur
 
-All API endpoints may return the following error responses:
+Tous les points de terminaison peuvent renvoyer les réponses d'erreur suivantes :
 
 ### 401 Unauthorized
 
-Returned when API Key authentication fails:
+Renvoyée lorsque l'authentification par clé d'API échoue :
 
 ```json
 {
@@ -282,7 +360,7 @@ Returned when API Key authentication fails:
 
 ### 429 Too Many Requests
 
-Returned when requests exceed rate limit:
+Renvoyée lorsque les requêtes dépassent la limite de débit :
 
 ```json
 {
@@ -293,7 +371,7 @@ Returned when requests exceed rate limit:
 
 ### 500 Internal Server Error
 
-Returned when server internal error occurs:
+Renvoyée lorsqu'une erreur interne du serveur se produit :
 
 ```json
 {
@@ -302,44 +380,152 @@ Returned when server internal error occurs:
 }
 ```
 
-In production mode, detailed error information is hidden to prevent information leakage.
+En mode production, les informations d'erreur détaillées sont masquées afin d'éviter toute fuite d'informations.
 
-## Rate Limiting
+## Limitation de débit
 
-By default, API requests are protected by rate limiting:
+Par défaut, les requêtes d'API sont protégées par une limitation de débit :
 
-- **Limit**: 60 requests per minute
-- **Window**: 1 minute
-- **Exceeded**: Returns `429 Too Many Requests`
+- **Limite** : 60 requêtes par minute
+- **Fenêtre** : 1 minute
+- **En cas de dépassement** : renvoie `429 Too Many Requests`
 
-Rate limiting can be adjusted via configuration file:
+La limitation de débit peut être ajustée via le fichier de configuration :
 
 ```yaml
 rate_limit:
-  rate: 60  # Requests per minute
+  rate: 60  # Requêtes par minute
   window: 1m
 ```
 
-## IP Whitelist
+## Liste d'autorisation d'adresses IP
 
-IP whitelists can be configured via the following environment variables:
+Les listes d'autorisation d'adresses IP se configurent via les variables d'environnement suivantes :
 
-- `IP_WHITELIST`: Global IP whitelist (restricts access to all endpoints)
-- `HEALTH_CHECK_IP_WHITELIST`: Health check endpoint IP whitelist (only restricts `/health` and `/healthcheck`)
+- `IP_WHITELIST` : liste d'autorisation globale (restreint l'accès à tous les points de terminaison)
+- `HEALTH_CHECK_IP_WHITELIST` : liste d'autorisation pour le point de terminaison de contrôle de santé (restreint uniquement `/health` et `/healthcheck`)
 
-Supports CIDR range format, multiple IPs or ranges separated by commas:
+Le format de plage CIDR est pris en charge ; plusieurs adresses IP ou plages sont séparées par des virgules :
 
 ```bash
 export IP_WHITELIST="192.168.1.0/24,10.0.0.0/8"
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 ```
 
-## Response Compression
+## Compression des réponses
 
-All API responses support automatic compression (gzip). Clients can enable compression via the `Accept-Encoding: gzip` request header.
+Toutes les réponses de l'API prennent en charge la compression automatique (gzip). Les clients peuvent activer la compression via l'en-tête de requête `Accept-Encoding: gzip`.
 
-## Related Documentation
+## Exemples d'intégration facultatifs
 
-- [OpenAPI Specification](../../openapi.yaml) - Complete OpenAPI 3.1 specification
-- [Configuration Documentation](CONFIGURATION.md) - Learn how to configure API Key and other options
-- [Security Documentation](SECURITY.md) - Learn about security features and best practices
+### Exemple d'appel pour l'intégration avec d'autres services (facultatif)
+
+Si vous devez vous intégrer à d'autres services (comme Stargate), vous pouvez appeler le point de terminaison `/user` de Warden pour interroger les informations utilisateur dans le flux de connexion :
+
+**Scénario 1 : interrogation par numéro de téléphone**
+
+```bash
+# Stargate appelle Warden
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?phone=13800138000"
+```
+
+**Exemple de réponse** :
+```json
+{
+    "phone": "13800138000",
+    "mail": "admin@example.com",
+    "user_id": "user-123",
+    "status": "active",
+    "scope": ["read", "write"],
+    "role": "admin"
+}
+```
+
+**Scénario 2 : interrogation par e-mail**
+
+```bash
+# Stargate appelle Warden
+curl -H "X-API-Key: your-key" \
+     "http://warden:8081/user?mail=admin@example.com"
+```
+
+### Exemple d'intégration avec le SDK Go
+
+Stargate peut utiliser le SDK Go de Warden pour l'intégration :
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "time"
+    
+    "github.com/soulteary/warden/pkg/warden"
+)
+
+func main() {
+    // Créer le client Warden
+    opts := warden.DefaultOptions().
+        WithBaseURL("http://warden:8081").
+        WithAPIKey("your-api-key").
+        WithTimeout(10 * time.Second)
+    
+    client, err := warden.NewClient(opts)
+    if err != nil {
+        panic(err)
+    }
+    
+    ctx := context.Background()
+    
+    // Interroger l'utilisateur dans le flux de connexion
+    user, err := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+    if err != nil {
+        if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound {
+            // Utilisateur introuvable, refuser la connexion
+            fmt.Println("User not found in allowlist")
+            return
+        }
+        panic(err)
+    }
+    
+    // Vérifier le statut de l'utilisateur
+    if !user.IsActive() {
+        // Le statut de l'utilisateur n'est pas actif, refuser la connexion
+        fmt.Printf("User status is %s, cannot login\n", user.Status)
+        return
+    }
+    
+    // L'utilisateur existe et son statut est actif, poursuivre le flux de connexion
+    fmt.Printf("User found: %s, Status: %s, Role: %s, Scopes: %v\n",
+        user.UserID, user.Status, user.Role, user.Scope)
+    
+    // Étape suivante : appeler Herald pour envoyer un code de vérification
+    // ...
+}
+```
+
+### Exemple de flux de connexion complet (scénario d'intégration facultatif)
+
+Dans les scénarios d'intégration facultatifs, le flux de connexion complet peut se présenter ainsi :
+
+1. **L'utilisateur saisit un identifiant** → le service d'authentification le reçoit
+2. **Service d'authentification → Warden** : interroger les informations utilisateur
+   ```go
+   user, err := wardenClient.GetUserByIdentifier(ctx, phone, mail, "")
+   ```
+3. **Valider le statut de l'utilisateur** : vérifier `user.Status == "active"`
+4. **Service d'authentification → service OTP** : créer un défi et envoyer le code de vérification (facultatif)
+5. **L'utilisateur soumet le code de vérification** → le service d'authentification le reçoit (facultatif)
+6. **Service d'authentification → service OTP** : vérifier le code (facultatif)
+7. **Service d'authentification** : émettre une session et utiliser `user.Scope` et `user.Role` pour définir les en-têtes d'autorisation
+
+**Remarque** : Warden peut être utilisé de manière autonome ; le flux d'intégration ci-dessus est facultatif.
+
+## Documentation associée
+
+- [Spécification OpenAPI](../../openapi.yaml) – Spécification OpenAPI 3.1 complète
+- [Documentation de configuration](CONFIGURATION.md) – Découvrez comment configurer la clé d'API et les autres options
+- [Documentation de sécurité](SECURITY.md) – Découvrez les fonctionnalités de sécurité et les bonnes pratiques
+- [Documentation d'architecture](ARCHITECTURE.md) – Découvrez l'architecture d'intégration des services
