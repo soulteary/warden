@@ -471,6 +471,26 @@ func TestApp_loadInitialData_RedisBootstrapTreatsAbsentEmptyAsMiss(t *testing.T)
 	assert.Equal(t, loader.SourceLocal, app.snapshots.Load().Source)
 }
 
+// TestApp_loadInitialData_RedisBootstrapTreatsExistsErrorAsMiss pins the fail-safe direction
+// of the Exists probe. Exists is what separates a stored [] from a missing key, so when it
+// errors that distinction is simply unavailable — and the two readings point opposite ways:
+// assuming a revocation would serve an empty allow list to everyone on a transient Redis
+// error, while assuming a miss only falls back to this replica's own sources, which is what
+// startup does without Redis anyway. The unprovable empty set is never taken as authority.
+func TestApp_loadInitialData_RedisBootstrapTreatsExistsErrorAsMiss(t *testing.T) {
+	app, dataFile := redisFirstRestartApp(t, "DEFAULT", goodRuleSet, func() ([]define.AllowListUser, error) {
+		return []define.AllowListUser{}, nil
+	})
+	app.redisCacheExists = func() (bool, error) { return false, assert.AnError }
+	app.redisRefreshLocker = &stubRefreshLocker{locked: false}
+
+	require.NoError(t, app.loadInitialData(dataFile, ""))
+
+	assert.Len(t, app.userCache.Get(), 2, "无法确认 Redis 键是否存在时不得当作撤权处理")
+	assert.Equal(t, loader.SourceLocal, app.snapshots.Load().Source,
+		"未采纳共享缓存时快照来源应为本地，而不是 redis")
+}
+
 // TestApp_loadInitialData_AvailabilityFirst_PreservesRedisAfterRepeatedReadErrors covers
 // the same restart race when Redis remains unreadable. The replica has no data to serve,
 // but a failed read is not evidence that the shared set is gone, so startup must leave it
