@@ -42,7 +42,12 @@ func validateRemoteURL(urlStr string, resolver ipResolver) error {
 	// First validate syntax, scheme, localhost, and literal IPs without touching
 	// DNS. Hostnames are resolved below through the injected resolver so tests
 	// can exercise the same SSRF checks without external network access.
-	opts := &validator.URLOptions{ResolveHostTimeout: 0}
+	//
+	// cli-kit v1.9.0 stopped treating ResolveHostTimeout: 0 as "skip DNS" --
+	// a zero field must not switch a security check off -- so opt out
+	// explicitly. The check is not lost: every resolved address goes back
+	// through ValidateURL below.
+	opts := &validator.URLOptions{DisableHostResolution: true}
 	if err := validator.ValidateURL(urlStr, opts); err != nil {
 		return err
 	}
