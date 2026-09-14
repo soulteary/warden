@@ -14,6 +14,8 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-14
+
 ### Added
 - 新增环境变量 `EMPTY_RULESET_POLICY`，把「加载成功、返回了记录、但这些记录全部未通过逐条格式校验」
   这一歧义状态拆成两种可选策略：
@@ -67,6 +69,9 @@
   再向服务对外的 mux 挂载路由。
 
 ### Changed
+- 依赖升级：`audit-kit` v1.9.0、`cache-kit` v1.7.0、`health-kit` v2.3.0、`logger-kit` v2.3.0、
+  `parser-kit` v1.8.0；间接依赖 `go-runewidth` v0.0.30、`terminfo` v1.2.0。不依赖
+  `herald-smtp` / `herald-dingtalk` / `herald-totp`。
 - 工具链版本声明统一到 Go 1.27：`.golangci.yml` 的 `run.go` 由 `1.26` 提升为 `1.27`，与 `go.mod` 的
   `go 1.27.0` 一致，避免 linter 按更旧的语言版本分析代码；Issue 模板与贡献指南中的 Go 版本示例
   同步更新。（`go.mod`、Dockerfile、README 徽章与各语言部署文档此前已为 1.27。）
