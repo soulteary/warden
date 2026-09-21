@@ -14,6 +14,8 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-21
+
 ### Changed
 - 依赖升级：把项目使用的 kit 全部升级到最新版本。
   - `audit-kit` v1.9.0 → v2.1.0、`cache-kit` v1.7.0 → v2.0.0、`health-kit` v2.3.0 → v4.0.0、
@@ -42,6 +44,9 @@
   - 远程 URL 非法时只让该数据源失败，其他来源照常加载（v3 在构造数据源时就会校验 URL）。
   - `ONLY_LOCAL` 模式下规则文件不存在时仍返回空列表且不报错（原 `AllowEmptyFile`，现为
     文件源上的 `AllowMissing()`）。
+- GitHub Actions 升级：`docker/setup-buildx-action` 4.3.0 → 4.4.0、
+  `docker/build-push-action` 7.3.0 → 7.4.0、`soulteary/goreportcard-action` 1.1.0 → 1.1.2。
+  仅影响 CI 与发布流水线，不涉及服务代码。
 
 ## [1.3.0] - 2026-09-14
 
