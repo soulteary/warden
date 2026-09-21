@@ -36,7 +36,7 @@ import (
 	"strings"
 	"time"
 
-	secure "github.com/soulteary/secure-kit"
+	secure "github.com/soulteary/secure-kit/v2"
 )
 
 // Locker provides a method to lock jobs from running

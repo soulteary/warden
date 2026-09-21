@@ -5,7 +5,8 @@ package middleware
 import (
 	"net/http"
 
-	kit "github.com/soulteary/i18n-kit/v2"
+	kit "github.com/soulteary/i18n-kit/v4"
+	i18nhttp "github.com/soulteary/i18n-kit/v4/httpadapter"
 	"github.com/soulteary/warden/internal/i18n"
 )
 
@@ -22,12 +23,14 @@ import (
 // Returns:
 //   - func(http.Handler) http.Handler: HTTP middleware function
 func I18nMiddleware() func(http.Handler) http.Handler {
-	return kit.StdMiddleware(kit.MiddlewareConfig{
-		Bundle: i18n.GetBundle(),
+	return i18nhttp.Middleware(i18nhttp.Config{
+		MiddlewareConfig: kit.MiddlewareConfig{
+			Bundle: i18n.GetBundle(),
+		},
 	})
 }
 
 // GetLanguage gets language from request (helper function).
 func GetLanguage(r *http.Request) i18n.Language {
-	return kit.LanguageFromRequest(r)
+	return i18nhttp.Language(r)
 }

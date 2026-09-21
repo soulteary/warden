@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	middlewarekit "github.com/soulteary/middleware-kit/v2"
+	middlewarekit "github.com/soulteary/middleware-kit/v3"
 
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"

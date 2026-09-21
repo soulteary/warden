@@ -12,7 +12,7 @@ import (
 	// External packages
 	cache "github.com/soulteary/cache-kit"
 	"github.com/soulteary/cli-kit/validator"
-	secure "github.com/soulteary/secure-kit"
+	secure "github.com/soulteary/secure-kit/v2"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"

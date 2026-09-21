@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	audit "github.com/soulteary/audit-kit"
+	audit "github.com/soulteary/audit-kit/v2"
 	"github.com/stretchr/testify/assert"
 )
 

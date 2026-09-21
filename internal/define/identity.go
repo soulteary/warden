@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	secure "github.com/soulteary/secure-kit"
+	secure "github.com/soulteary/secure-kit/v2"
 )
 
 // UserIDStrategy selects how an empty user_id is derived during Normalize.

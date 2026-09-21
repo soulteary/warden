@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	kit "github.com/soulteary/i18n-kit/v2"
+	kit "github.com/soulteary/i18n-kit/v4"
+	i18nhttp "github.com/soulteary/i18n-kit/v4/httpadapter"
 	"github.com/soulteary/warden/locales"
 )
 
@@ -76,7 +77,7 @@ func NormalizeLanguage(lang string) Language {
 // T returns the translated string for the given key from request context.
 // If the key is not found, it returns the key itself.
 func T(r *http.Request, key string) string {
-	lang := kit.LanguageFromRequest(r)
+	lang := i18nhttp.Language(r)
 	return bundle.GetTranslation(lang, key)
 }
 
@@ -98,7 +99,7 @@ func TfWithLang(lang Language, key string, args ...interface{}) string {
 // GetLanguageFromContext gets the language from the request context.
 // Delegates to i18n-kit's LanguageFromRequest.
 func GetLanguageFromContext(r *http.Request) Language {
-	return kit.LanguageFromRequest(r)
+	return i18nhttp.Language(r)
 }
 
 // GetLanguageFromContextValue gets the language from context.Context (for scenarios without http.Request).
@@ -109,5 +110,5 @@ func GetLanguageFromContextValue(ctx context.Context) Language {
 // SetLanguageInContext sets the language in the request context.
 // Delegates to i18n-kit's SetLanguageInRequest.
 func SetLanguageInContext(r *http.Request, lang Language) *http.Request {
-	return kit.SetLanguageInRequest(r, lang)
+	return i18nhttp.SetLanguage(r, lang)
 }

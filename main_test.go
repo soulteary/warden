@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	health "github.com/soulteary/health-kit/v2"
-	middlewarekit "github.com/soulteary/middleware-kit/v2"
+	health "github.com/soulteary/health-kit/v4"
+	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
