@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	// External packages
-	cache "github.com/soulteary/cache-kit"
+	cache "github.com/soulteary/cache-kit/v2"
 	"github.com/soulteary/cli-kit/validator"
 	secure "github.com/soulteary/secure-kit/v2"
 

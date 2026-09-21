@@ -6,11 +6,12 @@ package cache
 
 import (
 	// Standard library
+	"context"
 	"time"
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
-	cache "github.com/soulteary/cache-kit"
+	rediscache "github.com/soulteary/cache-kit/v2/rediscache"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
@@ -29,43 +30,43 @@ const (
 
 // RedisUserCache provides Redis-based user cache using cache-kit
 type RedisUserCache struct {
-	cache *cache.RedisCache[define.AllowListUser]
+	cache *rediscache.Cache[define.AllowListUser]
 }
 
 // NewRedisUserCache creates a new Redis user cache
 func NewRedisUserCache(client *redis.Client) *RedisUserCache {
-	config := cache.DefaultRedisConfig().
+	config := rediscache.DefaultConfig().
 		WithKeyPrefix(""). // We use custom key name directly
 		WithTTL(REDIS_CACHE_TTL).
 		WithOperationTimeout(REDIS_OPERATION_TIMEOUT).
 		WithVersionKeySuffix(":version")
 
 	return &RedisUserCache{
-		cache: cache.NewRedisCacheWithKey[define.AllowListUser](client, REDIS_CACHE_KEY, config),
+		cache: rediscache.NewWithKey[define.AllowListUser](client, REDIS_CACHE_KEY, config),
 	}
 }
 
 // Set stores user list to Redis and updates version number
 func (c *RedisUserCache) Set(users []define.AllowListUser) error {
-	return c.cache.Set(users)
+	return c.cache.Set(context.Background(), users)
 }
 
 // Get gets user list from Redis
 func (c *RedisUserCache) Get() ([]define.AllowListUser, error) {
-	return c.cache.Get()
+	return c.cache.Get(context.Background())
 }
 
 // Exists checks if cache exists
 func (c *RedisUserCache) Exists() (bool, error) {
-	return c.cache.Exists()
+	return c.cache.Exists(context.Background())
 }
 
 // GetVersion gets cache version number
 func (c *RedisUserCache) GetVersion() (int64, error) {
-	return c.cache.GetVersion()
+	return c.cache.GetVersion(context.Background())
 }
 
 // Clear clears cache
 func (c *RedisUserCache) Clear() error {
-	return c.cache.Clear()
+	return c.cache.Clear(context.Background())
 }

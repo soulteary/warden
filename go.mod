@@ -11,7 +11,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/zerolog v1.35.1
 	github.com/soulteary/audit-kit/v2 v2.1.0
-	github.com/soulteary/cache-kit v1.7.0
+	github.com/soulteary/cache-kit/v2 v2.0.0
 	github.com/soulteary/cli-kit v1.9.0
 	github.com/soulteary/health-kit/v4 v4.0.0
 	github.com/soulteary/http-kit v1.5.0
