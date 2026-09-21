@@ -10,7 +10,7 @@ import (
 	"time"
 
 	// Third-party libraries
-	loggerkit "github.com/soulteary/logger-kit/v2"
+	loggerkit "github.com/soulteary/logger-kit/v3"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"

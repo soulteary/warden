@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	health "github.com/soulteary/health-kit/v2"
-	loggerkit "github.com/soulteary/logger-kit/v2"
-	middlewarekit "github.com/soulteary/middleware-kit/v2"
-	tracing "github.com/soulteary/tracing-kit"
+	health "github.com/soulteary/health-kit/v4"
+	redisprobe "github.com/soulteary/health-kit/v4/redisprobe"
+	loggerkit "github.com/soulteary/logger-kit/v3"
+	middlewarekit "github.com/soulteary/middleware-kit/v3"
+	tracing "github.com/soulteary/tracing-kit/v2"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
@@ -360,7 +361,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		aggregator.AddChecker(health.NewDisabledChecker("redis").
 			WithMessage("Redis is disabled"))
 	case redisClient != nil:
-		aggregator.AddChecker(health.NewRedisChecker(redisClient))
+		aggregator.AddChecker(redisprobe.New(redisClient))
 	default:
 		aggregator.AddChecker(health.NewCustomChecker("redis", func(_ context.Context) error {
 			return errors.New("client not initialized")

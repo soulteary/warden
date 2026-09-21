@@ -7,7 +7,7 @@ import (
 	"context"
 	"sync"
 
-	audit "github.com/soulteary/audit-kit"
+	audit "github.com/soulteary/audit-kit/v2"
 )
 
 var (

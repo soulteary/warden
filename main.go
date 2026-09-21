@@ -21,16 +21,16 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 	"github.com/redis/go-redis/v9"
-	loggerkit "github.com/soulteary/logger-kit/v2"
+	loggerkit "github.com/soulteary/logger-kit/v3"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 	rediskitlock "github.com/soulteary/redis-kit/lock"
 
 	// Middleware kit
-	middlewarekit "github.com/soulteary/middleware-kit/v2"
+	middlewarekit "github.com/soulteary/middleware-kit/v3"
 
 	// Internal packages
-	"github.com/soulteary/tracing-kit"
-	version "github.com/soulteary/version-kit/v2"
+	otlp "github.com/soulteary/tracing-kit/v2/otlp"
+	version "github.com/soulteary/version-kit/v4"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/config"
@@ -1072,7 +1072,7 @@ func main() {
 	// Initialize OpenTelemetry tracing if enabled
 	var tracerProvider interface{ Shutdown(context.Context) error }
 	if tracingCfg != nil && tracingCfg.Tracing.Enabled && tracingCfg.Tracing.Endpoint != "" {
-		tp, err := tracing.InitTracer(
+		tp, err := otlp.InitTracer(
 			"warden",
 			version.Version,
 			tracingCfg.Tracing.Endpoint,
@@ -1086,7 +1086,7 @@ func main() {
 	} else if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" && (otlpEnabled == "true" || otlpEnabled == "1") {
 		otlpEndpoint := os.Getenv("OTLP_ENDPOINT")
 		if otlpEndpoint != "" {
-			tp, err := tracing.InitTracer(
+			tp, err := otlp.InitTracer(
 				"warden",
 				version.Version,
 				otlpEndpoint,

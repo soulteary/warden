@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"strings"
 
-	secure "github.com/soulteary/secure-kit"
+	secure "github.com/soulteary/secure-kit/v2"
 )
 
 // sanitizeString sanitizes sensitive information

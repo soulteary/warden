@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	// Internal packages
-	"github.com/soulteary/tracing-kit"
+	tracing "github.com/soulteary/tracing-kit/v2"
 	"github.com/soulteary/warden/internal/auditlog"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"

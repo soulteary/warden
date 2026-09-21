@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soulteary/parser-kit"
+	parserkit "github.com/soulteary/parser-kit/v3"
+	"github.com/soulteary/parser-kit/v3/remotesource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,35 +16,51 @@ import (
 	"github.com/soulteary/warden/internal/define"
 )
 
+// fileSourcePath returns the path of the file fetcher behind a source, failing
+// the test when the source is not a file source.
+func fileSourcePath(t *testing.T, src parserkit.Source) string {
+	t.Helper()
+	f, ok := unwrapFetcher(src.Fetcher).(*parserkit.FileFetcher)
+	require.True(t, ok, "expected a file source, got %T", src.Fetcher)
+	return f.Path()
+}
+
+// remoteSourceFetcher returns the remote fetcher behind a source, failing the
+// test when the source is not a remote source.
+func remoteSourceFetcher(t *testing.T, src parserkit.Source) *remotesource.Fetcher {
+	t.Helper()
+	f, ok := unwrapFetcher(src.Fetcher).(*remotesource.Fetcher)
+	require.True(t, ok, "expected a remote source, got %T", src.Fetcher)
+	return f
+}
+
+// unwrapFetcher peels the nonEmptyFetcher wrapper BuildSources puts on every
+// source, so a test can assert on the parser-kit fetcher underneath.
+func unwrapFetcher(f parserkit.Fetcher) parserkit.Fetcher {
+	if w, ok := f.(interface{ Unwrap() parserkit.Fetcher }); ok {
+		return w.Unwrap()
+	}
+	return f
+}
+
 func TestBuildLoadOptions(t *testing.T) {
 	t.Run("nil_config_uses_defaults", func(t *testing.T) {
 		opts := BuildLoadOptions(nil, "development")
 		require.NotNil(t, opts)
-		assert.Equal(t, int64(define.MAX_JSON_SIZE), opts.MaxFileSize)
-		assert.Equal(t, define.HTTP_RETRY_MAX_RETRIES, opts.MaxRetries)
-		assert.Equal(t, define.HTTP_RETRY_DELAY, opts.RetryDelay)
+		assert.Equal(t, int64(define.MAX_JSON_SIZE), opts.MaxBytes)
 		assert.True(t, opts.AllowEmptyData)
-		assert.False(t, opts.AllowEmptyFile)
-	})
-
-	t.Run("with_config", func(t *testing.T) {
-		cfg := &cmd.Config{HTTPTimeout: 15, HTTPInsecureTLS: true}
-		opts := BuildLoadOptions(cfg, "development")
-		require.NotNil(t, opts)
-		assert.Equal(t, 15*time.Second, opts.HTTPTimeout)
-		assert.True(t, opts.InsecureSkipVerify)
-	})
-
-	t.Run("ONLY_LOCAL_allows_empty_file", func(t *testing.T) {
-		opts := BuildLoadOptions(nil, "ONLY_LOCAL")
-		require.NotNil(t, opts)
-		assert.True(t, opts.AllowEmptyFile)
 	})
 
 	t.Run("ONLY_REMOTE_strategy", func(t *testing.T) {
 		opts := BuildLoadOptions(nil, "ONLY_REMOTE")
 		require.NotNil(t, opts)
 		assert.Equal(t, "fallback", string(opts.LoadStrategy))
+	})
+
+	t.Run("ONLY_LOCAL_strategy", func(t *testing.T) {
+		opts := BuildLoadOptions(nil, "ONLY_LOCAL")
+		require.NotNil(t, opts)
+		assert.Equal(t, parserkit.LoadStrategyFallback, opts.LoadStrategy)
 	})
 
 	t.Run("default_mode_merge_strategy", func(t *testing.T) {
@@ -54,68 +71,135 @@ func TestBuildLoadOptions(t *testing.T) {
 	})
 }
 
+// TestBuildRemoteOptions pins the timeout/TLS values that parser-kit v1 read
+// from LoadOptions and v3 reads from the remote source.
+func TestBuildRemoteOptions(t *testing.T) {
+	t.Run("nil_config_uses_default_timeout", func(t *testing.T) {
+		opts := BuildRemoteOptions(nil)
+		assert.Equal(t, time.Duration(define.DEFAULT_TIMEOUT)*time.Second, opts.Timeout)
+		assert.False(t, opts.InsecureSkipVerify)
+	})
+
+	t.Run("with_config", func(t *testing.T) {
+		opts := BuildRemoteOptions(&cmd.Config{HTTPTimeout: 15, HTTPInsecureTLS: true})
+		assert.Equal(t, 15*time.Second, opts.Timeout)
+		assert.True(t, opts.InsecureSkipVerify)
+	})
+
+	t.Run("zero_timeout_is_preserved", func(t *testing.T) {
+		// v1 put cfg.HTTPTimeout straight into LoadOptions, so a zero meant
+		// "bounded only by the caller's context". WithTimeout(0) means the same.
+		opts := BuildRemoteOptions(&cmd.Config{})
+		assert.Equal(t, time.Duration(0), opts.Timeout)
+	})
+}
+
+// TestBuildSourcesRemoteSettings checks that the retry policy v1 kept on
+// LoadOptions is now on the remote source, with the same values.
+func TestBuildSourcesRemoteSettings(t *testing.T) {
+	sources := BuildSources("", "", "http://api/data", "Bearer x", "ONLY_REMOTE", BuildRemoteOptions(nil))
+	require.Len(t, sources, 1)
+	f := remoteSourceFetcher(t, sources[0])
+	assert.Equal(t, "http://api/data", f.URL())
+
+	retry := f.Retry()
+	assert.Equal(t, define.HTTP_RETRY_MAX_RETRIES, retry.MaxRetries)
+	assert.Equal(t, define.HTTP_RETRY_DELAY, retry.RetryDelay)
+	// Left unset in warden, so parser-kit fills in its 30s default -- the same
+	// ceiling parser-kit v1 applied.
+	assert.Equal(t, 30*time.Second, retry.MaxRetryDelay)
+}
+
 func TestBuildSources(t *testing.T) {
+	remoteOpts := BuildRemoteOptions(nil)
+
 	t.Run("ONLY_LOCAL", func(t *testing.T) {
-		sources := BuildSources("/data.json", "", "", "", "ONLY_LOCAL")
+		sources := BuildSources("/data.json", "", "", "", "ONLY_LOCAL", remoteOpts)
 		require.Len(t, sources, 1)
-		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
-		assert.Equal(t, "/data.json", sources[0].Config.FilePath)
+		assert.Equal(t, "/data.json", fileSourcePath(t, sources[0]))
+		assert.Equal(t, 0, sources[0].Priority)
 	})
 
 	t.Run("ONLY_REMOTE_empty_url", func(t *testing.T) {
-		sources := BuildSources("", "", "", "", "ONLY_REMOTE")
+		sources := BuildSources("", "", "", "", "ONLY_REMOTE", remoteOpts)
 		assert.Empty(t, sources)
 	})
 
 	t.Run("ONLY_REMOTE_with_url", func(t *testing.T) {
-		sources := BuildSources("", "", "http://api/data", "Bearer x", "ONLY_REMOTE")
+		sources := BuildSources("", "", "http://api/data", "Bearer x", "ONLY_REMOTE", remoteOpts)
 		require.Len(t, sources, 1)
-		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
-		assert.Equal(t, "http://api/data", sources[0].Config.RemoteURL)
-		assert.Equal(t, "Bearer x", sources[0].Config.AuthorizationHeader)
+		assert.Equal(t, "http://api/data", remoteSourceFetcher(t, sources[0]).URL())
+		assert.Equal(t, 0, sources[0].Priority)
 	})
 
 	t.Run("REMOTE_FIRST_with_remote", func(t *testing.T) {
-		sources := BuildSources("/local.json", "", "http://remote", "key", "REMOTE_FIRST")
+		sources := BuildSources("/local.json", "", "http://remote", "key", "REMOTE_FIRST", remoteOpts)
 		require.Len(t, sources, 2)
-		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
-		assert.Equal(t, parserkit.SourceTypeFile, sources[1].Type)
-		assert.Equal(t, "/local.json", sources[1].Config.FilePath)
-	})
-
-	t.Run("LOCAL_FIRST_swaps_priority", func(t *testing.T) {
-		sources := BuildSources("/local.json", "", "http://remote", "", "LOCAL_FIRST")
-		require.Len(t, sources, 2)
-		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
-		assert.Equal(t, parserkit.SourceTypeRemote, sources[1].Type)
+		assert.Equal(t, "http://remote", remoteSourceFetcher(t, sources[0]).URL())
+		assert.Equal(t, "/local.json", fileSourcePath(t, sources[1]))
 		assert.Equal(t, 0, sources[0].Priority)
 		assert.Equal(t, 1, sources[1].Priority)
 	})
 
+	t.Run("REMOTE_FIRST_ALLOW_REMOTE_FAILED_keeps_remote_first", func(t *testing.T) {
+		sources := BuildSources("/local.json", "", "http://remote", "", "REMOTE_FIRST_ALLOW_REMOTE_FAILED", remoteOpts)
+		require.Len(t, sources, 2)
+		assert.Equal(t, "http://remote", remoteSourceFetcher(t, sources[0]).URL())
+		assert.Equal(t, "/local.json", fileSourcePath(t, sources[1]))
+	})
+
+	t.Run("LOCAL_FIRST_swaps_priority", func(t *testing.T) {
+		sources := BuildSources("/local.json", "", "http://remote", "", "LOCAL_FIRST", remoteOpts)
+		require.Len(t, sources, 2)
+		assert.Equal(t, "/local.json", fileSourcePath(t, sources[0]))
+		assert.Equal(t, "http://remote", remoteSourceFetcher(t, sources[1]).URL())
+		assert.Equal(t, 0, sources[0].Priority)
+		assert.Equal(t, 1, sources[1].Priority)
+	})
+
+	t.Run("LOCAL_FIRST_ALLOW_REMOTE_FAILED_swaps_priority", func(t *testing.T) {
+		sources := BuildSources("/local.json", "", "http://remote", "", "LOCAL_FIRST_ALLOW_REMOTE_FAILED", remoteOpts)
+		require.Len(t, sources, 2)
+		assert.Equal(t, "/local.json", fileSourcePath(t, sources[0]))
+		assert.Equal(t, "http://remote", remoteSourceFetcher(t, sources[1]).URL())
+	})
+
 	t.Run("default_no_remote_url", func(t *testing.T) {
-		sources := BuildSources("/local.json", "", "", "", "development")
+		sources := BuildSources("/local.json", "", "", "", "development", remoteOpts)
 		require.Len(t, sources, 1)
-		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
+		assert.Equal(t, "/local.json", fileSourcePath(t, sources[0]))
 	})
 
 	t.Run("ONLY_LOCAL_with_dataDir", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "a.json"), []byte(`[{"phone":"1","mail":"a@x.com"}]`), 0o600))
 		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "b.json"), []byte(`[{"phone":"2","mail":"b@x.com"}]`), 0o600))
-		sources := BuildSources("", tmpDir, "", "", "ONLY_LOCAL")
+		sources := BuildSources("", tmpDir, "", "", "ONLY_LOCAL", remoteOpts)
 		require.Len(t, sources, 2)
-		assert.Equal(t, parserkit.SourceTypeFile, sources[0].Type)
-		assert.Equal(t, parserkit.SourceTypeFile, sources[1].Type)
-		assert.Contains(t, sources[0].Config.FilePath, ".json")
-		assert.Contains(t, sources[1].Config.FilePath, ".json")
+		assert.Equal(t, filepath.Join(tmpDir, "a.json"), fileSourcePath(t, sources[0]))
+		assert.Equal(t, filepath.Join(tmpDir, "b.json"), fileSourcePath(t, sources[1]))
 	})
 
 	t.Run("REMOTE_FIRST_with_dataDir_and_file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "extra.json"), []byte(`[]`), 0o600))
-		sources := BuildSources("/main.json", tmpDir, "http://api/data", "Bearer x", "REMOTE_FIRST")
-		require.GreaterOrEqual(t, len(sources), 2)
-		assert.Equal(t, parserkit.SourceTypeRemote, sources[0].Type)
+		sources := BuildSources("/main.json", tmpDir, "http://api/data", "Bearer x", "REMOTE_FIRST", remoteOpts)
+		require.Len(t, sources, 3)
+		assert.Equal(t, "http://api/data", remoteSourceFetcher(t, sources[0]).URL())
+		assert.Equal(t, filepath.Join(tmpDir, "extra.json"), fileSourcePath(t, sources[1]))
+		assert.Equal(t, "/main.json", fileSourcePath(t, sources[2]))
+		assert.Equal(t, []int{0, 1, 2}, []int{sources[0].Priority, sources[1].Priority, sources[2].Priority})
+	})
+
+	t.Run("LOCAL_FIRST_with_dataDir_and_file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "extra.json"), []byte(`[]`), 0o600))
+		sources := BuildSources("/main.json", tmpDir, "http://api/data", "Bearer x", "LOCAL_FIRST", remoteOpts)
+		require.Len(t, sources, 3)
+		assert.Equal(t, filepath.Join(tmpDir, "extra.json"), fileSourcePath(t, sources[0]))
+		assert.Equal(t, "/main.json", fileSourcePath(t, sources[1]))
+		assert.Equal(t, "http://api/data", remoteSourceFetcher(t, sources[2]).URL())
+		assert.Equal(t, []int{0, 1, 2}, []int{sources[0].Priority, sources[1].Priority, sources[2].Priority})
 	})
 }
 

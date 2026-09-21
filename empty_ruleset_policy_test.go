@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	health "github.com/soulteary/health-kit/v2"
+	health "github.com/soulteary/health-kit/v4"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"

@@ -14,6 +14,35 @@
 
 ## [Unreleased]
 
+### Changed
+- 依赖升级：把项目使用的 kit 全部升级到最新版本。
+  - `audit-kit` v1.9.0 → v2.1.0、`cache-kit` v1.7.0 → v2.0.0、`health-kit` v2.3.0 → v4.0.0、
+    `http-kit` v1.5.0 → v2.0.0、`i18n-kit` v2.2.0 → v4.0.1、`logger-kit` v2.3.0 → v3.0.0、
+    `metrics-kit` v2.2.0 → v3.0.0、`middleware-kit` v2.2.0 → v3.0.0、`parser-kit` v1.8.0 → v3.0.0、
+    `secure-kit` v1.6.0 → v2.1.0、`tracing-kit` v1.5.0 → v2.0.0、`version-kit` v2.2.0 → v4.0.0、
+    `redis-kit` v1.6.0 → v1.7.0（模块路径不变）。`cli-kit` v1.9.0 已是最新，未改动。
+  - 这些 kit 普遍把需要第三方依赖的部分拆到了子包，根包只留标准库，因此若干符号换了位置：
+    Redis 健康探针移到 `health-kit/v4/redisprobe`，net/http 的 i18n 入口移到 `i18n-kit/v4/httpadapter`，
+    OTLP 初始化与测试用 tracer 移到 `tracing-kit/v2/otlp` 和 `tracing-kit/v2/tracingtest`，
+    Redis 缓存移到 `cache-kit/v2/rediscache`，远程数据源移到 `parser-kit/v3/remotesource`。
+    `cache-kit` v2 的所有 Redis 操作改为接收 `context.Context`。
+  - `parser-kit` v3 把数据源抽象成 `Fetcher`，超时、重试与 TLS 从 `LoadOptions` 移到了具体数据源上。
+  - 同步更新 Makefile、发布工作流与两个 Dockerfile 中注入版本号的 `-X` 路径至 `version-kit/v4`。
+- 对外行为保持不变：各 `MERGE_MODE` 下的来源顺序、合并与回退、降级标记与原因，Redis 缓存的键
+  （`warden:users:cache` / `warden:users:cache:version`）、TTL 与版本后缀，健康检查与指标，i18n 语言检测，
+  日志字段，以及 SDK 的公开 API。升级前后用 `example/advanced/mock-api` 与本地规则文件逐一比对了
+  `ONLY_LOCAL`、`ONLY_REMOTE`、`LOCAL_FIRST`、`REMOTE_FIRST`、`REMOTE_FIRST_ALLOW_REMOTE_FAILED`
+  和 `LOCAL_FIRST_ALLOW_REMOTE_FAILED` 六种模式，加载到的用户数、来源与降级标记完全一致。
+- 其中四处 `parser-kit` v3 的默认行为变化编译器发现不了，已逐条恢复为 v1 语义并补了回归测试
+  （`internal/loader/migration_test.go`）：
+  - 远程拉取仍会注入全局 OpenTelemetry 的 trace 头（v3 默认不再注入，现显式传入
+    `remotesource.WithPropagator(otelprop.Global())`）；未启用 tracing 时不注入任何头。
+  - 零字节的文件或响应体仍视为该数据源失败并回退到下一个来源（v3 会把它解码成空列表，叠加
+    `AllowEmptyData` 后可能导致规则被清空）；显式的 `[]` 仍是合法空列表。
+  - 远程 URL 非法时只让该数据源失败，其他来源照常加载（v3 在构造数据源时就会校验 URL）。
+  - `ONLY_LOCAL` 模式下规则文件不存在时仍返回空列表且不报错（原 `AllowEmptyFile`，现为
+    文件源上的 `AllowMissing()`）。
+
 ## [1.3.0] - 2026-09-14
 
 ### Added

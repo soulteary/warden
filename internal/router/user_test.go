@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	loggerkit "github.com/soulteary/logger-kit/v2"
+	loggerkit "github.com/soulteary/logger-kit/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

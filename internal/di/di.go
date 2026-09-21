@@ -11,12 +11,13 @@ import (
 
 	// Third-party libraries
 	"github.com/redis/go-redis/v9"
-	health "github.com/soulteary/health-kit/v2"
-	loggerkit "github.com/soulteary/logger-kit/v2"
+	health "github.com/soulteary/health-kit/v4"
+	redisprobe "github.com/soulteary/health-kit/v4/redisprobe"
+	loggerkit "github.com/soulteary/logger-kit/v3"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 
 	// Middleware kit
-	middlewarekit "github.com/soulteary/middleware-kit/v2"
+	middlewarekit "github.com/soulteary/middleware-kit/v3"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/cache"
@@ -185,7 +186,7 @@ func (d *Dependencies) createHealthAggregator() *health.Aggregator {
 		aggregator.AddChecker(health.NewDisabledChecker("redis").
 			WithMessage("Redis is disabled"))
 	case d.RedisClient != nil:
-		aggregator.AddChecker(health.NewRedisChecker(d.RedisClient))
+		aggregator.AddChecker(redisprobe.New(d.RedisClient))
 	default:
 		// Redis enabled but client is nil (connection failed)
 		aggregator.AddChecker(health.NewCustomChecker("redis", func(_ context.Context) error {
