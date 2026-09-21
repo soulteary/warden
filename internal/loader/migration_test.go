@@ -126,7 +126,9 @@ func TestEmptyArrayIsAValidEmptyList(t *testing.T) {
 
 	t.Run("remote", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = w.Write([]byte(`[]`))
+			if _, err := w.Write([]byte(`[]`)); err != nil {
+				t.Errorf("write response: %v", err)
+			}
 		}))
 		defer srv.Close()
 
@@ -143,11 +145,13 @@ func TestEmptyArrayIsAValidEmptyList(t *testing.T) {
 // injected the global OpenTelemetry propagator on every remote fetch, and v3
 // only does so when the source is built with one.
 func TestRemoteRequestCarriesTraceparent(t *testing.T) {
-	var gotTraceparent atomic.Value
-	gotTraceparent.Store("")
+	var gotTraceparent atomic.Pointer[string]
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		gotTraceparent.Store(req.Header.Get("traceparent"))
-		_, _ = w.Write([]byte(oneUserJSON))
+		header := req.Header.Get("traceparent")
+		gotTraceparent.Store(&header)
+		if _, err := w.Write([]byte(oneUserJSON)); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -173,20 +177,23 @@ func TestRemoteRequestCarriesTraceparent(t *testing.T) {
 	require.NoError(t, res.Err)
 	require.Len(t, res.Users, 1)
 
-	traceparent, _ := gotTraceparent.Load().(string)
-	require.NotEmpty(t, traceparent, "remote fetch must carry the global trace context")
-	assert.Equal(t, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", traceparent)
+	traceparent := gotTraceparent.Load()
+	require.NotNil(t, traceparent, "the remote source was never fetched")
+	require.NotEmpty(t, *traceparent, "remote fetch must carry the global trace context")
+	assert.Equal(t, "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01", *traceparent)
 }
 
 // TestRemoteRequestWithoutTracingSendsNoTraceparent is the companion: with no
 // global propagator configured, otelprop.Global() resolves OpenTelemetry's
 // no-op default and adds nothing, exactly as an untraced v1 process did.
 func TestRemoteRequestWithoutTracingSendsNoTraceparent(t *testing.T) {
-	var gotTraceparent atomic.Value
-	gotTraceparent.Store("")
+	var gotTraceparent atomic.Pointer[string]
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		gotTraceparent.Store(req.Header.Get("traceparent"))
-		_, _ = w.Write([]byte(oneUserJSON))
+		header := req.Header.Get("traceparent")
+		gotTraceparent.Store(&header)
+		if _, err := w.Write([]byte(oneUserJSON)); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -200,8 +207,9 @@ func TestRemoteRequestWithoutTracingSendsNoTraceparent(t *testing.T) {
 	res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
 	require.NoError(t, res.Err)
 
-	traceparent, _ := gotTraceparent.Load().(string)
-	assert.Empty(t, traceparent)
+	traceparent := gotTraceparent.Load()
+	require.NotNil(t, traceparent, "the remote source was never fetched")
+	assert.Empty(t, *traceparent)
 }
 
 // TestInvalidRemoteURLFailsOnlyThatSource covers the deferred construction
@@ -244,7 +252,9 @@ func TestInvalidRemoteURLFailsOnlyThatSource(t *testing.T) {
 // accepted when it is on.
 func TestInsecureSkipVerify(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(oneUserJSON))
+		if _, err := w.Write([]byte(oneUserJSON)); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
