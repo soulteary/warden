@@ -98,8 +98,8 @@ github.com/soulteary/cli-kit v1.9.0 h1:MqI51qtK+pspPDoF0WA0RctRrDXB/lkQ0Wl7qWO2e
 github.com/soulteary/cli-kit v1.9.0/go.mod h1:xwDFEGpNaL5Tgqsv2FW0PRPuCE80Um+LXDUUIzcQxgQ=
 github.com/soulteary/health-kit/v4 v4.0.0 h1:z9naNR+5ratOOk7Rhv0x7qf2lhwkqA1BKmZXX3BYpLc=
 github.com/soulteary/health-kit/v4 v4.0.0/go.mod h1:FICSTbB1ZaKpRsn+16u1b2w6TaCxV3E2H2KAYHlQxKQ=
-github.com/soulteary/http-kit v1.5.0 h1:VCvsCjsLEgcg0x/cfbhQyo+KdzCL28+3PqVCrR8h+so=
-github.com/soulteary/http-kit v1.5.0/go.mod h1:WoOxPjfMZrj0IYEn/Lagb3vGt9eFlsPXutwRufckOpA=
+github.com/soulteary/http-kit/v2 v2.0.0 h1:q+maakPCwz0iRDcrfnQ9Z9BRxdiHGcLnH0wUWVmLmxk=
+github.com/soulteary/http-kit/v2 v2.0.0/go.mod h1:fZJeAYpTvmfyq0Oq7imWxbQS5MIjQCZ8HQDCWCHOrhg=
 github.com/soulteary/i18n-kit/v4 v4.0.1 h1:hin+66In3odPrjnHRPVpqBfmZMr2SDS+6JEEuaYJQU8=
 github.com/soulteary/i18n-kit/v4 v4.0.1/go.mod h1:D6BFXqONnwkQ3y+//mwT4ex7SPrKXc/a75vfBf2e9jU=
 github.com/soulteary/logger-kit/v3 v3.0.0 h1:oCsNss5cRgMJD5Ub5mjWjgFmtvExlqilSPuz/cIu8AE=
@@ -108,8 +108,8 @@ github.com/soulteary/metrics-kit/v3 v3.0.0 h1:1KBslddLh5Qv9+pi06Py/SoM59Cbm2FiRD
 github.com/soulteary/metrics-kit/v3 v3.0.0/go.mod h1:hugXfHjLJUSqNTjF6UUueEdO7KZEz7rzQOMHUvNd3hM=
 github.com/soulteary/middleware-kit/v3 v3.0.0 h1:8CHQPvYB64QJDBTN5j2zHv1+nB5MtTInHP+MMZn5GG4=
 github.com/soulteary/middleware-kit/v3 v3.0.0/go.mod h1:x5gzREwqRUxusCPAJhtC8op8Sizv+5A+CjLHVm56kwk=
-github.com/soulteary/parser-kit v1.8.0 h1:iYMKghBjVXsVehouu9eTfXIgyurKfic/9NC/JIsNM6E=
-github.com/soulteary/parser-kit v1.8.0/go.mod h1:aS8W0UfOSmiQRksLRtKMT4wQjyX0bcuHzgmyTkp8aHA=
+github.com/soulteary/parser-kit/v3 v3.0.0 h1:zTILEQAy7zBQ4wBN7dBK9J77bi8fpNwVev1XccGZnjs=
+github.com/soulteary/parser-kit/v3 v3.0.0/go.mod h1:Alk+NeA/9VVqBZjIQ4GHpxQDk+ttIJsTRrqYGT+3ySY=
 github.com/soulteary/redis-kit v1.7.0 h1:Js34kAMAB3cXuE+DE9qKPExB0bVNqRoN0fTYR5sr3bg=
 github.com/soulteary/redis-kit v1.7.0/go.mod h1:7ah1JeSGh7bdnhckG/b699RM0hPWIt4s4k9v95H6mWQ=
 github.com/soulteary/secure-kit/v2 v2.1.0 h1:n5KfT7KO8CrmjGpk4yVcNXshbgT4osu0QeDDg3Yg/3s=

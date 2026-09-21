@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	httpkit "github.com/soulteary/http-kit"
+	httpkit "github.com/soulteary/http-kit/v2"
+	otelprop "github.com/soulteary/http-kit/v2/otelprop"
 )
 
 // Client is the Warden API client.
@@ -48,6 +49,11 @@ func NewClient(opts *Options) (*Client, error) {
 	clientOpts := &httpkit.Options{
 		BaseURL: opts.BaseURL,
 		Timeout: opts.Timeout,
+		// http-kit v2 removed Client.InjectTraceContext, which resolved the
+		// global OpenTelemetry propagator on every call. otelprop.Global()
+		// resolves it just as late, and Client.Do applies it to every attempt,
+		// so outbound requests carry the same trace headers as before.
+		Propagator: otelprop.Global(),
 	}
 	if opts.Transport != nil {
 		clientOpts.Transport = opts.Transport
@@ -148,9 +154,6 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
 
-	// Inject trace context into headers
-	c.httpClient.InjectTraceContext(ctx, req)
-
 	// Add API key header if configured
 	c.addAuthHeaders(req)
 
@@ -212,9 +215,6 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
-
-	// Inject trace context into headers
-	c.httpClient.InjectTraceContext(ctx, req)
 
 	// Add API key header if configured
 	c.addAuthHeaders(req)
@@ -353,9 +353,6 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	if err != nil {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
-
-	// Inject trace context into headers
-	c.httpClient.InjectTraceContext(ctx, req)
 
 	// Add API key header if configured
 	c.addAuthHeaders(req)

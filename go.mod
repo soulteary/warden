@@ -14,12 +14,12 @@ require (
 	github.com/soulteary/cache-kit/v2 v2.0.0
 	github.com/soulteary/cli-kit v1.9.0
 	github.com/soulteary/health-kit/v4 v4.0.0
-	github.com/soulteary/http-kit v1.5.0
+	github.com/soulteary/http-kit/v2 v2.0.0
 	github.com/soulteary/i18n-kit/v4 v4.0.1
 	github.com/soulteary/logger-kit/v3 v3.0.0
 	github.com/soulteary/metrics-kit/v3 v3.0.0
 	github.com/soulteary/middleware-kit/v3 v3.0.0
-	github.com/soulteary/parser-kit v1.8.0
+	github.com/soulteary/parser-kit/v3 v3.0.0
 	github.com/soulteary/redis-kit v1.7.0
 	github.com/soulteary/secure-kit/v2 v2.1.0
 	github.com/soulteary/tracing-kit/v2 v2.0.0
