@@ -8,7 +8,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/pterm/pterm v0.12.83
-	github.com/redis/go-redis/v9 v9.22.0
+	github.com/redis/go-redis/v9 v9.23.0
 	github.com/rs/zerolog v1.35.1
 	github.com/soulteary/audit-kit/v2 v2.1.0
 	github.com/soulteary/cache-kit/v2 v2.0.0
