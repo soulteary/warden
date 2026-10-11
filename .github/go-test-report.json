@@ -7,9 +7,9 @@
     "skipped": 0
   },
   "coverage": {
-    "covered_statements": 4634,
-    "total_statements": 5261,
-    "percentage": 88.08,
+    "covered_statements": 3058,
+    "total_statements": 3624,
+    "percentage": 84.38,
     "threshold": 80
   },
   "packages": [
@@ -18,35 +18,35 @@
       "status": "pass",
       "tests": 84,
       "failed": 0,
-      "coverage": 80.72
+      "coverage": 74.07
     },
     {
       "name": "internal/auditlog",
       "status": "pass",
       "tests": 2,
       "failed": 0,
-      "coverage": 82.61
+      "coverage": 81.82
     },
     {
       "name": "internal/cache",
       "status": "pass",
       "tests": 36,
       "failed": 0,
-      "coverage": 96.91
+      "coverage": 96.03
     },
     {
       "name": "internal/cmd",
       "status": "pass",
       "tests": 66,
       "failed": 0,
-      "coverage": 94.08
+      "coverage": 89.61
     },
     {
       "name": "internal/config",
       "status": "pass",
       "tests": 30,
       "failed": 0,
-      "coverage": 86.93
+      "coverage": 86.45
     },
     {
       "name": "internal/define",
@@ -60,7 +60,7 @@
       "status": "pass",
       "tests": 20,
       "failed": 0,
-      "coverage": 95.36
+      "coverage": 88.71
     },
     {
       "name": "internal/errors",
@@ -74,70 +74,70 @@
       "status": "pass",
       "tests": 6,
       "failed": 0,
-      "coverage": 91.3
+      "coverage": 89.47
     },
     {
       "name": "internal/identity",
       "status": "pass",
       "tests": 7,
       "failed": 0,
-      "coverage": 88.35
+      "coverage": 87.1
     },
     {
       "name": "internal/loader",
       "status": "pass",
       "tests": 27,
       "failed": 0,
-      "coverage": 87.91
+      "coverage": 88.08
     },
     {
       "name": "internal/logger",
       "status": "pass",
       "tests": 21,
       "failed": 0,
-      "coverage": 97.62
+      "coverage": 97.37
     },
     {
       "name": "internal/middleware",
       "status": "pass",
       "tests": 66,
       "failed": 0,
-      "coverage": 92.43
+      "coverage": 90.95
     },
     {
       "name": "internal/prommetrics",
       "status": "pass",
       "tests": 13,
       "failed": 0,
-      "coverage": 99.38
+      "coverage": 94.59
     },
     {
       "name": "internal/remote",
       "status": "pass",
       "tests": 30,
       "failed": 0,
-      "coverage": 78.71
+      "coverage": 78.37
     },
     {
       "name": "internal/router",
       "status": "pass",
       "tests": 57,
       "failed": 0,
-      "coverage": 87.43
+      "coverage": 83.1
     },
     {
       "name": "internal/tracing",
       "status": "pass",
       "tests": 13,
       "failed": 0,
-      "coverage": 98
+      "coverage": 95
     },
     {
       "name": "internal/validator",
       "status": "pass",
       "tests": 5,
       "failed": 0,
-      "coverage": 81.25
+      "coverage": 80
     },
     {
       "name": "locales",
@@ -151,14 +151,14 @@
       "status": "pass",
       "tests": 54,
       "failed": 0,
-      "coverage": 85.64
+      "coverage": 84.83
     },
     {
       "name": "pkg/warden",
       "status": "pass",
       "tests": 69,
       "failed": 0,
-      "coverage": 85.48
+      "coverage": 82.81
     }
   ],
   "failures": null
