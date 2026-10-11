@@ -1,11 +1,11 @@
 # Go Report Card
 
-**Grade: A+** (98.9%)
+**Grade: A+** (99.1%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 104 |
-| Issues | 10 |
+| Files | 113 |
+| Issues | 50 |
 
 ## Checks
 
@@ -14,39 +14,446 @@
 | go_vet | 100% |
 | gofmt | 100% |
 | ineffassign | 100% |
-| gocyclo | 90% |
+| gocyclo | 92% |
 | license | 100% |
-| misspell | 100% |
+| misspell | 63% |
 
 ## Issues
 
 ### gocyclo
 
-- `internal/config/config.go`
-  - Line 546: warning: cyclomatic complexity 29 of function (*Config).ToCmdConfig() is high (> 15) (gocyclo)
-  - Line 293: warning: cyclomatic complexity 24 of function overrideFromEnv() is high (> 15) (gocyclo)
-- `internal/router/user.go`
-  - Line 27: warning: cyclomatic complexity 25 of function GetUserByIdentifier() is high (> 15) (gocyclo)
-- `main.go`
-  - Line 274: warning: cyclomatic complexity 22 of function (*App).loadInitialData() is high (> 15) (gocyclo)
-  - Line 676: warning: cyclomatic complexity 20 of function main() is high (> 15) (gocyclo)
-  - Line 85: warning: cyclomatic complexity 16 of function NewApp() is high (> 15) (gocyclo)
-- `internal/cache/redis_cache_test.go`
-  - Line 58: warning: cyclomatic complexity 21 of function (*fakeRedis).handleCommand() is high (> 15) (gocyclo)
-- `internal/router/json.go`
-  - Line 48: warning: cyclomatic complexity 19 of function parsePaginationParams() is high (> 15) (gocyclo)
-- `pkg/warden/client.go`
-  - Line 454: warning: cyclomatic complexity 17 of function (*Client).doRequestWithRetry() is high (> 15) (gocyclo)
-  - Line 310: warning: cyclomatic complexity 16 of function (*Client).GetUserByIdentifier() is high (> 15) (gocyclo)
-- `internal/identity/validate.go`
-  - Line 87: warning: cyclomatic complexity 16 of function ValidateAndIndexUsers() is high (> 15) (gocyclo)
-- `internal/cmd/validate.go`
-  - Line 20: warning: cyclomatic complexity 26 of function ValidateConfig() is high (> 15) (gocyclo)
-- `internal/loader/loader.go`
-  - Line 78: warning: cyclomatic complexity 23 of function BuildSources() is high (> 15) (gocyclo)
 - `internal/cmd/cmd.go`
-  - Line 195: warning: cyclomatic complexity 17 of function processRedisFromFlags() is high (> 15) (gocyclo)
+  - Line 220: cyclomatic complexity 17 for function processRedisFromFlags
+- `internal/identity/validate.go`
+  - Line 87: cyclomatic complexity 16 for function ValidateAndIndexUsers
+- `internal/cmd/validate.go`
+  - Line 24: cyclomatic complexity 37 for function ValidateConfig
+- `internal/config/config.go`
+  - Line 558: cyclomatic complexity 29 for function (*Config).ToCmdConfig
+  - Line 304: cyclomatic complexity 24 for function overrideFromEnv
+- `main.go`
+  - Line 1043: cyclomatic complexity 21 for function main
+  - Line 97: cyclomatic complexity 20 for function NewApp
+  - Line 467: cyclomatic complexity 18 for function (*App).loadInitialData
+- `internal/router/json.go`
+  - Line 48: cyclomatic complexity 19 for function parsePaginationParams
+- `main_routes.go`
+  - Line 320: cyclomatic complexity 31 for function setupHealthChecker
+- `internal/router/user.go`
+  - Line 27: cyclomatic complexity 25 for function GetUserByIdentifier
+- `pkg/warden/client.go`
+  - Line 466: cyclomatic complexity 18 for function (*Client).doRequestWithRetry
+  - Line 312: cyclomatic complexity 16 for function (*Client).GetUserByIdentifier
+
+### misspell
+
+- `docs/frFR/SDK.md`
+  - Line 22: "marrage" is a misspelling of "marriage"
+  - Line 79: "exemple" is a misspelling of "example"
+  - Line 291: "normalis" is a misspelling of "normals"
+  - Line 410: "Strat" is a misspelling of "Start"
+  - Line 432: "Strat" is a misspelling of "Start"
+  - Line 434: "strat" is a misspelling of "start"
+  - Line 437: "Strat" is a misspelling of "Start"
+  - Line 452: "exponentiel" is a misspelling of "exponential"
+  - Line 461: "strat" is a misspelling of "start"
+  - Line 465: "strat" is a misspelling of "start"
+  - Line 470: "collecte" is a misspelling of "collective"
+  - Line 474: "Exemple" is a misspelling of "Example"
+  - Line 541: "terminaison" is a misspelling of "termination"
+- `.github/ISSUE_TEMPLATE/bug_report.deDE.md`
+  - Line 13: "Reproduktion" is a misspelling of "Reproduction"
+  - Line 62: "Reproduktion" is a misspelling of "Reproduction"
+- `.github/ISSUE_TEMPLATE/bug_report.itIT.md`
+  - Line 16: "Configurare" is a misspelling of "Configure"
+  - Line 29: "applicabile" is a misspelling of "applicable"
+- `.github/pull_request_template.itIT.md`
+  - Line 22: "correlato" is a misspelling of "correlation"
+  - Line 60: "applicabile" is a misspelling of "applicable"
+  - Line 97: "accelerare" is a misspelling of "accelerate"
+- `docs/deDE/TRACING.md`
+  - Line 12: "Konfiguration" is a misspelling of "Configuration"
+  - Line 14: "Konfiguration" is a misspelling of "Configuration"
+  - Line 16: "Produktion" is a misspelling of "Production"
+- `docs/frFR/DEPLOYMENT.md`
+  - Line 15: "complets" is a misspelling of "completes"
+  - Line 16: "Exemple" is a misspelling of "Example"
+  - Line 17: "Exemple" is a misspelling of "Example"
+  - Line 148: "exemple" is a misspelling of "example"
+  - Line 149: "exemple" is a misspelling of "example"
+  - Line 150: "exemple" is a misspelling of "example"
+  - Line 152: "exemple" is a misspelling of "example"
+  - Line 160: "Recommandations" is a misspelling of "Recommendations"
+  - Line 166: "Exemple" is a misspelling of "Example"
+  - Line 190: "certificats" is a misspelling of "certificates"
+  - Line 196: "terminaison" is a misspelling of "termination"
+  - Line 197: "terminaison" is a misspelling of "termination"
+  - Line 198: "collecte" is a misspelling of "collective"
+  - Line 204: "marrage" is a misspelling of "marriage"
+  - Line 283: "persistance" is a misspelling of "persistence"
+  - Line 290: "activit" is a misspelling of "activist"
+  - Line 312: "Exemple" is a misspelling of "Example"
+  - Line 333: "exemple" is a misspelling of "example"
+  - Line 360: "exemple" is a misspelling of "example"
+  - Line 378: "exemple" is a misspelling of "example"
+  - Line 450: "Recommandations" is a misspelling of "Recommendations"
+  - Line 454: "certificats" is a misspelling of "certificates"
+  - Line 456: "collecte" is a misspelling of "collective"
+  - Line 467: "Exemple" is a misspelling of "Example"
+- `docs/itIT/SECURITY.md`
+  - Line 16: "configurare" is a misspelling of "configure"
+  - Line 28: "configurare" is a misspelling of "configure"
+  - Line 29: "configurare" is a misspelling of "configure"
+  - Line 45: "Conservare" is a misspelling of "Conserve"
+  - Line 52: "comando" is a misspelling of "commando"
+  - Line 70: "Configurare" is a misspelling of "Configure"
+  - Line 75: "Configurare" is a misspelling of "Configure"
+  - Line 90: "modificato" is a misspelling of "modification"
+  - Line 105: "configurare" is a misspelling of "configure"
+  - Line 164: "configurato" is a misspelling of "configuration"
+  - Line 197: "facilitare" is a misspelling of "facilitate"
+  - Line 198: "incluse" is a misspelling of "includes"
+  - Line 226: "certificato" is a misspelling of "certification"
+  - Line 230: "certificato" is a misspelling of "certification"
+  - Line 235: "certificato" is a misspelling of "certification"
+  - Line 250: "Configurare" is a misspelling of "Configure"
+  - Line 250: "certificato" is a misspelling of "certification"
+  - Line 251: "Configurare" is a misspelling of "Configure"
+  - Line 251: "certificato" is a misspelling of "certification"
+  - Line 251: "certificato" is a misspelling of "certification"
+  - Line 297: "configurato" is a misspelling of "configuration"
+  - Line 298: "configurato" is a misspelling of "configuration"
+  - Line 303: "conservare" is a misspelling of "conserve"
+  - Line 305: "possibile" is a misspelling of "possible"
+- `.github/ISSUE_TEMPLATE/question.itIT.md`
+  - Line 15: "consultato" is a misspelling of "consultation"
+- `docs/deDE/README.md`
+  - Line 133: "Konfiguration" is a misspelling of "Configuration"
+  - Line 133: "konfiguration" is a misspelling of "configuration"
+  - Line 181: "Konfiguration" is a misspelling of "Configuration"
+- `docs/frFR/README.md`
+  - Line 13: "marrage" is a misspelling of "marriage"
+  - Line 18: "terminaison" is a misspelling of "termination"
+  - Line 19: "terminaison" is a misspelling of "termination"
+  - Line 21: "terminaison" is a misspelling of "termination"
+  - Line 28: "Strat" is a misspelling of "Start"
+  - Line 125: "existantes" is a misspelling of "existent"
+  - Line 132: "marrage" is a misspelling of "marriage"
+  - Line 132: "marrage" is a misspelling of "marriage"
+  - Line 182: "Strat" is a misspelling of "Start"
+  - Line 187: "terminaison" is a misspelling of "termination"
+  - Line 195: "recommandations" is a misspelling of "recommendations"
+  - Line 195: "recommandations" is a misspelling of "recommendations"
+  - Line 204: "Recommandations" is a misspelling of "Recommendations"
+  - Line 206: "marrage" is a misspelling of "marriage"
+- `docs/deDE/API.md`
+  - Line 198: "Produktion" is a misspelling of "Production"
+  - Line 229: "Produktion" is a misspelling of "Production"
+- `docs/itIT/CONFIGURATION.md`
+  - Line 7: "comando" is a misspelling of "commando"
+  - Line 58: "distribuito" is a misspelling of "distribution"
+  - Line 64: "possibile" is a misspelling of "possible"
+  - Line 66: "comando" is a misspelling of "commando"
+  - Line 187: "comando" is a misspelling of "commando"
+  - Line 193: "comando" is a misspelling of "commando"
+  - Line 214: "comando" is a misspelling of "commando"
+  - Line 215: "destinato" is a misspelling of "destination"
+  - Line 219: "comando" is a misspelling of "commando"
+  - Line 219: "incluse" is a misspelling of "includes"
+  - Line 253: "certificato" is a misspelling of "certification"
+  - Line 256: "certificato" is a misspelling of "certification"
+  - Line 260: "comando" is a misspelling of "commando"
+  - Line 264: "configurare" is a misspelling of "configure"
+  - Line 270: "supportare" is a misspelling of "supporters"
+  - Line 287: "configurato" is a misspelling of "configuration"
+  - Line 295: "possibile" is a misspelling of "possible"
+  - Line 295: "configurare" is a misspelling of "configure"
+  - Line 304: "Certificato" is a misspelling of "Certification"
+  - Line 309: "certificato" is a misspelling of "certification"
+  - Line 330: "configurare" is a misspelling of "configure"
+  - Line 353: "configurato" is a misspelling of "configuration"
+  - Line 354: "configurato" is a misspelling of "configuration"
+  - Line 360: "certificato" is a misspelling of "certification"
+  - Line 361: "configurato" is a misspelling of "configuration"
+- `docs/itIT/DEPLOYMENT.md`
+  - Line 45: "possibile" is a misspelling of "possible"
+  - Line 84: "separato" is a misspelling of "separation"
+  - Line 132: "Configurare" is a misspelling of "Configure"
+  - Line 188: "possibile" is a misspelling of "possible"
+  - Line 194: "Configurare" is a misspelling of "Configure"
+  - Line 197: "Configurare" is a misspelling of "Configure"
+  - Line 204: "Configurare" is a misspelling of "Configure"
+  - Line 204: "automatico" is a misspelling of "automation"
+  - Line 208: "Configurare" is a misspelling of "Configure"
+  - Line 284: "Configurare" is a misspelling of "Configure"
+  - Line 290: "Configurare" is a misspelling of "Configure"
+  - Line 308: "distribuito" is a misspelling of "distribution"
+  - Line 308: "integrato" is a misspelling of "integration"
+  - Line 310: "distribuito" is a misspelling of "distribution"
+  - Line 440: "configurare" is a misspelling of "configure"
+  - Line 453: "Configurare" is a misspelling of "Configure"
+  - Line 453: "configurare" is a misspelling of "configure"
+  - Line 465: "configurare" is a misspelling of "configure"
+  - Line 522: "interfacce" is a misspelling of "interfaces"
+- `locales/de.json`
+  - Line 5: "Konfiguration" is a misspelling of "Configuration"
+  - Line 31: "Produktion" is a misspelling of "Production"
+- `locales/fr.json`
+  - Line 63: "recommande" is a misspelling of "recommend"
+  - Line 68: "initiales" is a misspelling of "initials"
+  - Line 107: "marrage" is a misspelling of "marriage"
+- `locales/it.json`
+  - Line 4: "distribuito" is a misspelling of "distribution"
+  - Line 42: "compreso" is a misspelling of "compressor"
+  - Line 48: "certificato" is a misspelling of "certification"
+  - Line 51: "limitato" is a misspelling of "limitation"
+  - Line 61: "certificato" is a misspelling of "certification"
+  - Line 62: "certificato" is a misspelling of "certification"
+  - Line 63: "comando" is a misspelling of "commando"
+  - Line 79: "configurato" is a misspelling of "configuration"
+  - Line 94: "continuare" is a misspelling of "continue"
+  - Line 99: "Impossibile" is a misspelling of "Impossible"
+- `.github/ISSUE_TEMPLATE/feature_request.itIT.md`
+  - Line 28: "considerato" is a misspelling of "consideration"
+  - Line 34: "Interfacce" is a misspelling of "Interfaces"
+  - Line 56: "considerato" is a misspelling of "consideration"
+- `README.deDE.md`
+  - Line 86: "Konfiguration" is a misspelling of "Configuration"
+  - Line 88: "Konfiguration" is a misspelling of "Configuration"
+  - Line 93: "Produktion" is a misspelling of "Production"
+  - Line 96: "Konfiguration" is a misspelling of "Configuration"
+  - Line 130: "Konfiguration" is a misspelling of "Configuration"
+  - Line 138: "Konfiguration" is a misspelling of "Configuration"
+- `docs/deDE/SECURITY.md`
+  - Line 10: "Konfiguration" is a misspelling of "Configuration"
+  - Line 24: "Konfiguration" is a misspelling of "Configuration"
+  - Line 26: "Konfiguration" is a misspelling of "Configuration"
+  - Line 31: "Produktion" is a misspelling of "Production"
+  - Line 68: "Konfiguration" is a misspelling of "Configuration"
+  - Line 73: "Konfiguration" is a misspelling of "Configuration"
+  - Line 77: "Produktion" is a misspelling of "Production"
+  - Line 104: "Produktion" is a misspelling of "Production"
+  - Line 160: "Produktion" is a misspelling of "Production"
+  - Line 222: "Konfiguration" is a misspelling of "Configuration"
+  - Line 241: "Konfiguration" is a misspelling of "Configuration"
+  - Line 249: "Konfiguration" is a misspelling of "Configuration"
+  - Line 271: "Konfiguration" is a misspelling of "Configuration"
+  - Line 310: "Produktion" is a misspelling of "Production"
+- `docs/itIT/CONFIG_PARSING.md`
+  - Line 5: "comando" is a misspelling of "commando"
+  - Line 7: "momento" is a misspelling of "memento"
+- `docs/itIT/CONTRIBUTING.md`
+  - Line 5: "contributo" is a misspelling of "contribution"
+  - Line 19: "possibile" is a misspelling of "possible"
+  - Line 82: "possibile" is a misspelling of "possible"
+  - Line 84: "possibile" is a misspelling of "possible"
+  - Line 85: "verificato" is a misspelling of "verification"
+  - Line 229: "contributo" is a misspelling of "contribution"
+- `.github/ISSUE_TEMPLATE/bug_report.frFR.md`
+  - Line 40: "marrage" is a misspelling of "marriage"
+  - Line 59: "existantes" is a misspelling of "existent"
+- `README.frFR.md`
+  - Line 18: "strat" is a misspelling of "start"
+  - Line 22: "Principales" is a misspelling of "Principles"
+  - Line 26: "Strat" is a misspelling of "Start"
+  - Line 31: "marrage" is a misspelling of "marriage"
+  - Line 59: "complets" is a misspelling of "completes"
+  - Line 88: "essentiels" is a misspelling of "essentials"
+  - Line 106: "Exemple" is a misspelling of "Example"
+  - Line 129: "terminaison" is a misspelling of "termination"
+  - Line 139: "marrage" is a misspelling of "marriage"
+- `docs/frFR/CONTRIBUTING.md`
+  - Line 9: "contribuer" is a misspelling of "contribute"
+  - Line 9: "contribuer" is a misspelling of "contribute"
+  - Line 15: "demandes" is a misspelling of "demands"
+  - Line 15: "demandes" is a misspelling of "demands"
+  - Line 17: "contribuer" is a misspelling of "contribute"
+  - Line 19: "contribuer" is a misspelling of "contribute"
+  - Line 27: "contributeurs" is a misspelling of "contributes"
+  - Line 37: "marrage" is a misspelling of "marriage"
+  - Line 82: "lecteurs" is a misspelling of "lectures"
+  - Line 167: "respecte" is a misspelling of "respective"
+  - Line 172: "respecte" is a misspelling of "respective"
+  - Line 177: "demandes" is a misspelling of "demands"
+  - Line 179: "existantes" is a misspelling of "existent"
+  - Line 218: "contribuer" is a misspelling of "contribute"
+  - Line 225: "existantes" is a misspelling of "existent"
+- `.github/ISSUE_TEMPLATE/feature_request.frFR.md`
+  - Line 36: "Strat" is a misspelling of "Start"
+  - Line 54: "existantes" is a misspelling of "existent"
+- `.github/ISSUE_TEMPLATE/question.deDE.md`
+  - Line 27: "Konfiguration" is a misspelling of "Configuration"
+- `docs/deDE/CONFIG_PARSING.md`
+  - Line 5: "Mechanismus" is a misspelling of "Mechanisms"
+  - Line 5: "Programms" is a misspelling of "Programs"
+- `docs/deDE/SDK.md`
+  - Line 12: "Flexibel" is a misspelling of "Flexible"
+  - Line 184: "Konfiguration" is a misspelling of "Configuration"
+  - Line 227: "Konfiguration" is a misspelling of "Configuration"
+  - Line 237: "Konfiguration" is a misspelling of "Configuration"
+  - Line 367: "Konfiguration" is a misspelling of "Configuration"
+  - Line 382: "Produktion" is a misspelling of "Production"
+  - Line 392: "Konfiguration" is a misspelling of "Configuration"
+  - Line 471: "Konfiguration" is a misspelling of "Configuration"
+- `docs/frFR/CONFIGURATION.md`
+  - Line 44: "terminaison" is a misspelling of "termination"
+  - Line 59: "continuent" is a misspelling of "contingent"
+  - Line 207: "certificats" is a misspelling of "certificates"
+  - Line 215: "certificats" is a misspelling of "certificates"
+  - Line 241: "certificats" is a misspelling of "certificates"
+  - Line 245: "terminaison" is a misspelling of "termination"
+  - Line 247: "terminaison" is a misspelling of "termination"
+  - Line 263: "terminaison" is a misspelling of "termination"
+  - Line 265: "terminaison" is a misspelling of "termination"
+  - Line 301: "certificats" is a misspelling of "certificates"
+  - Line 332: "Exemple" is a misspelling of "Example"
+  - Line 352: "certificats" is a misspelling of "certificates"
+  - Line 358: "marrage" is a misspelling of "marriage"
+- `docs/itIT/SDK.md`
+  - Line 5: "facilitare" is a misspelling of "facilitate"
+  - Line 9: "interfacce" is a misspelling of "interfaces"
+  - Line 14: "intelligente" is a misspelling of "intelligence"
+  - Line 64: "possibile" is a misspelling of "possible"
+  - Line 187: "Configurare" is a misspelling of "Configure"
+  - Line 227: "configurare" is a misspelling of "configure"
+  - Line 378: "supportare" is a misspelling of "supporters"
+  - Line 382: "Configurare" is a misspelling of "Configure"
+  - Line 389: "interfacce" is a misspelling of "interfaces"
+  - Line 429: "intelligente" is a misspelling of "intelligence"
+  - Line 438: "intelligente" is a misspelling of "intelligence"
+- `.github/ISSUE_TEMPLATE/question.frFR.md`
+  - Line 19: "existantes" is a misspelling of "existent"
+  - Line 38: "existantes" is a misspelling of "existent"
+- `README.itIT.md`
+  - Line 20: "integrato" is a misspelling of "integration"
+  - Line 29: "automatico" is a misspelling of "automation"
+  - Line 59: "completi" is a misspelling of "complexity"
+  - Line 88: "comando" is a misspelling of "commando"
+  - Line 135: "contributo" is a misspelling of "contribution"
+- `docs/deDE/CONTRIBUTING.md`
+  - Line 186: "Reproduktion" is a misspelling of "Reproduction"
+- `docs/deDE/CONFIGURATION.md`
+  - Line 1: "Konfiguration" is a misspelling of "Configuration"
+  - Line 33: "Konfiguration" is a misspelling of "Configuration"
+  - Line 35: "Konfiguration" is a misspelling of "Configuration"
+  - Line 202: "Konfiguration" is a misspelling of "Configuration"
+  - Line 203: "Konfiguration" is a misspelling of "Configuration"
+  - Line 216: "Produktion" is a misspelling of "Production"
+  - Line 220: "Konfiguration" is a misspelling of "Configuration"
+  - Line 226: "Konfiguration" is a misspelling of "Configuration"
+  - Line 294: "Konfiguration" is a misspelling of "Configuration"
+  - Line 300: "Konfiguration" is a misspelling of "Configuration"
+  - Line 329: "Konfiguration" is a misspelling of "Configuration"
+  - Line 341: "Konfiguration" is a misspelling of "Configuration"
+  - Line 345: "Konfiguration" is a misspelling of "Configuration"
+  - Line 359: "Konfiguration" is a misspelling of "Configuration"
+  - Line 361: "Konfiguration" is a misspelling of "Configuration"
+  - Line 369: "Mechanismus" is a misspelling of "Mechanisms"
+  - Line 370: "Konfiguration" is a misspelling of "Configuration"
+- `docs/deDE/DEPLOYMENT.md`
+  - Line 16: "Konfiguration" is a misspelling of "Configuration"
+  - Line 17: "Konfiguration" is a misspelling of "Configuration"
+  - Line 55: "Konfiguration" is a misspelling of "Configuration"
+  - Line 67: "Konfiguration" is a misspelling of "Configuration"
+  - Line 73: "Konfiguration" is a misspelling of "Configuration"
+  - Line 78: "Produktion" is a misspelling of "Production"
+  - Line 160: "Produktion" is a misspelling of "Production"
+  - Line 164: "Produktion" is a misspelling of "Production"
+  - Line 192: "Konfiguration" is a misspelling of "Configuration"
+  - Line 281: "Konfiguration" is a misspelling of "Configuration"
+  - Line 333: "Konfiguration" is a misspelling of "Configuration"
+  - Line 409: "Konfiguration" is a misspelling of "Configuration"
+  - Line 453: "Produktion" is a misspelling of "Production"
+  - Line 463: "Konfiguration" is a misspelling of "Configuration"
+- `docs/frFR/TRACING.md`
+  - Line 8: "terminaison" is a misspelling of "termination"
+  - Line 23: "exemple" is a misspelling of "example"
+  - Line 48: "terminaison" is a misspelling of "termination"
+  - Line 48: "exemple" is a misspelling of "example"
+  - Line 76: "attributs" is a misspelling of "attributes"
+  - Line 85: "terminaison" is a misspelling of "termination"
+  - Line 111: "attributs" is a misspelling of "attributes"
+  - Line 139: "strat" is a misspelling of "start"
+  - Line 153: "terminaison" is a misspelling of "termination"
+- `docs/frFR/SECURITY.md`
+  - Line 9: "terminaison" is a misspelling of "termination"
+  - Line 13: "certificats" is a misspelling of "certificates"
+  - Line 16: "terminaison" is a misspelling of "termination"
+  - Line 33: "Exemple" is a misspelling of "Example"
+  - Line 55: "Exemple" is a misspelling of "Example"
+  - Line 82: "Superviser" is a misspelling of "Supervisor"
+  - Line 96: "terminaison" is a misspelling of "termination"
+  - Line 98: "terminaison" is a misspelling of "termination"
+  - Line 104: "terminaison" is a misspelling of "termination"
+  - Line 107: "collecte" is a misspelling of "collective"
+  - Line 141: "terminaison" is a misspelling of "termination"
+  - Line 145: "terminaison" is a misspelling of "termination"
+  - Line 148: "Exemple" is a misspelling of "Example"
+  - Line 160: "certificats" is a misspelling of "certificates"
+  - Line 180: "tournement" is a misspelling of "tournament"
+  - Line 220: "certificats" is a misspelling of "certificates"
+  - Line 224: "certificats" is a misspelling of "certificates"
+  - Line 282: "Exemple" is a misspelling of "Example"
+  - Line 296: "certificats" is a misspelling of "certificates"
+  - Line 300: "Recommandations" is a misspelling of "Recommendations"
+  - Line 303: "certificats" is a misspelling of "certificates"
+  - Line 304: "certificats" is a misspelling of "certificates"
+  - Line 310: "recommandations" is a misspelling of "recommendations"
+- `docs/itIT/README.md`
+  - Line 44: "contributo" is a misspelling of "contribution"
+  - Line 80: "automatico" is a misspelling of "automation"
+  - Line 81: "specificato" is a misspelling of "specification"
+  - Line 98: "Automatico" is a misspelling of "Automation"
+  - Line 120: "automatico" is a misspelling of "automation"
+  - Line 133: "configurare" is a misspelling of "configure"
+  - Line 138: "interfacce" is a misspelling of "interfaces"
+  - Line 207: "Configurare" is a misspelling of "Configure"
+- `docs/frFR/API.md`
+  - Line 5: "terminaison" is a misspelling of "termination"
+  - Line 19: "terminaison" is a misspelling of "termination"
+  - Line 35: "terminaison" is a misspelling of "termination"
+  - Line 60: "terminaison" is a misspelling of "termination"
+  - Line 79: "terminaison" is a misspelling of "termination"
+  - Line 139: "terminaison" is a misspelling of "termination"
+  - Line 163: "exemple" is a misspelling of "example"
+  - Line 164: "exemple" is a misspelling of "example"
+  - Line 171: "terminaison" is a misspelling of "termination"
+  - Line 199: "terminaison" is a misspelling of "termination"
+  - Line 199: "individuels" is a misspelling of "individuals"
+  - Line 273: "terminaison" is a misspelling of "termination"
+  - Line 306: "terminaison" is a misspelling of "termination"
+  - Line 324: "terminaison" is a misspelling of "termination"
+  - Line 325: "Collecte" is a misspelling of "Collective"
+  - Line 327: "collecte" is a misspelling of "collective"
+  - Line 328: "terminaison" is a misspelling of "termination"
+  - Line 330: "normalis" is a misspelling of "normals"
+  - Line 333: "Exemple" is a misspelling of "Example"
+  - Line 348: "terminaison" is a misspelling of "termination"
+  - Line 405: "terminaison" is a misspelling of "termination"
+  - Line 406: "terminaison" is a misspelling of "termination"
+  - Line 421: "Exemple" is a misspelling of "Example"
+  - Line 423: "terminaison" is a misspelling of "termination"
+  - Line 433: "Exemple" is a misspelling of "Example"
+  - Line 453: "Exemple" is a misspelling of "Example"
+  - Line 509: "Exemple" is a misspelling of "Example"
+- `docs/itIT/API.md`
+  - Line 11: "possibile" is a misspelling of "possible"
+  - Line 19: "possibile" is a misspelling of "possible"
+  - Line 31: "comando" is a misspelling of "commando"
+  - Line 50: "registrato" is a misspelling of "registration"
+  - Line 171: "possibile" is a misspelling of "possible"
+  - Line 174: "possibile" is a misspelling of "possible"
+  - Line 423: "possibile" is a misspelling of "possible"
+  - Line 504: "successivo" is a misspelling of "succession"
+  - Line 529: "configurare" is a misspelling of "configure"
+- `docs/itIT/TRACING.md`
+  - Line 3: "distribuito" is a misspelling of "distribution"
+  - Line 7: "automatico" is a misspelling of "automation"
+  - Line 14: "configurare" is a misspelling of "configure"
+  - Line 86: "interrogato" is a misspelling of "interrogation"
+  - Line 88: "interrogato" is a misspelling of "interrogation"
+  - Line 153: "accessibile" is a misspelling of "accessible"
 
 ---
 
-_Generated by [Go Report Card](https://github.com/soulteary/goreportcard-action) on 2026-08-24 07:47:40 UTC._
+_Generated by [Go Report Card](https://github.com/soulteary/goreportcard-action)._
