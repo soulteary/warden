@@ -6,7 +6,7 @@ Questo documento spiega come distribuire il servizio Warden: distribuzione con D
 
 ## Prerequisiti
 
-- Go 1.27+ (vedere [go.mod](../../go.mod))
+- Go 1.27.2+ (vedere [go.mod](../../go.mod))
 - Redis (per i lock distribuiti e la cache)
 - Docker (facoltativo, per la distribuzione in container)
 

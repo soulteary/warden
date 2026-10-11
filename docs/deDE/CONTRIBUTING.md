@@ -30,7 +30,7 @@ Bitte begegnen Sie allen Mitwirkenden respektvoll, nehmen Sie konstruktive Kriti
 
 ### Voraussetzungen
 
-- Go 1.27 oder höher
+- Go 1.27.2 oder höher
 - Redis (für Tests)
 - Git
 

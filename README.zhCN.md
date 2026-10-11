@@ -1,7 +1,7 @@
 # Warden
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.27+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.27.2+-blue.svg)](https://golang.org)
 [![Test Coverage](.github/coverage.svg)](.github/go-test-report.md)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 
@@ -9,7 +9,7 @@
 
 一个高性能的允许列表（AllowList）用户数据服务，支持本地和远程配置源的数据同步与合并。
 
-Warden 继续使用 Go 的 `net/http` 服务；其共享 kit 依赖已升级到兼容 Fiber v3 的 v2 模块版本，因此依赖图中不再包含 Fiber v2。从源码构建需要 Go 1.27 或更高版本。
+Warden 继续使用 Go 的 `net/http` 服务；其共享 kit 依赖已升级到兼容 Fiber v3 的 v2 模块版本，因此依赖图中不再包含 Fiber v2。从源码构建需要 Go 1.27.2 或更高版本。
 
 ![Warden](.github/assets/banner.jpg)
 

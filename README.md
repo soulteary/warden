@@ -1,7 +1,7 @@
 # Warden
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.27+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.27.2+-blue.svg)](https://golang.org)
 [![Test Coverage](.github/coverage.svg)](.github/go-test-report.md)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 
@@ -9,7 +9,7 @@
 
 A high-performance AllowList user data service that supports data synchronization and merging from local and remote configuration sources.
 
-Warden continues to use Go's `net/http` server. Its shared kit dependencies use their Fiber v3-compatible v2 module lines, so Fiber v2 is no longer present in the module graph. Building from source requires Go 1.27 or later.
+Warden continues to use Go's `net/http` server. Its shared kit dependencies use their Fiber v3-compatible v2 module lines, so Fiber v2 is no longer present in the module graph. Building from source requires Go 1.27.2 or later.
 
 ![Warden](.github/assets/banner.jpg)
 

@@ -6,7 +6,7 @@ Ce document explique comment déployer le service Warden : déploiement Docker, 
 
 ## Prérequis
 
-- Go 1.27+ (voir [go.mod](../../go.mod))
+- Go 1.27.2+ (voir [go.mod](../../go.mod))
 - Redis (pour les verrous distribués et la mise en cache)
 - Docker (facultatif, pour un déploiement conteneurisé)
 

@@ -30,7 +30,7 @@ En participant à ce projet, veuillez respecter tous les contributeurs, accepter
 
 ### Prérequis
 
-- Go 1.27 ou version supérieure
+- Go 1.27.2 ou version supérieure
 - Redis (pour les tests)
 - Git
 
