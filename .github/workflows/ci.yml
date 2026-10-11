@@ -90,7 +90,7 @@ jobs:
       # PR 分支只校验不回写，回写由 go-test-report.yml 在默认分支完成。
       - name: 运行测试并生成报告
         id: test
-        uses: soulteary/go-test-report-action@a5e77d563843af6c7a0cc3c573640fc2cd94934a # v1.1.0
+        uses: soulteary/go-test-report-action@091a510dcf63ba5960b91af5832582a627bd5d6c # v1.1.1
         with:
           directory: "."
           go_version_file: "go.mod"
