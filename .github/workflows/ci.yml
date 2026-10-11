@@ -144,7 +144,7 @@ jobs:
           echo "用例: 共 ${{ steps.go_test_report.outputs.tests }}，通过 ${{ steps.go_test_report.outputs.passed }}，失败 ${{ steps.go_test_report.outputs.failed }}，跳过 ${{ steps.go_test_report.outputs.skipped }}"
 
       - name: 上传测试报告
-        if: "!cancelled() && steps.report_cleanup.outcome == 'success' && ((true) && (github.event_name == 'pull_request'))"
+        if: "always() && steps.report_cleanup.outcome == 'success' && ((true) && (github.event_name == 'pull_request'))"
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: go-test-report-${{ github.run_id }}
