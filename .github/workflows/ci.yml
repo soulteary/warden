@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 env:
   DOCKER_BUILDKIT: 1
@@ -87,28 +87,63 @@ jobs:
 
       # 该 action 自行安装 Go、运行测试、统计覆盖率并执行阈值门禁，
       # 同时产出 Markdown 报告、SVG 徽章与 JSON。此处 commit 为 false：
-      # PR 分支只校验不回写，回写由 go-test-report.yml 在默认分支完成。
-      - name: 运行测试并生成报告
-        id: test
-        uses: soulteary/go-test-report-action@091a510dcf63ba5960b91af5832582a627bd5d6c # v1.1.1
+      # PR 分支只校验不回写，标签/手动回写由 go-quality-reports.yml 的独立 job 完成。
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: Branch tests and coverage gate
+        run: |-
+          go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+          ci_floor=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')
+          awk -v t="$ci_floor" 'BEGIN {exit !(t+0 >= 80)}'
+        if: "!(github.event_name == 'pull_request')"
+      - name: Remove stale generated report evidence
+        if: always() && (github.event_name == 'pull_request')
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -L .github
+          rm -f -- .github/go-test-report.md .github/go-test-report.json .github/coverage.svg .github/goreportcard.svg .github/goreportcard-report.md
+          rm -rf -- .github/test-results
+      - name: Test, race and coverage (GTR v1.1.2)
+        id: go_test_report
+        uses: soulteary/go-test-report-action@bf04b539f7bf2a6f67d602da4259904b3dcdeba1  # v1.1.2
         with:
           directory: "."
-          go_version_file: "go.mod"
           packages: "./..."
           race: "true"
-          cover_mode: "atomic"
           coverage_threshold: "80"
+          test_args: "-count=1"
+          version: "v1.1.2"
+          cover_mode: "atomic"
           commit: "false"
-
+        if: github.event_name == 'pull_request'
+      - name: Go quality report (v1.1.3)
+        id: go_report_card
+        uses: soulteary/goreportcard-action@fc43049a5fe61c3313294d217c2a783f375a7970  # v1.1.3
+        with:
+          directory: "."
+          version: "v1.1.3"
+          threshold: "0"
+          report: "true"
+          commit: "false"
+        if: github.event_name == 'pull_request'
+      - name: Reuse GTR coverage profile
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          PROFILE: ${{ steps.go_test_report.outputs.coverage_profile }}
+        run: |-
+          cp "$PROFILE" coverage.out
       - name: 显示测试摘要
-        if: always()
+        if: (always()) && (github.event_name == 'pull_request')
         run: |
-          echo "状态: ${{ steps.test.outputs.status }}"
-          echo "覆盖率: ${{ steps.test.outputs.coverage }}%（门槛 80%）"
-          echo "用例: 共 ${{ steps.test.outputs.tests }}，通过 ${{ steps.test.outputs.passed }}，失败 ${{ steps.test.outputs.failed }}，跳过 ${{ steps.test.outputs.skipped }}"
+          echo "状态: ${{ steps.go_test_report.outputs.status }}"
+          echo "覆盖率: ${{ steps.go_test_report.outputs.coverage }}%（门槛 80%）"
+          echo "用例: 共 ${{ steps.go_test_report.outputs.tests }}，通过 ${{ steps.go_test_report.outputs.passed }}，失败 ${{ steps.go_test_report.outputs.failed }}，跳过 ${{ steps.go_test_report.outputs.skipped }}"
 
       - name: 上传测试报告
-        if: always()
+        if: (always()) && (github.event_name == 'pull_request')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: go-test-report-${{ github.run_id }}
@@ -116,10 +151,15 @@ jobs:
             .github/go-test-report.md
             .github/go-test-report.json
             .github/coverage.svg
+            .github/goreportcard.svg
+            .github/goreportcard-report.md
             .github/test-results/
           retention-days: 14
 
   # 代码质量检查（使用 golangci-lint）
+          include-hidden-files: true
+    permissions:
+      contents: read
   lint:
     name: 代码质量检查
     runs-on: ubuntu-latest
