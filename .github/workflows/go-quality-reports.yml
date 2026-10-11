@@ -31,6 +31,7 @@ jobs:
       actions: read
     outputs:
       enabled: ${{ steps.trigger.outputs.enabled }}
+      source_sha: ${{ steps.trigger.outputs.source_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -43,21 +44,25 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REQUEST_REUSE: ${{ inputs.reuse_existing_tag_report && 'true' || 'false' }}
           REPOSITORY: ${{ github.repository }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PYTHON'
           import json
           import os
+          import re
           import subprocess
           import urllib.parse
           import urllib.request
 
+          sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           enabled = True
           if os.environ["EVENT_NAME"] == "release" or os.environ.get("REQUEST_REUSE") == "true":
-              sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
               query = urllib.parse.urlencode({"event": "push", "head_sha": sha, "per_page": 100})
               base = os.environ["GITHUB_API_URL"].rstrip("/")
-              url = f"{base}/repos/{os.environ['REPOSITORY']}/actions/workflows/go-quality-reports.yml/runs?{query}"
+              workflow = os.environ["WORKFLOW_REF"].split("/.github/workflows/", 1)[1].split("@refs/", 1)[0]
+              workflow = urllib.parse.quote(workflow, safe="")
+              url = f"{base}/repos/{os.environ['REPOSITORY']}/actions/workflows/{workflow}/runs?{query}"
               while url:
                   request = urllib.request.Request(url, headers={
                       "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
@@ -76,9 +81,34 @@ jobs:
                                   with urllib.request.urlopen(artifact_request, timeout=30) as artifact_response:
                                       artifacts = json.load(artifact_response)
                                       artifact_link = artifact_response.headers.get("Link", "")
-                                  expected = f"go-quality-stable-{run['id']}-{run['run_attempt']}"
-                                  if any(a.get("name") == expected and a.get("expired") is False for a in artifacts.get("artifacts", [])):
-                                      enabled = False
+                                  for artifact in artifacts.get("artifacts", []):
+                                      match = re.fullmatch(f"go-quality-stable-{run['id']}-([1-9][0-9]*)", artifact.get("name", ""))
+                                      if match and int(match.group(1)) <= run["run_attempt"] and artifact.get("expired") is False:
+                                          attempt = int(match.group(1))
+                                          jobs_url = f"{base}/repos/{os.environ['REPOSITORY']}/actions/runs/{run['id']}/attempts/{attempt}/jobs?per_page=100"
+                                          producer_succeeded = False
+                                          while jobs_url:
+                                              jobs_request = urllib.request.Request(jobs_url, headers=dict(request.headers))
+                                              with urllib.request.urlopen(jobs_request, timeout=30) as jobs_response:
+                                                  jobs = json.load(jobs_response)
+                                                  jobs_link = jobs_response.headers.get("Link", "")
+                                              producer_succeeded = producer_succeeded or any(
+                                                  job.get("name") == "Release and manual Go reports"
+                                                  and job.get("conclusion") == "success"
+                                                  for job in jobs.get("jobs", [])
+                                              )
+                                              jobs_url = None
+                                              for relation in jobs_link.split(","):
+                                                  if 'rel="next"' in relation:
+                                                      candidate = relation.strip().split(">", 1)[0].lstrip("<")
+                                                      if not candidate.startswith(base + "/"):
+                                                          raise RuntimeError("Unexpected jobs pagination API host")
+                                                      jobs_url = candidate
+                                                      break
+                                          if producer_succeeded:
+                                              enabled = False
+                                              break
+                                  if not enabled:
                                       break
                                   artifact_url = None
                                   for relation in artifact_link.split(","):
@@ -101,7 +131,7 @@ jobs:
                           url = candidate
                           break
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"enabled={str(enabled).lower()}\n")
+              output.write(f"enabled={str(enabled).lower()}\nsource_sha={sha}\n")
           if not enabled:
               with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
                   summary.write("Available artifacts from successful tag-push reports cover this source; skipping duplicate release tests.\n")
@@ -116,17 +146,19 @@ jobs:
       contents: read
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
+      artifact_name: ${{ steps.source.outputs.artifact_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ needs.release_gate.outputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ inputs.source_ref || github.sha }}
       - name: Record tested source
         id: source
         shell: bash
         run: |-
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=go-quality-stable-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - name: Remove stale generated report evidence
         if: always()
         shell: bash
@@ -148,6 +180,7 @@ jobs:
           cover_mode: "atomic"
           commit: "false"
       - name: Go quality report (v1.1.3)
+        if: always()
         id: go_report_card
         uses: soulteary/goreportcard-action@fc43049a5fe61c3313294d217c2a783f375a7970  # v1.1.3
         with:
@@ -160,7 +193,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: go-quality-stable-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ steps.source.outputs.artifact_name }}
           path: |
             .github/go-test-report.md
             .github/go-test-report.json
@@ -197,8 +230,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     concurrency:
-      group: go-report-writeback-${{ github.repository }}
+      group: go-report-writeback-${{ github.repository }}-${{ needs.reports.outputs.source_sha }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -207,7 +241,9 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
-          name: go-quality-stable-${{ github.run_id }}-${{ github.run_attempt }}
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          name: ${{ needs.reports.outputs.artifact_name }}
           path: ${{ runner.temp }}/go-quality-stable/.github
       - name: Commit only verified stable reports
         shell: bash
