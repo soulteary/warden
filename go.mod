@@ -14,7 +14,7 @@ require (
 	github.com/soulteary/health-kit/v4 v4.0.1
 	github.com/soulteary/http-kit/v2 v2.0.1
 	github.com/soulteary/i18n-kit/v4 v4.0.2
-	github.com/soulteary/logger-kit/v3 v3.0.1
+	github.com/soulteary/logger-kit/v3 v3.0.2
 	github.com/soulteary/metrics-kit/v3 v3.0.1
 	github.com/soulteary/middleware-kit/v3 v3.0.1
 	github.com/soulteary/parser-kit/v3 v3.0.1
