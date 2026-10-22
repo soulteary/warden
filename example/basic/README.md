@@ -6,7 +6,7 @@ This is the simplest Warden usage example, using only local data files, suitable
 
 ## 📋 Prerequisites
 
-- Go 1.27.2+ or Docker
+- Go 1.27.3+ or Docker
 - Redis (optional, for caching and distributed locks - disabled by default in ONLY_LOCAL mode)
 
 ## 🚀 Quick Start

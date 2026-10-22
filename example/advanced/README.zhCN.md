@@ -13,7 +13,7 @@
 ## 📋 前置要求
 
 - Docker 和 Docker Compose
-- 或 Go 1.27.2+ 和 Redis
+- 或 Go 1.27.3+ 和 Redis
 
 ## 🏗️ 架构说明
 
