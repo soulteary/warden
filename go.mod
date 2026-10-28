@@ -11,12 +11,12 @@ require (
 	github.com/soulteary/audit-kit/v2 v2.1.2
 	github.com/soulteary/cache-kit/v2 v2.0.3
 	github.com/soulteary/cli-kit v1.9.2
-	github.com/soulteary/health-kit/v4 v4.0.2
+	github.com/soulteary/health-kit/v4 v4.0.4
 	github.com/soulteary/http-kit/v2 v2.0.2
 	github.com/soulteary/i18n-kit/v4 v4.0.3
 	github.com/soulteary/logger-kit/v3 v3.0.3
 	github.com/soulteary/metrics-kit/v3 v3.0.3
-	github.com/soulteary/middleware-kit/v3 v3.0.2
+	github.com/soulteary/middleware-kit/v3 v3.0.3
 	github.com/soulteary/parser-kit/v3 v3.0.2
 	github.com/soulteary/redis-kit v1.7.3
 	github.com/soulteary/secure-kit/v2 v2.1.2
@@ -61,7 +61,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
