@@ -14,6 +14,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 将 health-kit/v4 从 4.0.2 升级到 4.0.4、middleware-kit/v3 从 3.0.2 升级到 3.0.3，并更新兼容的共享依赖约束；保持 Go 1.27.3 和现有认证、限流及健康检查 API。
+
 ## [1.4.2] - 2026-10-22
 
 ### Changed
