@@ -106,8 +106,8 @@ github.com/soulteary/middleware-kit/v3 v3.0.3 h1:VrABm/W7h0U8KE1ocG1a6cibnFaf9OZ
 github.com/soulteary/middleware-kit/v3 v3.0.3/go.mod h1:e1azwSf4EzVdjYcdDD8bSSrCgeNqymDkUAFsn2ZVKwU=
 github.com/soulteary/parser-kit/v3 v3.0.2 h1:1VCfuwJSAsKC3w0kmxqNvREGEfvgdkiygFalL/UsGsY=
 github.com/soulteary/parser-kit/v3 v3.0.2/go.mod h1:teu37YoLpxnqmYvEUlO/ETOp5Cg6IDJCVdlBQ+g2Iho=
-github.com/soulteary/redis-kit v1.7.3 h1:Hr8NJrIpdtrOx8lr17YZFl98whG4AF2zhASVCiNFu/M=
-github.com/soulteary/redis-kit v1.7.3/go.mod h1:k/lvXA9ecjKhSvNJrGlQ7K0ijp727OYfecG1Mxadv5A=
+github.com/soulteary/redis-kit v1.8.0 h1:8nILkb49Q3eLWcuFE+DfyNqX9kFeyuHKoCDvngXgK+k=
+github.com/soulteary/redis-kit v1.8.0/go.mod h1:k/lvXA9ecjKhSvNJrGlQ7K0ijp727OYfecG1Mxadv5A=
 github.com/soulteary/secure-kit/v2 v2.1.2 h1:wSnAjBJfSnkh65Ir9db7QAUJOf6O/sSru/HdJ6wk0Hk=
 github.com/soulteary/secure-kit/v2 v2.1.2/go.mod h1:rXDBmpxphyWsBumofdWZxSh/ryVPrdhV7gN6Y3C+yL4=
 github.com/soulteary/tracing-kit/v2 v2.0.2 h1:CWtaGJiUqJ2Kgk2OCiQ86Kiu900ZNeNBhOmpaIus7eg=
