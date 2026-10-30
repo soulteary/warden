@@ -12,7 +12,7 @@ require (
 	github.com/soulteary/cache-kit/v2 v2.0.3
 	github.com/soulteary/cli-kit v1.9.2
 	github.com/soulteary/health-kit/v4 v4.0.4
-	github.com/soulteary/http-kit/v2 v2.0.2
+	github.com/soulteary/http-kit/v2 v2.1.0
 	github.com/soulteary/i18n-kit/v4 v4.0.3
 	github.com/soulteary/logger-kit/v3 v3.0.3
 	github.com/soulteary/metrics-kit/v3 v3.0.3
