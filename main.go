@@ -75,6 +75,7 @@ type App struct {
 	responseFields       []string
 	taskInterval         uint64
 	snapshotMaxAge       time.Duration
+	snapshotReadEnforce  bool
 	redisEnabled         bool
 	redisStartupFailed   bool
 	hmacKeys             map[string]string
@@ -100,6 +101,7 @@ func taskIntervalU64(sec int) uint64 {
 
 // NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
+	readPolicy, readPolicyErr := cmd.ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy)
 	hmacAllowV1, hmacAllowV1Err := cmd.ParseHMACAllowV1(os.Getenv("WARDEN_HMAC_ALLOW_V1"))
 	snapshotMaxAge, snapshotMaxAgeErr := cmd.ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval)
 	app := &App{
@@ -113,6 +115,7 @@ func NewApp(cfg *cmd.Config) *App {
 		responseFields:       cfg.ResponseFields,
 		taskInterval:         taskIntervalU64(cfg.TaskInterval),
 		snapshotMaxAge:       snapshotMaxAge,
+		snapshotReadEnforce:  readPolicy == "enforce",
 		apiKey:               cfg.APIKey,
 		redisEnabled:         cfg.RedisEnabled,
 		log:                  logger.GetLoggerKit(),
@@ -144,6 +147,11 @@ func NewApp(cfg *cmd.Config) *App {
 		app.log.Info().
 			Str("empty_ruleset_policy", policy.String()).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.empty_ruleset_policy_availability_first"))
+	}
+	if readPolicyErr != nil {
+		// Normal startup rejects invalid values. Direct callers fail closed.
+		app.snapshotReadEnforce = true
+		app.log.Warn().Err(readPolicyErr).Msg("invalid SNAPSHOT_READ_POLICY; enforcing source freshness")
 	}
 	if snapshotMaxAgeErr != nil {
 		// ValidateConfig rejects this during normal startup. Direct NewApp callers

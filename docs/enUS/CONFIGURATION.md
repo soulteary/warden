@@ -464,3 +464,26 @@ For more detailed information about parameter parsing mechanisms, priority rules
 The default Redis format remains unchanged. Opt-in `REDIS_SNAPSHOT_MODE` and
 `REDIS_SNAPSHOT_NAMESPACE` settings, time semantics, rollout and rollback are
 documented in [Redis snapshot migration](REDIS_SNAPSHOT_MIGRATION.md).
+
+## Server data read freshness
+
+`SNAPSHOT_READ_POLICY=observe` (default) preserves existing data reads, even when
+health reports stale data. Set the environment variable to `enforce` to require
+source freshness on all authenticated list, paginated list, user and lookup routes,
+including their aliases. This setting also applies when configuration comes from YAML.
+Invalid values fail startup validation.
+
+Enforcement pins one immutable snapshot for both the freshness check and query.
+A known source success time must be no later than the request observation time,
+and the request must be strictly before `SourceSucceededAt + SNAPSHOT_MAX_AGE`.
+The exact deadline, unknown source age, missing canonical view, or future source
+time returns 503 before querying. A fresh snapshot still returns 404 for an absent
+user, and an accepted empty set still returns 200 for lists. Authentication runs
+first. Enforced data responses use `Cache-Control: no-store`.
+
+Publication, TTL renewal and restart recovery do not extend this deadline. Legacy
+Redis snapshots have no source-success evidence and therefore return 503 under
+enforcement; use V2 snapshots with preserved source timestamps before enabling it.
+Fresh local fallback remains valid: this policy checks the resolved dataset, not
+whether every configured remote dependency succeeded. Health, metrics, merge
+precedence, Redis storage format and the SDK default policy are unchanged.
