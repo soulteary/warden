@@ -102,3 +102,19 @@ introduced.
 Cache generations own nested scope slices. Input mutation and mutation of returned
 records cannot change an accepted set. A retained cache read view continues to
 read its original generation after the current cache is replaced.
+
+## Request-pinned reads
+
+A published application snapshot now retains its prepared effective indexes.
+Data handlers acquire that view once per request, including lookup's phone-to-ID
+fallback. Updating the write-side cache does not expose the new generation to
+HTTP readers until its snapshot is published. Health HTTP requests pin the same
+snapshot, effective users, refresh failure count/reason and observation time for
+all data/provenance checks. Redis probes still check the live dependency.
+
+Snapshot publication copies input metadata and nested scopes. Retained generations
+remain valid while newer ones are published. Refresh failure retains the same rules;
+Redis recovery still preserves failure diagnostics, and a successful source refresh
+still resets them. Legacy health count/version and all HTTP bodies/status rules are
+unchanged. In particular, stale snapshots are still queryable: this is publication
+consistency, not a new freshness or authorization policy.

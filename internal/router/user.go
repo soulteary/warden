@@ -24,7 +24,7 @@ import (
 
 // GetUserByIdentifier queries a single user by identifier.
 // If responseFields is non-empty, only those fields are included in the JSON response.
-func GetUserByIdentifier(userCache *cache.SafeUserCache, responseFields []string) func(http.ResponseWriter, *http.Request) {
+func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Start span for user query
 		_, span := tracing.StartSpan(r.Context(), "warden.get_user")
@@ -90,17 +90,19 @@ func GetUserByIdentifier(userCache *cache.SafeUserCache, responseFields []string
 			return
 		}
 
+		view := userCache.ReadView()
+
 		var user define.AllowListUser
 		var found bool
 
 		// Query user by identifier type
 		switch {
 		case phone != "":
-			user, found = userCache.GetByPhone(phone)
+			user, found = view.GetByPhone(phone)
 		case mail != "":
-			user, found = userCache.GetByMail(mail)
+			user, found = view.GetByMail(mail)
 		case userID != "":
-			user, found = userCache.GetByUserID(userID)
+			user, found = view.GetByUserID(userID)
 		}
 
 		// If user not found, return 404

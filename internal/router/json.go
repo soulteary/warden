@@ -167,7 +167,7 @@ func encodeJSONResponse(w http.ResponseWriter, r *http.Request, data interface{}
 
 // JSON returns a JSON response handler for user data.
 // If responseFields is non-empty, only those fields are included in the response (whitelist).
-func JSON(userCache *cache.SafeUserCache, responseFields []string) func(http.ResponseWriter, *http.Request) {
+func JSON(userCache cache.ViewSource, responseFields []string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			logger.FromRequest(r).Warn().
@@ -186,7 +186,8 @@ func JSON(userCache *cache.SafeUserCache, responseFields []string) func(http.Res
 			return
 		}
 
-		userData := userCache.Get()
+		view := userCache.ReadView()
+		userData := view.Get()
 		prommetrics.CacheHits.Inc()
 
 		w.Header().Set("Content-Type", "application/json")

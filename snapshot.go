@@ -48,25 +48,49 @@ type Snapshot struct {
 //
 //nolint:govet // fieldalignment: field order chosen for readability
 type snapshotStore struct {
-	current atomic.Pointer[Snapshot]
-	// refreshFailures counts consecutive background refresh failures since the last
-	// successful refresh. It is advisory and only mutated from the single background
-	// task goroutine plus atomic reads for reporting.
-	refreshFailures atomic.Int64
-	// lastRefreshErr stores the most recent refresh error string (non-sensitive code).
-	lastRefreshReason atomic.Pointer[string]
+	current atomic.Pointer[snapshotState]
+}
+
+// snapshotState publishes rules, provenance and refresh diagnostics together.
+// Every update replaces this object; readers can pin it without holding a lock.
+type snapshotState struct {
+	snapshot *Snapshot
+	reason   string
+	failures int64
+}
+
+func (s *snapshotStore) capture() *snapshotState { return s.current.Load() }
+
+func freezeSnapshot(snap *Snapshot) *Snapshot {
+	if snap == nil {
+		return nil
+	}
+	frozen := *snap
+	if snap.Users != nil {
+		frozen.Users = append([]define.AllowListUser{}, snap.Users...)
+		for i := range frozen.Users {
+			if snap.Users[i].Scope != nil {
+				frozen.Users[i].Scope = append([]string{}, snap.Users[i].Scope...)
+			}
+		}
+	}
+	return &frozen
 }
 
 // newSnapshotStore returns an empty store with a zero-value initial snapshot.
 func newSnapshotStore() *snapshotStore {
 	s := &snapshotStore{}
-	s.current.Store(&Snapshot{Source: loader.SourceNone})
+	s.Store(&Snapshot{Source: loader.SourceNone})
 	return s
 }
 
 // Load returns the current immutable snapshot (never nil).
 func (s *snapshotStore) Load() *Snapshot {
-	return s.current.Load()
+	state := s.capture()
+	if state == nil {
+		return nil
+	}
+	return state.snapshot
 }
 
 // HasKnownGood reports whether the store contains a successfully loaded snapshot. Count
@@ -76,7 +100,7 @@ func (s *snapshotStore) HasKnownGood() bool {
 	if s == nil {
 		return false
 	}
-	return isKnownGoodSnapshot(s.current.Load())
+	return isKnownGoodSnapshot(s.Load())
 }
 
 func isKnownGoodSnapshot(snap *Snapshot) bool {
@@ -85,40 +109,53 @@ func isKnownGoodSnapshot(snap *Snapshot) bool {
 
 // Store atomically replaces the current snapshot and resets failure counters.
 func (s *snapshotStore) Store(snap *Snapshot) {
-	s.current.Store(snap)
-	s.refreshFailures.Store(0)
-	empty := ""
-	s.lastRefreshReason.Store(&empty)
+	s.current.Store(&snapshotState{snapshot: freezeSnapshot(snap)})
 }
 
-// StorePreservingFailures adopts a newly recovered last-known-good baseline without
-// treating the current source refresh as successful. This is used when Redis becomes
-// readable during an all-rejected refresh: the cache recovery supplies provenance, but
-// the rejected upstream/local load must remain part of the consecutive failure sequence.
+// StorePreservingFailures adopts a recovered baseline without counting a source
+// refresh as successful. Diagnostics remain attached to the same published state.
 func (s *snapshotStore) StorePreservingFailures(snap *Snapshot) {
-	s.current.Store(snap)
-}
-
-// RecordRefreshFailure increments the failure counter and records a reason code,
-// keeping the existing last-known-good snapshot untouched.
-func (s *snapshotStore) RecordRefreshFailure(reason string) int64 {
-	r := reason
-	s.lastRefreshReason.Store(&r)
-	return s.refreshFailures.Add(1)
-}
-
-// RefreshFailure returns the consecutive failure count and latest stable reason.
-func (s *snapshotStore) RefreshFailure() (failures int64, reason string) {
-	failures = s.refreshFailures.Load()
-	if current := s.lastRefreshReason.Load(); current != nil {
-		reason = *current
+	frozen := freezeSnapshot(snap)
+	for {
+		previous := s.capture()
+		next := &snapshotState{snapshot: frozen}
+		if previous != nil {
+			next.failures = previous.failures
+			next.reason = previous.reason
+		}
+		if s.current.CompareAndSwap(previous, next) {
+			return
+		}
 	}
-	return failures, reason
+}
+
+// RecordRefreshFailure retains the data generation while replacing its diagnostics.
+func (s *snapshotStore) RecordRefreshFailure(reason string) int64 {
+	for {
+		previous := s.capture()
+		next := &snapshotState{reason: reason, failures: 1}
+		if previous != nil {
+			next.snapshot = previous.snapshot
+			next.failures += previous.failures
+		}
+		if s.current.CompareAndSwap(previous, next) {
+			return next.failures
+		}
+	}
+}
+
+// RefreshFailure reads a consistent count/reason pair.
+func (s *snapshotStore) RefreshFailure() (failures int64, reason string) {
+	state := s.capture()
+	if state == nil {
+		return 0, ""
+	}
+	return state.failures, state.reason
 }
 
 // AgeSeconds returns the age of the current snapshot in seconds.
 func (s *snapshotStore) AgeSeconds() float64 {
-	snap := s.current.Load()
+	snap := s.Load()
 	if snap == nil || snap.LoadedAt.IsZero() {
 		return 0
 	}

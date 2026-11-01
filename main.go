@@ -182,6 +182,7 @@ func NewApp(cfg *cmd.Config) *App {
 
 	// Initialize cache (create memory cache first)
 	app.userCache = cache.NewSafeUserCache()
+	app.snapshots.Store(&Snapshot{Source: loader.SourceNone, view: app.userCache.ReadView()})
 
 	// Handle Redis initialization (optional)
 	if cfg.RedisEnabled {
