@@ -151,7 +151,8 @@ func (c *Client) Close() {
 // If pagination parameters are not provided, returns all users.
 func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	// Check cache first
-	if users := c.cache.Get(); users != nil {
+	users, request := c.cache.beginRead()
+	if users != nil {
 		c.logger.Debug("Using cached user list from Warden")
 		return users, nil
 	}
@@ -188,7 +189,6 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	}
 
 	// Parse response
-	var users []AllowListUser
 	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
 		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
 	}
@@ -197,12 +197,8 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	if err := c.checkSourceDeadline(deadline); err != nil {
 		return nil, err
 	}
-	if c.sourceMaxAge > 0 {
-		if !c.cache.setUntil(users, deadline) {
-			return nil, sourceFreshnessError(ErrSourceStale)
-		}
-	} else {
-		c.cache.Set(users)
+	if err := c.cache.commitRead(users, deadline, request); err != nil {
+		return nil, err
 	}
 
 	c.logger.Debugf("Fetched %d users from Warden API", len(users))
