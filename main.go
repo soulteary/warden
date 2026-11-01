@@ -48,44 +48,45 @@ import (
 //
 //nolint:govet // fieldalignment: keep field order for readability; optional size win would reorder pointers/strings/bools
 type App struct {
-	userCache            *cache.SafeUserCache
-	redisUserCache       *cache.RedisUserCache
-	redisClient          *redis.Client
-	redisSnapshots       *cache.RedisSnapshotStore
-	snapshotLease        *cache.SnapshotLease
-	redisSnapshotMode    string
-	snapshotNow          func() time.Time
-	redisRefreshLocker   gocron.Locker
-	rateLimiter          *middlewarekit.RateLimiter
-	rulesLoader          *loader.RulesLoader
-	snapshots            *snapshotStore
-	publishToRedis       func(users []define.AllowListUser) error
-	loadFromRedis        func() ([]define.AllowListUser, error)
-	redisCacheExists     func() (bool, error)
-	log                  *loggerkit.Logger
-	port                 string
-	configURL            string
-	authorizationHeader  string
-	appMode              string
-	environment          string
-	emptyRulesetPolicy   config.EmptyRulesetPolicy
-	apiKey               string
-	dataFile             string
-	dataDir              string
-	responseFields       []string
-	taskInterval         uint64
-	snapshotMaxAge       time.Duration
-	snapshotReadEnforce  bool
-	redisEnabled         bool
-	redisStartupFailed   bool
-	hmacKeys             map[string]string
-	hmacToleranceSec     int
-	hmacAllowV1          bool
-	tlsCertFile          string
-	tlsKeyFile           string
-	tlsCAFile            string
-	tlsRequireClientCert bool
-	refreshMu            sync.Mutex
+	userCache             *cache.SafeUserCache
+	redisUserCache        *cache.RedisUserCache
+	redisClient           *redis.Client
+	redisSnapshots        *cache.RedisSnapshotStore
+	snapshotLease         *cache.SnapshotLease
+	redisSnapshotMode     string
+	redisSnapshotRecovery string
+	snapshotNow           func() time.Time
+	redisRefreshLocker    gocron.Locker
+	rateLimiter           *middlewarekit.RateLimiter
+	rulesLoader           *loader.RulesLoader
+	snapshots             *snapshotStore
+	publishToRedis        func(users []define.AllowListUser) error
+	loadFromRedis         func() ([]define.AllowListUser, error)
+	redisCacheExists      func() (bool, error)
+	log                   *loggerkit.Logger
+	port                  string
+	configURL             string
+	authorizationHeader   string
+	appMode               string
+	environment           string
+	emptyRulesetPolicy    config.EmptyRulesetPolicy
+	apiKey                string
+	dataFile              string
+	dataDir               string
+	responseFields        []string
+	taskInterval          uint64
+	snapshotMaxAge        time.Duration
+	snapshotReadEnforce   bool
+	redisEnabled          bool
+	redisStartupFailed    bool
+	hmacKeys              map[string]string
+	hmacToleranceSec      int
+	hmacAllowV1           bool
+	tlsCertFile           string
+	tlsKeyFile            string
+	tlsCAFile             string
+	tlsRequireClientCert  bool
+	refreshMu             sync.Mutex
 }
 
 const redisRefreshLockKey = "warden:rules:refresh"
@@ -101,30 +102,35 @@ func taskIntervalU64(sec int) uint64 {
 
 // NewApp creates a new application instance
 func NewApp(cfg *cmd.Config) *App {
+	recoveryPolicy, recoveryErr := cmd.ParseRedisSnapshotRecovery(cfg.RedisSnapshotRecovery)
+	if recoveryErr != nil {
+		recoveryPolicy = "bootstrap"
+	}
 	readPolicy, readPolicyErr := cmd.ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy)
 	hmacAllowV1, hmacAllowV1Err := cmd.ParseHMACAllowV1(os.Getenv("WARDEN_HMAC_ALLOW_V1"))
 	snapshotMaxAge, snapshotMaxAgeErr := cmd.ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval)
 	app := &App{
-		port:                 cfg.Port,
-		configURL:            cfg.RemoteConfig,
-		authorizationHeader:  cfg.RemoteKey,
-		appMode:              cfg.Mode,
-		environment:          cfg.Environment,
-		dataFile:             cfg.DataFile,
-		dataDir:              cfg.DataDir,
-		responseFields:       cfg.ResponseFields,
-		taskInterval:         taskIntervalU64(cfg.TaskInterval),
-		snapshotMaxAge:       snapshotMaxAge,
-		snapshotReadEnforce:  readPolicy == "enforce",
-		apiKey:               cfg.APIKey,
-		redisEnabled:         cfg.RedisEnabled,
-		log:                  logger.GetLoggerKit(),
-		hmacToleranceSec:     cfg.HMACToleranceSec,
-		hmacAllowV1:          hmacAllowV1,
-		tlsCertFile:          cfg.TLSCertFile,
-		tlsKeyFile:           cfg.TLSKeyFile,
-		tlsCAFile:            cfg.TLSCAFile,
-		tlsRequireClientCert: cfg.TLSRequireClientCert,
+		port:                  cfg.Port,
+		configURL:             cfg.RemoteConfig,
+		authorizationHeader:   cfg.RemoteKey,
+		appMode:               cfg.Mode,
+		environment:           cfg.Environment,
+		dataFile:              cfg.DataFile,
+		dataDir:               cfg.DataDir,
+		responseFields:        cfg.ResponseFields,
+		taskInterval:          taskIntervalU64(cfg.TaskInterval),
+		snapshotMaxAge:        snapshotMaxAge,
+		snapshotReadEnforce:   readPolicy == "enforce",
+		redisSnapshotRecovery: recoveryPolicy,
+		apiKey:                cfg.APIKey,
+		redisEnabled:          cfg.RedisEnabled,
+		log:                   logger.GetLoggerKit(),
+		hmacToleranceSec:      cfg.HMACToleranceSec,
+		hmacAllowV1:           hmacAllowV1,
+		tlsCertFile:           cfg.TLSCertFile,
+		tlsKeyFile:            cfg.TLSKeyFile,
+		tlsCAFile:             cfg.TLSCAFile,
+		tlsRequireClientCert:  cfg.TLSRequireClientCert,
 	}
 	app.snapshots = newSnapshotStore()
 	// Indirection so tests can observe the exact rule set a refresh publishes to the shared
@@ -147,6 +153,9 @@ func NewApp(cfg *cmd.Config) *App {
 		app.log.Info().
 			Str("empty_ruleset_policy", policy.String()).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.empty_ruleset_policy_availability_first"))
+	}
+	if recoveryErr != nil {
+		app.log.Warn().Err(recoveryErr).Msg("invalid REDIS_SNAPSHOT_RECOVERY; using bootstrap")
 	}
 	if readPolicyErr != nil {
 		// Normal startup rejects invalid values. Direct callers fail closed.
@@ -904,6 +913,10 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		}
 		hasKnownGood := app.hasKnownGoodSnapshot()
 		failures := app.snapshots.RecordRefreshFailure(reasonAllRecordsRejected)
+		recovered := false
+		if hasKnownGood && app.redisSnapshotRecovery == "stale" {
+			recovered = app.recoverVersionedBaseline()
+		}
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonAllRecordsRejected).Inc()
 		// Republish only a rule set this process knows is valid. Entries in the shared
@@ -912,7 +925,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		// Redis may have recovered with valid data after startup, while this process still
 		// holds only its zero-value empty cache. The snapshot version is deliberately not
 		// advanced to the rejected load, so the next cycle retries and age keeps growing.
-		if hasKnownGood {
+		if hasKnownGood && !recovered {
 			app.updateRedisIfWriter(writeRedis, app.userCache.Get())
 		}
 		app.log.Warn().
