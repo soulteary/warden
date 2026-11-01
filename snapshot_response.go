@@ -54,13 +54,3 @@ func (app *App) withSnapshotMetadata(build snapshotDataFactory) func(http.Respon
 		build(fixedSnapshotView{view: pinned.view})(w, r)
 	}
 }
-
-// A restore or lease renewal is not evidence of source success. Future source
-// timestamps cannot establish an age either; no clock-skew allowance is implied.
-func snapshotReadFresh(pinned *healthReadState, maxAge time.Duration) bool {
-	snap := pinned.state.snapshot
-	if snap == nil || snap.view == nil || snap.view != pinned.view || maxAge <= 0 || snap.SourceSucceededAt.IsZero() {
-		return false
-	}
-	return !pinned.observedAt.Before(snap.SourceSucceededAt) && pinned.observedAt.Before(snap.SourceSucceededAt.Add(maxAge))
-}

@@ -411,7 +411,7 @@ func TestApp_loadInitialData_RedisBootstrapProvidesStrictSnapshotFreshness(t *te
 	assert.Equal(t, loader.SourceRedis, app.snapshots.Load().Source)
 
 	aggregator := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute,
-		"ONLY_REMOTE", "development", false, false, "")
+		"ONLY_REMOTE", "development", false, false, "", false)
 	result := aggregator.Check(context.Background())
 
 	assert.Equal(t, health.StatusHealthy, result.Checks["snapshot_freshness"].Status,
@@ -488,7 +488,7 @@ func TestApp_loadInitialData_RedisBootstrapAcceptsKnownEmptySet(t *testing.T) {
 	assert.Equal(t, cache.HashUserList(nil), snap.Version)
 
 	aggregator := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute,
-		"ONLY_REMOTE", "development", false, false, "")
+		"ONLY_REMOTE", "development", false, false, "", false)
 	result := aggregator.Check(context.Background())
 	assert.Equal(t, health.StatusHealthy, result.Checks["data"].Status,
 		"带有效快照来源的空集是合法撤权结果，不是未加载")

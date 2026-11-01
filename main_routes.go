@@ -244,7 +244,7 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux.Handle(define.PATH_V1_LOOKUP, lookupHandler)
 
 	redisCritical := requiresRedisForHMACReplay(app.redisEnabled, app.hmacKeys)
-	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.snapshotMaxAge, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist)
+	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.snapshotMaxAge, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist, app.snapshotReadEnforce)
 	healthHandler := i18nMiddleware(
 		router.AccessLogMiddleware()(
 			securityHeadersMiddleware(
@@ -324,7 +324,7 @@ func requiresRedisForHMACReplay(redisEnabled bool, hmacKeys map[string]string) b
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
-func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, snapshotMaxAge time.Duration, appMode, environment string, redisEnabled, redisCritical bool, ipWhitelist string) *health.Aggregator {
+func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCache, snapshots *snapshotStore, snapshotMaxAge time.Duration, appMode, environment string, redisEnabled, redisCritical bool, ipWhitelist string, readEnforce bool) *health.Aggregator {
 	// Production hardening (hide details/checks) keys off the deployment ENVIRONMENT,
 	// never off the data merge mode. isOnlyLocalMode still uses the merge mode.
 	env, _ := config.ParseEnvironment(environment)
@@ -345,12 +345,17 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 	// data set. It remains critical when HMAC v2 uses Redis for replay protection,
 	// because store failures deliberately fail that authentication path closed.
 	criticalChecks := []string{"data"}
+	if readEnforce {
+		criticalChecks = append(criticalChecks, "read_ready")
+	}
 	if redisCritical {
 		criticalChecks = append(criticalChecks, "redis")
 	}
 	mode, _ := config.ParseMergeMode(appMode)
 	strictRemoteMode := mode == config.MergeOnlyRemote || mode == config.MergeRemoteFirst
-	if strictRemoteMode {
+	// Enforced reads use source-success evidence; keep the legacy age check
+	// diagnostic there rather than letting two clocks decide readiness.
+	if strictRemoteMode && !readEnforce {
 		criticalChecks = append(criticalChecks, "snapshot_freshness")
 	}
 	healthConfig := health.DefaultConfig().
@@ -362,6 +367,24 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		WithCriticalChecks(criticalChecks)
 
 	aggregator := health.NewAggregator(healthConfig)
+	if readEnforce {
+		aggregator.AddChecker(health.NewCheckerFunc("read_ready", func(ctx context.Context) health.CheckResult {
+			pinned := readHealthState(ctx, snapshots, userCache)
+			decision := evaluateSnapshotRead(pinned, snapshotMaxAge)
+			result := health.CheckResult{
+				Name: "read_ready", Status: health.StatusHealthy, Timestamp: pinned.observedAt,
+				Metadata: map[string]any{"reason": decision.reason, "max_age_seconds": snapshotMaxAge.Seconds()},
+			}
+			if !decision.validUntil.IsZero() {
+				result.Metadata["valid_until"] = decision.validUntil.UTC().Format(time.RFC3339Nano)
+			}
+			if decision.reason != readAllowed {
+				result.Status = health.StatusUnhealthy
+				result.Message = "snapshot source freshness unavailable for reads"
+			}
+			return result
+		}))
+	}
 
 	switch {
 	case !redisEnabled:
