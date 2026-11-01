@@ -9,16 +9,21 @@ import (
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Cache struct {
-	mu          sync.RWMutex
-	users       []AllowListUser
-	expiresAt   time.Time
-	ttl         time.Duration
-	now         func() time.Time
-	sourceBound bool
-	epoch       uint64
+	mu               sync.RWMutex
+	users            []AllowListUser
+	expiresAt        time.Time
+	ttl              time.Duration
+	now              func() time.Time
+	sourceBound      bool
+	epoch            uint64
+	nextRequest      uint64
+	committedRequest uint64
 }
 
-type cacheRequest struct{ epoch uint64 }
+type cacheRequest struct {
+	epoch    uint64
+	sequence uint64
+}
 
 // NewCache creates a new cache instance with the specified TTL.
 func NewCache(ttl time.Duration) *Cache {
@@ -37,9 +42,14 @@ func (c *Cache) Get() []AllowListUser {
 
 // beginRead captures the invalidation generation with the cache lookup.
 func (c *Cache) beginRead() ([]AllowListUser, cacheRequest) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.getLocked(), cacheRequest{epoch: c.epoch}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	users := c.getLocked()
+	if users != nil {
+		return users, cacheRequest{}
+	}
+	c.nextRequest++
+	return nil, cacheRequest{epoch: c.epoch, sequence: c.nextRequest}
 }
 
 func (c *Cache) getLocked() []AllowListUser {
@@ -76,9 +86,13 @@ func (c *Cache) commitRead(users []AllowListUser, deadline time.Time, request ca
 	if request.epoch != c.epoch {
 		return NewError(ErrCodeRequestFailed, "cache invalidated during request", ErrCacheInvalidated)
 	}
+	if request.sequence < c.committedRequest {
+		return NewError(ErrCodeRequestFailed, "list response superseded by a newer request", ErrCacheSuperseded)
+	}
 	if !c.setUntilLocked(users, deadline) {
 		return sourceFreshnessError(ErrSourceStale)
 	}
+	c.committedRequest = request.sequence
 	return nil
 }
 
