@@ -190,3 +190,24 @@ func BenchmarkIdentityStableSort(b *testing.B) {
 		}
 	}
 }
+
+func FuzzStableSortLegacy(f *testing.F) {
+	for _, seed := range []string{`[]`, `[{}]`, `[{"user_id":"same","phone":"1","mail":"B@example.com"},{"user_id":"same","phone":"1","mail":"a@example.com"}]`} {
+		f.Add([]byte(seed))
+	}
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		if len(raw) > 65536 {
+			return
+		}
+		var users []define.AllowListUser
+		if json.Unmarshal(raw, &users) != nil || len(users) > 128 {
+			return
+		}
+		before, err := json.Marshal(users)
+		require.NoError(t, err)
+		require.Equal(t, legacyStableSort(users), stableSort(users))
+		after, err := json.Marshal(users)
+		require.NoError(t, err)
+		require.Equal(t, before, after)
+	})
+}
