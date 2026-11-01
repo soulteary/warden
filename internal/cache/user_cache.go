@@ -194,15 +194,18 @@ func HashUserList(users []define.AllowListUser) string {
 	if len(users) == 0 {
 		return secure.GetSHA256Hash("empty")
 	}
-	sorted := make([]define.AllowListUser, len(users))
-	copy(sorted, users)
-	for i := range sorted {
-		sorted[i].Normalize()
+	sorted := make([]struct {
+		key  string
+		user define.AllowListUser
+	}, len(users))
+	for i := range users {
+		sorted[i].user = users[i]
+		sorted[i].user.Normalize()
+		sorted[i].key = primaryKeyForUser(sorted[i].user)
 	}
-	sort.Slice(sorted, func(i, j int) bool {
-		ki, kj := primaryKeyForUser(sorted[i]), primaryKeyForUser(sorted[j])
-		return ki < kj
-	})
+	// Keep the previous sort and comparator semantics for equal keys. Only the
+	// repeated key calculation moves out of the comparison callback.
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].key < sorted[j].key })
 	var encoded strings.Builder
 	writeField := func(value string) {
 		encoded.WriteString(strconv.Itoa(len(value)))
@@ -210,17 +213,17 @@ func HashUserList(users []define.AllowListUser) string {
 		encoded.WriteString(value)
 	}
 	for i := range sorted {
-		writeField(sorted[i].Phone)
-		writeField(sorted[i].Mail)
-		writeField(sorted[i].UserID)
-		writeField(sorted[i].Status)
-		writeField(strconv.Itoa(len(sorted[i].Scope)))
-		for _, scope := range sorted[i].Scope {
+		writeField(sorted[i].user.Phone)
+		writeField(sorted[i].user.Mail)
+		writeField(sorted[i].user.UserID)
+		writeField(sorted[i].user.Status)
+		writeField(strconv.Itoa(len(sorted[i].user.Scope)))
+		for _, scope := range sorted[i].user.Scope {
 			writeField(scope)
 		}
-		writeField(sorted[i].Role)
-		writeField(sorted[i].Name)
-		writeField(sorted[i].DingtalkUserID)
+		writeField(sorted[i].user.Role)
+		writeField(sorted[i].user.Name)
+		writeField(sorted[i].user.DingtalkUserID)
 	}
 	return secure.GetSHA256Hash(encoded.String())
 }
