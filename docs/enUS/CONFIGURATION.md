@@ -634,3 +634,5 @@ change the manifest revision and have distinct stable resource IDs. A manifest
 lists eligible configured sources, not successful coverage. No extra enumeration,
 fetch or decode is added. Evidence remains diagnostic; Redis V2 and read policy
 are unchanged.
+
+Directory discovery is indeterminate when filepath.Glob returns normally: it suppresses filesystem errors, so an empty or partial match is not proof of complete discovery. Only a reported pattern error is marked failed. No extra filesystem probe is added.
