@@ -83,7 +83,7 @@ func TestServerSDKFreshnessMatrix(t *testing.T) {
 						}
 						code := ""
 						switch {
-						case enforce && (stale || unknown):
+						case enforce && (stale || unknown) && !bound:
 							code = sdk.ErrCodeServerError
 						case bound && (stale || unknown):
 							code = sdk.ErrCodeSourceFreshness
@@ -96,6 +96,13 @@ func TestServerSDKFreshnessMatrix(t *testing.T) {
 							var e *sdk.Error
 							require.ErrorAs(t, callErr, &e, method)
 							require.Equal(t, code, e.Code, method)
+							if code == sdk.ErrCodeSourceFreshness {
+								if stale {
+									require.ErrorIs(t, callErr, sdk.ErrSourceStale)
+								} else {
+									require.ErrorIs(t, callErr, sdk.ErrSourceUnknown)
+								}
+							}
 						}
 					}
 				})
@@ -199,4 +206,93 @@ func TestServerSDKRechecksDeadlineAfterDecode(t *testing.T) {
 	_, err = client.GetUsers(context.Background())
 	require.ErrorIs(t, err, sdk.ErrSourceStale)
 	require.EqualValues(t, 2, calls.Load(), "expired decoded rows must not enter the cache")
+}
+
+func TestServerSource503NegotiationAndAuthentication(t *testing.T) {
+	for _, state := range []string{"expired", "unknown", "future", "no_snapshot", "view_unknown"} {
+		t.Run(state, func(t *testing.T) {
+			app := responseMetadataApp(t)
+			app.snapshotReadEnforce = true
+			snap := *app.snapshots.Load()
+			switch state {
+			case "expired":
+				snap.SourceSucceededAt = time.Now().Add(-time.Hour)
+			case "future":
+				snap.SourceSucceededAt = time.Now().Add(time.Hour)
+			case "unknown":
+				snap.SourceSucceededAt = time.Time{}
+			case "view_unknown":
+				snap.view = nil
+			}
+			app.snapshots.Store(&snap)
+			if state == "no_snapshot" {
+				app.snapshots = newSnapshotStore()
+			}
+			routes := registerRoutes(app)
+			for _, authenticated := range []bool{false, true} {
+				for _, negotiated := range []bool{false, true} {
+					req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+					if authenticated {
+						req.Header.Set("X-API-Key", "key")
+					}
+					if negotiated {
+						req.Header.Set(snapshotMetadataHeader, "v1")
+					}
+					rec := httptest.NewRecorder()
+					routes.ServeHTTP(rec, req)
+					if !authenticated {
+						require.Equal(t, 401, rec.Code)
+					} else {
+						require.Equal(t, 503, rec.Code)
+					}
+					if authenticated && negotiated {
+						expected := state
+						if state == "no_snapshot" || state == "view_unknown" {
+							expected = "unknown"
+						}
+						require.Equal(t, expected, rec.Header().Get(sourceErrorHeader))
+						require.Equal(t, "v1", rec.Header().Get(snapshotMetadataHeader))
+					} else {
+						require.Empty(t, rec.Header().Get(sourceErrorHeader))
+						require.Empty(t, rec.Header().Get(snapshotMetadataHeader))
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestServerSDKSource503KeepsRetryPolicy(t *testing.T) {
+	for _, source := range []bool{false, true} {
+		app := responseMetadataApp(t)
+		app.snapshotReadEnforce = true
+		snap := *app.snapshots.Load()
+		snap.SourceSucceededAt = time.Now().Add(-time.Hour)
+		app.snapshots.Store(&snap)
+		var calls atomic.Int64
+		routes := registerRoutes(app)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			if !source {
+				http.Error(w, "ordinary failure", http.StatusServiceUnavailable)
+				return
+			}
+			routes.ServeHTTP(w, r)
+		}))
+		opts := sdk.DefaultOptions().WithBaseURL(server.URL).WithAPIKey("key").WithSourceFreshness(time.Minute, 0).WithRetry(&sdk.RetryOptions{MaxRetries: 2, RetryDelay: time.Nanosecond, MaxRetryDelay: time.Nanosecond, BackoffMultiplier: 1, RetryableStatusCodes: []int{503}})
+		client, err := sdk.NewClient(opts)
+		require.NoError(t, err)
+		_, err = client.GetUsers(context.Background())
+		var e *sdk.Error
+		require.ErrorAs(t, err, &e)
+		if source {
+			require.ErrorIs(t, err, sdk.ErrSourceStale)
+			require.Equal(t, sdk.ErrCodeSourceFreshness, e.Code)
+		} else {
+			require.Equal(t, sdk.ErrCodeServerError, e.Code)
+		}
+		require.EqualValues(t, 3, calls.Load())
+		client.Close()
+		server.Close()
+	}
 }

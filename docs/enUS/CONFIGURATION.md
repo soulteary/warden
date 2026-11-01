@@ -563,3 +563,21 @@ Legacy Redis recovery has no source-success evidence. Migrate to V2 with preserv
 source times before requiring freshness after restart. A fresh accepted local
 fallback is still resolved-set evidence, not proof that every remote source
 succeeded. Keep clocks synchronized and budget skew conservatively.
+
+### Negotiated source 503 errors
+
+An authenticated metadata-v1 request rejected by enforce mode receives HTTP 503,
+`Warden-Snapshot-Metadata: v1`, and a bounded `Warden-Source-Error` value:
+`expired` for a reached deadline, `unknown` for missing source evidence or its
+canonical view, and `future` for future source time. Ordinary requests retain the
+existing 503 response without these markers; authentication failures expose none.
+Invalid server age configuration is not reported as unknown source evidence.
+
+Only a source-bound SDK interprets these markers: SOURCE_FRESHNESS wraps
+ErrSourceStale, ErrSourceUnknown or ErrSourceFuture, detectable with errors.Is.
+The original SERVER_ERROR remains in the error chain. A plain 503, missing or
+malformed/duplicate markers, an unsupported metadata version, or an unknown reason
+keeps SERVER_ERROR. A marker on another HTTP status does not activate 503 mapping.
+The default SDK keeps its existing cache and status mapping, even if markers arrive.
+Classification happens after the existing HTTP retry policy; enabling it adds no
+retry and does not skip configured 503 retries. Fresh 404 remains NOT_FOUND.
