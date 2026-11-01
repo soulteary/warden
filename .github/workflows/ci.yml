@@ -100,7 +100,7 @@ jobs:
         run: |-
           go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
           ci_floor=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')
-          awk -v t="$ci_floor" 'BEGIN {exit !(t+0 >= 80)}'
+          awk -v t="$ci_floor" 'BEGIN {exit !(t+0 >= 95)}'
         if: "!(github.event_name == 'pull_request')"
       - name: Remove stale generated report evidence
         id: report_cleanup
@@ -118,7 +118,7 @@ jobs:
           directory: "."
           packages: "./..."
           race: "true"
-          coverage_threshold: "80"
+          coverage_threshold: "95"
           test_args: "-count=1"
           version: "v1.1.3"
           cover_mode: "atomic"
@@ -135,7 +135,7 @@ jobs:
         if: (always()) && (github.event_name == 'pull_request')
         run: |
           echo "状态: ${{ steps.go_test_report.outputs.status }}"
-          echo "覆盖率: ${{ steps.go_test_report.outputs.coverage }}%（门槛 80%）"
+          echo "覆盖率: ${{ steps.go_test_report.outputs.coverage }}%（门槛 95%）"
           echo "用例: 共 ${{ steps.go_test_report.outputs.tests }}，通过 ${{ steps.go_test_report.outputs.passed }}，失败 ${{ steps.go_test_report.outputs.failed }}，跳过 ${{ steps.go_test_report.outputs.skipped }}"
 
       - name: 上传测试报告

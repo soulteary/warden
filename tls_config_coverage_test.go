@@ -46,6 +46,8 @@ func TestTLSConfigCertificateAndClientAuthentication(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, cfg.ClientCAs)
 	require.Equal(t, tls.NoClientCert, cfg.ClientAuth)
+	srv := startServer("0", nil, certFile, keyFile, certFile, true)
+	require.Equal(t, tls.RequireAndVerifyClientCert, srv.TLSConfig.ClientAuth)
 	_, err = buildTLSConfig("missing", keyFile, "", false)
 	require.ErrorContains(t, err, "load TLS cert/key")
 	_, err = buildTLSConfig(certFile, keyFile, filepath.Join(dir, "missing"), true)
