@@ -44,7 +44,7 @@ func TestManifestIncludesUnreadSourcesWithoutAttemptingThem(t *testing.T) {
 	require.Len(t, result.Attempts, 1)
 	require.Len(t, result.Manifests, 1)
 	require.Len(t, result.Manifests[0].Sources, 2)
-	require.Equal(t, "success", result.Manifests[0].Discovery)
+	require.Equal(t, "indeterminate", result.Manifests[0].Discovery)
 	again := l.LoadWithResult(context.Background(), "", dir, "", "")
 	require.Equal(t, result.Manifests[0].Revision, again.Manifests[0].Revision)
 	copied := CloneManifests(result.Manifests)
@@ -53,6 +53,9 @@ func TestManifestIncludesUnreadSourcesWithoutAttemptingThem(t *testing.T) {
 	bad := l.LoadWithResult(context.Background(), "", filepath.Join(dir, "["), "", "")
 	require.Error(t, bad.Err)
 	require.Equal(t, "failed", bad.Manifests[0].Discovery)
+	missing := l.LoadWithResult(context.Background(), "", filepath.Join(t.TempDir(), "missing"), "", "")
+	require.Error(t, missing.Err)
+	require.Equal(t, "indeterminate", missing.Manifests[0].Discovery)
 }
 func TestSourceIdentityScopesAndCanonicalPaths(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "rules.json")

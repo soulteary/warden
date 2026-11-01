@@ -209,7 +209,7 @@ func buildSources(rulesFile, dataDir, configURL, auth, appMode string, remoteOpt
 	if dataDir != "" {
 		if files, err := listJSONFiles(dataDir); err == nil {
 			if discovery != nil {
-				*discovery = "success"
+				*discovery = "indeterminate"
 			}
 			for _, path := range files {
 				localFiles = append(localFiles, newFileFetcher(path, allowMissing))

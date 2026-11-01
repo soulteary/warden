@@ -648,3 +648,4 @@ This does not assert per-source cache validity or enforce required coverage.
 Redis V2 stores no such evidence: restoration leaves it unknown, rather than
 inventing provenance from origin, publication or recovery time. No data/health API,
 Redis format, read policy or source-age semantics change.
+Directory discovery is indeterminate when filepath.Glob returns normally: it suppresses filesystem errors, so an empty or partial match is not proof of complete discovery. Only a reported pattern error is marked failed. No extra filesystem probe is added.
