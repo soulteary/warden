@@ -69,3 +69,8 @@ status must still be checked by the caller. Warden does not invalidate already
 issued gateway sessions: their cache and revalidation rules determine how quickly
 a removal reaches existing sessions. There is no end-to-end revocation deadline
 enforced by Warden alone.
+
+## Loading failure matrix
+
+[Empty-list and failure loading contract](LOAD_FAILURE_CONTRACT.md) records
+plaintext and encrypted outcomes, including their degraded-state differences.
