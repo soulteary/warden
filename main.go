@@ -542,6 +542,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			// already emitted the specific validation diagnostic; retain the existing
 			// startup summary and leave both local and shared caches untouched.
 			app.log.Warn().Err(identityErr).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
+			app.recoverVersionedBaseline()
 			return nil
 		}
 		if app.shouldKeepPrepared(prepared) {
@@ -560,6 +561,10 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 		// Seed Redis with the effective cache contents, including a legitimate empty
 		// set. This uses the same retrying/testable writer as background refreshes.
 		app.seedRedisIfWriter(writeRedis, app.userCache.Get())
+		return nil
+	}
+
+	if app.recoverVersionedBaseline() {
 		return nil
 	}
 
@@ -820,6 +825,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		// Refresh failed: keep the last-known-good snapshot and cache untouched.
 		reason := classifyRefreshReason(res.Err)
 		failures := app.snapshots.RecordRefreshFailure(reason)
+		app.recoverVersionedBaseline()
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reason).Inc()
 		app.log.Warn().
@@ -869,6 +875,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	prepared, identityErr := app.prepareUsers(newUsers)
 	if identityErr != nil {
 		failures := app.snapshots.RecordRefreshFailure(reasonIdentityConflict)
+		app.recoverVersionedBaseline()
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonIdentityConflict).Inc()
 		app.log.Warn().
