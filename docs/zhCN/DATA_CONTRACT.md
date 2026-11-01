@@ -38,7 +38,9 @@ parser-kit v3.0.2，加密远程响应使用 v2 envelope）：
 
 ## 查询与健康检查
 
-`SNAPSHOT_MAX_AGE` 影响健康检查，不限制数据查询。`ONLY_REMOTE` 和
+默认情况下，`SNAPSHOT_MAX_AGE` 影响健康检查，不限制数据查询。显式启用
+`SNAPSHOT_READ_POLICY=enforce` 后，数据查询也检查同一快照的来源新鲜度，
+详见[配置说明](CONFIGURATION.md#服务端数据读取新鲜度)。默认读取策略下，`ONLY_REMOTE` 和
 `REMOTE_FIRST` 中，旧快照可使健康接口返回 HTTP 503，而通过鉴权的列表及用户接口
 仍返回缓存数据。查询成功不能证明数据源最近校验过。
 
