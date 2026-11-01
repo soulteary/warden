@@ -333,40 +333,9 @@ func overrideFromEnv(cfg *Config) {
 		cfg.App.Mode = mode
 	}
 
-	// HTTP
-	if timeout := os.Getenv("HTTP_TIMEOUT"); timeout != "" {
-		if t, err := time.ParseDuration(timeout); err == nil {
-			cfg.HTTP.Timeout = t
-		}
-	}
-	if maxIdleConns := os.Getenv("HTTP_MAX_IDLE_CONNS"); maxIdleConns != "" {
-		if n, err := parseInt(maxIdleConns); err == nil {
-			cfg.HTTP.MaxIdleConns = n
-		}
-	}
-	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
-		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
-	}
+	overrideHTTPFromEnv(cfg)
 
-	// App
-	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
-		cfg.App.APIKey = apiKey
-	}
-	if dataFile := os.Getenv("DATA_FILE"); dataFile != "" {
-		cfg.App.DataFile = dataFile
-	}
-	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
-		cfg.App.DataDir = dataDir
-	}
-	if v := os.Getenv("REMOTE_DECRYPT_ENABLED"); v != "" {
-		cfg.Remote.DecryptEnabled = strings.EqualFold(v, "true") || v == "1"
-	}
-	if v := os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE"); v != "" {
-		cfg.Remote.RSAPrivateKeyFile = v
-	}
-	if responseFields := os.Getenv("RESPONSE_FIELDS"); responseFields != "" {
-		cfg.App.ResponseFields = parseResponseFields(responseFields)
-	}
+	overrideAppFromEnv(cfg)
 
 	// Tracing
 	if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" {
@@ -561,40 +530,8 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		// If password retrieval fails, use empty string
 		redisPassword = ""
 	}
-	// Prefer Remote.Mode, if empty then use App.Mode
-	mode := strings.TrimSpace(c.Remote.Mode)
-	if mode == "" {
-		mode = strings.TrimSpace(c.App.Mode)
-	}
-	// Resolve deployment environment (security policy) independently from the merge mode.
-	// A legacy Mode of production/prod is migrated to Environment=production so existing
-	// hardening is preserved; the merge mode then falls back to the historical default.
-	legacyIsProdEnv := strings.EqualFold(mode, "production") || strings.EqualFold(mode, "prod")
-	environment := ""
-	legacyModeUsedForEnv := false
-	if v := strings.TrimSpace(os.Getenv("ENVIRONMENT")); v != "" {
-		environment = v
-	} else if legacyIsProdEnv {
-		environment = string(EnvProduction)
-		legacyModeUsedForEnv = true
-	} else {
-		environment = string(DefaultEnvironment)
-	}
-	// MERGE_MODE env overrides the (merge) mode; a legacy prod mode is not a merge mode.
-	if v := strings.TrimSpace(os.Getenv("MERGE_MODE")); v != "" {
-		mode = v
-	} else if legacyIsProdEnv {
-		mode = string(MergeDefault)
-	}
-	// If still empty, use default value
-	if mode == "" {
-		mode = define.DEFAULT_MODE
-	}
-	// Redis enabled state: read from environment variable, default to enabled
-	redisEnabled := true
-	if redisEnabledEnv := strings.TrimSpace(os.Getenv("REDIS_ENABLED")); redisEnabledEnv != "" {
-		redisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
-	}
+	mode, environment, legacyModeUsedForEnv := c.resolveModeAndEnvironment()
+	redisEnabled := envBool("REDIS_ENABLED", true)
 
 	dataFile := strings.TrimSpace(c.App.DataFile)
 	if dataFile == "" {
@@ -616,33 +553,21 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 	if hmacTolerance <= 0 && hmacKeys != "" {
 		hmacTolerance = 60
 	}
-	tlsRequire := false
-	if v := strings.TrimSpace(os.Getenv("WARDEN_TLS_REQUIRE_CLIENT_CERT")); v != "" {
-		tlsRequire = strings.EqualFold(v, "true") || v == "1"
-	}
-	remoteDecrypt := c.Remote.DecryptEnabled
-	if v := strings.TrimSpace(os.Getenv("REMOTE_DECRYPT_ENABLED")); v != "" {
-		remoteDecrypt = strings.EqualFold(v, "true") || v == "1"
-	}
+	tlsRequire := envBool("WARDEN_TLS_REQUIRE_CLIENT_CERT", false)
+	remoteDecrypt := envBool("REMOTE_DECRYPT_ENABLED", c.Remote.DecryptEnabled)
 	rsaKeyFile := strings.TrimSpace(c.Remote.RSAPrivateKeyFile)
 	if v := strings.TrimSpace(os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE")); v != "" {
 		rsaKeyFile = v
 	}
 	rsaKeyPEM := strings.TrimSpace(os.Getenv("REMOTE_RSA_PRIVATE_KEY"))
-	remoteEncRequired := false
-	if v := strings.TrimSpace(os.Getenv("REMOTE_ENCRYPTION_REQUIRED")); v != "" {
-		remoteEncRequired = strings.EqualFold(v, "true") || v == "1"
-	}
+	remoteEncRequired := envBool("REMOTE_ENCRYPTION_REQUIRED", false)
 	remoteEncFormat := "auto"
 	if v := strings.TrimSpace(os.Getenv("REMOTE_ENCRYPTION_FORMAT")); v != "" {
 		remoteEncFormat = strings.ToLower(v)
 	}
 	userIDStrategy := strings.ToLower(strings.TrimSpace(os.Getenv("USER_ID_STRATEGY")))
 	emptyRulesetPolicy := strings.ToLower(strings.TrimSpace(os.Getenv("EMPTY_RULESET_POLICY")))
-	requireExplicitUserID := false
-	if v := strings.TrimSpace(os.Getenv("REQUIRE_EXPLICIT_USER_ID")); v != "" {
-		requireExplicitUserID = strings.EqualFold(v, "true") || v == "1"
-	}
+	requireExplicitUserID := envBool("REQUIRE_EXPLICIT_USER_ID", false)
 	return &CmdConfigData{
 		Port:                     c.Server.Port,
 		Redis:                    c.Redis.Addr,
@@ -676,4 +601,81 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		TLSCAFile:                strings.TrimSpace(os.Getenv("WARDEN_TLS_CA")),
 		TLSRequireClientCert:     tlsRequire,
 	}
+}
+
+func (c *Config) resolveModeAndEnvironment() (mode, environment string, legacyModeUsedForEnv bool) {
+	// Prefer Remote.Mode, if empty then use App.Mode
+	mode = strings.TrimSpace(c.Remote.Mode)
+	if mode == "" {
+		mode = strings.TrimSpace(c.App.Mode)
+	}
+	// Resolve deployment environment (security policy) independently from the merge mode.
+	// A legacy Mode of production/prod is migrated to Environment=production so existing
+	// hardening is preserved; the merge mode then falls back to the historical default.
+	legacyIsProdEnv := strings.EqualFold(mode, "production") || strings.EqualFold(mode, "prod")
+	if v := strings.TrimSpace(os.Getenv("ENVIRONMENT")); v != "" {
+		environment = v
+	} else if legacyIsProdEnv {
+		environment = string(EnvProduction)
+		legacyModeUsedForEnv = true
+	} else {
+		environment = string(DefaultEnvironment)
+	}
+	// MERGE_MODE env overrides the (merge) mode; a legacy prod mode is not a merge mode.
+	if v := strings.TrimSpace(os.Getenv("MERGE_MODE")); v != "" {
+		mode = v
+	} else if legacyIsProdEnv {
+		mode = string(MergeDefault)
+	}
+	// If still empty, use default value
+	if mode == "" {
+		mode = define.DEFAULT_MODE
+	}
+	return mode, environment, legacyModeUsedForEnv
+}
+
+func overrideHTTPFromEnv(cfg *Config) {
+	// HTTP
+	if timeout := os.Getenv("HTTP_TIMEOUT"); timeout != "" {
+		if t, err := time.ParseDuration(timeout); err == nil {
+			cfg.HTTP.Timeout = t
+		}
+	}
+	if maxIdleConns := os.Getenv("HTTP_MAX_IDLE_CONNS"); maxIdleConns != "" {
+		if n, err := parseInt(maxIdleConns); err == nil {
+			cfg.HTTP.MaxIdleConns = n
+		}
+	}
+	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
+		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
+	}
+}
+
+func overrideAppFromEnv(cfg *Config) {
+	// App
+	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
+		cfg.App.APIKey = apiKey
+	}
+	if dataFile := os.Getenv("DATA_FILE"); dataFile != "" {
+		cfg.App.DataFile = dataFile
+	}
+	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
+		cfg.App.DataDir = dataDir
+	}
+	if v := os.Getenv("REMOTE_DECRYPT_ENABLED"); v != "" {
+		cfg.Remote.DecryptEnabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE"); v != "" {
+		cfg.Remote.RSAPrivateKeyFile = v
+	}
+	if responseFields := os.Getenv("RESPONSE_FIELDS"); responseFields != "" {
+		cfg.App.ResponseFields = parseResponseFields(responseFields)
+	}
+}
+
+func envBool(name string, fallback bool) bool {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return strings.EqualFold(value, "true") || value == "1"
+	}
+	return fallback
 }

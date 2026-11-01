@@ -177,14 +177,7 @@ func NewApp(cfg *cmd.Config) *App {
 	remote.LegacyEncryptionObserver = func() {
 		prommetrics.RecordDeprecation("encryption_legacy")
 	}
-	if cfg.HMACKeys != "" {
-		keys, err := cmd.ParseHMACKeys(cfg.HMACKeys)
-		if err != nil {
-			app.log.Warn().Err(err).Msg("WARDEN_HMAC_KEYS invalid, HMAC auth disabled")
-		} else {
-			app.hmacKeys = keys
-		}
-	}
+	app.initHMACKeys(cfg)
 
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))
@@ -206,46 +199,7 @@ func NewApp(cfg *cmd.Config) *App {
 	app.userCache = cache.NewSafeUserCache()
 	app.snapshots.Store(&Snapshot{Source: loader.SourceNone, view: app.userCache.ReadView()})
 
-	// Handle Redis initialization (optional)
-	if cfg.RedisEnabled {
-		// Initialize Redis client using redis-kit
-		redisCfg := rediskitclient.DefaultConfig().WithAddr(cfg.Redis)
-		if cfg.RedisPassword != "" {
-			redisCfg = redisCfg.WithPassword(cfg.RedisPassword)
-			// Security check: if password is passed via command line argument, log warning
-			// Note: cannot directly determine password source here, but can infer from environment variable check
-			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
-				app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_password_warning"))
-			}
-		}
-
-		var err error
-		app.redisClient, err = newRecoverableRedisClient(&redisCfg)
-		if err != nil {
-			// Keep a lazy backend so already-registered routes and stores can recover.
-			// Skip additional Redis work during this startup, as before.
-			app.log.Warn().
-				Err(err).
-				Str("redis", cfg.Redis).
-				Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connection_failed_fallback"))
-			app.redisStartupFailed = true
-		} else {
-			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
-		}
-		if app.redisClient != nil {
-			// Initialize Redis cache
-			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
-			// Shared-cache writes must fail closed when Redis is unavailable; the
-			// hybrid locker is intentionally not used because its local fallback
-			// cannot coordinate writers across replicas.
-			app.redisRefreshLocker = rediskitlock.NewRedisLockerWithLockTime(app.redisClient, redisRefreshLockTTL)
-		}
-	} else {
-		// Redis is explicitly disabled
-		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_disabled"))
-		app.redisClient = nil
-		app.redisUserCache = nil
-	}
+	app.initRedisClient(cfg)
 
 	// Rules loader (parser-kit, replaces internal parser)
 	rulesLoader, err := loader.NewRulesLoader(cfg, app.appMode)
@@ -257,17 +211,7 @@ func NewApp(cfg *cmd.Config) *App {
 
 	app.log.Debug().Str("mode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.current_mode"))
 
-	// Apply identity configuration (user_id derivation strategy + explicit-id requirement)
-	// BEFORE any data is loaded so Normalize/validation observe a consistent policy.
-	if strategy, ok := define.ParseUserIDStrategy(cfg.UserIDStrategy); ok {
-		define.SetUserIDStrategy(strategy)
-	} else {
-		app.log.Warn().
-			Str("value", cfg.UserIDStrategy).
-			Msg("Unknown USER_ID_STRATEGY; falling back to legacy")
-		define.SetUserIDStrategy(define.UserIDStrategyLegacy)
-	}
-	define.SetRequireExplicitUserID(cfg.RequireExplicitUserID)
+	app.configureIdentity(cfg)
 
 	app.initRedisSnapshots(cfg)
 
@@ -488,53 +432,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
-		writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
-		defer releaseRedisWriter()
-
-		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
-		localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
-		app.recordSourceAttempts(&localRes)
-		localUsers := localRes.Users
-		if localRes.Err == nil {
-			app.log.Info().
-				Int("count", len(localUsers)).
-				Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
-			// Decide the all-rejected case BEFORE applyUsers, for the same reason
-			// backgroundTask does: applyUsers is the single atomic swap point, so probing
-			// by applying and undoing would expose an empty rule set to concurrent readers.
-			//
-			// A local file that genuinely holds zero records is not ambiguous:
-			// shouldKeepPrepared returns false for it, so the empty set continues
-			// through the normal apply/snapshot/publish path under both policies.
-			prepared, identityErr := app.prepareUsers(localUsers)
-			if identityErr != nil {
-				return identityErr
-			}
-			if app.shouldKeepPrepared(prepared) {
-				app.keepSharedRuleSetAfterAllRejected(len(localUsers))
-				return nil
-			}
-			app.userCache.ApplyPrepared(prepared)
-			app.snapshots.Store(app.sourceSnapshot(&localRes, prepared.ReadView()))
-			app.updateSnapshotMetrics()
-			// Seed Redis with the effective cache contents, including a legitimate empty
-			// set. This uses the same retrying/testable writer as background refreshes.
-			app.seedRedisIfWriter(writeRedis, app.userCache.Get())
-			return nil
-		}
-		if dataDir == "" {
-			_, statErr := os.Stat(rulesFile)
-			if errors.Is(statErr, os.ErrNotExist) {
-				app.log.Warn().
-					Str("data_file", rulesFile).
-					Str("example_file", "data.example.json").
-					Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found"))
-				app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
-				app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
-			}
-		}
-		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_load_failed"))
-		return nil
+		return app.loadInitialLocalData(ctx, rulesFile, dataDir)
 	}
 
 	// 1. Try to load from Redis cache (if Redis is available)
@@ -906,38 +804,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		return
 	}
 	if app.shouldKeepPrepared(prepared) {
-		// A startup may have reached this first refresh without ever obtaining valid
-		// process-local data (for example, both Redis bootstrap reads failed). Retry the
-		// shared cache before deciding whether renewal is safe. Publishing userCache.Get
-		// while snapshot provenance is still unknown could overwrite a recovered shared
-		// last-known-good set with this replica's never-initialized empty cache.
-		if !app.hasKnownGoodSnapshot() {
-			app.bootstrapFromRedis()
-		}
-		hasKnownGood := app.hasKnownGoodSnapshot()
-		failures := app.snapshots.RecordRefreshFailure(reasonAllRecordsRejected)
-		recovered := false
-		if hasKnownGood && app.redisSnapshotRecovery == "stale" {
-			recovered = app.recoverVersionedBaseline()
-		}
-		app.updateSnapshotMetrics()
-		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonAllRecordsRejected).Inc()
-		// Republish only a rule set this process knows is valid. Entries in the shared
-		// cache carry define.REDIS_CACHE_TTL, so a known-good set is renewed while the
-		// upstream stays broken. With no provenance, skipping the write is essential:
-		// Redis may have recovered with valid data after startup, while this process still
-		// holds only its zero-value empty cache. The snapshot version is deliberately not
-		// advanced to the rejected load, so the next cycle retries and age keeps growing.
-		if hasKnownGood && !recovered {
-			app.updateRedisIfWriter(writeRedis, app.userCache.Get())
-		}
-		app.log.Warn().
-			Int("loaded_count", len(newUsers)).
-			Int("kept_count", app.userCache.Len()).
-			Bool("has_known_good", hasKnownGood).
-			Str("reason", reasonAllRecordsRejected).
-			Int64("consecutive_failures", failures).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected_kept"))
+		app.keepRejectedRefresh(writeRedis, len(newUsers))
 		return
 	}
 
@@ -1091,44 +958,7 @@ func main() {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
 	}
 
-	// Load config from file if config file is specified (for tracing config)
-	var tracingCfg *config.Config
-	if cfgFile := cfg.ConfigFile; cfgFile != "" {
-		if loadedCfg, err := config.ParseFromFile(cfgFile); err == nil {
-			tracingCfg = loadedCfg
-		}
-	}
-
-	// Initialize OpenTelemetry tracing if enabled
-	var tracerProvider interface{ Shutdown(context.Context) error }
-	if tracingCfg != nil && tracingCfg.Tracing.Enabled && tracingCfg.Tracing.Endpoint != "" {
-		tp, err := otlp.InitTracer(
-			"warden",
-			version.Version,
-			tracingCfg.Tracing.Endpoint,
-		)
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
-		} else {
-			tracerProvider = tp
-			log.Info().Msg("OpenTelemetry tracing initialized")
-		}
-	} else if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" && (otlpEnabled == "true" || otlpEnabled == "1") {
-		otlpEndpoint := os.Getenv("OTLP_ENDPOINT")
-		if otlpEndpoint != "" {
-			tp, err := otlp.InitTracer(
-				"warden",
-				version.Version,
-				otlpEndpoint,
-			)
-			if err != nil {
-				log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
-			} else {
-				tracerProvider = tp
-				log.Info().Msg("OpenTelemetry tracing initialized")
-			}
-		}
-	}
+	tracerProvider := initializeTracing(cfg, log)
 
 	// Initialize application
 	app := NewApp(cfg)
@@ -1204,4 +1034,200 @@ func main() {
 	shutdownServer(srv, app.rateLimiter, app.log)
 
 	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.goodbye"))
+}
+
+func (app *App) initRedisClient(cfg *cmd.Config) {
+	// Handle Redis initialization (optional)
+	if cfg.RedisEnabled {
+		// Initialize Redis client using redis-kit
+		redisCfg := rediskitclient.DefaultConfig().WithAddr(cfg.Redis)
+		if cfg.RedisPassword != "" {
+			redisCfg = redisCfg.WithPassword(cfg.RedisPassword)
+			// Security check: if password is passed via command line argument, log warning
+			// Note: cannot directly determine password source here, but can infer from environment variable check
+			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
+				app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_password_warning"))
+			}
+		}
+
+		var err error
+		app.redisClient, err = newRecoverableRedisClient(&redisCfg)
+		if err != nil {
+			// Keep a lazy backend so already-registered routes and stores can recover.
+			// Skip additional Redis work during this startup, as before.
+			app.log.Warn().
+				Err(err).
+				Str("redis", cfg.Redis).
+				Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connection_failed_fallback"))
+			app.redisStartupFailed = true
+		} else {
+			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
+		}
+		if app.redisClient != nil {
+			// Initialize Redis cache
+			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
+			// Shared-cache writes must fail closed when Redis is unavailable; the
+			// hybrid locker is intentionally not used because its local fallback
+			// cannot coordinate writers across replicas.
+			app.redisRefreshLocker = rediskitlock.NewRedisLockerWithLockTime(app.redisClient, redisRefreshLockTTL)
+		}
+	} else {
+		// Redis is explicitly disabled
+		app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.redis_disabled"))
+		app.redisClient = nil
+		app.redisUserCache = nil
+	}
+}
+
+func initializeTracing(cfg *cmd.Config, log *loggerkit.Logger) interface{ Shutdown(context.Context) error } {
+	// Load config from file if config file is specified (for tracing config)
+	var tracingCfg *config.Config
+	if cfgFile := cfg.ConfigFile; cfgFile != "" {
+		if loadedCfg, err := config.ParseFromFile(cfgFile); err == nil {
+			tracingCfg = loadedCfg
+		}
+	}
+
+	// Initialize OpenTelemetry tracing if enabled
+	var tracerProvider interface{ Shutdown(context.Context) error }
+	if tracingCfg != nil && tracingCfg.Tracing.Enabled && tracingCfg.Tracing.Endpoint != "" {
+		tp, err := otlp.InitTracer(
+			"warden",
+			version.Version,
+			tracingCfg.Tracing.Endpoint,
+		)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
+		} else {
+			tracerProvider = tp
+			log.Info().Msg("OpenTelemetry tracing initialized")
+		}
+	} else if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" && (otlpEnabled == "true" || otlpEnabled == "1") {
+		otlpEndpoint := os.Getenv("OTLP_ENDPOINT")
+		if otlpEndpoint != "" {
+			tp, err := otlp.InitTracer(
+				"warden",
+				version.Version,
+				otlpEndpoint,
+			)
+			if err != nil {
+				log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
+			} else {
+				tracerProvider = tp
+				log.Info().Msg("OpenTelemetry tracing initialized")
+			}
+		}
+	}
+
+	return tracerProvider
+}
+
+func (app *App) loadInitialLocalData(ctx context.Context, rulesFile, dataDir string) error {
+	writeRedis, releaseRedisWriter := app.acquireRedisRefreshWriter()
+	defer releaseRedisWriter()
+
+	app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
+	localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
+	app.recordSourceAttempts(&localRes)
+	localUsers := localRes.Users
+	if localRes.Err == nil {
+		app.log.Info().
+			Int("count", len(localUsers)).
+			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_local_file"))
+		// Decide the all-rejected case BEFORE applyUsers, for the same reason
+		// backgroundTask does: applyUsers is the single atomic swap point, so probing
+		// by applying and undoing would expose an empty rule set to concurrent readers.
+		//
+		// A local file that genuinely holds zero records is not ambiguous:
+		// shouldKeepPrepared returns false for it, so the empty set continues
+		// through the normal apply/snapshot/publish path under both policies.
+		prepared, identityErr := app.prepareUsers(localUsers)
+		if identityErr != nil {
+			return identityErr
+		}
+		if app.shouldKeepPrepared(prepared) {
+			app.keepSharedRuleSetAfterAllRejected(len(localUsers))
+			return nil
+		}
+		app.userCache.ApplyPrepared(prepared)
+		app.snapshots.Store(app.sourceSnapshot(&localRes, prepared.ReadView()))
+		app.updateSnapshotMetrics()
+		// Seed Redis with the effective cache contents, including a legitimate empty
+		// set. This uses the same retrying/testable writer as background refreshes.
+		app.seedRedisIfWriter(writeRedis, app.userCache.Get())
+		return nil
+	}
+	if dataDir == "" {
+		_, statErr := os.Stat(rulesFile)
+		if errors.Is(statErr, os.ErrNotExist) {
+			app.log.Warn().
+				Str("data_file", rulesFile).
+				Str("example_file", "data.example.json").
+				Msg(i18n.TWithLang(i18n.LangZH, "log.data_file_not_found"))
+			app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_requires_file"))
+			app.log.Info().Msgf(i18n.TWithLang(i18n.LangZH, "log.create_data_file"), rulesFile, "data.example.json")
+		}
+	}
+	app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_load_failed"))
+	return nil
+}
+
+func (app *App) keepRejectedRefresh(writeRedis bool, loadedCount int) {
+	// A startup may have reached this first refresh without ever obtaining valid
+	// process-local data (for example, both Redis bootstrap reads failed). Retry the
+	// shared cache before deciding whether renewal is safe. Publishing userCache.Get
+	// while snapshot provenance is still unknown could overwrite a recovered shared
+	// last-known-good set with this replica's never-initialized empty cache.
+	if !app.hasKnownGoodSnapshot() {
+		app.bootstrapFromRedis()
+	}
+	hasKnownGood := app.hasKnownGoodSnapshot()
+	failures := app.snapshots.RecordRefreshFailure(reasonAllRecordsRejected)
+	recovered := false
+	if hasKnownGood && app.redisSnapshotRecovery == "stale" {
+		recovered = app.recoverVersionedBaseline()
+	}
+	app.updateSnapshotMetrics()
+	prommetrics.RefreshFailuresTotal.WithLabelValues(reasonAllRecordsRejected).Inc()
+	// Republish only a rule set this process knows is valid. Entries in the shared
+	// cache carry define.REDIS_CACHE_TTL, so a known-good set is renewed while the
+	// upstream stays broken. With no provenance, skipping the write is essential:
+	// Redis may have recovered with valid data after startup, while this process still
+	// holds only its zero-value empty cache. The snapshot version is deliberately not
+	// advanced to the rejected load, so the next cycle retries and age keeps growing.
+	if hasKnownGood && !recovered {
+		app.updateRedisIfWriter(writeRedis, app.userCache.Get())
+	}
+	app.log.Warn().
+		Int("loaded_count", loadedCount).
+		Int("kept_count", app.userCache.Len()).
+		Bool("has_known_good", hasKnownGood).
+		Str("reason", reasonAllRecordsRejected).
+		Int64("consecutive_failures", failures).
+		Msg(i18n.TWithLang(i18n.LangZH, "log.all_records_rejected_kept"))
+}
+
+func (app *App) initHMACKeys(cfg *cmd.Config) {
+	if cfg.HMACKeys != "" {
+		keys, err := cmd.ParseHMACKeys(cfg.HMACKeys)
+		if err != nil {
+			app.log.Warn().Err(err).Msg("WARDEN_HMAC_KEYS invalid, HMAC auth disabled")
+		} else {
+			app.hmacKeys = keys
+		}
+	}
+}
+
+func (app *App) configureIdentity(cfg *cmd.Config) {
+	// Apply identity configuration (user_id derivation strategy + explicit-id requirement)
+	// BEFORE any data is loaded so Normalize/validation observe a consistent policy.
+	if strategy, ok := define.ParseUserIDStrategy(cfg.UserIDStrategy); ok {
+		define.SetUserIDStrategy(strategy)
+	} else {
+		app.log.Warn().
+			Str("value", cfg.UserIDStrategy).
+			Msg("Unknown USER_ID_STRATEGY; falling back to legacy")
+		define.SetUserIDStrategy(define.UserIDStrategyLegacy)
+	}
+	define.SetRequireExplicitUserID(cfg.RequireExplicitUserID)
 }

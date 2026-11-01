@@ -55,48 +55,13 @@ func parsePaginationParams(r *http.Request) (page, pageSize int, hasPagination b
 	// Check if pagination parameters are explicitly specified
 	hasPagination = pageStr != "" || sizeStr != ""
 
-	// Security validation: limit parameter length to prevent overly long input
-	const maxParamLength = 20
-	if len(pageStr) > maxParamLength || len(sizeStr) > maxParamLength {
-		// Note: no request context here, use default language
-		return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+	page, err = parsePaginationValue(pageStr, page, 1000000)
+	if err != nil {
+		return 0, 0, false, err
 	}
-
-	// Security validation: check if parameters contain illegal characters (only digits allowed)
-	if pageStr != "" {
-		// Validate if it's pure digits
-		for _, c := range pageStr {
-			if c < '0' || c > '9' {
-				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
-			}
-		}
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			// Limit maximum page number to prevent performance issues from overly large values
-			const maxPage = 1000000
-			if p > maxPage {
-				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
-			}
-			page = p
-		} else {
-			return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
-		}
-	}
-
-	if sizeStr != "" {
-		// Validate if it's pure digits
-		for _, c := range sizeStr {
-			if c < '0' || c > '9' {
-				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
-			}
-		}
-		if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= define.MAX_PAGE_SIZE {
-			pageSize = s
-		} else {
-			if s > define.MAX_PAGE_SIZE {
-				return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
-			}
-			return 0, 0, false, errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
-		}
+	pageSize, err = parsePaginationValue(sizeStr, pageSize, define.MAX_PAGE_SIZE)
+	if err != nil {
+		return 0, 0, false, err
 	}
 
 	return page, pageSize, hasPagination, nil
@@ -259,4 +224,24 @@ func WriteJSONError(w http.ResponseWriter, code int, message string) {
 		// Response already committed; log only
 		logger.GetLoggerKit().Debug().Err(err).Str("message", message).Msg("failed to encode JSON error response")
 	}
+}
+
+func parsePaginationValue(raw string, fallback, maximum int) (int, error) {
+	if raw == "" {
+		return fallback, nil
+	}
+	invalid := errors.New(i18n.TWithLang(i18n.LangEN, "error.invalid_pagination"))
+	if len(raw) > 20 {
+		return 0, invalid
+	}
+	for _, digit := range raw {
+		if digit < '0' || digit > '9' {
+			return 0, invalid
+		}
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 || value > maximum {
+		return 0, invalid
+	}
+	return value, nil
 }
