@@ -313,37 +313,27 @@ func (app *App) reportIdentityDiagnostics() {
 // decide whether to fall back. This is the single choke point ensuring no partial/
 // last-write-wins set ever enters the shared cache.
 func (app *App) applyUsers(users []define.AllowListUser) error {
-	opts := identity.Options{RequireExplicitUserID: define.RequireExplicitUserID()}
-	if err := app.userCache.SetValidated(users, opts); err != nil {
-		app.log.Warn().
-			Err(err).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.identity_validation_failed"))
+	prepared, err := app.prepareUsers(users)
+	if err != nil {
 		return err
 	}
+	app.userCache.ApplyPrepared(prepared)
 	return nil
 }
 
-// shouldKeepLastKnownGood reports whether a non-empty load would be reduced to an empty
-// effective rule set and availability-first therefore needs to preserve the current data.
-//
-// Identity validation deliberately takes precedence over the all-records-rejected
-// classification. A set can contain malformed phone/mail values and also violate a
-// collection-wide identity constraint. In that case the latter is the actionable root
-// cause, so return its typed error instead of hiding it behind all_records_rejected. The
-// check is read-only; the live cache is not touched until the caller chooses to apply data.
-func (app *App) shouldKeepLastKnownGood(users []define.AllowListUser) (bool, error) {
-	if !app.emptyRulesetPolicy.KeepsLastKnownGood() || len(users) == 0 || cache.AcceptableCount(users) != 0 {
-		return false, nil
-	}
-
+func (app *App) prepareUsers(users []define.AllowListUser) (*cache.PreparedRules, error) {
 	opts := identity.Options{RequireExplicitUserID: define.RequireExplicitUserID()}
-	if _, err := identity.ValidateAndIndexUsers(users, opts); err != nil {
-		app.log.Warn().
-			Err(err).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.identity_validation_failed"))
-		return false, err
+	prepared, err := cache.PrepareRules(users, opts)
+	if err != nil {
+		app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.identity_validation_failed"))
 	}
-	return true, nil
+	return prepared, err
+}
+
+// shouldKeepPrepared applies only the all-records-rejected policy. Identity
+// integrity has already been checked, without changing live readers.
+func (app *App) shouldKeepPrepared(prepared *cache.PreparedRules) bool {
+	return app.emptyRulesetPolicy.KeepsLastKnownGood() && prepared.InputCount() > 0 && prepared.ReadView().Len() == 0
 }
 
 // bootstrapFromRedis tries to adopt a valid rule set from the shared cache and records
@@ -369,27 +359,16 @@ func (app *App) bootstrapFromRedis() bool {
 		}
 		cachedUsers = resolved
 	}
-	if len(cachedUsers) > 0 {
-		keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(cachedUsers)
-		if identityErr != nil || keepLastKnownGood {
-			prommetrics.CacheMisses.Inc()
-			return false
-		}
-	}
-	if err := app.applyUsers(cachedUsers); err != nil {
+	prepared, err := app.prepareUsers(cachedUsers)
+	if err != nil || app.shouldKeepPrepared(prepared) {
 		prommetrics.CacheMisses.Inc()
 		return false
 	}
+	app.userCache.ApplyPrepared(prepared)
 
 	applied := app.userCache.Get()
-	if app.emptyRulesetPolicy.KeepsLastKnownGood() && len(cachedUsers) > 0 && len(applied) == 0 {
-		// Defensive availability-first guard in case cache validation and
-		// AcceptableCount ever drift. Consistency-first intentionally adopts this
-		// effective empty set.
-		prommetrics.CacheMisses.Inc()
-		return false
-	}
-	app.snapshots.StorePreservingFailures(snapshotFromRedis(applied))
+
+	app.snapshots.StorePreservingFailures(snapshotFromRedis(applied, prepared.ReadView()))
 	app.updateSnapshotMetrics()
 	prommetrics.CacheHits.Inc()
 	app.log.Info().
@@ -485,21 +464,18 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			// by applying and undoing would expose an empty rule set to concurrent readers.
 			//
 			// A local file that genuinely holds zero records is not ambiguous:
-			// shouldKeepLastKnownGood returns false for it, so the empty set continues
+			// shouldKeepPrepared returns false for it, so the empty set continues
 			// through the normal apply/snapshot/publish path under both policies.
-			keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(localUsers)
+			prepared, identityErr := app.prepareUsers(localUsers)
 			if identityErr != nil {
 				return identityErr
 			}
-			if keepLastKnownGood {
+			if app.shouldKeepPrepared(prepared) {
 				app.keepSharedRuleSetAfterAllRejected(len(localUsers))
 				return nil
 			}
-			if err := app.applyUsers(localUsers); err != nil {
-				// Conflicting local set: do not overwrite good data; report and abort this load.
-				return err
-			}
-			app.snapshots.Store(snapshotFromResult(&localRes))
+			app.userCache.ApplyPrepared(prepared)
+			app.snapshots.Store(snapshotFromResult(&localRes, prepared.ReadView()))
 			app.updateSnapshotMetrics()
 			// Seed Redis with the effective cache contents, including a legitimate empty
 			// set. This uses the same retrying/testable writer as background refreshes.
@@ -538,7 +514,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			Str("source", string(res.Source)).
 			Bool("degraded", res.Degraded).
 			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
-		keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(users)
+		prepared, identityErr := app.prepareUsers(users)
 		if identityErr != nil {
 			// Identity failures take precedence over the all-rejected policy. The helper
 			// already emitted the specific validation diagnostic; retain the existing
@@ -546,19 +522,15 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			app.log.Warn().Err(identityErr).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
 			return nil
 		}
-		if keepLastKnownGood {
+		if app.shouldKeepPrepared(prepared) {
 			// The initial Redis read may have failed transiently. Retry after writer
 			// election so a recovered shared cache can still bootstrap this replica;
 			// never publish the empty fallback result if the retry also fails.
 			app.keepSharedRuleSetAfterAllRejected(len(users))
 			return nil
 		}
-		if err := app.applyUsers(users); err != nil {
-			// Conflicting rule set: keep last-known-good and report all sources failed below.
-			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
-			return nil
-		}
-		app.snapshots.Store(snapshotFromResult(&res))
+		app.userCache.ApplyPrepared(prepared)
+		app.snapshots.Store(snapshotFromResult(&res, prepared.ReadView()))
 		app.updateSnapshotMetrics()
 		if res.Degraded {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
@@ -830,7 +802,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	if !app.checkDataChanged(res.Version) {
 		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
 		// successful refresh clears the failure counter and updates degraded state.
-		app.snapshots.Store(snapshotFromResult(&res))
+		app.snapshots.Store(snapshotFromResult(&res, app.userCache.ReadView()))
 		app.updateRedisIfWriter(writeRedis, app.userCache.Get())
 		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
@@ -850,14 +822,14 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	// survives in memory and in Redis. Under consistency-first (the default) the empty set
 	// is applied and published, exactly as before this policy existed.
 	//
-	// The check must run before applyUsers because applyUsers is the single atomic swap
+	// Preparation must run before publication because ApplyPrepared is the single atomic swap
 	// point: probing by applying and then undoing would expose an empty rule set to every
-	// concurrent reader for the length of that window. AcceptableCount answers the same
+	// concurrent reader for the length of that window. The prepared candidate answers the same
 	// question without writing anything.
 	//
 	// A load that genuinely returns zero records is NOT ambiguous and always propagates, or
 	// revoking every user would become impossible.
-	keepLastKnownGood, identityErr := app.shouldKeepLastKnownGood(newUsers)
+	prepared, identityErr := app.prepareUsers(newUsers)
 	if identityErr != nil {
 		failures := app.snapshots.RecordRefreshFailure(reasonIdentityConflict)
 		app.updateSnapshotMetrics()
@@ -869,7 +841,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
 		return
 	}
-	if keepLastKnownGood {
+	if app.shouldKeepPrepared(prepared) {
 		// A startup may have reached this first refresh without ever obtaining valid
 		// process-local data (for example, both Redis bootstrap reads failed). Retry the
 		// shared cache before deciding whether renewal is safe. Publishing userCache.Get
@@ -902,24 +874,14 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	}
 
 	// Update memory cache and swap in the new immutable snapshot atomically. Validation
-	// happens inside applyUsers; on a conflict we keep the last-known-good snapshot and
+	// has already completed during preparation; a conflict keeps the last-known-good snapshot and
 	// record a refresh failure instead of overwriting good data with a bad set.
-	if err := app.applyUsers(newUsers); err != nil {
-		failures := app.snapshots.RecordRefreshFailure(reasonIdentityConflict)
-		app.updateSnapshotMetrics()
-		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonIdentityConflict).Inc()
-		app.log.Warn().
-			Err(err).
-			Str("reason", reasonIdentityConflict).
-			Int64("consecutive_failures", failures).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.background_load_failed"))
-		return
-	}
-	app.snapshots.Store(snapshotFromResult(&res))
+	app.userCache.ApplyPrepared(prepared)
+	app.snapshots.Store(snapshotFromResult(&res, prepared.ReadView()))
 
 	// Mirror the EFFECTIVE cache contents into the shared Redis cache.
 	//
-	// applyUsers is the single atomic swap point, and refreshMu plus the Redis refresh
+	// ApplyPrepared is the atomic cache swap point, and refreshMu plus the Redis refresh
 	// lock already serialize writers, so no extra hash gate is needed. Publishing what the
 	// cache actually holds — rather than the raw loaded input — keeps Redis byte-identical
 	// to what this replica serves and stops records rejected by format validation or dedup

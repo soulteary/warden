@@ -20,14 +20,19 @@ import (
 //
 //nolint:govet // fieldalignment: readability over a few bytes for a small, rarely-allocated struct
 type Snapshot struct {
-	// Users is the resolved rule set backing the current cache. It must be treated
-	// as read-only by consumers.
+	// view owns the effective users and indexes for EffectiveVersion/EffectiveCount.
+	view *cache.ReadView
+	// EffectiveVersion and EffectiveCount describe the served set after filtering.
+	EffectiveVersion string
+	EffectiveCount   int
+	// Users is the loaded input retained for provenance. Effective users live in view.
+	// It must be treated as read-only by consumers.
 	Users []define.AllowListUser
-	// Count is len(Users), cached for cheap health reporting.
+	// Count is the loaded input count. Keep this legacy health interpretation.
 	Count int
 	// Source records where the snapshot's data came from.
 	Source loader.Source
-	// Version is a short content hash used for change detection and reporting.
+	// Version is the loaded input hash used for change detection and legacy health reporting.
 	Version string
 	// LoadedAt is when this snapshot was produced.
 	LoadedAt time.Time
@@ -121,15 +126,18 @@ func (s *snapshotStore) AgeSeconds() float64 {
 }
 
 // snapshotFromResult builds an immutable Snapshot from a loader.LoadResult.
-func snapshotFromResult(res *loader.LoadResult) *Snapshot {
+func snapshotFromResult(res *loader.LoadResult, view *cache.ReadView) *Snapshot {
 	return &Snapshot{
-		Users:          res.Users,
-		Count:          len(res.Users),
-		Source:         res.Source,
-		Version:        res.Version,
-		LoadedAt:       res.LoadedAt,
-		Degraded:       res.Degraded,
-		DegradedReason: res.DegradedReason,
+		view:             view,
+		EffectiveVersion: view.GetHash(),
+		EffectiveCount:   view.Len(),
+		Users:            res.Users,
+		Count:            len(res.Users),
+		Source:           res.Source,
+		Version:          res.Version,
+		LoadedAt:         res.LoadedAt,
+		Degraded:         res.Degraded,
+		DegradedReason:   res.DegradedReason,
 	}
 }
 
@@ -138,15 +146,18 @@ func snapshotFromResult(res *loader.LoadResult) *Snapshot {
 // LoadedAt records when this replica successfully verified and adopted the cached set.
 // Marking it degraded keeps the fallback visible while giving strict modes a bounded
 // freshness window instead of treating a usable bootstrap as SourceNone immediately.
-func snapshotFromRedis(users []define.AllowListUser) *Snapshot {
+func snapshotFromRedis(users []define.AllowListUser, view *cache.ReadView) *Snapshot {
 	return &Snapshot{
-		Users:          users,
-		Count:          len(users),
-		Source:         loader.SourceRedis,
-		Version:        cache.HashUserList(users),
-		LoadedAt:       time.Now(),
-		Degraded:       true,
-		DegradedReason: "redis_bootstrap",
+		view:             view,
+		EffectiveVersion: view.GetHash(),
+		EffectiveCount:   view.Len(),
+		Users:            users,
+		Count:            len(users),
+		Source:           loader.SourceRedis,
+		Version:          cache.HashUserList(users),
+		LoadedAt:         time.Now(),
+		Degraded:         true,
+		DegradedReason:   "redis_bootstrap",
 	}
 }
 

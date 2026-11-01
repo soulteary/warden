@@ -82,3 +82,23 @@ enforced by Warden alone.
 
 [Empty-list and failure loading contract](LOAD_FAILURE_CONTRACT.md) records
 plaintext and encrypted outcomes, including their degraded-state differences.
+
+## Prepared and effective sets
+
+Loading and merge precedence are unchanged. Before publication, a prepared
+candidate runs the existing whole-set identity validation and per-record format
+filtering. The empty-ruleset policy inspects its effective count without changing
+live users. Accepted candidates publish the indexes that were prepared, rather
+than validating a different copy after the policy decision.
+
+The input hash remains the change-detection version. Internal snapshots also
+record an effective hash and count for the actual served set; these are not new
+HTTP response fields. Legacy snapshot count/version and health output keep their
+input-based meaning, including the distinction between a truly empty input and
+non-empty input whose records were all filtered. Redis still receives effective
+users in its existing format. No freshness enforcement or Redis schema change is
+introduced.
+
+Cache generations own nested scope slices. Input mutation and mutation of returned
+records cannot change an accepted set. A retained cache read view continues to
+read its original generation after the current cache is replaced.
