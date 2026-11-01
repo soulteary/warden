@@ -44,7 +44,7 @@
 | 应用 | 响应字段白名单 | `app.response_fields` | `RESPONSE_FIELDS` | 空（空=返回全部字段；逗号分隔如 `phone,mail,user_id,status,name`） |
 | 追踪 | 启用 | `tracing.enabled` | `OTLP_ENABLED` | `false` |
 | 追踪 | OTLP 端点 | `tracing.endpoint` | `OTLP_ENDPOINT` | 空 |
-| 其他 | 配置文件路径 | — | `CONFIG_FILE` | 空（用于仅通过环境变量指定 YAML 时加载 tracing 等） |
+| 其他 | 配置文件路径 | — | `CONFIG_FILE` | 空（与 `--config-file` 一起选择主配置和追踪配置文件） |
 | 其他 | 信任代理 IP | — | `TRUSTED_PROXY_IPS` | 空 |
 | 其他 | 健康检查 IP 白名单 | — | `HEALTH_CHECK_IP_WHITELIST` | 空 |
 | 其他 | 快照最大有效时间 | — | `SNAPSHOT_MAX_AGE` | `max(30s, 3 × 任务间隔)`，使用 Go duration（如 `2m`） |
@@ -59,9 +59,9 @@
 | 服务间鉴权 | 是否要求客户端证书 | — | `WARDEN_TLS_REQUIRE_CLIENT_CERT` | `false` |
 
 说明：
-- 使用 `--config-file` 时，主配置（端口、Redis、远程、任务等）从 YAML 加载，环境变量仍可覆盖。**追踪（tracing）**：主程序在初始化追踪时仅读取 `CONFIG_FILE` 环境变量或 `OTLP_ENABLED`/`OTLP_ENDPOINT`，不会自动使用 `--config-file` 指向的 YAML 中的 `tracing` 段。若希望从 YAML 启用追踪，请同时设置 `CONFIG_FILE` 指向同一配置文件，或直接使用环境变量 `OTLP_ENABLED` + `OTLP_ENDPOINT`。
-- 未使用 `--config-file` 时，可通过 `CONFIG_FILE` 指定 YAML 路径，用于从文件读取 `tracing` 等（主配置仍来自命令行/环境变量）。
-- 任务间隔：使用配置文件时，`task.interval` 来自 YAML 与默认值，环境变量 `INTERVAL` 不参与覆盖；仅在不使用配置文件时 `INTERVAL` 生效。
+- `--config-file` 优先于 `CONFIG_FILE`；选中的 YAML 同时提供主配置和追踪配置，环境变量仍可覆盖。显式指定的文件必须存在并能成功解析。
+- 无配置文件时，可直接用 `OTLP_ENABLED` + `OTLP_ENDPOINT` 启用追踪；有配置文件时，这两个环境变量覆盖对应 YAML 值，无需重复设置同路径的 `CONFIG_FILE`。
+- 任务间隔遵循 `--interval` 显式参数 > `INTERVAL` 环境变量 > YAML 的 `task.interval` > 默认值；使用配置文件不会禁用环境变量覆盖。
 
 ## 配置校验规则
 
@@ -415,7 +415,7 @@ export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认:
                                         #       但如果显式设置了 REDIS 地址，则会自动启用 Redis
 export CONFIG=http://example.com/api
 export KEY="Bearer token"
-export INTERVAL=5                      # 定时任务间隔（秒）；仅在不使用配置文件时生效（使用 YAML 时 task.interval 来自文件，INTERVAL 不参与覆盖）
+export INTERVAL=5                      # 定时任务间隔（秒）；覆盖 YAML，显式 --interval 优先
 export MERGE_MODE=DEFAULT
 export DATA_FILE=./data.json          # 本地用户数据文件路径
 export DATA_DIR=                      # 可选：用户数据目录，合并该目录下所有 *.json（可与 DATA_FILE 同时使用）
@@ -427,7 +427,7 @@ export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 
 export HTTP_MAX_IDLE_CONNS=100         # HTTP 最大空闲连接数
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
 export API_KEY="your-secret-api-key"   # API Key 用于认证（强烈建议设置）
-export CONFIG_FILE=config.yaml         # 配置文件路径（可选；用于在不使用 --config-file 时仍从 YAML 加载 tracing 等）
+export CONFIG_FILE=config.yaml         # 主配置和追踪配置的 YAML 路径（可选；--config-file 优先）
 export OTLP_ENABLED=false              # 是否启用 OpenTelemetry（true/false 或 1/0）
 export OTLP_ENDPOINT=http://localhost:4318  # OTLP 端点，OTLP_ENABLED 为 true 时必填
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # 信任的代理 IP 列表（逗号分隔）
