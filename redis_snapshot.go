@@ -70,6 +70,9 @@ func (app *App) snapshotTime() time.Time {
 func (app *App) sourceSnapshot(res *loader.LoadResult, view *cache.ReadView) *Snapshot {
 	snap := snapshotFromResult(res, view)
 	snap.SourceSucceededAt = app.snapshotTime()
+	if res.Err == nil && res.Manifests != nil && view != nil {
+		snap.acceptedSources = cloneAcceptedSources(&acceptedSourceEvidence{Generation: acceptedSourceGeneration.Add(1), AcceptedAt: snap.SourceSucceededAt, SourceSetID: res.SourceSetID, InputVersion: res.Version, EffectiveVersion: view.GetHash(), Manifests: res.Manifests, Attempts: res.Attempts})
+	}
 	snap.Origin = res.Source
 	snap.versioned = app.redisSnapshotMode == "shadow" || app.redisSnapshotMode == "v2"
 	if app.redisSnapshotMode == "v2" {
