@@ -236,3 +236,33 @@ func TestRedisFollowRejectsCandidateThatExpiresDuringRecovery(t *testing.T) {
 	require.False(t, app.recoverVersionedBaseline())
 	require.Same(t, old, app.snapshots.Load())
 }
+
+func TestRedisFollowSupersededAfterEligibility(t *testing.T) {
+	app, _ := migrationFixture(t, "v2")
+	now := time.Date(2026, 11, 1, 1, 0, 0, 0, time.UTC)
+	expected := followLocal(t, app, now.Add(-time.Hour))
+	app.snapshots.RecordRefreshFailure("timeout")
+	app.snapshotNow = func() time.Time { return now }
+	app.snapshotMaxAge = time.Minute
+	prepared, candidate := preparedTestSnapshot(t, []define.AllowListUser{{UserID: "redis", Mail: "redis@example.com"}})
+	candidate.SourceSucceededAt = now.Add(-time.Second)
+	candidate.LoadedAt = candidate.SourceSucceededAt
+	require.True(t, app.eligibleRedisRecovery(expected, candidate))
+
+	// Publish a successful source generation after eligibility but before adoption.
+	newPrepared, newer := preparedTestSnapshot(t, []define.AllowListUser{{UserID: "source", Mail: "source@example.com"}})
+	newer.SourceSucceededAt = now
+	newer.LoadedAt = now
+	app.userCache.ApplyPrepared(newPrepared)
+	app.snapshots.Store(newer)
+	app.snapshots.RecordRefreshFailure("identity_conflict")
+	pinned := app.snapshots.capture()
+	view := app.userCache.ReadView()
+	require.False(t, app.adoptFollowSnapshot(expected, candidate, prepared))
+	require.Same(t, pinned, app.snapshots.capture())
+	require.Same(t, view, app.userCache.ReadView())
+	require.Equal(t, "source", app.snapshots.Load().view.Get()[0].UserID)
+	failures, reason := app.snapshots.RefreshFailure()
+	require.EqualValues(t, 1, failures)
+	require.Equal(t, "identity_conflict", reason)
+}
