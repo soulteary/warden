@@ -72,7 +72,7 @@ Before submitting the PR, please ensure:
 - [ ] Code has been formatted (`go fmt ./...`)
 - [ ] Code has passed lint checks (`go vet ./...` or `golangci-lint run`)
 - [ ] I have updated relevant documentation (README.md, CONTRIBUTING.md, etc.)
-- [ ] My commit message follows the [commit convention](../CONTRIBUTING.md#commit-convention)
+- [ ] My commit message follows the [commit convention](../docs/enUS/CONTRIBUTING.md#commit-standards)
 - [ ] I have checked all changed files to ensure no sensitive information is leaked
 
 ## 🔍 Code Review Focus Points

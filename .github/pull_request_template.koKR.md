@@ -72,7 +72,7 @@ PR을 제출하기 전에 다음을 확인하세요:
 - [ ] 코드가 포맷되었습니다 (`go fmt ./...`)
 - [ ] 코드가 lint 검사를 통과했습니다 (`go vet ./...` 또는 `golangci-lint run`)
 - [ ] 관련 문서(README.md, CONTRIBUTING.md 등)를 업데이트했습니다
-- [ ] 내 커밋 메시지가 [커밋 규칙](../CONTRIBUTING.md#commit-convention)을 따릅니다
+- [ ] 내 커밋 메시지가 [커밋 규칙](../docs/enUS/CONTRIBUTING.md#commit-standards)을 따릅니다
 - [ ] 민감한 정보가 유출되지 않았는지 확인하기 위해 변경된 모든 파일을 확인했습니다
 
 ## 🔍 코드 검토 포인트

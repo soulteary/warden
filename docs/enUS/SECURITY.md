@@ -209,6 +209,8 @@ If you discover a security vulnerability, please report it through:
 2. Send email to project maintainers
 3. Do not publicly disclose the vulnerability until it is fixed
 
+<a name="inter-service-authentication"></a>
+
 ## Inter-Service Authentication (Optional)
 
 If you choose to integrate with other services (such as Stargate), inter-service authentication can be used to ensure security. **mTLS and HMAC are implemented**; the authentication priority is **mTLS > HMAC > API Key**. Warden supports the following authentication methods:

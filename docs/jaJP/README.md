@@ -136,7 +136,7 @@ curl -H "X-API-Key: your-key" \
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md) を読んでアーキテクチャを理解する
 2. [API.md](API.md) を確認して API インターフェースを理解する
-3. [開発ガイド](../../README.jaJP.md#開発ガイド) を参照して開発する
+3. [開発ガイド](DEVELOPMENT.md) を参照して開発する
 
 ### 運用
 

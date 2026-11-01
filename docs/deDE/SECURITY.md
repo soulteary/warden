@@ -209,6 +209,8 @@ Wenn Sie eine Sicherheitslücke entdecken, melden Sie diese bitte auf einem der 
 2. Senden Sie eine E-Mail an die Projektbetreuer
 3. Legen Sie die Schwachstelle nicht öffentlich offen, bevor sie behoben ist
 
+<a name="inter-service-authentication"></a>
+
 ## Authentifizierung zwischen Diensten (optional)
 
 Wenn Sie eine Integration mit anderen Diensten (etwa Stargate) wählen, kann die Authentifizierung zwischen Diensten die Sicherheit gewährleisten. **mTLS und HMAC sind umgesetzt**; die Reihenfolge der Authentifizierung ist **mTLS > HMAC > API-Key**. Warden unterstützt die folgenden Verfahren:

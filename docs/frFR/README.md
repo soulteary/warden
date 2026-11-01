@@ -136,7 +136,7 @@ Pour ajouter de nouvelles traductions ou modifier les traductions existantes, ve
 
 1. Lisez [ARCHITECTURE.md](ARCHITECTURE.md) pour comprendre l'architecture
 2. Consultez [API.md](API.md) pour comprendre les interfaces API
-3. Référez-vous au [Guide de Développement](../../README.frFR.md#guide-de-développement) pour le développement
+3. Référez-vous au [Guide de Développement](DEVELOPMENT.md) pour le développement
 
 ### Opérations
 

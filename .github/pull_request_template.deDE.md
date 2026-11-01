@@ -72,7 +72,7 @@ Vor dem Einreichen des PR bitte sicherstellen:
 - [ ] Code wurde formatiert (`go fmt ./...`)
 - [ ] Code hat Lint-Prüfungen bestanden (`go vet ./...` oder `golangci-lint run`)
 - [ ] Ich habe relevante Dokumentation aktualisiert (README.md, CONTRIBUTING.md usw.)
-- [ ] Meine Commit-Nachricht folgt der [Commit-Konvention](../CONTRIBUTING.md#commit-convention)
+- [ ] Meine Commit-Nachricht folgt der [Commit-Konvention](../docs/enUS/CONTRIBUTING.md#commit-standards)
 - [ ] Ich habe alle geänderten Dateien überprüft, um sicherzustellen, dass keine sensiblen Informationen preisgegeben werden
 
 ## 🔍 Fokuspunkte für die Code-Überprüfung

@@ -136,7 +136,7 @@ To add new translations or modify existing translations, please edit the `transl
 
 1. Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the architecture
 2. Check [API.md](API.md) to understand the API interfaces
-3. Refer to [Development Guide](../../README.md#development-guide) for development
+3. Refer to [Development Guide](DEVELOPMENT.md) for development
 
 ### Operations
 

@@ -16,6 +16,8 @@ Grazie per l'interesse verso il progetto Warden! Ogni forma di contributo è ben
 - [Processo di pull request](#processo-di-pull-request)
 - [Segnalazioni di bug e richieste di funzionalità](#segnalazioni-di-bug-e-richieste-di-funzionalità)
 
+<a name="come-contribuire"></a>
+
 ## 🚀 Come contribuire
 
 È possibile contribuire nei modi seguenti:
@@ -27,6 +29,8 @@ Grazie per l'interesse verso il progetto Warden! Ogni forma di contributo è ben
 - **Rispondere alle domande**: aiuta gli altri utenti nelle Issues
 
 Partecipando a questo progetto, rispetta tutti i collaboratori, accetta le critiche costruttive e concentrati su ciò che è meglio per il progetto.
+
+<a name="configurazione-dellambiente-di-sviluppo"></a>
 
 ## 🛠️ Configurazione dell'ambiente di sviluppo
 
@@ -56,6 +60,8 @@ go test ./...
 go run .
 ```
 
+<a name="standard-di-codice"></a>
+
 ## 📝 Standard di codice
 
 Attieniti ai seguenti standard di codice:
@@ -68,6 +74,8 @@ Attieniti ai seguenti standard di codice:
 6. **Denominazione delle costanti**: tutte le costanti devono usare lo stile `ALL_CAPS` (UPPER_SNAKE_CASE)
 
 Per le linee guida dettagliate sullo stile del codice, consulta [CODE_STYLE.md](CODE_STYLE.md).
+
+<a name="politica-di-traduzione"></a>
 
 ## 🌐 Politica di traduzione
 
@@ -98,6 +106,8 @@ protocollo), aggiungilo a `intentionallyIdentical` in `locales/locales_test.go` 
 commento, invece di eliminare il controllo.
 
 Esegui `make docs-parity` per vedere quanto ciascun documento tradotto si è allontanato da `enUS`.
+
+<a name="standard-dei-commit"></a>
 
 ## 📦 Standard dei commit
 
@@ -142,6 +152,8 @@ Fixed the issue where incorrect status code was returned when page_size exceeds 
 Fixes #456
 ```
 
+<a name="processo-di-pull-request"></a>
+
 ## 🔄 Processo di pull request
 
 ### Creare una pull request
@@ -175,6 +187,8 @@ Prima di inviare una Pull Request, assicurati che:
 - [ ] Il codice superi i controlli di lint
 
 Tutte le Pull Request richiedono una revisione del codice. Rispondi tempestivamente ai commenti di revisione.
+
+<a name="segnalazioni-di-bug-e-richieste-di-funzionalità"></a>
 
 ## 🐛 Segnalazioni di bug e richieste di funzionalità
 

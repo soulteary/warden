@@ -32,6 +32,8 @@ Warden 可以**独立使用**，也可以选择性地与其他服务（如 Starg
 - 📦 **容器化部署**: 完整的 Docker 支持，开箱即用
 - 🌐 **多语言支持**: 支持 7 种语言，自动检测用户语言偏好
 
+<a name="快速开始"></a>
+
 ## 🚀 快速开始
 
 ### 方式一：Docker（推荐）
@@ -95,6 +97,8 @@ go run . --api-key your-api-key-here
 go build -o warden .
 ./warden --api-key your-api-key-here
 ```
+
+<a name="配置说明"></a>
 
 ## ⚙️ 核心配置
 

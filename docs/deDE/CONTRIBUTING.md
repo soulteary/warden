@@ -16,6 +16,8 @@ Vielen Dank für Ihr Interesse am Warden-Projekt! Wir freuen uns über Beiträge
 - [Pull-Request-Prozess](#pull-request-prozess)
 - [Fehlerberichte und Feature-Wünsche](#fehlerberichte-und-feature-wünsche)
 
+<a name="wie-sie-beitragen-können"></a>
+
 ## 🚀 Wie Sie beitragen können
 
 Sie können auf folgende Arten beitragen:
@@ -27,6 +29,8 @@ Sie können auf folgende Arten beitragen:
 - **Fragen beantworten**: Unterstützen Sie andere Nutzerinnen und Nutzer in den Issues
 
 Bitte begegnen Sie allen Mitwirkenden respektvoll, nehmen Sie konstruktive Kritik an und behalten Sie im Blick, was für das Projekt am besten ist.
+
+<a name="einrichtung-der-entwicklungsumgebung"></a>
 
 ## 🛠️ Einrichtung der Entwicklungsumgebung
 
@@ -56,6 +60,8 @@ go test ./...
 go run .
 ```
 
+<a name="code-standards"></a>
+
 ## 📝 Code-Standards
 
 Bitte halten Sie sich an folgende Code-Standards:
@@ -68,6 +74,8 @@ Bitte halten Sie sich an folgende Code-Standards:
 6. **Benennung von Konstanten**: Alle Konstanten müssen den Stil `ALL_CAPS` (UPPER_SNAKE_CASE) verwenden
 
 Ausführliche Richtlinien zum Code-Stil finden Sie in [CODE_STYLE.md](CODE_STYLE.md).
+
+<a name="übersetzungsrichtlinie"></a>
 
 ## 🌐 Übersetzungsrichtlinie
 
@@ -97,6 +105,8 @@ ihn mit einem Kommentar in `intentionallyIdentical` in `locales/locales_test.go`
 die Prüfung zu entfernen.
 
 Führen Sie `make docs-parity` aus, um zu sehen, wie weit jedes übersetzte Dokument von `enUS` abgewichen ist.
+
+<a name="commit-standards"></a>
 
 ## 📦 Commit-Standards
 
@@ -141,6 +151,8 @@ Fixed the issue where incorrect status code was returned when page_size exceeds 
 Fixes #456
 ```
 
+<a name="pull-request-prozess"></a>
+
 ## 🔄 Pull-Request-Prozess
 
 ### Pull Request erstellen
@@ -174,6 +186,8 @@ Stellen Sie vor dem Einreichen eines Pull Requests sicher:
 - [ ] Der Code besteht die Lint-Prüfungen
 
 Alle Pull Requests durchlaufen ein Code-Review. Bitte reagieren Sie zeitnah auf Review-Kommentare.
+
+<a name="fehlerberichte-und-feature-wünsche"></a>
 
 ## 🐛 Fehlerberichte und Feature-Wünsche
 

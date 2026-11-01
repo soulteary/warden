@@ -18,6 +18,8 @@
 > - [간단한 예시](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - 기본 Docker Compose 설정
 > - [고급 예시](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - 모의 API를 포함한 완전한 설정
 
+<a name="사전-구축된-이미지-사용-권장"></a>
+
 ### 사전 빌드된 이미지 사용(권장)
 
 Warden은 사전 빌드된 Docker 이미지를 제공하며, GitHub Container Registry(GHCR)에서 바로 받을 수 있습니다. 직접 빌드할 필요가 없습니다.
@@ -158,6 +160,8 @@ go mod download
 ```bash
 go run .
 ```
+
+<a name="프로덕션-환경-배포-권장-사항"></a>
 
 ## 운영 환경 배포 권장 사항
 

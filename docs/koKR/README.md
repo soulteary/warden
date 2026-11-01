@@ -136,7 +136,7 @@ curl -H "X-API-Key: your-key" \
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md)를 읽어 아키텍처 이해하기
 2. [API.md](API.md)를 확인하여 API 인터페이스 이해하기
-3. [개발 가이드](../../README.koKR.md#개발-가이드)를 참조하여 개발하기
+3. [개발 가이드](DEVELOPMENT.md)를 참조하여 개발하기
 
 ### 운영
 

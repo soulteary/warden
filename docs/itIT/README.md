@@ -136,7 +136,7 @@ Per aggiungere nuove traduzioni o modificare le traduzioni esistenti, modificare
 
 1. Leggere [ARCHITECTURE.md](ARCHITECTURE.md) per comprendere l'architettura
 2. Controllare [API.md](API.md) per comprendere le interfacce API
-3. Fare riferimento alla [Guida allo Sviluppo](../../README.itIT.md#guida-allo-sviluppo) per lo sviluppo
+3. Fare riferimento alla [Guida allo Sviluppo](DEVELOPMENT.md) per lo sviluppo
 
 ### Operazioni
 

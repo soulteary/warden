@@ -16,6 +16,8 @@ Merci de l'intérêt que vous portez au projet Warden ! Toutes les formes de con
 - [Processus de pull request](#processus-de-pull-request)
 - [Rapports de bogues et demandes de fonctionnalités](#rapports-de-bogues-et-demandes-de-fonctionnalités)
 
+<a name="comment-contribuer"></a>
+
 ## 🚀 Comment contribuer
 
 Vous pouvez contribuer des manières suivantes :
@@ -27,6 +29,8 @@ Vous pouvez contribuer des manières suivantes :
 - **Répondre aux questions** : aidez les autres utilisateurs dans les Issues
 
 En participant à ce projet, veuillez respecter tous les contributeurs, accepter la critique constructive et vous concentrer sur ce qui est le mieux pour le projet.
+
+<a name="mise-en-place-de-lenvironnement-de-développement"></a>
 
 ## 🛠️ Mise en place de l'environnement de développement
 
@@ -56,6 +60,8 @@ go test ./...
 go run .
 ```
 
+<a name="normes-de-code"></a>
+
 ## 📝 Normes de code
 
 Veuillez respecter les normes de code suivantes :
@@ -68,6 +74,8 @@ Veuillez respecter les normes de code suivantes :
 6. **Nommage des constantes** : toutes les constantes doivent utiliser le style `ALL_CAPS` (UPPER_SNAKE_CASE)
 
 Pour les règles détaillées de style de code, consultez [CODE_STYLE.md](CODE_STYLE.md).
+
+<a name="politique-de-traduction"></a>
 
 ## 🌐 Politique de traduction
 
@@ -98,6 +106,8 @@ protocole), ajoutez-la à `intentionallyIdentical` dans `locales/locales_test.go
 commentaire plutôt que de supprimer le contrôle.
 
 Exécutez `make docs-parity` pour voir à quel point chaque document traduit s'est éloigné de `enUS`.
+
+<a name="normes-de-commit"></a>
 
 ## 📦 Normes de commit
 
@@ -142,6 +152,8 @@ Fixed the issue where incorrect status code was returned when page_size exceeds 
 Fixes #456
 ```
 
+<a name="processus-de-pull-request"></a>
+
 ## 🔄 Processus de pull request
 
 ### Créer une pull request
@@ -175,6 +187,8 @@ Avant de soumettre une Pull Request, veuillez vous assurer que :
 - [ ] Le code passe les vérifications de lint
 
 Toutes les Pull Requests font l'objet d'une revue de code. Merci de répondre rapidement aux commentaires de revue.
+
+<a name="rapports-de-bogues-et-demandes-de-fonctionnalités"></a>
 
 ## 🐛 Rapports de bogues et demandes de fonctionnalités
 

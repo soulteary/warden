@@ -16,6 +16,8 @@ Thank you for your interest in the Warden project! We welcome all forms of contr
 - [Pull Request Process](#pull-request-process)
 - [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
 
+<a name="how-to-contribute"></a>
+
 ## 🚀 How to Contribute
 
 You can contribute in the following ways:
@@ -27,6 +29,8 @@ You can contribute in the following ways:
 - **Answer Questions**: Help other users in Issues
 
 When participating in this project, please respect all contributors, accept constructive criticism, and focus on what's best for the project.
+
+<a name="development-environment-setup"></a>
 
 ## 🛠️ Development Environment Setup
 
@@ -56,6 +60,8 @@ go test ./...
 go run .
 ```
 
+<a name="code-standards"></a>
+
 ## 📝 Code Standards
 
 Please follow these code standards:
@@ -68,6 +74,8 @@ Please follow these code standards:
 6. **Constant Naming**: All constants must use `ALL_CAPS` (UPPER_SNAKE_CASE) naming style
 
 For detailed code style guidelines, please refer to [CODE_STYLE.md](CODE_STYLE.md).
+
+<a name="translation-policy"></a>
 
 ## 🌐 Translation Policy
 
@@ -96,6 +104,8 @@ word, a protocol name), add it to `intentionallyIdentical` in `locales/locales_t
 with a comment rather than deleting the check.
 
 Run `make docs-parity` to see how far each translated document has drifted from `enUS`.
+
+<a name="commit-standards"></a>
 
 ## 📦 Commit Standards
 
@@ -140,6 +150,8 @@ Fixed the issue where incorrect status code was returned when page_size exceeds 
 Fixes #456
 ```
 
+<a name="pull-request-process"></a>
+
 ## 🔄 Pull Request Process
 
 ### Create Pull Request
@@ -173,6 +185,8 @@ Before submitting a Pull Request, please ensure:
 - [ ] Code passes lint checks
 
 All Pull Requests require code review. Please respond to review comments promptly.
+
+<a name="bug-reports-and-feature-requests"></a>
 
 ## 🐛 Bug Reports and Feature Requests
 

@@ -30,6 +30,8 @@ Warden peut être utilisé **de manière autonome** ou intégré avec d'autres s
 - 📦 **Déploiement Conteneurisé**: Support Docker complet, prêt à l'emploi
 - 🌐 **Support Multi-langues**: 7 langues avec détection automatique de la langue
 
+<a name="démarrage-rapide"></a>
+
 ## 🚀 Démarrage Rapide
 
 ### Option 1: Docker (Recommandé)
@@ -84,6 +86,8 @@ Créez un fichier `data.json` (référez-vous à `data.example.json`):
 ```bash
 go run . --api-key your-api-key-here
 ```
+
+<a name="configuration"></a>
 
 ## ⚙️ Configuration Essentielle
 

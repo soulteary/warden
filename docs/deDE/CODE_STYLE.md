@@ -15,6 +15,8 @@ This document defines the code style and best practices for the Warden project. 
 - [Performance Optimization](#performance-optimization)
 - [Security Standards](#security-standards)
 
+<a name="go-code-standards"></a>
+
 ## 🔧 Go Code Standards
 
 ### Basic Standards
@@ -43,6 +45,8 @@ This document defines the code style and best practices for the Warden project. 
 - Use 1 Tab for indentation (not spaces)
 - Line length: Try to keep within 100 characters, can exceed if necessary
 - Use `gofmt` for automatic formatting, don't manually adjust format
+
+<a name="naming-conventions"></a>
 
 ## 📝 Naming Conventions
 
@@ -126,6 +130,8 @@ var NotFound = errors.New("not found")
 var InvalidInputError = errors.New("invalid input")
 ```
 
+<a name="code-organization"></a>
+
 ## 📁 Code Organization
 
 ### File Structure
@@ -179,6 +185,8 @@ import (
 
 - Single files should not exceed 500 lines
 - If a file is too long, consider splitting into multiple files
+
+<a name="comment-standards"></a>
 
 ## 💬 Comment Standards
 
@@ -246,6 +254,8 @@ if oldHash != newHash {
 }
 ```
 
+<a name="error-handling"></a>
+
 ## ⚠️ Error Handling
 
 ### Error Checking
@@ -305,6 +315,8 @@ func (e *ConfigError) Unwrap() error {
     return e.Err
 }
 ```
+
+<a name="testing-standards"></a>
 
 ## 🧪 Testing Standards
 
@@ -393,6 +405,8 @@ sh scripts/check-coverage.sh coverage.out
 go tool cover -html=coverage.out
 ```
 
+<a name="performance-optimization"></a>
+
 ## ⚡ Performance Optimization
 
 ### Avoid Premature Optimization
@@ -429,6 +443,8 @@ go tool cover -html=coverage.out
    // ❌ Wrong: Use global variables without locks
    var globalData []User
    ```
+
+<a name="security-standards"></a>
 
 ## 🔒 Security Standards
 

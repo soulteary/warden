@@ -72,7 +72,7 @@ Prima di inviare il PR, assicurati:
 - [ ] Il codice è stato formattato (`go fmt ./...`)
 - [ ] Il codice ha superato i controlli di lint (`go vet ./...` o `golangci-lint run`)
 - [ ] Ho aggiornato la documentazione pertinente (README.md, CONTRIBUTING.md, ecc.)
-- [ ] Il mio messaggio di commit segue la [convenzione di commit](../CONTRIBUTING.md#commit-convention)
+- [ ] Il mio messaggio di commit segue la [convenzione di commit](../docs/enUS/CONTRIBUTING.md#commit-standards)
 - [ ] Ho controllato tutti i file modificati per assicurarmi che non vengano divulgate informazioni sensibili
 
 ## 🔍 Punti di Attenzione per la Revisione del Codice

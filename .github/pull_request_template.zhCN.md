@@ -72,7 +72,7 @@
 - [ ] 代码已格式化（`go fmt ./...`）
 - [ ] 代码已通过 lint 检查（`go vet ./...` 或 `golangci-lint run`）
 - [ ] 我已经更新了相关文档（README.md、CONTRIBUTING.md 等）
-- [ ] 我的 Commit message 遵循了 [提交规范](../CONTRIBUTING.md#提交规范)
+- [ ] 我的 Commit message 遵循了 [提交规范](../docs/zhCN/CONTRIBUTING.md#提交规范)
 - [ ] 我已经检查了所有变更的文件，确保没有遗漏敏感信息
 
 ## 🔍 代码审查要点
