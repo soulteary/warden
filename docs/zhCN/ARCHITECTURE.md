@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/ARCHITECTURE.md) | [中文](ARCHITECTURE.md) | [Français](../frFR/ARCHITECTURE.md) | [Italiano](../itIT/ARCHITECTURE.md) | [日本語](../jaJP/ARCHITECTURE.md) | [Deutsch](../deDE/ARCHITECTURE.md) | [한국어](../koKR/ARCHITECTURE.md)
 
+参见[当前数据契约](DATA_CONTRACT.md)。
+
 本文档详细说明 Warden 的系统架构、核心组件和数据流程。
 
 Warden 是一个**独立**的允许列表用户数据服务，可以单独使用，也可以选择性地与其他服务集成。
