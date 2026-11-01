@@ -35,3 +35,10 @@ SDK, example, issue-template and `docs/enUS` documentation. Translated documenta
 and locale catalogs are not evaluated with an English dictionary. The spelling
 scope regression test still requires an English Go comment typo to be reported.
 `Issues` in the generated report counts affected files, not individual diagnostics.
+
+Branch CI also runs `scripts/check-coverage.sh` against the same profile. It
+compares covered and total statement counts directly against 95%, without using
+the rounded `go tool cover -func` percentage. Duplicate blocks are counted once
+and considered covered if any package run hits them. Malformed or empty profiles
+fail the gate. Main uploads that profile and its tested commit as a separate
+coverage artifact; it does not run tests again to produce this evidence.
