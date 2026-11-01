@@ -65,7 +65,7 @@ docker run -d \
 > 💡 **Tip**: For complete examples with Docker Compose, see the [Examples Directory](example/README.md).
 
 The root `docker-compose.yml` uses the same image by default. Set `WARDEN_IMAGE` to a
-version tag (for example `ghcr.io/soulteary/warden:1.2.0`) or digest for reproducible
+version tag (for example `ghcr.io/soulteary/warden:1.5.0`) or digest for reproducible
 production deployments; `latest` is updated only by stable release tags.
 
 ### Option 2: From Source

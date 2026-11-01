@@ -635,7 +635,7 @@ callbacks and precedence, including identical duplicate records. A failed overal
 load has no selected input, even if some source calls succeeded.
 
 Diagnostics contain no source path/URL, credentials, payload, user identifiers or
-raw error text. Events expose counts and generated ordinals only. The diagnostic
+raw error text. Events include counts, stable resource digests, manifest revisions, ordinals and timestamps. Resource digests are correlatable identifiers, not anonymization or secret storage. The diagnostic
 maps used to track winners are local to a load and are not returned or persisted.
 These events do not prove required-source coverage, upstream content age, or
 remote revocation. They do not change the historical Source label, plaintext and
@@ -646,7 +646,7 @@ candidate. No attempt evidence is added to Redis V2 envelopes or data/health API
 ### Stable source identities and observed manifests
 
 Optional `SOURCE_SET_ID` is a non-secret logical dataset identifier (up to 64
-letters, digits, colons, underscores or hyphens). Empty remains unspecified.
+letters, digits, colons, underscores or hyphens, starting with a letter or digit). Empty remains unspecified.
 Source IDs are versioned SHA-256 resource digests scoped by this value: lexical
 absolute file paths (without resolving symlinks) or the configured remote URL.
 Authorization headers are excluded; rotate the logical set ID when authentication

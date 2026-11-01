@@ -491,7 +491,7 @@ password := "hardcoded_password"
 // ✅ Correct
 if isProduction {
     http.Error(w, "Internal server error", http.StatusInternalServerError)
-    log.Error().Err(err).Msg("detailed error information")
+    log.Error().Str("reason", "operation_failed").Msg("request failed")
 } else {
     http.Error(w, err.Error(), http.StatusInternalServerError)
 }
@@ -553,3 +553,8 @@ Install Go extension, configure `.vscode/settings.json`:
 
 Following these standards helps maintain consistency and maintainability of the codebase. If you have questions, please refer to existing code in the project or contact the maintainers.
 
+
+Error values can contain user data, URLs or credentials. Review and sanitize them
+before logging; production mode does not make raw error text safe. Use stable
+reason codes and masked identifiers for validation diagnostics. See the
+[release log-handling requirements](../releases/v1.5.0.md#historical-logs).

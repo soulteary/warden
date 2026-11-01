@@ -181,6 +181,16 @@ jobs:
           cd dist
           sha256sum -c checksums.txt
 
+      - name: Select versioned release notes
+        id: notes
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          NOTES_PATH="docs/releases/${RELEASE_TAG}.md"
+          if [ -f "$NOTES_PATH" ]; then
+            echo "path=$NOTES_PATH" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 覆盖前删除已存在的 Release
         if: steps.release.outputs.manual == 'true'
         env:
@@ -197,10 +207,11 @@ jobs:
             dist/*
           tag_name: ${{ steps.release.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
           body: |
             ## Changes
 
-            See [CHANGELOG](CHANGELOG.md) for details.
+            See [CHANGELOG](https://github.com/${{ github.repository }}/blob/${{ steps.release.outputs.tag }}/CHANGELOG.md) for details.
 
             ## Downloads
 
@@ -220,14 +231,14 @@ jobs:
             ### Checksums
             See `checksums.txt` for SHA256 checksums.
 
-            ### Supply-chain 安全
-            - 容器镜像已使用 keyless cosign 签名，可验证：
+            ### Supply chain
+            - Verify the keyless-signed container image:
               ```bash
               cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
                 --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
                 --certificate-oidc-issuer https://token.actions.githubusercontent.com
               ```
-            - SBOM（SPDX）：`warden-image-sbom.spdx.json`
+            - SBOM (SPDX): `warden-image-sbom.spdx.json`
           draft: false
           prerelease: false
 

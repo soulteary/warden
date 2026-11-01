@@ -61,7 +61,7 @@
 
 ## 🌐 多语言支持
 
-Warden 支持完整的多语言（i18N）功能，所有 API 响应、错误消息和日志都支持国际化。
+Warden 通过嵌入的语言目录提供面向用户的消息翻译。
 
 ### 支持的语言
 
@@ -123,7 +123,9 @@ curl -H "X-API-Key: your-key" \
 
 ### 开发说明
 
-如需添加新的翻译或修改现有翻译，请编辑 `internal/i18n/i18n.go` 文件中的 `translations` map。
+机器可读字段、原因码和部分固定诊断日志不翻译；后台任务也可能使用固定语言。国际化不改变协议字段。
+
+请修改 `locales/*.json` 中嵌入的翻译目录；新增语言时还需核对 `locales/embed.go` 和 `internal/i18n/i18n.go` 的语言注册。
 
 ## 🚀 快速导航
 
@@ -222,3 +224,8 @@ warden/
 1. 发现错误或需要改进的地方
 2. 提交 Issue 描述问题
 3. 或直接提交 Pull Request
+
+## Release and ownership contracts
+
+- [Release notes and upgrade requirements](../releases/v1.5.0.md)
+- [Scope 所有权与驻留内存](SCOPE_OWNERSHIP.md)

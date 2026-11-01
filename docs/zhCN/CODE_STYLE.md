@@ -553,3 +553,8 @@ if isProduction {
 
 遵循这些规范有助于保持代码库的一致性和可维护性。如有疑问，请参考项目中的现有代码或联系维护者。
 
+
+Error values can contain user data, URLs or credentials. Review and sanitize them
+before logging; production mode does not make raw error text safe. Use stable
+reason codes and masked identifiers for validation diagnostics. See the
+[release log-handling requirements](../releases/v1.5.0.md#historical-logs).

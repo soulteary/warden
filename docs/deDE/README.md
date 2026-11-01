@@ -60,7 +60,7 @@ Willkommen zur Warden AllowList Benutzerdatendienst-Dokumentation.
 
 ## 🌐 Mehrsprachige Unterstützung
 
-Warden unterstützt vollständige Internationalisierungs- (i18N) Funktionalität. Alle API-Antworten, Fehlermeldungen und Protokolle unterstützen Internationalisierung.
+Warden stellt übersetzte Meldungen über eingebettete Sprachkataloge bereit.
 
 ### Unterstützte Sprachen
 
@@ -122,7 +122,9 @@ Die folgenden Inhalte unterstützen mehrere Sprachen:
 
 ### Entwicklungsnotizen
 
-Um neue Übersetzungen hinzuzufügen oder vorhandene Übersetzungen zu ändern, bearbeiten Sie bitte die `translations`-Map in der Datei `internal/i18n/i18n.go`.
+Machine-readable fields, reason codes and fixed diagnostic events remain untranslated; background tasks can use a fixed language. Localization does not change protocol fields.
+
+Bearbeiten Sie die eingebetteten JSON-Kataloge in `locales/*.json`. Prüfen Sie bei einer neuen Sprache auch `locales/embed.go` und die Registrierung in `internal/i18n/i18n.go`.
 
 ## 🚀 Schnellnavigation
 
@@ -220,3 +222,8 @@ Verbesserungen der Dokumentation sind willkommen:
 1. Fehler oder Bereiche finden, die verbessert werden müssen
 2. Ein Issue einreichen, das das Problem beschreibt
 3. Oder direkt einen Pull Request einreichen
+
+## Release and ownership contracts
+
+- [Release notes and upgrade requirements](../releases/v1.5.0.md)
+- [Scope ownership and retained memory](../enUS/SCOPE_OWNERSHIP.md)
