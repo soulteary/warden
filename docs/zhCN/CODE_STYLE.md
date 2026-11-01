@@ -384,12 +384,12 @@ func TestParsePaginationParams(t *testing.T) {
 ### 测试覆盖率
 
 - 新功能必须包含测试
-- 目标覆盖率：80% 以上
-- 关键路径必须 100% 覆盖
+- 全项目语句覆盖率至少 95%，按原始语句数计算，不使用四舍五入后的百分比
+- 验证关键行为和错误路径；全局比例不能替代行为契约测试
 
 ```bash
-go test -cover ./...
-go test -coverprofile=coverage.out ./...
+go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+sh scripts/check-coverage.sh coverage.out
 go tool cover -html=coverage.out
 ```
 

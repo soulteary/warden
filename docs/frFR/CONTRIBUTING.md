@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
+> Compiler et valider sous Linux avec la version Go déclarée dans [go.mod](../../go.mod). Utiliser l’image de conteneur Linux sur les autres systèmes.
+
 Merci de l'intérêt que vous portez au projet Warden ! Toutes les formes de contribution sont les bienvenues.
 
 ## 📋 Table des matières
@@ -30,7 +32,7 @@ En participant à ce projet, veuillez respecter tous les contributeurs, accepter
 
 ### Prérequis
 
-- Go 1.27.2 ou version supérieure
+- Go 1.27.3 ou version supérieure
 - Redis (pour les tests)
 - Git
 

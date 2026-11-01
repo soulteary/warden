@@ -2,11 +2,13 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](../jaJP/DEPLOYMENT.md) | [Deutsch](../deDE/DEPLOYMENT.md) | [한국어](DEPLOYMENT.md)
 
+> 빌드와 검증은 Linux에서 [go.mod](../../go.mod)에 명시된 Go 버전으로 수행합니다. 다른 환경에서는 Linux 컨테이너 이미지를 사용하세요.
+
 이 문서는 Docker 배포, 로컬 배포 등 Warden 서비스를 배포하는 방법을 설명합니다.
 
 ## 사전 요구 사항
 
-- Go 1.27.2 이상([go.mod](../../go.mod) 참고)
+- Go 1.27.3 이상([go.mod](../../go.mod) 참고)
 - Redis(분산 잠금 및 캐시용)
 - Docker(선택. 컨테이너 배포용)
 

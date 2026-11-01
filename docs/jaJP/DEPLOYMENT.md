@@ -2,11 +2,13 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](DEPLOYMENT.md) | [Deutsch](../deDE/DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
+> ビルドと検証は Linux 上で [go.mod](../../go.mod) に指定された Go バージョンを使用します。他の環境では Linux コンテナーイメージを使用してください。
+
 本ドキュメントでは、Docker によるデプロイやローカルデプロイなど、Warden サービスのデプロイ方法を説明します。
 
 ## 前提条件
 
-- Go 1.27.2 以上（[go.mod](../../go.mod) を参照）
+- Go 1.27.3 以上（[go.mod](../../go.mod) を参照）
 - Redis（分散ロックとキャッシュ用）
 - Docker（任意。コンテナでデプロイする場合）
 

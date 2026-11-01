@@ -2,11 +2,13 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](../itIT/DEPLOYMENT.md) | [日本語](../jaJP/DEPLOYMENT.md) | [Deutsch](DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
+> Unter Linux mit der in [go.mod](../../go.mod) angegebenen Go-Version bauen und prüfen. Auf anderen Systemen das Linux-Container-Image verwenden.
+
 Dieses Dokument erklärt, wie der Warden-Dienst bereitgestellt wird – per Docker, lokal und mehr.
 
 ## Voraussetzungen
 
-- Go 1.27.2+ (siehe [go.mod](../../go.mod))
+- Go 1.27.3+ (siehe [go.mod](../../go.mod))
 - Redis (für verteilte Locks und Caching)
 - Docker (optional, für die Bereitstellung im Container)
 

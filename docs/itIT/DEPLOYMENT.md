@@ -2,11 +2,13 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/DEPLOYMENT.md) | [中文](../zhCN/DEPLOYMENT.md) | [Français](../frFR/DEPLOYMENT.md) | [Italiano](DEPLOYMENT.md) | [日本語](../jaJP/DEPLOYMENT.md) | [Deutsch](../deDE/DEPLOYMENT.md) | [한국어](../koKR/DEPLOYMENT.md)
 
+> Compilare e verificare su Linux con la versione Go indicata in [go.mod](../../go.mod). Sugli altri sistemi usare l’immagine container Linux.
+
 Questo documento spiega come distribuire il servizio Warden: distribuzione con Docker, distribuzione locale e altro ancora.
 
 ## Prerequisiti
 
-- Go 1.27.2+ (vedere [go.mod](../../go.mod))
+- Go 1.27.3+ (vedere [go.mod](../../go.mod))
 - Redis (per i lock distribuiti e la cache)
 - Docker (facoltativo, per la distribuzione in container)
 

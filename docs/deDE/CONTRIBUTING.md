@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
+> Unter Linux mit der in [go.mod](../../go.mod) angegebenen Go-Version bauen und prüfen. Auf anderen Systemen das Linux-Container-Image verwenden.
+
 Vielen Dank für Ihr Interesse am Warden-Projekt! Wir freuen uns über Beiträge jeder Art.
 
 ## 📋 Inhaltsverzeichnis
@@ -30,7 +32,7 @@ Bitte begegnen Sie allen Mitwirkenden respektvoll, nehmen Sie konstruktive Kriti
 
 ### Voraussetzungen
 
-- Go 1.27.2 oder höher
+- Go 1.27.3 oder höher
 - Redis (für Tests)
 - Git
 

@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](DEVELOPMENT.md) | [中文](../zhCN/DEVELOPMENT.md) | [Français](../frFR/DEVELOPMENT.md) | [Italiano](../itIT/DEVELOPMENT.md) | [日本語](../jaJP/DEVELOPMENT.md) | [Deutsch](../deDE/DEVELOPMENT.md) | [한국어](../koKR/DEVELOPMENT.md)
 
+> Build and validate on Linux with the Go version declared in [go.mod](../../go.mod). Use the Linux container image on other hosts.
+
 This document provides a development guide for Warden project developers, including project structure, development workflow, testing methods, etc.
 
 ## Project Structure
