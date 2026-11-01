@@ -198,8 +198,8 @@ func mergeObserved(ctx context.Context, remoteUsers, fileUsers []define.AllowLis
 			users []define.AllowListUser
 		}{{remoteBatch, remoteUsers}, {fileBatch, fileUsers}} {
 			if group.batch != nil && group.batch.fallbackOwner >= 0 {
-				for _, user := range group.users {
-					if key, ok := allowListUserKey(user); ok {
+				for i := range group.users {
+					if key, ok := allowListUserKey(group.users[i]); ok {
 						group.batch.owners[key] = group.batch.fallbackOwner
 					}
 				}
