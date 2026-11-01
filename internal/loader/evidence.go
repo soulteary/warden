@@ -9,28 +9,33 @@ import (
 )
 
 // SourceAttempt describes an actual source invocation, not a configured source.
-// IDs are per-family ordinals, not paths/URLs. HTTP retries remain one invocation.
+// IDs are resource digests; SourceOrdinal retains the per-family position.
+// HTTP retries remain one invocation.
 // SelectedInput refers to loader resolution, not subsequent cache validation or
 // publication. WinningRows counts rows surviving the loader's existing merges.
 // An empty or fully shadowed input can be selected with zero winning rows.
 type SourceAttempt struct {
-	StartedAt     time.Time
-	FinishedAt    time.Time
-	SourceID      string
-	Kind          Source
-	Transport     string
-	Outcome       string
-	Reason        string
-	Rows          int
-	WinningRows   int
-	Attempt       int
-	SelectedInput bool
+	StartedAt        time.Time
+	FinishedAt       time.Time
+	SourceID         string
+	SourceOrdinal    string
+	ManifestRevision string
+	Kind             Source
+	Transport        string
+	Outcome          string
+	Reason           string
+	Rows             int
+	WinningRows      int
+	Attempt          int
+	SelectedInput    bool
 }
 
 type evidenceKey struct{}
 type sourceEvidence struct {
-	selected *sourceBatch
-	attempts []SourceAttempt
+	selected    *sourceBatch
+	sourceSetID string
+	attempts    []SourceAttempt
+	manifests   []SourceManifest
 }
 type sourceBatch struct {
 	evidence      *sourceEvidence
@@ -66,19 +71,23 @@ func (b *sourceBatch) finishPending() {
 }
 
 type observedFetcher struct {
-	inner parserkit.Fetcher
-	batch *sourceBatch
-	id    string
-	kind  Source
+	inner    parserkit.Fetcher
+	batch    *sourceBatch
+	id       string
+	kind     Source
+	ordinal  string
+	revision string
 }
 
-func (f observedFetcher) Fetch(ctx context.Context, maxBytes int64) ([]byte, error) {
+func (f *observedFetcher) Fetch(ctx context.Context, maxBytes int64) ([]byte, error) {
 	f.batch.finishPending()
 	transport := "plain"
 	if f.kind == SourceLocal {
 		transport = "file"
 	}
 	i := f.batch.evidence.begin(f.id, f.kind, transport)
+	f.batch.evidence.attempts[i].SourceOrdinal = f.ordinal
+	f.batch.evidence.attempts[i].ManifestRevision = f.revision
 	f.batch.current = i
 	raw, err := f.inner.Fetch(ctx, maxBytes)
 	a := &f.batch.evidence.attempts[i]
@@ -95,6 +104,9 @@ func (f observedFetcher) Fetch(ctx context.Context, maxBytes int64) ([]byte, err
 	return raw, err
 }
 func fetcherKind(fetcher parserkit.Fetcher) Source {
+	if identified, ok := fetcher.(*identifiedFetcher); ok {
+		return identified.descriptor.Kind
+	}
 	if wrapper, ok := fetcher.(nonEmptyFetcher); ok {
 		if _, local := wrapper.inner.(*parserkit.FileFetcher); local {
 			return SourceLocal
@@ -150,7 +162,15 @@ func (r *RulesLoader) loadObserved(ctx context.Context, sources ...parserkit.Sou
 	for i, source := range sources {
 		kind := fetcherKind(source.Fetcher)
 		counts[kind]++
-		wrapped[i] = parserkit.At(source.Priority, observedFetcher{inner: source.Fetcher, batch: b, kind: kind, id: fmt.Sprintf("%s_%d", kind, counts[kind])})
+		ordinal := fmt.Sprintf("%s_%d", kind, counts[kind])
+		id := ordinal
+		revision := ""
+		if identified, ok := source.Fetcher.(*identifiedFetcher); ok {
+			id = identified.descriptor.ID
+			ordinal = identified.descriptor.Ordinal
+			revision = identified.revision
+		}
+		wrapped[i] = parserkit.At(source.Priority, &observedFetcher{inner: source.Fetcher, batch: b, kind: kind, id: id, ordinal: ordinal, revision: revision})
 	}
 	users, err := dl.Load(ctx, wrapped...)
 	b.finishPending()
@@ -211,4 +231,6 @@ func (e *sourceEvidence) finish(result *LoadResult) {
 		}
 	}
 	result.Attempts = append([]SourceAttempt(nil), e.attempts...)
+	result.Manifests = CloneManifests(e.manifests)
+	result.SourceSetID = e.sourceSetID
 }

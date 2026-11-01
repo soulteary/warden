@@ -23,6 +23,9 @@ import (
 // ValidateConfig validates configuration validity
 func ValidateConfig(cfg *Config) error {
 	var errors []string
+	if err := validateSourceSetID(cfg.SourceSetID); err != nil {
+		errors = append(errors, err.Error())
+	}
 	if err := validateRedisRecovery(cfg); err != nil {
 		errors = append(errors, err.Error())
 	}

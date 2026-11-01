@@ -617,3 +617,22 @@ remote revocation. They do not change the historical Source label, plaintext and
 encrypted merge differences, fallback/degraded policy, LoadedAt, SourceSucceededAt,
 readiness or SDK freshness. Subsequent cache validation may reject the resolved
 candidate. No attempt evidence is added to Redis V2 envelopes or data/health APIs.
+
+### Stable source identities and observed manifests
+
+Optional `SOURCE_SET_ID` is a non-secret logical dataset identifier (up to 64
+letters, digits, colons, underscores or hyphens). Empty remains unspecified.
+Source IDs are versioned SHA-256 resource digests scoped by this value: lexical
+absolute file paths (without resolving symlinks) or the configured remote URL.
+Authorization headers are excluded; rotate the logical set ID when authentication
+switches datasets at the same URL. Digests are identity tokens, not secret storage.
+Existing ordinals are retained separately as `source_ordinal`.
+
+Every actual source-building pass records its ordered manifest and directory
+ discovery outcome. Repeated fallback enumeration remains unchanged; new members
+change the manifest revision and have distinct stable resource IDs. A manifest
+lists eligible configured sources, not successful coverage. No extra enumeration,
+fetch or decode is added. Evidence remains diagnostic; Redis V2 and read policy
+are unchanged.
+
+Directory discovery is indeterminate when filepath.Glob returns normally: it suppresses filesystem errors, so an empty or partial match is not proof of complete discovery. Only a reported pattern error is marked failed. No extra filesystem probe is added.
