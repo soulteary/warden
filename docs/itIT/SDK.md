@@ -540,3 +540,8 @@ func main() {
 
 - [Documentazione dell'API](API.md) – Scopri i dettagli degli endpoint dell'API
 - [Documentazione di configurazione](CONFIGURATION.md) – Scopri le opzioni di configurazione del server
+
+## Cache and source freshness contracts
+
+- [Cache isolation and hit behavior](../enUS/SDK_CACHE_ISOLATION.md)
+- [Optional source freshness and source-error classification](../enUS/SDK_SOURCE_FRESHNESS.md)

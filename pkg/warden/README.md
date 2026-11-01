@@ -380,7 +380,7 @@ For complete examples, please refer to the [example](../../example) directory.
 
 ## License
 
-MIT License
+[Apache License 2.0](../../LICENSE)
 
 ### List cache invalidation during a request
 
@@ -414,3 +414,8 @@ original server error in their chain. Plain or unrecognized 503 responses keep
 `SERVER_ERROR`. Default clients keep their existing mapping and cache behavior.
 The existing retry policy runs before classification, including configured 503
 retries. See the configuration guide for paired server and SDK enablement.
+
+## Cache and source freshness contracts
+
+- [Cache isolation and hit behavior](../../docs/enUS/SDK_CACHE_ISOLATION.md)
+- [Optional source freshness and source-error classification](../../docs/enUS/SDK_SOURCE_FRESHNESS.md)

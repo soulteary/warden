@@ -540,3 +540,8 @@ func main() {
 
 - [API 문서](API.md) - API 엔드포인트 상세 정보
 - [설정 문서](CONFIGURATION.md) - 서버 설정 옵션
+
+## Cache and source freshness contracts
+
+- [Cache isolation and hit behavior](../enUS/SDK_CACHE_ISOLATION.md)
+- [Optional source freshness and source-error classification](../enUS/SDK_SOURCE_FRESHNESS.md)
