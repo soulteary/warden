@@ -21,7 +21,8 @@ import (
 //nolint:govet // fieldalignment: readability over a few bytes for a small, rarely-allocated struct
 type Snapshot struct {
 	// view owns the effective users and indexes for EffectiveVersion/EffectiveCount.
-	view *cache.ReadView
+	view            *cache.ReadView
+	acceptedSources *acceptedSourceEvidence
 	// EffectiveVersion and EffectiveCount describe the served set after filtering.
 	EffectiveVersion string
 	EffectiveCount   int
@@ -75,6 +76,7 @@ func freezeSnapshot(snap *Snapshot) *Snapshot {
 		return nil
 	}
 	frozen := *snap
+	frozen.acceptedSources = cloneAcceptedSources(snap.acceptedSources)
 	if snap.Users != nil {
 		frozen.Users = append([]define.AllowListUser{}, snap.Users...)
 		for i := range frozen.Users {

@@ -635,4 +635,17 @@ lists eligible configured sources, not successful coverage. No extra enumeration
 fetch or decode is added. Evidence remains diagnostic; Redis V2 and read policy
 are unchanged.
 
+### Evidence on accepted snapshots
+
+Successful application acceptance binds a detached copy of observed manifests and
+source attempts to the same immutable in-memory snapshot as its input/effective
+versions and source-success time. Its generation is process-local diagnostics,
+not an ordered upstream version. Failure diagnostics can change while this
+accepted evidence stays attached to the last-known-good data. A genuine successful
+recheck, including unchanged content or an accepted empty set, gets new evidence.
+This does not assert per-source cache validity or enforce required coverage.
+
+Redis V2 stores no such evidence: restoration leaves it unknown, rather than
+inventing provenance from origin, publication or recovery time. No data/health API,
+Redis format, read policy or source-age semantics change.
 Directory discovery is indeterminate when filepath.Glob returns normally: it suppresses filesystem errors, so an empty or partial match is not proof of complete discovery. Only a reported pattern error is marked failed. No extra filesystem probe is added.
