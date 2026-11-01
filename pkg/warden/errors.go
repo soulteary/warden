@@ -12,6 +12,10 @@ var ErrResponseTooLarge = errors.New("warden: response exceeds size limit")
 // The response is neither returned nor cached; callers may issue a new request.
 var ErrCacheInvalidated = errors.New("warden: cache invalidated during request")
 
+// ErrCacheSuperseded indicates a later-started list request already committed.
+// The older response is neither returned nor cached.
+var ErrCacheSuperseded = errors.New("warden: list response superseded by a newer request")
+
 // Error represents an error that occurred in the SDK.
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility

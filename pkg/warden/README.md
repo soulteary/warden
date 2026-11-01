@@ -390,3 +390,16 @@ returned by `GetUsers`; the call returns `REQUEST_FAILED` wrapping
 `ErrCacheInvalidated` (detectable with `errors.Is`). The caller may start a new
 request. There is no automatic additional fetch. Cache TTL, optional source
 freshness and the normal request retry policy are unchanged.
+
+### Concurrent list responses
+
+Within one client and invalidation epoch, a later-started request that successfully
+commits prevents earlier requests from publishing or returning their responses.
+Those calls return `REQUEST_FAILED` wrapping `ErrCacheSuperseded`. Starting a later
+request, or receiving an invalid or expired response, does not suppress an earlier
+valid response. Empty lists participate in the same ordering.
+
+This is local request ordering, not a global source-version guarantee. Snapshot
+hashes and Redis revision tokens are not ordered, and sequential requests routed
+to different replicas may still observe different accepted datasets. No extra
+fetch, retry or change to default freshness settings is introduced.
