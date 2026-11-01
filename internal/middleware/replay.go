@@ -45,7 +45,11 @@ type redisReplayGuard struct {
 }
 
 // NewRedisReplayGuard creates a distributed replay guard backed by Redis.
+// A nil client returns a guard that rejects requests until a backend is available.
 func NewRedisReplayGuard(client *redis.Client) ReplayGuard {
+	if client == nil {
+		return newRedisReplayGuard(nil)
+	}
 	return newRedisReplayGuard(client)
 }
 
