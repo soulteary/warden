@@ -4,6 +4,11 @@
 
 本文档说明如何部署 Warden 服务，包括 Docker 部署、本地部署等。
 
+## 构建与验证平台
+
+项目 CI 在 Linux 上构建和验证 Warden。macOS、Windows 等其他宿主环境推荐
+部署 Linux 容器镜像；这些宿主系统的原生构建不在 CI 验证范围内。
+
 ## 前置要求
 
 - Go 1.27.2+（参考 [go.mod](../../go.mod)）
