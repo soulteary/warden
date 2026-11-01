@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/identity"
@@ -172,4 +174,39 @@ func TestHashUserListHistoricalDigests(t *testing.T) {
 	}
 	define.SetRequireExplicitUserID(true)
 	require.Equal(t, "c1ccc0ee25a2b6b8f6a4a5ebe3bf2a61dbb95d6a60b9ceea6573ab5e7a48c53c", HashUserList(users))
+}
+
+func TestHashUserListStreamingBoundaries(t *testing.T) {
+	for _, count := range []int{1, 15, 16, 17, 31, 32, 33} {
+		for _, length := range []int{0, 127, 128, 129, 255, 256, 257, 4095, 4096, 4097, 8192} {
+			users := make([]define.AllowListUser, count)
+			for i := range users {
+				users[i] = define.AllowListUser{Mail: fmt.Sprintf("member%d@example.com", i), UserID: fmt.Sprint(i), Name: strings.Repeat("x", length), Scope: []string{"", strings.Repeat("好", length/3), ":"}}
+			}
+			assertLegacyHash(t, users)
+		}
+	}
+}
+
+func TestSnapshotRestoresLegacyHashVersions(t *testing.T) {
+	store, mr := snapshotStoreFixture(t)
+	at := time.Now().Add(-time.Minute).UTC()
+	users := []define.AllowListUser{{Mail: "member@example.com", UserID: "member", Status: "active", Scope: []string{"read"}}}
+	legacyVersion := legacyHashUserList(users)
+	envelope := SnapshotEnvelope{SchemaVersion: SNAPSHOT_SCHEMA_V2, Dataset: store.dataset, Policy: store.policy, Revision: strings.Repeat("a", 32), Users: users, EffectiveVersion: legacyVersion, InputVersion: legacyVersion, InputCount: len(users), Origin: "remote", SourceSucceededAt: at, PublishedAt: at}
+	raw, err := json.Marshal(envelope)
+	require.NoError(t, err)
+	require.NoError(t, mr.Set(store.key, string(raw)))
+	restored, err := store.Read(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, legacyVersion, restored.InputVersion)
+	require.Equal(t, legacyVersion, restored.EffectiveVersion)
+	require.Equal(t, at, restored.SourceSucceededAt)
+	lease, err := store.Acquire(context.Background(), time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, lease.Renew(context.Background(), restored.Revision))
+	renewed, err := mr.Get(store.key)
+	require.NoError(t, err)
+	require.Equal(t, string(raw), renewed)
+	require.NoError(t, lease.Release(context.Background()))
 }
