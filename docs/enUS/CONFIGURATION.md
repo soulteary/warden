@@ -500,3 +500,38 @@ In observe mode, `read_ready` is absent and existing health behavior is unchange
 Development health details expose a bounded reason and, when known, `valid_until`;
 production continues to hide details. This adds no liveness endpoint and does not
 change the meaning of source success to require every remote dependency.
+
+## Following shared snapshots after local expiry
+
+`REDIS_SNAPSHOT_RECOVERY=bootstrap` is the default and preserves existing recovery:
+a V2 snapshot may fill an uninitialized replica, but does not replace its known-good
+local set. The environment setting applies to both flag and YAML startup paths.
+Invalid values fail startup validation.
+
+Opt in with `REDIS_SNAPSHOT_RECOVERY=stale`; this requires Redis enabled and
+`REDIS_SNAPSHOT_MODE=v2`. Following is attempted in the refresh path only after a
+source error, identity rejection, or an availability-first all-records-rejected
+refresh. It requires a recorded failure and a local canonical snapshot whose known
+source-success deadline has expired under `SNAPSHOT_MAX_AGE`. It does not run on
+HTTP reads, replace fresh or unknown-age data, or enable Redis reads in ONLY_LOCAL.
+
+The shared candidate must pass the existing V2 dataset/policy/schema and effective
+rules validation, have a strictly later source-success time, and remain fresh and
+not future-dated at the final adoption check. Valid empty input is eligible.
+A conditional publication rejects replacement if the local generation changed.
+Background refresh remains serialized by the existing refresh mutex.
+
+Recovery preserves SourceSucceededAt, PublishedAt, revision and refresh-failure
+count/reason; only RestoredAt records recovery. It remains degraded with reason
+`redis_follow_recovery`. The recovery helper does not publish or renew shared data;
+an all-records-rejected cycle also skips renewal after successful adoption.
+The bounded `follow_read` operation distinguishes recovery outcomes in snapshot
+metrics. A missing/invalid/unavailable Redis snapshot leaves local data untouched.
+No missing key is rebuilt from old memory. Initial bootstrap behavior, including
+its handling of unknown or stale evidence, is unchanged.
+
+This is an availability policy, independent of SNAPSHOT_READ_POLICY. Enable enforce
+separately if reads must stop at the source deadline. A later source-success time
+is evidence of a later accepted validation, not an ordered upstream business
+version or proof that every remote source succeeded. Use distinct namespaces for
+distinct datasets; a policy match does not infer tenant identity from source URLs.

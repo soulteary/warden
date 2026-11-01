@@ -531,3 +531,30 @@ enforce 模式的就绪规则见下文。
 `observe` 模式不增加 `read_ready`，原健康行为不变。开发环境详情提供有限原因枚举及
 已知的 `valid_until`，生产环境继续隐藏详情。本变更不新增存活接口，也不将来源成功
 重新解释为每个远程依赖均成功。
+
+## 本地过期后的共享快照跟进
+
+环境变量 `REDIS_SNAPSHOT_RECOVERY=bootstrap` 为默认值，保留原行为：V2 只为尚未
+初始化的副本补充基线，不替换已有的有效集合。flag 和 YAML 启动路径均读取此环境
+变量，非法值使启动校验失败。
+
+显式设置 `REDIS_SNAPSHOT_RECOVERY=stale` 可启用跟进，要求 Redis 已启用且
+`REDIS_SNAPSHOT_MODE=v2`。只在来源错误、身份校验拒绝或 availability-first 的
+全记录拒绝后，于刷新路径尝试；要求已有失败诊断，且本地规范视图的已知来源成功时间
+加 `SNAPSHOT_MAX_AGE` 已到期。不在 HTTP 请求中读取 Redis，不替换仍新鲜或年龄未知
+的本地集合，也不使 ONLY_LOCAL 开始读取 Redis。
+
+候选必须通过原有 V2 数据集、策略、schema 和有效规则校验，来源成功时间严格更新，
+并在最终采用前仍新鲜且不在未来。合法空集合可以传播撤权。条件发布会拒绝替换已换代
+的本地快照；后台刷新继续由原 refresh mutex 串行化。
+
+恢复保留 SourceSucceededAt、PublishedAt、revision 及失败次数和原因，只用 RestoredAt
+记录恢复时间，并保持 degraded，原因标记为 `redis_follow_recovery`。恢复 helper
+不发布或续期共享数据；全记录拒绝分支成功采用候选后，本轮也跳过续期。
+快照指标用有限枚举操作 `follow_read` 区分跟进结果。键缺失、无效或 Redis 不可用时
+保留本地数据，不从旧内存重建键。首次 bootstrap 的原有行为保持不变。
+
+这是可用性策略，与 SNAPSHOT_READ_POLICY 独立；需要过期停止读取时，仍须单独启用
+enforce。较新的来源成功时间表示较晚接受的校验证据，不是全局业务版本顺序，也不
+证明所有远程来源成功。不同数据集应使用不同 namespace，不能假设策略指纹会根据
+来源 URL 自动判断租户身份。

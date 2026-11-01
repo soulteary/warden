@@ -172,8 +172,18 @@ func (s *snapshotStore) recordPublication(expected *Snapshot, at time.Time, revi
 }
 
 func (app *App) bootstrapVersionedSnapshot() bool {
+	return app.restoreVersionedSnapshot(nil)
+}
+
+// expected is non-nil only for opt-in follow recovery. Background callers hold
+// refreshMu; the compare-and-swap additionally fences publication changes.
+func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
+	operation := "read"
+	if expected != nil {
+		operation = "follow_read"
+	}
 	if app.redisSnapshots == nil {
-		app.recordSnapshotResult("read", "unavailable")
+		app.recordSnapshotResult(operation, "unavailable")
 		return false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cache.REDIS_OPERATION_TIMEOUT)
@@ -184,7 +194,7 @@ func (app *App) bootstrapVersionedSnapshot() bool {
 		if err != nil {
 			result = cache.SnapshotFailureReason(err)
 		}
-		app.recordSnapshotResult("read", result)
+		app.recordSnapshotResult(operation, result)
 		if err != nil && app.log != nil {
 			app.log.Warn().Str("result", result).Msg("Versioned Redis snapshot recovery rejected")
 		}
@@ -194,21 +204,40 @@ func (app *App) bootstrapVersionedSnapshot() bool {
 	prepared, prepareErr := app.prepareUsers(envelope.Users)
 	if prepareErr != nil || prepared.ReadView().GetHash() != envelope.EffectiveVersion ||
 		(app.emptyRulesetPolicy.KeepsLastKnownGood() && envelope.InputCount > 0 && prepared.ReadView().Len() == 0) {
-		app.recordSnapshotResult("read", "effective_rejected")
+		app.recordSnapshotResult(operation, "effective_rejected")
 		prommetrics.CacheMisses.Inc()
 		return false
 	}
-	app.userCache.ApplyPrepared(prepared)
-	app.snapshots.StorePreservingFailures(&Snapshot{
+	restored := &Snapshot{
 		versioned: true, view: prepared.ReadView(), Users: envelope.Users, EffectiveVersion: envelope.EffectiveVersion,
 		EffectiveCount: prepared.ReadView().Len(), Count: envelope.InputCount, Version: envelope.InputVersion,
 		Source: loader.SourceRedis, Origin: loader.Source(envelope.Origin), LoadedAt: envelope.SourceSucceededAt,
 		SourceSucceededAt: envelope.SourceSucceededAt, PublishedAt: envelope.PublishedAt,
 		RestoredAt: app.snapshotTime(), RedisRevision: envelope.Revision, Degraded: true, DegradedReason: "redis_bootstrap",
-	})
+	}
+	if expected != nil {
+		now := app.snapshotTime()
+		current := captureHealthState(app.snapshots, app.userCache)
+		current.observedAt = now
+		candidate := &healthReadState{state: &snapshotState{snapshot: restored}, view: restored.view, observedAt: now}
+		if current.state.snapshot != expected || evaluateSnapshotRead(current, app.snapshotMaxAge).reason != readSourceExpired ||
+			!restored.SourceSucceededAt.After(expected.SourceSucceededAt) || !snapshotReadFresh(candidate, app.snapshotMaxAge) {
+			app.recordSnapshotResult(operation, "ineligible")
+			return false
+		}
+		restored.DegradedReason = "redis_follow_recovery"
+		if !app.snapshots.restoreIfCurrent(expected, restored) {
+			app.recordSnapshotResult(operation, "superseded")
+			return false
+		}
+		app.userCache.ApplyPrepared(prepared)
+	} else {
+		app.userCache.ApplyPrepared(prepared)
+		app.snapshots.StorePreservingFailures(restored)
+	}
 	app.updateSnapshotMetrics()
 	prommetrics.CacheHits.Inc()
-	app.recordSnapshotResult("read", "restored")
+	app.recordSnapshotResult(operation, "restored")
 	return true
 }
 
@@ -218,12 +247,38 @@ func (app *App) recordSnapshotResult(operation, result string) {
 	}
 }
 
-// recoverVersionedBaseline fills only an uninitialized V2 replica after a failed
-// source attempt. Recovery preserves source age and refresh-failure diagnostics.
+// recoverVersionedBaseline retains bootstrap recovery by default. The optional
+// stale policy follows Redis only after a failed refresh of an expired local set.
 func (app *App) recoverVersionedBaseline() bool {
-	if app.redisSnapshotMode != "v2" || app.hasKnownGoodSnapshot() ||
-		strings.EqualFold(strings.TrimSpace(app.appMode), "ONLY_LOCAL") {
+	if app.redisSnapshotMode != "v2" || strings.EqualFold(strings.TrimSpace(app.appMode), "ONLY_LOCAL") {
 		return false
 	}
-	return app.bootstrapFromRedis()
+	if !app.hasKnownGoodSnapshot() {
+		return app.bootstrapFromRedis()
+	}
+	if app.redisSnapshotRecovery != "stale" || app.redisStartupFailed {
+		return false
+	}
+	pinned := captureHealthState(app.snapshots, app.userCache)
+	pinned.observedAt = app.snapshotTime()
+	if pinned.state.failures == 0 || evaluateSnapshotRead(pinned, app.snapshotMaxAge).reason != readSourceExpired {
+		return false
+	}
+	return app.restoreVersionedSnapshot(pinned.state.snapshot)
+}
+
+// restoreIfCurrent keeps concurrent failure diagnostics, but never replaces a
+// different publication, including a successful source refresh.
+func (s *snapshotStore) restoreIfCurrent(expected, recovered *Snapshot) bool {
+	frozen := freezeSnapshot(recovered)
+	for {
+		previous := s.capture()
+		if previous == nil || previous.snapshot != expected {
+			return false
+		}
+		next := &snapshotState{snapshot: frozen, reason: previous.reason, failures: previous.failures}
+		if s.current.CompareAndSwap(previous, next) {
+			return true
+		}
+	}
 }

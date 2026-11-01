@@ -194,6 +194,8 @@ jobs:
           go-version-file: go.mod
       - name: Run Redis 8 snapshot protocol tests
         run: go test -race -count=1 -v -run '^TestRedisSnapshotIntegration' ./internal/cache
+      - name: Run replica follow recovery test
+        run: go test -race -count=1 -v -run '^TestRedisFollowRealRedis$' .
 
   lint:
     name: 代码质量检查

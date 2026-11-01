@@ -230,12 +230,12 @@ func RecordRedisSnapshotResult(mode, operation, result string) {
 		mode = "unknown"
 	}
 	switch operation {
-	case "read", "publish", "renew", "lease_acquire", "lease_release":
+	case "read", "follow_read", "publish", "renew", "lease_acquire", "lease_release":
 	default:
 		operation = "unknown"
 	}
 	switch result {
-	case "restored", "published", "renewed", "acquired", "released", "busy", "no_lease", "unavailable", "unknown_source_time", "legacy_write_error", "missing", "schema_rejected", "dataset_rejected", "policy_rejected", "timestamp_rejected", "too_large", "invalid_envelope", "contract_rejected", "effective_rejected", "lease_lost", "revision_conflict", "io_error":
+	case "ineligible", "superseded", "restored", "published", "renewed", "acquired", "released", "busy", "no_lease", "unavailable", "unknown_source_time", "legacy_write_error", "missing", "schema_rejected", "dataset_rejected", "policy_rejected", "timestamp_rejected", "too_large", "invalid_envelope", "contract_rejected", "effective_rejected", "lease_lost", "revision_conflict", "io_error":
 	default:
 		result = "unknown"
 	}
