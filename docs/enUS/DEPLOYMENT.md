@@ -4,6 +4,12 @@
 
 This document explains how to deploy the Warden service, including Docker deployment, local deployment, etc.
 
+## Build and validation platform
+
+Project CI builds and validates Warden on Linux. On macOS, Windows, or other
+host environments, use the Linux container image for deployment. Native builds
+on those hosts are not covered by the CI validation policy.
+
 ## Prerequisites
 
 - Go 1.27.2+ (refer to [go.mod](../../go.mod))
