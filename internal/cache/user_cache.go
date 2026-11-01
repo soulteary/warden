@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	// External packages
 	cache "github.com/soulteary/cache-kit/v2"
@@ -47,15 +48,21 @@ func primaryKeyForUser(u define.AllowListUser) string {
 // SafeUserCache provides thread-safe user cache using cache-kit MultiIndexCache
 // Maintains multiple indexes to support fast queries by phone, mail, user_id
 type SafeUserCache struct {
-	cache *cache.MemoryCache[define.AllowListUser]
+	current atomic.Pointer[ReadView]
 }
 
 // NewSafeUserCache creates a new thread-safe user cache
 func NewSafeUserCache() *SafeUserCache {
+	c := &SafeUserCache{}
+	c.current.Store(&ReadView{cache: newUserIndexes(validateUser)})
+	return c
+}
+
+func newUserIndexes(validate func(define.AllowListUser) error) *cache.MemoryCache[define.AllowListUser] {
 	// Primary key: phone if non-empty, else normalized mail (supports email-only users)
 	config := cache.DefaultConfig[define.AllowListUser]().
 		WithPrimaryKey(primaryKeyForUser).
-		WithValidateFunc(validateUser).
+		WithValidateFunc(validate).
 		WithNormalizeFunc(normalizeUser).
 		WithHashFunc(hashUsers)
 
@@ -69,9 +76,7 @@ func NewSafeUserCache() *SafeUserCache {
 		return u.UserID
 	})
 
-	return &SafeUserCache{
-		cache: c,
-	}
+	return c
 }
 
 // Stable, non-PII reason codes for a record rejected by per-record format validation.
@@ -228,45 +233,55 @@ func hashUsers(users []define.AllowListUser) string {
 // Get gets a copy of user list (thread-safe)
 // Returns slice format to maintain API compatibility
 // Return order matches the order when Set was called
-func (c *SafeUserCache) Get() []define.AllowListUser {
-	return c.cache.GetAll()
+func (c *SafeUserCache) Get() []define.AllowListUser { return c.ReadView().Get() }
+
+// ReadView pins the current immutable generation for a multi-step read.
+func (c *SafeUserCache) ReadView() *ReadView { return c.current.Load() }
+
+// Set preserves the existing unvalidated-set API and insertion order. A new
+// generation is built privately, then published atomically.
+func (c *SafeUserCache) Set(users []define.AllowListUser) {
+	c.current.Store(buildReadView(users, true))
 }
 
-// Set sets user list (thread-safe)
-// Accepts slice format, internally converts to map for storage
-// Preserves input order. Keeps users with at least one of phone or mail (email-only users supported).
-func (c *SafeUserCache) Set(users []define.AllowListUser) {
-	// Filter out users with both phone and mail empty
-	validUsers := make([]define.AllowListUser, 0, len(users))
+func buildReadView(users []define.AllowListUser, report bool) *ReadView {
+	indexes := newUserIndexes(func(u define.AllowListUser) error { //nolint:gocritic // hugeParam: cache-kit callback
+		_, err := checkUser(u)
+		return err
+	})
+	valid := make([]define.AllowListUser, 0, len(users))
 	for i := range users {
 		if primaryKeyForUser(users[i]) != "" {
-			validUsers = append(validUsers, users[i])
+			valid = append(valid, cloneUser(users[i]))
 		}
 	}
+	indexes.Set(valid)
+	view := &ReadView{cache: indexes}
+	if report {
+		reportSet(users, view)
+	}
+	return view
+}
 
-	// Track statistics for logging
-	invalidCount := len(users) - len(validUsers)
-	beforeLen := len(validUsers)
-
-	c.cache.Set(validUsers)
-
-	afterLen := c.cache.Len()
-	// beforeLen already excludes invalid (empty-key) records, so duplicates are simply
-	// the records dropped by the cache's dedup step. Do NOT subtract invalidCount again.
-	duplicateCount := beforeLen - afterLen
+func reportSet(users []define.AllowListUser, view *ReadView) {
+	beforeLen := 0
+	for i := range users {
+		if primaryKeyForUser(users[i]) == "" {
+			continue
+		}
+		beforeLen++
+		// Match cache-kit's normalization before reporting a rejected record.
+		if err := validateUser(normalizeUser(users[i])); err != nil {
+			continue
+		}
+	}
+	invalidCount := len(users) - beforeLen
+	duplicateCount := beforeLen - view.Len()
 	if duplicateCount < 0 {
 		duplicateCount = 0
 	}
-
-	// The cache internally handles validation and deduplication
-	// Log summary if there were any issues
 	if invalidCount > 0 || duplicateCount > 0 {
-		log.Info().
-			Int("total", len(users)).
-			Int("valid", afterLen).
-			Int("invalid", invalidCount).
-			Int("duplicates", duplicateCount).
-			Msg("Data validation completed")
+		log.Info().Int("total", len(users)).Int("valid", view.Len()).Int("invalid", invalidCount).Int("duplicates", duplicateCount).Msg("Data validation completed")
 	}
 }
 
@@ -277,42 +292,41 @@ func (c *SafeUserCache) Set(users []define.AllowListUser) {
 // a partially-deduped ("last-write-wins") set. On success the cache is replaced with the
 // deterministically-ordered validated set.
 func (c *SafeUserCache) SetValidated(users []define.AllowListUser, opts identity.Options) error {
-	res, err := identity.ValidateAndIndexUsers(users, opts)
+	prepared, err := PrepareRules(users, opts)
 	if err != nil {
-		// Do NOT mutate the cache on validation failure: keep last-known-good.
 		return err
 	}
-	c.Set(res.Users)
+	c.ApplyPrepared(prepared)
 	return nil
 }
 
 // Len gets user count (thread-safe)
 func (c *SafeUserCache) Len() int {
-	return c.cache.Len()
+	return c.ReadView().Len()
 }
 
 // GetByPhone gets user by phone number (thread-safe, O(1) lookup)
 func (c *SafeUserCache) GetByPhone(phone string) (define.AllowListUser, bool) {
 	// Primary key is trimmed phone (when user has phone), so normalize lookup
-	return c.cache.Get(strings.TrimSpace(phone))
+	return c.ReadView().GetByPhone(phone)
 }
 
 // GetByMail gets user by email (thread-safe, O(1) lookup)
 func (c *SafeUserCache) GetByMail(mail string) (define.AllowListUser, bool) {
 	// Index uses normalized mail (lowercase, trimmed)
-	return c.cache.GetByIndex(IndexMail, strings.ToLower(strings.TrimSpace(mail)))
+	return c.ReadView().GetByMail(mail)
 }
 
 // GetByUserID gets user by user ID (thread-safe, O(1) lookup)
 func (c *SafeUserCache) GetByUserID(userID string) (define.AllowListUser, bool) {
-	return c.cache.GetByIndex(IndexUserID, userID)
+	return c.ReadView().GetByUserID(userID)
 }
 
 // Iterate iterates all users, avoiding copying entire slice (thread-safe)
 // Callback function receives user data in insertion order
 // If callback function returns false, iteration will stop
 func (c *SafeUserCache) Iterate(fn func(user define.AllowListUser) bool) {
-	c.cache.Iterate(fn)
+	c.ReadView().Iterate(fn)
 }
 
 // GetReadOnly gets read-only view (actually returns copy, but semantically represents read-only)
@@ -325,5 +339,5 @@ func (c *SafeUserCache) GetReadOnly() []define.AllowListUser {
 // If hash value is not calculated, returns empty string
 // Using cached hash value can avoid redundant calculations and improve performance
 func (c *SafeUserCache) GetHash() string {
-	return c.cache.GetHash()
+	return c.ReadView().GetHash()
 }
