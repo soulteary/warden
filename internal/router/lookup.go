@@ -38,7 +38,7 @@ type Destination struct {
 // GetLookup returns a handler for GET /v1/lookup?identifier=xxx.
 // identifier is auto-detected: if it contains @ then mail; else try phone then user_id.
 // Returns { user_id, destination: { email?, phone? }, status, channel_hint } for Stargate/Herald.
-func GetLookup(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.Request) {
+func GetLookup(userCache cache.ViewSource) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, span := tracing.StartSpan(r.Context(), "warden.lookup")
 		defer span.End()
@@ -67,14 +67,16 @@ func GetLookup(userCache *cache.SafeUserCache) func(http.ResponseWriter, *http.R
 
 		span.SetAttributes(attribute.String("warden.lookup.identifier_len", fmt.Sprintf("%d", len(identifier))))
 
+		view := userCache.ReadView()
+
 		var user define.AllowListUser
 		var found bool
 		if strings.Contains(identifier, "@") {
-			user, found = userCache.GetByMail(identifier)
+			user, found = view.GetByMail(identifier)
 		} else {
-			user, found = userCache.GetByPhone(identifier)
+			user, found = view.GetByPhone(identifier)
 			if !found {
-				user, found = userCache.GetByUserID(identifier)
+				user, found = view.GetByUserID(identifier)
 			}
 		}
 

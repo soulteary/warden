@@ -40,6 +40,7 @@ const rootExactPattern = define.PATH_ROOT + "{$}"
 // the server Handler.
 func registerRoutes(app *App) *http.ServeMux {
 	mux := http.NewServeMux()
+	users := snapshotUsers{snapshots: app.snapshots, fallback: app.userCache}
 	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
 
@@ -153,7 +154,7 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.JSON(app.userCache, app.responseFields)),
+											router.ProcessWithLogger(router.JSON(users, app.responseFields)),
 										),
 									),
 								),
@@ -201,7 +202,7 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.GetUserByIdentifier(app.userCache, app.responseFields)),
+											router.ProcessWithLogger(router.GetUserByIdentifier(users, app.responseFields)),
 										),
 									),
 								),
@@ -224,7 +225,7 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.GetLookup(app.userCache)),
+											router.ProcessWithLogger(router.GetLookup(users)),
 										),
 									),
 								),
@@ -252,6 +253,7 @@ func registerRoutes(app *App) *http.ServeMux {
 			),
 		),
 	)
+	healthHandler = pinHealthRead(app.snapshots, app.userCache, healthHandler)
 	mux.Handle(define.PATH_HEALTH, healthHandler)
 	mux.Handle(define.PATH_HEALTHCHECK, healthHandler)
 
@@ -368,16 +370,17 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		}))
 	}
 
-	aggregator.AddChecker(health.NewCustomChecker("data", func(_ context.Context) error {
-		if userCache == nil {
+	aggregator.AddChecker(health.NewCustomChecker("data", func(ctx context.Context) error {
+		state := readHealthState(ctx, snapshots, userCache)
+		if state.view == nil {
 			return errors.New("cache not initialized")
 		}
-		if userCache.Len() == 0 {
+		if state.view.Len() == 0 {
 			// An empty cache is healthy when a successful load explicitly produced an
 			// empty snapshot (mass revocation). Keep treating the zero-value cache as
 			// "not loaded" when provenance is absent or claims non-empty data.
 			if snapshots != nil {
-				snap := snapshots.Load()
+				snap := state.state.snapshot
 				if isKnownGoodSnapshot(snap) && snap.Count == 0 {
 					return nil
 				}
@@ -396,9 +399,10 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 	// code plus low-cardinality provenance metadata (source, short version
 	// digest, loaded-at). Raw errors, URLs, and keys are never surfaced here.
 	if snapshots != nil {
-		aggregator.AddChecker(health.NewCheckerFunc("snapshot", func(_ context.Context) health.CheckResult {
-			snap := snapshots.Load()
-			failures, refreshReason := snapshots.RefreshFailure()
+		aggregator.AddChecker(health.NewCheckerFunc("snapshot", func(ctx context.Context) health.CheckResult {
+			pinned := readHealthState(ctx, snapshots, userCache)
+			snap := pinned.state.snapshot
+			failures, refreshReason := pinned.state.failures, pinned.state.reason
 			res := health.CheckResult{
 				Name:      "snapshot",
 				Status:    health.StatusHealthy,
@@ -418,7 +422,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			}
 			if !snap.LoadedAt.IsZero() {
 				meta["loaded_at"] = snap.LoadedAt.UTC().Format(time.RFC3339)
-				age := time.Since(snap.LoadedAt)
+				age := pinned.observedAt.Sub(snap.LoadedAt)
 				if age < 0 {
 					age = 0
 				}
@@ -445,7 +449,8 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			return res
 		}))
 
-		aggregator.AddChecker(health.NewCheckerFunc("snapshot_freshness", func(_ context.Context) health.CheckResult {
+		aggregator.AddChecker(health.NewCheckerFunc("snapshot_freshness", func(ctx context.Context) health.CheckResult {
+			pinned := readHealthState(ctx, snapshots, userCache)
 			res := health.CheckResult{
 				Name:      "snapshot_freshness",
 				Status:    health.StatusHealthy,
@@ -454,14 +459,14 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			if snapshotMaxAge <= 0 {
 				return res
 			}
-			snap := snapshots.Load()
+			snap := pinned.state.snapshot
 			if snap == nil || snap.Source == loader.SourceNone || snap.LoadedAt.IsZero() {
 				res.Status = health.StatusUnhealthy
 				res.Message = "snapshot provenance unavailable"
 				res.Metadata = map[string]any{"reason": "snapshot_unknown"}
 				return res
 			}
-			age := time.Since(snap.LoadedAt)
+			age := pinned.observedAt.Sub(snap.LoadedAt)
 			if age < 0 {
 				age = 0
 			}
