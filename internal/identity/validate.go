@@ -87,15 +87,21 @@ type Options struct {
 func ValidateAndIndexUsers(users []define.AllowListUser, opts Options) (Result, error) {
 	owned := make([]define.AllowListUser, len(users))
 	copy(owned, users)
-	return ValidateAndIndexOwnedUsers(owned, opts)
+	return validateAndIndexUsers(owned, opts, stableSort)
 }
 
 // ValidateAndIndexOwnedUsers consumes an exclusively owned outer users slice.
-// It normalizes records in place before validating and returning the ordered
-// result. Callers must not rely on the outer slice retaining its original fields,
-// including on error. Existing Scope contents are neither copied nor modified;
+// It normalizes records in place, then may reorder that outer slice after
+// validation returns no error. On error, normalized records retain their original
+// positions. Callers must not retain the original outer values. Scope contents
+// are neither copied nor modified;
 // callers retain responsibility for the ownership of those nested slices.
 func ValidateAndIndexOwnedUsers(users []define.AllowListUser, opts Options) (Result, error) {
+	return validateAndIndexUsers(users, opts, stableSortOwned)
+}
+
+// Both entry points validate before ordering, preserving original error indexes.
+func validateAndIndexUsers(users []define.AllowListUser, opts Options, orderUsers func([]define.AllowListUser) []define.AllowListUser) (Result, error) {
 	normalized := users
 	for i := range normalized {
 		normalized[i].Normalize()
@@ -127,7 +133,7 @@ func ValidateAndIndexOwnedUsers(users []define.AllowListUser, opts Options) (Res
 		}
 	}
 
-	res.Users = stableSort(normalized)
+	res.Users = orderUsers(normalized)
 	return res, nil
 }
 
@@ -148,6 +154,28 @@ func stableSort(users []define.AllowListUser) []define.AllowListUser {
 		copy(out, users)
 		return out
 	}
+	order := stableUserOrder(users)
+	for i, index := range order {
+		out[i] = users[index]
+	}
+	return out
+}
+
+// stableSortOwned reuses a private outer slice while retaining the legacy empty
+// result and capacity boundary. It never modifies existing Scope contents.
+func stableSortOwned(users []define.AllowListUser) []define.AllowListUser {
+	if len(users) == 0 {
+		return []define.AllowListUser{}
+	}
+	if len(users) > 1 {
+		applyUserPermutation(users, stableUserOrder(users))
+	}
+	return users[:len(users):len(users)]
+}
+
+// stableUserOrder computes all keys before any record is moved. Both copy and
+// owned paths use the same stable comparator and tie handling.
+func stableUserOrder(users []define.AllowListUser) []int {
 	order := make([]int, len(users))
 	for i := range order {
 		order[i] = i
@@ -166,10 +194,29 @@ func stableSort(users []define.AllowListUser) []define.AllowListUser {
 		}
 		start = end
 	}
-	for i, index := range order {
-		out[i] = users[index]
+	return order
+}
+
+// order maps each destination to its original source index. Consume its cycles,
+// marking visited destinations as fixed points, without a separate visited array.
+func applyUserPermutation(users []define.AllowListUser, order []int) {
+	for start := range order {
+		if order[start] == start {
+			continue
+		}
+		saved := users[start]
+		current := start
+		for {
+			next := order[current]
+			order[current] = current
+			if next == start {
+				users[current] = saved
+				break
+			}
+			users[current] = users[next]
+			current = next
+		}
 	}
-	return out
 }
 
 type identitySortKey struct {
