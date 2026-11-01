@@ -71,7 +71,7 @@ func TestV2RecoveryAndRenewalPreserveDataAge(t *testing.T) {
 	renewed, err := mr.Get("warden:{migration-test}:snapshot:v2")
 	require.NoError(t, err)
 	require.Equal(t, raw, renewed)
-	checker := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute, "ONLY_REMOTE", "development", false, false, "")
+	checker := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute, "ONLY_REMOTE", "development", false, false, "", false)
 	result := checker.Check(context.Background())
 	require.Equal(t, health.StatusUnhealthy, result.Status)
 	require.Equal(t, sourceTime.Format(time.RFC3339Nano), result.Checks["snapshot"].Metadata["source_succeeded_at"])

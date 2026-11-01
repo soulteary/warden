@@ -96,7 +96,7 @@ func TestHealthRequestPinsDataAndProvenance(t *testing.T) {
 	users.ApplyPrepared(old)
 	store := newSnapshotStore()
 	store.Store(oldSnap)
-	aggregator := setupHealthChecker(nil, users, store, time.Minute, "ONLY_REMOTE", "development", false, false, "")
+	aggregator := setupHealthChecker(nil, users, store, time.Minute, "ONLY_REMOTE", "development", false, false, "", false)
 	observed := health.StatusUnhealthy
 	handler := pinHealthRead(store, users, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		users.ApplyPrepared(newRules)

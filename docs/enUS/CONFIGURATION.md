@@ -485,5 +485,18 @@ Publication, TTL renewal and restart recovery do not extend this deadline. Legac
 Redis snapshots have no source-success evidence and therefore return 503 under
 enforcement; use V2 snapshots with preserved source timestamps before enabling it.
 Fresh local fallback remains valid: this policy checks the resolved dataset, not
-whether every configured remote dependency succeeded. Health, metrics, merge
-precedence, Redis storage format and the SDK default policy are unchanged.
+whether every configured remote dependency succeeded. Metrics, merge precedence,
+Redis storage format and the SDK default policy are unchanged. Default observe-mode
+health behavior is unchanged; enforce-mode readiness is described below.
+
+When `SNAPSHOT_READ_POLICY=enforce`, all existing health aliases include a critical
+`read_ready` check using the same source freshness decision as data reads. It
+checks the pinned canonical view and source-success deadline, including unknown
+and future timestamps. The legacy `snapshot_freshness` check remains diagnostic
+in this mode; its `LoadedAt` clock does not override source-based readiness.
+Other critical checks (data availability and HMAC replay Redis, when applicable)
+remain in effect, so readable data alone does not guarantee healthy status.
+In observe mode, `read_ready` is absent and existing health behavior is unchanged.
+Development health details expose a bounded reason and, when known, `valid_until`;
+production continues to hide details. This adds no liveness endpoint and does not
+change the meaning of source success to require every remote dependency.

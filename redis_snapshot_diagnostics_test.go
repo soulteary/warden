@@ -94,7 +94,7 @@ func TestSnapshotDiagnosticsHealthVersionsDoNotInventV1InputEvidence(t *testing.
 	app, _ := migrationFixture(t, "v2")
 	published := publishMigrationSource(t, app, time.Now(), []define.AllowListUser{{Mail: "member@example.com"}})
 	require.True(t, app.bootstrapFromRedis())
-	checker := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute, "DEFAULT", "development", false, false, "")
+	checker := setupHealthChecker(nil, app.userCache, app.snapshots, time.Minute, "DEFAULT", "development", false, false, "", false)
 	metadata := checker.Check(context.Background()).Checks["snapshot"].Metadata
 	require.Equal(t, published.Version, metadata["input_version"])
 	require.Equal(t, published.EffectiveVersion, metadata["effective_version"])

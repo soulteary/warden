@@ -42,7 +42,7 @@ func TestRedisBackendRetainsDependenciesAfterInitialFailure(t *testing.T) {
 	require.NotNil(t, app.redisSnapshots)
 	originalStore := app.redisSnapshots
 	// Create a health checker and Redis replay guard before the backend recovers.
-	checker := setupHealthChecker(client, app.userCache, app.snapshots, time.Minute, "DEFAULT", "development", true, true, "")
+	checker := setupHealthChecker(client, app.userCache, app.snapshots, time.Minute, "DEFAULT", "development", true, true, "", false)
 	require.Equal(t, health.StatusUnhealthy, checker.Check(context.Background()).Checks["redis"].Status)
 	guard := middleware.NewRedisReplayGuard(client)
 	_, guardErr := guard.SeenBefore("recovery:before", time.Minute)
