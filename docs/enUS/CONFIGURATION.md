@@ -16,9 +16,9 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Rate limit | `rate_limit.rate`, `rate_limit.window` | default 60/min, 1m window |
 | HTTP client | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
 | Remote | `remote.*` / `CONFIG`, `KEY`, `MERGE_MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
-| Task | `task.interval` | no env override when using config file; use `INTERVAL` only when not using config file |
+| Task | `task.interval` / `INTERVAL` / `--interval` | Explicit CLI value overrides the environment, then YAML, then the default |
 | App | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
-| Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | When using `--config-file`, tracing is not read from that file unless `CONFIG_FILE` is set to the same path |
+| Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file supplies tracing settings; `OTLP_ENABLED` and `OTLP_ENDPOINT` override them |
 | Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
 | Data policy | — / `EMPTY_RULESET_POLICY` | What a refresh does when every loaded record is rejected; `consistency-first` (default) or `availability-first`, see [Empty ruleset policy](#empty-ruleset-policy) |
@@ -276,7 +276,7 @@ tracing:
 
 **Configuration priority**: Command line arguments > Environment variables > Configuration file > Default values.
 
-**Tracing note**: When using `--config-file`, the main program does not read the `tracing` section from that file unless the `CONFIG_FILE` environment variable is set to the same path, or you use `OTLP_ENABLED` + `OTLP_ENDPOINT`.
+**Configuration file selection**: `--config-file` takes precedence over `CONFIG_FILE`. The selected file supplies both the main and tracing settings; environment variables can override YAML values. An explicitly selected file must exist and parse successfully. Without a file, `OTLP_ENABLED` + `OTLP_ENDPOINT` can enable tracing directly.
 
 Refer to example file: [config.example.yaml](../../config.example.yaml).
 
@@ -330,7 +330,7 @@ export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds)
 export HTTP_MAX_IDLE_CONNS=100         # HTTP maximum idle connections
 export HTTP_INSECURE_TLS=false         # Whether to skip TLS certificate verification (true/false or 1/0)
 export API_KEY="your-secret-api-key"   # API Key for authentication (strongly recommended)
-export CONFIG_FILE=config.yaml         # Optional; used to load tracing from YAML when not using --config-file, or to enable tracing from same file as --config-file
+export CONFIG_FILE=config.yaml         # Optional YAML file for main and tracing settings; --config-file takes precedence
 export OTLP_ENABLED=false              # Enable OpenTelemetry (true/false or 1/0)
 export OTLP_ENDPOINT=http://localhost:4318  # OTLP endpoint (required when OTLP_ENABLED is true)
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # Trusted proxy IP list (comma-separated)
