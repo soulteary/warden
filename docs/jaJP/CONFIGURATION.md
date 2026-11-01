@@ -22,6 +22,11 @@
 | サービス間認証 | — / `WARDEN_HMAC_KEYS`、`WARDEN_HMAC_TIMESTAMP_TOLERANCE`、`WARDEN_TLS_*` | **環境変数のみ**（YAML キーなし） |
 | ヘルス | — / `SNAPSHOT_MAX_AGE` | 許容されるスナップショットの最大経過時間。Go の duration 形式、既定値は `max(30s, タスク間隔 × 3)` |
 
+> 一部の YAML フィールドは解析されますが、現在のアプリケーションでは使用されません。[schema と実行時の接続](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring)を参照してください。
+> `server.*` (except `port`), `redis.db`, `cache.*`, `rate_limit.*`,
+> `http.max_retries` and `http.retry_delay` are schema-only in the current binary.
+> Scheduling uses `task.interval` / `INTERVAL` / `--interval` with a five-second runtime minimum.
+
 ## 動作モード（MERGE_MODE）
 
 システムは 7 種類のデータマージモードに対応しており、`MERGE_MODE` で選択します（`MODE` は非推奨）。
