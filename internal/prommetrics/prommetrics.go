@@ -51,6 +51,9 @@ var (
 	// been removed (see below) to avoid unbounded time series.
 	RateLimitHits prometheus.Counter
 
+	// RedisSnapshotOperationsTotal records bounded migration operation outcomes.
+	RedisSnapshotOperationsTotal *prometheus.CounterVec
+
 	// SnapshotAgeSeconds records the age of the current rule-set snapshot in seconds.
 	SnapshotAgeSeconds prometheus.Gauge
 
@@ -128,6 +131,9 @@ func Init() {
 		Build()
 
 	// Snapshot / fallback observability (low-cardinality labels only).
+	RedisSnapshotOperationsTotal = Registry.Counter("redis_snapshot_operations_total").
+		Help("Versioned Redis snapshot operations by migration mode and outcome").
+		Labels("mode", "operation", "result").BuildVec()
 	SnapshotAgeSeconds = Registry.Gauge("snapshot_age_seconds").
 		Help("Age in seconds of the current rule-set snapshot").
 		Build()
@@ -214,4 +220,24 @@ func RecordDeprecation(feature string) {
 // RecordHMACReplayRejected increments the HMAC replay-rejection counter.
 func RecordHMACReplayRejected() {
 	HMACReplayRejectedTotal.Inc()
+}
+
+// RecordRedisSnapshotResult accepts only fixed labels, never keys or payloads.
+func RecordRedisSnapshotResult(mode, operation, result string) {
+	switch mode {
+	case "shadow", "v2":
+	default:
+		mode = "unknown"
+	}
+	switch operation {
+	case "read", "publish", "renew", "lease_acquire", "lease_release":
+	default:
+		operation = "unknown"
+	}
+	switch result {
+	case "restored", "published", "renewed", "acquired", "released", "busy", "no_lease", "unavailable", "unknown_source_time", "legacy_write_error", "missing", "schema_rejected", "dataset_rejected", "policy_rejected", "timestamp_rejected", "too_large", "invalid_envelope", "contract_rejected", "effective_rejected", "lease_lost", "revision_conflict", "io_error":
+	default:
+		result = "unknown"
+	}
+	RedisSnapshotOperationsTotal.WithLabelValues(mode, operation, result).Inc()
 }

@@ -80,24 +80,34 @@ func (app *App) sourceSnapshot(res *loader.LoadResult, view *cache.ReadView) *Sn
 
 func (app *App) acquireSnapshotLease() (writer bool, release func()) {
 	if app.redisSnapshots == nil {
+		app.recordSnapshotResult("lease_acquire", "unavailable")
 		return false, func() {}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cache.REDIS_OPERATION_TIMEOUT)
 	defer cancel()
 	lease, err := app.redisSnapshots.Acquire(ctx, redisRefreshLockTTL)
 	if err != nil || lease == nil {
+		if err == nil {
+			app.recordSnapshotResult("lease_acquire", "busy")
+		} else {
+			app.recordSnapshotResult("lease_acquire", cache.SnapshotFailureReason(err))
+		}
 		if err != nil {
 			app.log.Warn().Err(err).Msg("Failed to acquire snapshot lease; skipping shared update")
 		}
 		return false, func() {}
 	}
+	app.recordSnapshotResult("lease_acquire", "acquired")
 	app.snapshotLease = lease
 	return true, func() {
 		app.snapshotLease = nil
 		releaseCtx, releaseCancel := context.WithTimeout(context.Background(), cache.REDIS_OPERATION_TIMEOUT)
 		defer releaseCancel()
 		if releaseErr := lease.Release(releaseCtx); releaseErr != nil {
+			app.recordSnapshotResult("lease_release", cache.SnapshotFailureReason(releaseErr))
 			app.log.Warn().Err(releaseErr).Msg("Failed to release snapshot lease")
+		} else {
+			app.recordSnapshotResult("lease_release", "released")
 		}
 	}
 }
@@ -105,6 +115,7 @@ func (app *App) acquireSnapshotLease() (writer bool, release func()) {
 func (app *App) publishRedisSnapshots(users []define.AllowListUser) error {
 	if app.redisSnapshotMode != "v2" {
 		if err := app.updateRedisCacheWithRetry(users); err != nil {
+			app.recordSnapshotResult("publish", "legacy_write_error")
 			return err
 		}
 		if app.redisSnapshotMode != "shadow" {
@@ -112,24 +123,34 @@ func (app *App) publishRedisSnapshots(users []define.AllowListUser) error {
 		}
 	}
 	if app.snapshotLease == nil {
+		app.recordSnapshotResult("publish", "no_lease")
 		return nil
 	}
 	snap := app.snapshots.Load()
 	if snap == nil || snap.SourceSucceededAt.IsZero() {
+		app.recordSnapshotResult("publish", "unknown_source_time")
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cache.REDIS_OPERATION_TIMEOUT)
 	defer cancel()
 	if snap.RedisRevision != "" {
-		return app.snapshotLease.Renew(ctx, snap.RedisRevision)
+		err := app.snapshotLease.Renew(ctx, snap.RedisRevision)
+		result := "renewed"
+		if err != nil {
+			result = cache.SnapshotFailureReason(err)
+		}
+		app.recordSnapshotResult("renew", result)
+		return err
 	}
 	published, err := app.snapshotLease.Publish(ctx, &cache.SnapshotEnvelope{
 		Users: snap.view.Get(), EffectiveVersion: snap.EffectiveVersion,
 		InputVersion: snap.Version, InputCount: snap.Count, Origin: string(snap.Origin), SourceSucceededAt: snap.SourceSucceededAt,
 	})
 	if err != nil {
+		app.recordSnapshotResult("publish", cache.SnapshotFailureReason(err))
 		return err
 	}
+	app.recordSnapshotResult("publish", "published")
 	app.snapshots.recordPublication(snap, published.PublishedAt, published.Revision)
 	return nil
 }
@@ -152,18 +173,28 @@ func (s *snapshotStore) recordPublication(expected *Snapshot, at time.Time, revi
 
 func (app *App) bootstrapVersionedSnapshot() bool {
 	if app.redisSnapshots == nil {
+		app.recordSnapshotResult("read", "unavailable")
 		return false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cache.REDIS_OPERATION_TIMEOUT)
 	defer cancel()
 	envelope, err := app.redisSnapshots.Read(ctx)
 	if err != nil || envelope == nil {
+		result := "missing"
+		if err != nil {
+			result = cache.SnapshotFailureReason(err)
+		}
+		app.recordSnapshotResult("read", result)
+		if err != nil && app.log != nil {
+			app.log.Warn().Str("result", result).Msg("Versioned Redis snapshot recovery rejected")
+		}
 		prommetrics.CacheMisses.Inc()
 		return false
 	}
 	prepared, prepareErr := app.prepareUsers(envelope.Users)
 	if prepareErr != nil || prepared.ReadView().GetHash() != envelope.EffectiveVersion ||
 		(app.emptyRulesetPolicy.KeepsLastKnownGood() && envelope.InputCount > 0 && prepared.ReadView().Len() == 0) {
+		app.recordSnapshotResult("read", "effective_rejected")
 		prommetrics.CacheMisses.Inc()
 		return false
 	}
@@ -177,7 +208,14 @@ func (app *App) bootstrapVersionedSnapshot() bool {
 	})
 	app.updateSnapshotMetrics()
 	prommetrics.CacheHits.Inc()
+	app.recordSnapshotResult("read", "restored")
 	return true
+}
+
+func (app *App) recordSnapshotResult(operation, result string) {
+	if app.redisSnapshotMode == "shadow" || app.redisSnapshotMode == "v2" {
+		prommetrics.RecordRedisSnapshotResult(app.redisSnapshotMode, operation, result)
+	}
 }
 
 // recoverVersionedBaseline fills only an uninitialized V2 replica after a failed

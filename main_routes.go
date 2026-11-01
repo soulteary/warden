@@ -420,6 +420,14 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 				"source": string(snap.Source),
 			}
 			if snap.versioned {
+				if !snap.SourceSucceededAt.IsZero() {
+					meta["input_version"] = snap.Version
+				}
+				meta["effective_version"] = snap.EffectiveVersion
+				meta["effective_count"] = snap.EffectiveCount
+				if snap.RedisRevision != "" {
+					meta["redis_revision"] = snap.RedisRevision
+				}
 				if snap.Origin != "" {
 					meta["origin"] = string(snap.Origin)
 				}

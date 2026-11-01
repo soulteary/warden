@@ -89,6 +89,9 @@ func (s *RedisSnapshotStore) Read(ctx context.Context) (*SnapshotEnvelope, error
 		return nil, nil
 	}
 	if err != nil {
+		if redis.HasErrorPrefix(err, "snapshot exceeds size limit") {
+			return nil, ErrSnapshotTooLarge
+		}
 		return nil, fmt.Errorf("read versioned snapshot: %w", err)
 	}
 	var envelope SnapshotEnvelope
@@ -107,8 +110,14 @@ func (s *RedisSnapshotStore) Read(ctx context.Context) (*SnapshotEnvelope, error
 }
 
 func (s *RedisSnapshotStore) validate(e *SnapshotEnvelope) error {
-	if e.SchemaVersion != SNAPSHOT_SCHEMA_V2 || e.Dataset != s.dataset || e.Policy != s.policy {
-		return ErrSnapshotContract
+	if e.SchemaVersion != SNAPSHOT_SCHEMA_V2 {
+		return ErrSnapshotSchema
+	}
+	if e.Dataset != s.dataset {
+		return ErrSnapshotDataset
+	}
+	if e.Policy != s.policy {
+		return ErrSnapshotPolicy
 	}
 	if e.Users == nil || e.InputCount < len(e.Users) || !snapshotDigest.MatchString(e.InputVersion) ||
 		!snapshotDigest.MatchString(e.EffectiveVersion) || !snapshotToken.MatchString(e.Revision) ||
@@ -121,7 +130,7 @@ func (s *RedisSnapshotStore) validate(e *SnapshotEnvelope) error {
 	latest := s.now().Add(5 * time.Second)
 	if e.SourceSucceededAt.IsZero() || e.PublishedAt.IsZero() || e.SourceSucceededAt.After(latest) ||
 		e.PublishedAt.After(latest) || e.SourceSucceededAt.After(e.PublishedAt.Add(5*time.Second)) {
-		return ErrSnapshotInvalid
+		return ErrSnapshotTimestamp
 	}
 	return nil
 }
@@ -188,7 +197,7 @@ func (l *SnapshotLease) Publish(ctx context.Context, input *SnapshotEnvelope) (*
 		return nil, ErrSnapshotInvalid
 	}
 	if len(body) > define.MAX_ENVELOPE_JSON_SIZE {
-		return nil, ErrSnapshotInvalid
+		return nil, ErrSnapshotTooLarge
 	}
 	written, err := publishSnapshot.Run(ctx, l.store.client, []string{l.store.key, l.store.lock}, l.token, body, REDIS_CACHE_TTL.Milliseconds()).Int()
 	if err != nil {
@@ -202,11 +211,12 @@ func (l *SnapshotLease) Publish(ctx context.Context, input *SnapshotEnvelope) (*
 
 var renewSnapshot = redis.NewScript(`
 if redis.call('GET', KEYS[2]) ~= ARGV[1] then return 0 end
-if redis.call('STRLEN', KEYS[1]) > tonumber(ARGV[4]) then return 2 end
+if redis.call('STRLEN', KEYS[1]) > tonumber(ARGV[4]) then return 4 end
 local raw = redis.call('GET', KEYS[1])
-if not raw then return 2 end
+if not raw then return 3 end
 local ok, snapshot = pcall(cjson.decode, raw)
-if not ok or type(snapshot) ~= 'table' or snapshot.revision ~= ARGV[2] then return 2 end
+if not ok or type(snapshot) ~= 'table' then return 5 end
+if snapshot.revision ~= ARGV[2] then return 2 end
 redis.call('PEXPIRE', KEYS[1], ARGV[3])
 return 1`)
 
@@ -222,6 +232,14 @@ func (l *SnapshotLease) Renew(ctx context.Context, revision string) error {
 	}
 	if result == 0 {
 		return ErrSnapshotLeaseLost
+	}
+	switch result {
+	case 3:
+		return ErrSnapshotMissing
+	case 4:
+		return fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotTooLarge)
+	case 5:
+		return fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotInvalid)
 	}
 	if result != 1 {
 		return ErrSnapshotConflict
