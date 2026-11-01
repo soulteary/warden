@@ -2,8 +2,10 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.27.3+-blue.svg)](https://golang.org)
-[![Test Coverage](.github/coverage.svg)](.github/go-test-report.md)
+[![Published report coverage](.github/coverage.svg)](.github/go-test-report.md)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
+
+Die Badges zeigen veröffentlichte Berichte; die aktuelle Linux-CI verlangt mindestens 95% Abdeckung. Siehe [Berichtsherkunft](.github/GO-REPORTS.md).
 
 > 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 

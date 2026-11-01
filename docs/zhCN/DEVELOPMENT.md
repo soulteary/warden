@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/DEVELOPMENT.md) | [中文](DEVELOPMENT.md) | [Français](../frFR/DEVELOPMENT.md) | [Italiano](../itIT/DEVELOPMENT.md) | [日本語](../jaJP/DEVELOPMENT.md) | [Deutsch](../deDE/DEVELOPMENT.md) | [한국어](../koKR/DEVELOPMENT.md)
 
+> 构建和验证使用 Linux 及 [go.mod](../../go.mod) 声明的 Go 版本；其他宿主环境使用 Linux 容器镜像。
+
 本文档为 Warden 项目的开发者提供开发指南，包括项目结构、开发流程、测试方法等。
 
 ## 项目结构

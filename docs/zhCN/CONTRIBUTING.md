@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
+> 构建和验证使用 Linux 及 [go.mod](../../go.mod) 声明的 Go 版本；其他宿主环境使用 Linux 容器镜像。
+
 感谢你对 Warden 项目的关注！我们欢迎所有形式的贡献。
 
 ## 📋 目录
@@ -30,7 +32,7 @@
 
 ### 前置要求
 
-- Go 1.27.2 或更高版本
+- Go 1.27.3 或更高版本
 - Redis（用于测试）
 - Git
 

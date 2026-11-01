@@ -2,8 +2,10 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.27.3+-blue.svg)](https://golang.org)
-[![Test Coverage](.github/coverage.svg)](.github/go-test-report.md)
+[![Published report coverage](.github/coverage.svg)](.github/go-test-report.md)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
+
+배지는 게시된 보고서의 스냅샷입니다. 현재 Linux CI는 최소 95% 커버리지를 요구합니다. [보고서 출처](.github/GO-REPORTS.md)를 참고하세요.
 
 > 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 

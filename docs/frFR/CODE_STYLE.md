@@ -384,12 +384,12 @@ func TestParsePaginationParams(t *testing.T) {
 ### Test Coverage
 
 - New features must include tests
-- Target coverage: 80% or higher
-- Critical paths must have 100% coverage
+- Project-wide statement coverage: at least 95%, checked without rounding
+- Exercise critical paths and error cases; a global percentage does not replace behavioral tests
 
 ```bash
-go test -cover ./...
-go test -coverprofile=coverage.out ./...
+go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+sh scripts/check-coverage.sh coverage.out
 go tool cover -html=coverage.out
 ```
 

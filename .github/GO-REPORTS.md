@@ -42,3 +42,8 @@ the rounded `go tool cover -func` percentage. Duplicate blocks are counted once
 and considered covered if any package run hits them. Malformed or empty profiles
 fail the gate. Main uploads that profile and its tested commit as a separate
 coverage artifact; it does not run tests again to produce this evidence.
+
+Checked-in badges and reports are snapshots from the last report publication,
+not a live summary of main. Their recorded threshold and coverage describe that
+run. Use the current main CI run and its SHA-bound coverage artifact to verify
+the active 95% floor. Branch CI does not rewrite published report snapshots.

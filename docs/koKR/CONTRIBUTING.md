@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](CONTRIBUTING.md)
 
+> 빌드와 검증은 Linux에서 [go.mod](../../go.mod)에 명시된 Go 버전으로 수행합니다. 다른 환경에서는 Linux 컨테이너 이미지를 사용하세요.
+
 Warden 프로젝트에 관심을 가져 주셔서 감사합니다. 모든 형태의 기여를 환영합니다.
 
 ## 📋 목차
@@ -30,7 +32,7 @@ Warden 프로젝트에 관심을 가져 주셔서 감사합니다. 모든 형태
 
 ### 사전 요구 사항
 
-- Go 1.27.2 이상
+- Go 1.27.3 이상
 - Redis(테스트용)
 - Git
 

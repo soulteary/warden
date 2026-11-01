@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
+> ビルドと検証は Linux 上で [go.mod](../../go.mod) に指定された Go バージョンを使用します。他の環境では Linux コンテナーイメージを使用してください。
+
 Warden プロジェクトに関心をお寄せいただきありがとうございます。あらゆる形のコントリビューションを歓迎します。
 
 ## 📋 目次
@@ -30,7 +32,7 @@ Warden プロジェクトに関心をお寄せいただきありがとうござ�
 
 ### 前提条件
 
-- Go 1.27.2 以上
+- Go 1.27.3 以上
 - Redis（テスト用）
 - Git
 
