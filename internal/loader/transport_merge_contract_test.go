@@ -119,6 +119,28 @@ func TestTransportMergeContract(t *testing.T) {
 								want["remote-only"] = remoteOnly
 							}
 							require.Equal(t, want, got)
+							winning := map[Source]int{}
+							for i := range result.Attempts {
+								attempt := &result.Attempts[i]
+								require.Equal(t, "success", attempt.Outcome)
+								require.True(t, attempt.SelectedInput)
+								winning[attempt.Kind] += attempt.WinningRows
+							}
+							switch tc.mode {
+							case ModeOnlyLocal:
+								require.Equal(t, map[Source]int{SourceLocal: 2}, winning)
+							case ModeOnlyRemote:
+								require.Equal(t, map[Source]int{SourceRemote: 2}, winning)
+							default:
+								winner := Source(transport.winner)
+								loser := SourceLocal
+								if winner == SourceLocal {
+									loser = SourceRemote
+								}
+								require.Equal(t, 2, winning[winner])
+								require.Equal(t, 1, winning[loser])
+							}
+
 							results[transport.name] = got
 						})
 					}

@@ -493,6 +493,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.only_local_detected"))
 		localRes := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, "", "")
+		app.recordSourceAttempts(&localRes)
 		localUsers := localRes.Users
 		if localRes.Err == nil {
 			app.log.Info().
@@ -546,6 +547,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 	defer releaseRedisWriter()
 
 	res := app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
+	app.recordSourceAttempts(&res)
 	users := res.Users
 	if res.Err == nil {
 		app.log.Info().
@@ -838,6 +840,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	} else {
 		res = app.rulesLoader.LoadWithResult(ctx, rulesFile, dataDir, app.configURL, app.authorizationHeader)
 	}
+	app.recordSourceAttempts(&res)
 	if res.Err != nil {
 		// Refresh failed: keep the last-known-good snapshot and cache untouched.
 		reason := classifyRefreshReason(res.Err)
