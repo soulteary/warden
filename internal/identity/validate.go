@@ -7,7 +7,7 @@ package identity
 import (
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/soulteary/warden/internal/define"
@@ -130,24 +130,60 @@ func handleConflict(res *Result, opts Options, field FieldType, masked string, f
 	return &ConflictError{Field: field, MaskedValue: masked, FirstIndex: first, SecondIndex: second}
 }
 
-// stableSort returns a copy of users deterministically ordered: primarily by user_id,
-// falling back to the canonical key (phone, else normalized mail), then by mail. This
-// guarantees identical output regardless of input map/insertion order.
+// stableSort returns a detached outer slice ordered by user_id, canonical key,
+// then lowercase mail. Equal keys retain their original relative order.
 func stableSort(users []define.AllowListUser) []define.AllowListUser {
 	out := make([]define.AllowListUser, len(users))
-	copy(out, users)
-	sort.SliceStable(out, func(i, j int) bool {
-		ki, kj := out[i].UserID, out[j].UserID
-		if ki != kj {
-			return ki < kj
-		}
-		ci, cj := canonicalKey(&out[i]), canonicalKey(&out[j])
-		if ci != cj {
-			return ci < cj
-		}
-		return strings.ToLower(out[i].Mail) < strings.ToLower(out[j].Mail)
+	if len(users) < 2 {
+		copy(out, users)
+		return out
+	}
+	order := make([]int, len(users))
+	for i := range order {
+		order[i] = i
+	}
+	// Move indexes rather than whole user records during the stable sort.
+	slices.SortStableFunc(order, func(left, right int) int {
+		return strings.Compare(users[left].UserID, users[right].UserID)
 	})
+	for start := 0; start < len(order); {
+		end := start + 1
+		for end < len(order) && users[order[end]].UserID == users[order[start]].UserID {
+			end++
+		}
+		if end-start > 1 {
+			sortIdentityTies(order[start:end], users)
+		}
+		start = end
+	}
+	for i, index := range order {
+		out[i] = users[index]
+	}
 	return out
+}
+
+type identitySortKey struct {
+	canonical string
+	mail      string
+	index     int
+}
+
+// Only equal user_id groups need the secondary keys. Compute each once rather
+// than normalizing strings in every comparison, leaving unique IDs inexpensive.
+func sortIdentityTies(order []int, users []define.AllowListUser) {
+	keys := make([]identitySortKey, len(order))
+	for i, index := range order {
+		keys[i] = identitySortKey{canonical: canonicalKey(&users[index]), mail: strings.ToLower(users[index].Mail), index: index}
+	}
+	slices.SortStableFunc(keys, func(left, right identitySortKey) int {
+		if result := strings.Compare(left.canonical, right.canonical); result != 0 {
+			return result
+		}
+		return strings.Compare(left.mail, right.mail)
+	})
+	for i, key := range keys {
+		order[i] = key.index
+	}
 }
 
 // canonicalKey mirrors the cache/loader primary key (phone else normalized mail).
