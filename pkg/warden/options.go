@@ -51,7 +51,7 @@ type Options struct {
 	// every request is signed. The secret is never logged.
 	HMACKeyID  string
 	HMACSecret string
-	// Clock overrides the time source used for signature timestamps (testing).
+	// Clock overrides the time source used for signature timestamps and enabled source freshness (testing).
 	Clock Clock
 	// TLSConfig, when set, is applied to the HTTP transport (e.g. client certs, root
 	// CAs). It takes precedence over Transport's own TLSClientConfig.
@@ -59,6 +59,10 @@ type Options struct {
 	// MaxResponseBytes bounds the response body read to defend against unbounded
 	// payloads. Zero means use DefaultMaxResponseBytes; a negative value disables it.
 	MaxResponseBytes int64
+	// SourceMaxAge enables negotiated source freshness when positive; zero keeps compatibility.
+	SourceMaxAge time.Duration
+	// SourceClockSkew is subtracted from the source deadline and bounds future timestamps.
+	SourceClockSkew time.Duration
 }
 
 // DefaultMaxResponseBytes is the default cap on response body size (8 MiB).
@@ -107,6 +111,10 @@ func (o *Options) Validate() error {
 	// Validate timeout
 	if o.Timeout <= 0 {
 		return NewError(ErrCodeInvalidConfig, "Timeout must be greater than 0", nil)
+	}
+
+	if o.SourceMaxAge < 0 || o.SourceClockSkew < 0 || (o.SourceMaxAge > 0 && o.SourceClockSkew >= o.SourceMaxAge) {
+		return NewError(ErrCodeInvalidConfig, "source age and clock allowance must be non-negative, with allowance below an enabled age limit", nil)
 	}
 
 	// Validate cache TTL
@@ -196,7 +204,7 @@ func (o *Options) WithHMAC(keyID, secret string) *Options {
 	return o
 }
 
-// WithClock overrides the time source used for signature timestamps. Primarily
+// WithClock overrides the time source used for signature timestamps and enabled source freshness. Primarily
 // useful for deterministic tests.
 func (o *Options) WithClock(clock Clock) *Options {
 	o.Clock = clock
@@ -224,5 +232,13 @@ func (o *Options) WithTLSClientCert(cert tls.Certificate) *Options { //nolint:go
 // Zero uses DefaultMaxResponseBytes; a negative value disables the limit.
 func (o *Options) WithMaxResponseBytes(n int64) *Options {
 	o.MaxResponseBytes = n
+	return o
+}
+
+// WithSourceFreshness enables source-bounded reads and caching. Zero maxAge
+// disables the constraint; clockSkew is a conservative allowance, not extra age.
+func (o *Options) WithSourceFreshness(maxAge, clockSkew time.Duration) *Options {
+	o.SourceMaxAge = maxAge
+	o.SourceClockSkew = clockSkew
 	return o
 }
