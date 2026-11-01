@@ -16,9 +16,9 @@
 | レート制限 | `rate_limit.rate`、`rate_limit.window` | 既定は 60/分、ウィンドウ 1m |
 | HTTP クライアント | `http.*` / `HTTP_TIMEOUT`、`HTTP_MAX_IDLE_CONNS`、`HTTP_INSECURE_TLS` | timeout、max_idle_conns、insecure_tls、max_retries、retry_delay |
 | リモート | `remote.*` / `CONFIG`、`KEY`、`MERGE_MODE`、`REMOTE_DECRYPT_ENABLED`、`REMOTE_RSA_PRIVATE_KEY_FILE`、`REMOTE_RSA_PRIVATE_KEY` | url、key、mode、decrypt_enabled、rsa_private_key_file |
-| タスク | `task.interval` | 設定ファイル使用時は環境変数で上書きできません。`INTERVAL` は設定ファイルを使わない場合のみ有効 |
+| タスク | `task.interval` / `INTERVAL` / `--interval` | 明示的な `--interval` > `INTERVAL` > YAML `task.interval` > 既定値。設定ファイル使用時も同じ |
 | アプリ | `app.*` / `API_KEY`、`DATA_FILE`、`DATA_DIR`、`RESPONSE_FIELDS` | mode、api_key、data_file、data_dir、response_fields |
-| トレーシング | `tracing.enabled`、`tracing.endpoint` / `OTLP_ENABLED`、`OTLP_ENDPOINT` | `--config-file` 使用時、`CONFIG_FILE` が同じパスに設定されていない限り、そのファイルから tracing は読み込まれません |
+| トレーシング | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file also supplies tracing; OTLP environment values override YAML. |
 | サービス間認証 | — / `WARDEN_HMAC_KEYS`、`WARDEN_HMAC_TIMESTAMP_TOLERANCE`、`WARDEN_TLS_*` | **環境変数のみ**（YAML キーなし） |
 | ヘルス | — / `SNAPSHOT_MAX_AGE` | 許容されるスナップショットの最大経過時間。Go の duration 形式、既定値は `max(30s, タスク間隔 × 3)` |
 

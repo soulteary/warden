@@ -1,7 +1,6 @@
 # Current data contract
 
-This document records existing behavior before changes to snapshot storage or read
-policy. It introduces no configuration, endpoint, or runtime change.
+This is the compatibility baseline. Strict reads, versioned Redis recovery and SDK source freshness are optional; see [configuration](CONFIGURATION.md), [response metadata](SNAPSHOT_RESPONSE_METADATA.md) and [SDK freshness](SDK_SOURCE_FRESHNESS.md).
 
 ## Merging and removal
 
@@ -11,7 +10,7 @@ is not a replacement of the local list by the remote list. Use `ONLY_REMOTE`
 when the remote list must be the sole authority.
 
 The current loading paths resolve records sharing a phone/mail key as follows
-(parser-kit v3.0.2 for the general plaintext path; v2 envelopes for encrypted
+(parser-kit v3.0.3 for the general plaintext path; v2 envelopes for encrypted
 remote responses):
 
 | Mode | Plaintext record retained | Encrypted record retained |
@@ -119,5 +118,5 @@ Snapshot publication copies input metadata and nested scopes. Retained generatio
 remain valid while newer ones are published. Refresh failure retains the same rules;
 Redis recovery still preserves failure diagnostics, and a successful source refresh
 still resets them. Legacy health count/version and all HTTP bodies/status rules are
-unchanged. In particular, stale snapshots are still queryable: this is publication
-consistency, not a new freshness or authorization policy.
+unchanged. In particular, stale snapshots remain queryable by default. Explicit strict-read enforcement
+can reject them; publication consistency alone is not a freshness or authorization policy.

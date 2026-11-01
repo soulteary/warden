@@ -290,7 +290,7 @@ export MERGE_MODE=ONLY_LOCAL
 - **Configuration File**: `task.interval`
 - **Type**: Integer (seconds)
 - **Default Value**: `5`
-- **Description**: Background task execution interval (seconds)
+- **Description**: Background task execution interval (seconds). Explicit `--interval` > `INTERVAL` > YAML `task.interval` > default, including when a config file is selected.
 
 **Example**:
 ```bash
@@ -714,8 +714,7 @@ MERGE_MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ### Q6: What happens if configuration file loading fails?
 
 **A**: If the specified configuration file fails to load, the program will:
-- If `--config-file` parameter is provided but file loading fails, fall back to using command line arguments and environment variables
-- If configuration file format is incorrect, return error and exit
+An explicitly selected file (`--config-file` or `CONFIG_FILE`) must exist and parse successfully. Missing, unreadable or invalid files fail startup; Warden does not silently fall back to another configuration.
 
 ### Q7: Are environment variable names case-sensitive?
 

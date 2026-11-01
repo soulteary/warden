@@ -290,7 +290,7 @@ export MERGE_MODE=ONLY_LOCAL
 - **配置文件**: `task.interval`
 - **类型**: 整数（秒）
 - **默认值**: `5`
-- **说明**: 后台任务执行间隔（秒）。**注意**：使用 `--config-file` 时，任务间隔来自 YAML 的 `task.interval` 与默认值，环境变量 `INTERVAL` 不参与覆盖；仅在不使用配置文件时 `INTERVAL` 生效。。**注意**：使用 `--config-file` 时，任务间隔来自 YAML 的 `task.interval` 及默认值，环境变量 `INTERVAL` 不参与覆盖；仅在不使用配置文件时 `INTERVAL` 生效。
+- **说明**: 后台任务执行间隔（秒）。优先级为显式 `--interval` > `INTERVAL` > YAML `task.interval` > 默认值；使用配置文件时环境变量仍生效。
 
 **示例**:
 ```bash
@@ -715,8 +715,7 @@ MERGE_MODE=ONLY_LOCAL REDIS_ENABLED=true ./warden
 ### Q6: 配置文件加载失败会怎样？
 
 **A**: 如果指定的配置文件加载失败，程序会：
-- 如果提供了 `--config-file` 参数但文件加载失败，会回退到使用命令行参数和环境变量
-- 如果配置文件格式错误，会返回错误并退出
+显式选中的文件（`--config-file` 或 `CONFIG_FILE`）必须存在且解析成功。文件缺失、不可读或格式错误都会启动失败，不会静默回退到另一份配置。
 
 ### Q7: 环境变量名称是否区分大小写？
 

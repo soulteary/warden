@@ -4,6 +4,8 @@
 
 This document details the system architecture, core components, and data flow of Warden.
 
+See the current [data contract](../enUS/DATA_CONTRACT.md), [Redis recovery](../enUS/REDIS_CONNECTION_RECOVERY.md) and [authentication boundary](../enUS/REDIS_AUTH_BOUNDARY.md). The descriptions below do not override those contracts.
+
 ## System Architecture Diagram
 
 ```mermaid
@@ -79,7 +81,7 @@ graph TB
 3. **Scheduler**: Uses gocron to periodically update user data
    - Configurable update interval
    - Redis-based distributed locks
-   - Prevents duplicate execution
+   - Elects a shared-cache writer; replicas still refresh their local snapshots
 
 4. **Cache System**: Multi-level cache architecture
    - Memory cache (SafeUserCache): Fast response
@@ -103,68 +105,69 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant App as Application
-    participant Redis as Redis Cache
-    participant Remote as Remote API
-    participant Local as Local File
-    participant Memory as Memory Cache
+    participant Redis as Shared Redis cache
+    participant Loader as Mode-aware data loader
+    participant Memory as Local cache and snapshot
 
-    App->>Redis: 1. Try to load from Redis
-    alt Redis has data
-        Redis-->>App: Return cached data
-        App->>Memory: Load into memory
-    else Redis has no data
-        App->>Remote: 2. Try to load from remote API
-        alt Remote API success
-            Remote-->>App: Return user data
-            App->>Memory: Load into memory
-            App->>Redis: Update Redis cache
-        else Remote API failure
-            App->>Local: 3. Load from local file
-            Local-->>App: Return user data
-            App->>Memory: Load into memory
-            App->>Redis: Update Redis cache
+    alt ONLY_LOCAL
+        App->>Loader: Load local sources without normal Redis bootstrap
+    else Other modes
+        App->>Redis: Try bootstrap when Redis is available
+        alt Known-good cached set, including a stored empty list
+            Redis-->>App: Effective users
+            App->>Memory: Adopt cached set and record Redis bootstrap provenance
+        else Cache missing, unreadable or rejected
+            App->>Loader: Load configured sources according to merge mode
+        end
+    end
+    opt A source load was attempted
+        Loader-->>App: Result or error
+        App->>App: Apply identity validation and empty-ruleset policy
+        opt Result accepted
+            App->>Memory: Apply effective users and snapshot metadata
+            App->>Redis: Publish only when shared-cache writer lock is held
         end
     end
 ```
+
+Strict modes do not unconditionally fall back to local files after a remote
+error. Rejected input follows the configured empty-ruleset policy, which can retry
+Redis recovery. A startup load failure is logged; background refreshes can retry.
 
 ### Scheduled Task Update Flow
 
 ```mermaid
 sequenceDiagram
-    participant Scheduler as Scheduler
-    participant Lock as Distributed Lock
-    participant Loader as Data Loader
-    participant Remote as Remote API
-    participant Local as Local File
-    participant Memory as Memory Cache
-    participant Redis as Redis Cache
+    participant Scheduler as Replica scheduler
+    participant Lock as Redis writer lock
+    participant Loader as Data loader
+    participant Memory as Local cache and snapshot
+    participant Redis as Shared Redis cache
 
-    Scheduler->>Lock: 1. Try to acquire distributed lock
-    alt Lock acquired successfully
-        Lock-->>Scheduler: Lock acquired
-        Scheduler->>Loader: 2. Trigger data update
-        Loader->>Remote: Request remote API
-        alt Remote API success
-            Remote-->>Loader: Return data
-        else Remote API failure
-            Loader->>Local: Fallback to local file
-            Local-->>Loader: Return data
+    Scheduler->>Scheduler: Skip only overlapping work in this process
+    Scheduler->>Lock: Try to acquire shared-cache writer lock
+    Lock-->>Scheduler: Writer or non-writer
+    Scheduler->>Loader: Load sources according to merge mode (every replica)
+    alt Load or identity validation fails
+        Loader-->>Scheduler: Failure
+        Scheduler->>Memory: Keep known-good data and timestamp; record failure
+    else Load succeeds
+        Loader-->>Scheduler: Candidate data and source metadata
+        Scheduler->>Memory: Apply validation and empty-ruleset policy
+        Note over Memory: Successful unchanged loads refresh snapshot metadata too
+        opt This replica holds the writer lock
+            Scheduler->>Redis: Publish effective users or renew the known-good set as policy permits
         end
-        Loader->>Loader: 3. Apply merge strategy
-        Loader->>Loader: 4. Calculate data hash
-        alt Data changed
-            Loader->>Memory: 5. Update memory cache
-            Loader->>Redis: 6. Update Redis cache
-            Redis-->>Loader: Update successful
-        else Data unchanged
-            Loader->>Loader: Skip update
-        end
-        Scheduler->>Lock: 7. Release lock
-    else Lock acquisition failed
-        Lock-->>Scheduler: Other instance is executing
-        Scheduler->>Scheduler: Skip this execution
+    end
+    opt Writer lock acquired
+        Scheduler->>Lock: Release writer lock
     end
 ```
+
+The writer lock does not suppress upstream reads on other replicas. Each replica
+refreshes its own memory; only shared Redis writes are coordinated. A load failure
+keeps the previous snapshot. For all-rejected input, the empty-ruleset policy can
+retain and renew a known-good set without advancing its successful-load timestamp.
 
 ### Request Processing Flow
 
@@ -242,14 +245,14 @@ The application supports three Redis states:
   - Data loading priority: Redis cache > Remote API > Local file
 
 - **Enabled but Unavailable** (`redis-enabled=true` but connection failed)
-  - Automatically downgrades to memory mode (fallback)
+  - Keeps local snapshot/source processing subject to policy; the Redis manager retries enabled connections
   - Uses local lock instead of distributed lock
-  - Data loading priority: Remote API > Local file
+  - Data loading and fallback follow the configured merge mode
 
 - **Disabled** (`redis-enabled=false`)
   - Skips Redis initialization
   - Uses memory cache and local lock
-  - Data loading priority: Remote API > Local file
+  - Data loading and fallback follow the configured merge mode
 
 #### 2. Lock Implementation
 

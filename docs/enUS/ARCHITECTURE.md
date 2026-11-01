@@ -56,7 +56,7 @@ graph TB
     Middleware --> Compress
     Middleware --> Metrics
     Router --> UserCache
-    RedisCache -.->|Bootstrap only| UserCache
+    RedisCache -.->|Bootstrap or optional stale recovery| UserCache
     RedisCache --> Redis
     Scheduler -->|Scheduled Trigger| Loader
     Loader -->|Read| LocalFile
@@ -85,7 +85,7 @@ graph TB
 3. **Scheduler**: Uses gocron to periodically update user data
    - Configurable update interval
    - Redis-based distributed locks
-   - Prevents duplicate execution
+   - Elects a shared-cache writer; replicas still refresh their local snapshots
 
 4. **Cache System**: Multi-level cache architecture
    - Memory cache (SafeUserCache): Fast response
@@ -249,14 +249,14 @@ The application supports three Redis states:
   - Data loading priority: Redis cache > Remote API > Local file
 
 - **Enabled but Unavailable** (`redis-enabled=true` but connection failed)
-  - Automatically downgrades to memory mode (fallback)
+  - Keeps local snapshot/source processing subject to policy; the Redis manager retries enabled connections
   - Uses local lock instead of distributed lock
-  - Data loading priority: Remote API > Local file
+  - Data loading and fallback follow the configured merge mode
 
 - **Disabled** (`redis-enabled=false`)
   - Skips Redis initialization
   - Uses memory cache and local lock
-  - Data loading priority: Remote API > Local file
+  - Data loading and fallback follow the configured merge mode
 
 #### 2. Lock Implementation
 

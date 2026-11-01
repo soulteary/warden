@@ -56,7 +56,7 @@ graph TB
     Middleware --> Compress
     Middleware --> Metrics
     Router --> UserCache
-    RedisCache -.->|仅启动引导| UserCache
+    RedisCache -.->|启动引导或可选过期跟进恢复| UserCache
     RedisCache --> Redis
     Scheduler -->|定时触发| Loader
     Loader -->|读取| LocalFile
