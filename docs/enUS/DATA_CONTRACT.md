@@ -10,29 +10,37 @@ retain source-only records when both sources load successfully; `REMOTE_FIRST`
 is not a replacement of the local list by the remote list. Use `ONLY_REMOTE`
 when the remote list must be the sole authority.
 
-The current **plaintext** loading path resolves records sharing a phone/mail key
-as follows (observed with parser-kit v3.0.2):
+The current loading paths resolve records sharing a phone/mail key as follows
+(parser-kit v3.0.2 for the general plaintext path; v2 envelopes for encrypted
+remote responses):
 
-| Mode | Record retained for a shared key |
-| --- | --- |
-| `DEFAULT` | Local |
-| `REMOTE_FIRST` | Remote |
-| `ONLY_REMOTE` | Remote |
-| `ONLY_LOCAL` | Local |
-| `LOCAL_FIRST` | Remote |
-| `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | Remote |
-| `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | Remote |
+| Mode | Plaintext record retained | Encrypted record retained |
+| --- | --- | --- |
+| `DEFAULT` | Local | Remote |
+| `REMOTE_FIRST` | Remote | Remote |
+| `ONLY_REMOTE` | Remote | Remote |
+| `ONLY_LOCAL` | Local | Local (remote URL omitted by the application) |
+| `LOCAL_FIRST` | Remote | Local |
+| `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | Remote | Remote |
+| `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | Remote | Local |
 
-`DEFAULT` and both local-first modes differ from their documented precedence.
-This baseline records their existing result rather than changing authorization
-behavior. It does not generalize that result to encrypted loading, which uses a
-separate merge path. Any correction to precedence needs a separate behavior-change
-review and migration note.
+`DEFAULT` and both local-first modes differ between loading paths. The plaintext
+result also differs from their documented precedence. This is an existing
+compatibility contract, not the intended definition of the mode names. Changing
+transport can change the selected status, role, scopes, or other fields when local
+and remote records conflict. Do not assume encryption changes only the wire format.
+Any correction needs a separate behavior-change review and migration note.
 
-`TestBaselinePlaintextMergeModeContract` in
-`internal/loader/baseline_contract_test.go` checks this matrix and source-only
-records. Existing `TestLoadWithResult_RemoteFailure_Modes` and strict-mode tests
-cover refresh errors.
+`TestTransportMergeContract` in `internal/loader/transport_merge_contract_test.go`
+loads the same records through HTTP plaintext and a real encrypted v2 envelope.
+It checks phone keys and mail-only keys, compares complete user records, preserves
+source-only users, and explicitly checks where the two paths agree or differ.
+Result order and timestamps are not compared. `ONLY_LOCAL` calls omit the remote
+URL, matching `App`; they do not exercise the raw loader with a remote URL.
+
+`TestBaselinePlaintextMergeModeContract` remains the plaintext-only baseline.
+Existing `TestLoadWithResult_RemoteFailure_Modes` and strict-mode tests cover
+refresh errors. These tests do not change loading or authorization behavior.
 
 ## Reads and health
 
