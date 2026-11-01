@@ -8,25 +8,33 @@
 保留来源独有记录。`REMOTE_FIRST` 不会用远程名单全量替换本地名单；远程名单作为
 唯一权威来源时应使用 `ONLY_REMOTE`。
 
-当前**明文加载路径**中，同一手机号/邮箱键的冲突结果如下（使用 parser-kit v3.0.2 实测）：
+当前加载路径中，同一手机号/邮箱键的冲突结果如下（通用明文路径使用
+parser-kit v3.0.2，加密远程响应使用 v2 envelope）：
 
-| 模式 | 同键保留记录 |
-| --- | --- |
-| `DEFAULT` | 本地 |
-| `REMOTE_FIRST` | 远程 |
-| `ONLY_REMOTE` | 远程 |
-| `ONLY_LOCAL` | 本地 |
-| `LOCAL_FIRST` | 远程 |
-| `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程 |
-| `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 远程 |
+| 模式 | 明文保留记录 | 加密保留记录 |
+| --- | --- | --- |
+| `DEFAULT` | 本地 | 远程 |
+| `REMOTE_FIRST` | 远程 | 远程 |
+| `ONLY_REMOTE` | 远程 | 远程 |
+| `ONLY_LOCAL` | 本地 | 本地（应用不传远程 URL） |
+| `LOCAL_FIRST` | 远程 | 本地 |
+| `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程 | 远程 |
+| `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 远程 | 本地 |
 
-`DEFAULT` 及两种本地优先模式与文档描述的优先级不同。本基线记录现有结果，不改变
-授权行为。加密加载使用独立合并路径，不能将上述结果推广到加密场景。修正优先级
-需要独立的行为变更评审和迁移说明。
+`DEFAULT` 及两种本地优先模式在两条加载路径中结果不同，明文结果也与模式文档描述的
+优先级不同。这是现有兼容契约，不是模式名称的预期定义。同键本地和远程记录冲突时，
+切换传输方式可能改变 status、role、scope 等最终字段，不能认为加密只改变线上格式。
+修正这些差异需要独立的行为变更评审和迁移说明。
 
-`internal/loader/baseline_contract_test.go` 中的 `TestBaselinePlaintextMergeModeContract`
-固定上述矩阵和来源独有记录行为。现有 `TestLoadWithResult_RemoteFailure_Modes`
-及严格模式测试覆盖刷新失败场景。
+`internal/loader/transport_merge_contract_test.go` 中的 `TestTransportMergeContract`
+经 HTTP 明文及真实 v2 envelope 加解密加载相同记录，覆盖手机号键和仅邮箱键，
+比较完整用户字段、保留来源独有用户，并明确断言两条路径何时相同、何时不同。
+测试不比较结果顺序和时间戳。`ONLY_LOCAL` 与 `App` 一样不传远程 URL，
+不代表验证了向底层 loader 直接传远程 URL 的行为。
+
+`TestBaselinePlaintextMergeModeContract` 继续保留明文基线；现有
+`TestLoadWithResult_RemoteFailure_Modes` 和严格模式测试覆盖刷新失败。
+这些测试不改变加载或授权行为。
 
 ## 查询与健康检查
 
