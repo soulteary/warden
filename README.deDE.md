@@ -28,6 +28,8 @@ Warden kann **eigenständig** verwendet werden oder mit anderen Diensten (wie St
 - 📦 **Containerisierte Bereitstellung**: Vollständige Docker-Unterstützung, sofort einsatzbereit
 - 🌐 **Mehrsprachige Unterstützung**: 7 Sprachen mit automatischer Spracherkennung
 
+<a name="schnellstart"></a>
+
 ## 🚀 Schnellstart
 
 ### Option 1: Docker (Empfohlen)
@@ -82,6 +84,8 @@ Erstellen Sie eine `data.json`-Datei (siehe `data.example.json`):
 ```bash
 go run . --api-key your-api-key-here
 ```
+
+<a name="konfiguration"></a>
 
 ## ⚙️ Wesentliche Konfiguration
 

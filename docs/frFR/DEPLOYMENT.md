@@ -16,6 +16,8 @@ Ce document explique comment déployer le service Warden : déploiement Docker, 
 > - [Exemple simple](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) – Configuration Docker Compose de base
 > - [Exemple avancé](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) – Configuration complète incluant une API fictive
 
+<a name="utilisation-dimage-préconstruite-recommandé"></a>
+
 ### Utiliser l'image pré-construite (recommandé)
 
 Warden fournit des images Docker pré-construites, récupérables directement depuis GitHub Container Registry (GHCR), sans build manuel :
@@ -156,6 +158,8 @@ Pour un exemple complet, consultez le fichier `data.example.json`.
 ```bash
 go run .
 ```
+
+<a name="déploiement-environnement-de-production-recommandations"></a>
 
 ## Recommandations de déploiement en production
 

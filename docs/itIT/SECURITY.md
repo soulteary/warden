@@ -209,6 +209,8 @@ Se individui una vulnerabilità di sicurezza, segnalala così:
 2. Invia un'e-mail ai manutentori del progetto
 3. Non divulgare pubblicamente la vulnerabilità finché non è stata corretta
 
+<a name="inter-service-authentication"></a>
+
 ## Autenticazione tra servizi (facoltativa)
 
 Se scegli di integrarti con altri servizi (come Stargate), l'autenticazione tra servizi consente di garantire la sicurezza. **mTLS e HMAC sono implementati**; l'ordine di priorità è **mTLS > HMAC > chiave API**. Warden supporta i metodi seguenti:

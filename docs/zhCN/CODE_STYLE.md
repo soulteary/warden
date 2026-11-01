@@ -15,6 +15,8 @@
 - [性能优化](#性能优化)
 - [安全规范](#安全规范)
 
+<a name="go-代码规范"></a>
+
 ## 🔧 Go 代码规范
 
 ### 基本规范
@@ -43,6 +45,8 @@
 - 使用 1 个 Tab 进行缩进（不是空格）
 - 行长度：尽量保持在 100 字符以内，必要时可以超过
 - 使用 `gofmt` 自动格式化，不要手动调整格式
+
+<a name="命名规范"></a>
 
 ## 📝 命名规范
 
@@ -126,6 +130,8 @@ var NotFound = errors.New("not found")
 var InvalidInputError = errors.New("invalid input")
 ```
 
+<a name="代码组织"></a>
+
 ## 📁 代码组织
 
 ### 文件结构
@@ -179,6 +185,8 @@ import (
 
 - 单个文件尽量不超过 500 行
 - 如果文件过长，考虑拆分为多个文件
+
+<a name="注释规范"></a>
 
 ## 💬 注释规范
 
@@ -246,6 +254,8 @@ if oldHash != newHash {
 }
 ```
 
+<a name="错误处理"></a>
+
 ## ⚠️ 错误处理
 
 ### 错误检查
@@ -305,6 +315,8 @@ func (e *ConfigError) Unwrap() error {
     return e.Err
 }
 ```
+
+<a name="测试规范"></a>
 
 ## 🧪 测试规范
 
@@ -393,6 +405,8 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
+<a name="性能优化"></a>
+
 ## ⚡ 性能优化
 
 ### 避免过早优化
@@ -429,6 +443,8 @@ go tool cover -html=coverage.out
    // ❌ 错误：使用全局变量不加锁
    var globalData []User
    ```
+
+<a name="安全规范"></a>
 
 ## 🔒 安全规范
 

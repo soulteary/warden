@@ -136,7 +136,7 @@ Um neue Übersetzungen hinzuzufügen oder vorhandene Übersetzungen zu ändern, 
 
 1. Lesen Sie [ARCHITECTURE.md](ARCHITECTURE.md), um die Architektur zu verstehen
 2. Überprüfen Sie [API.md](API.md), um die API-Schnittstellen zu verstehen
-3. Beziehen Sie sich auf die [Entwicklungsanleitung](../../README.deDE.md#entwicklungsanleitung) für die Entwicklung
+3. Beziehen Sie sich auf die [Entwicklungsanleitung](DEVELOPMENT.md) für die Entwicklung
 
 ### Betrieb
 

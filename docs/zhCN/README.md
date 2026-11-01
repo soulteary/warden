@@ -137,7 +137,7 @@ curl -H "X-API-Key: your-key" \
 
 1. 阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解架构
 2. 查看 [API.md](API.md) 了解 API 接口
-3. 参考 [开发指南](../../README.zhCN.md#开发指南) 进行开发
+3. 参考 [开发指南](DEVELOPMENT.md) 进行开发
 
 ### 运维人员
 

@@ -72,7 +72,7 @@ PR を送信する前に、以下を確認してください：
 - [ ] コードがフォーマットされています（`go fmt ./...`）
 - [ ] コードが lint チェックに合格しています（`go vet ./...` または `golangci-lint run`）
 - [ ] 関連するドキュメント（README.md、CONTRIBUTING.md など）を更新しました
-- [ ] 私のコミットメッセージは[コミット規約](../CONTRIBUTING.md#commit-convention)に従っています
+- [ ] 私のコミットメッセージは[コミット規約](../docs/enUS/CONTRIBUTING.md#commit-standards)に従っています
 - [ ] 機密情報が漏洩していないことを確認するために、変更されたすべてのファイルをチェックしました
 
 ## 🔍 コードレビューの焦点

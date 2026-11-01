@@ -10,11 +10,15 @@
 - Redis（分散ロックとキャッシュ用）
 - Docker（任意。コンテナでデプロイする場合）
 
+<a name="docker-デプロイメント"></a>
+
 ## Docker によるデプロイ
 
 > 🚀 **クイックデプロイ**: 完全な Docker Compose 設定例は[サンプルディレクトリ](../../example/README.md) / [示例目录](../../example/README.md) を参照してください。
 > - [シンプルな例](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) - 基本的な Docker Compose 設定
 > - [応用例](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) - モック API を含む完全な設定
+
+<a name="事前構築済みイメージの使用推奨"></a>
 
 ### ビルド済みイメージを使う（推奨）
 
@@ -157,6 +161,8 @@ go mod download
 go run .
 ```
 
+<a name="本番環境デプロイメント推奨事項"></a>
+
 ## 本番環境へのデプロイに関する推奨事項
 
 ### 1. リバースプロキシを使う
@@ -219,6 +225,8 @@ services:
           cpus: '0.5'
           memory: 256M
 ```
+
+<a name="kubernetes-デプロイメント"></a>
 
 ## Kubernetes によるデプロイ
 

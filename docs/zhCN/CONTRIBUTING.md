@@ -14,6 +14,8 @@
 - [Pull Request 流程](#pull-request-流程)
 - [问题报告与功能请求](#问题报告与功能请求)
 
+<a name="如何贡献"></a>
+
 ## 🚀 如何贡献
 
 你可以通过以下方式贡献：
@@ -25,6 +27,8 @@
 - **回答问题**: 在 Issues 中帮助其他用户
 
 参与本项目时，请尊重所有贡献者，接受建设性的批评，并专注于对项目最有利的事情。
+
+<a name="开发环境设置"></a>
 
 ## 🛠️ 开发环境设置
 
@@ -54,6 +58,8 @@ go test ./...
 go run .
 ```
 
+<a name="代码规范"></a>
+
 ## 📝 代码规范
 
 请遵循以下代码规范：
@@ -66,6 +72,8 @@ go run .
 6. **常量命名**: 所有常量必须使用 `ALL_CAPS` (UPPER_SNAKE_CASE) 命名风格
 
 详细的代码风格指南请参考 [CODE_STYLE.md](CODE_STYLE.md)。
+
+<a name="翻译策略"></a>
 
 ## 🌐 翻译策略
 
@@ -92,6 +100,8 @@ Warden 的文档与运行时消息提供 7 种语言，但它们**并非**同一
 附注说明，而不是删掉该校验。
 
 执行 `make docs-parity` 可查看各翻译文档相对 `enUS` 的滞后程度。
+
+<a name="提交规范"></a>
 
 ## 📦 提交规范
 
@@ -136,6 +146,8 @@ fix(router): 修复分页参数验证问题
 Fixes #456
 ```
 
+<a name="pull-request-流程"></a>
+
 ## 🔄 Pull Request 流程
 
 ### 创建 Pull Request
@@ -169,6 +181,8 @@ git push origin feature/your-feature-name
 - [ ] 代码已通过 lint 检查
 
 所有 Pull Request 都需要经过代码审查，请及时响应审查意见。
+
+<a name="问题报告与功能请求"></a>
 
 ## 🐛 问题报告与功能请求
 

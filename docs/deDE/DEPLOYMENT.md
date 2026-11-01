@@ -10,11 +10,15 @@ Dieses Dokument erklärt, wie der Warden-Dienst bereitgestellt wird – per Dock
 - Redis (für verteilte Locks und Caching)
 - Docker (optional, für die Bereitstellung im Container)
 
+<a name="docker-bereitstellung"></a>
+
 ## Bereitstellung mit Docker
 
 > 🚀 **Schnelle Bereitstellung**: Im [Beispielverzeichnis](../../example/README.md) / [示例目录](../../example/README.md) finden Sie vollständige Beispielkonfigurationen für Docker Compose:
 > - [Einfaches Beispiel](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) – Grundlegende Docker-Compose-Konfiguration
 > - [Fortgeschrittenes Beispiel](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) – Vollständige Konfiguration inklusive Mock-API
+
+<a name="verwenden-von-vorgefertigten-images-empfohlen"></a>
 
 ### Vorgefertigtes Image verwenden (empfohlen)
 
@@ -157,6 +161,8 @@ Ein vollständiges Beispiel finden Sie in der Datei `data.example.json`.
 go run .
 ```
 
+<a name="produktionsumgebungs-bereitstellungsempfehlungen"></a>
+
 ## Empfehlungen für die Bereitstellung in der Produktion
 
 ### 1. Reverse Proxy verwenden
@@ -219,6 +225,8 @@ services:
           cpus: '0.5'
           memory: 256M
 ```
+
+<a name="kubernetes-bereitstellung"></a>
 
 ## Bereitstellung mit Kubernetes
 

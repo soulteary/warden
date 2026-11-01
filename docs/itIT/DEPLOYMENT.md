@@ -10,11 +10,15 @@ Questo documento spiega come distribuire il servizio Warden: distribuzione con D
 - Redis (per i lock distribuiti e la cache)
 - Docker (facoltativo, per la distribuzione in container)
 
+<a name="deployment-docker"></a>
+
 ## Distribuzione con Docker
 
 > 🚀 **Distribuzione rapida**: consulta la [directory degli esempi](../../example/README.md) / [示例目录](../../example/README.md) per configurazioni Docker Compose complete:
 > - [Esempio semplice](../../example/basic/docker-compose.yml) / [简单示例](../../example/basic/docker-compose.yml) – Configurazione Docker Compose di base
 > - [Esempio avanzato](../../example/advanced/docker-compose.yml) / [复杂示例](../../example/advanced/docker-compose.yml) – Configurazione completa con API simulata
+
+<a name="utilizzo-di-immagini-precompilate-consigliato"></a>
 
 ### Usare l'immagine precompilata (consigliato)
 
@@ -157,6 +161,8 @@ Per un esempio completo, consultare il file `data.example.json`.
 go run .
 ```
 
+<a name="deployment-ambiente-di-produzione-raccomandazioni"></a>
+
 ## Consigli per la distribuzione in produzione
 
 ### 1. Usare un reverse proxy
@@ -219,6 +225,8 @@ services:
           cpus: '0.5'
           memory: 256M
 ```
+
+<a name="deployment-kubernetes"></a>
 
 ## Distribuzione con Kubernetes
 

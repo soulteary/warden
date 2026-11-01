@@ -30,6 +30,8 @@ Warden can be used **standalone** or integrated with other services (such as Sta
 - 📦 **Containerized Deployment**: Complete Docker support, ready to use out of the box
 - 🌐 **Multi-language Support**: 7 languages with automatic language detection
 
+<a name="quick-start"></a>
+
 ## 🚀 Quick Start
 
 ### Option 1: Docker (Recommended)
@@ -93,6 +95,8 @@ go run . --api-key your-api-key-here
 go build -o warden .
 ./warden --api-key your-api-key-here
 ```
+
+<a name="configuration"></a>
 
 ## ⚙️ Essential Configuration
 
