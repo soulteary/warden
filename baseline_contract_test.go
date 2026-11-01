@@ -17,14 +17,14 @@ import (
 // These tests record the current HTTP contract; they do not enforce freshness on reads.
 func TestBaselineSnapshotReadContract(t *testing.T) {
 	for _, tc := range []struct {
-		name       string
-		empty      bool
 		loadedAt   time.Time
+		name       string
 		healthCode int
 		userCode   int
+		empty      bool
 	}{
-		{"stale_known_good", false, time.Now().Add(-time.Hour), http.StatusServiceUnavailable, http.StatusOK},
-		{"fresh_empty", true, time.Now(), http.StatusOK, http.StatusNotFound},
+		{loadedAt: time.Now().Add(-time.Hour), name: "stale_known_good", healthCode: http.StatusServiceUnavailable, userCode: http.StatusOK},
+		{loadedAt: time.Now(), name: "fresh_empty", healthCode: http.StatusOK, userCode: http.StatusNotFound, empty: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("IP_WHITELIST", "")
