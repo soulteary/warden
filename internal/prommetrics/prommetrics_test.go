@@ -181,3 +181,12 @@ func TestRecordHTTPRequest_NormalizesLabels(t *testing.T) {
 	assert.Contains(t, body, `endpoint="`+define.LABEL_OTHER+`"`)
 	assert.Contains(t, body, `method="`+define.LABEL_OTHER+`"`)
 }
+
+func TestRedisSnapshotResultLabelsAreBounded(t *testing.T) {
+	Init()
+	RecordRedisSnapshotResult("dataset-secret", "payload-secret", "raw-error-secret")
+	rec := httptest.NewRecorder()
+	Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
+	require.Contains(t, rec.Body.String(), `warden_redis_snapshot_operations_total{mode="unknown",operation="unknown",result="unknown"} 1`)
+	require.NotContains(t, rec.Body.String(), "secret")
+}
