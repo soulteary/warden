@@ -10,7 +10,7 @@ import (
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Cache struct {
 	mu               sync.RWMutex
-	users            []AllowListUser
+	users            []AllowListUser // Immutable after publication, including Scope.
 	expiresAt        time.Time
 	ttl              time.Duration
 	now              func() time.Time
@@ -32,38 +32,59 @@ func NewCache(ttl time.Duration) *Cache {
 	}
 }
 
-// Get returns the cached user list if it's still valid, nil otherwise.
+// Get returns the cached user list if it is valid when the view is captured.
+// The returned rows and Scope slices belong to the caller.
 func (c *Cache) Get() []AllowListUser {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.getLocked()
+	users := c.captureUsers()
+	if users == nil {
+		return nil
+	}
+	return cloneCachedUsers(users)
 }
 
-// beginRead captures the invalidation generation with the cache lookup.
+// beginRead captures a valid immutable view or a fenced request on a cache miss.
+// Copying a hit after releasing the lock does not change its expiry decision.
 func (c *Cache) beginRead() ([]AllowListUser, cacheRequest) {
+	users := c.captureUsers()
+	var request cacheRequest
+	if users == nil {
+		users, request = c.beginMiss()
+	}
+	if users == nil {
+		return nil, request
+	}
+	return cloneCachedUsers(users), request
+}
+
+func (c *Cache) captureUsers() []AllowListUser {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.validUsersLocked()
+}
+
+// beginMiss rechecks the view after acquiring the write lock: a concurrent
+// publication can satisfy the read without allocating another request sequence.
+func (c *Cache) beginMiss() ([]AllowListUser, cacheRequest) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	users := c.getLocked()
-	if users != nil {
+	if users := c.validUsersLocked(); users != nil {
 		return users, cacheRequest{}
 	}
 	c.nextRequest++
 	return nil, cacheRequest{epoch: c.epoch, sequence: c.nextRequest}
 }
 
-func (c *Cache) getLocked() []AllowListUser {
+// validUsersLocked returns a private immutable reference, never a public result.
+// Writers replace the entire slice; they do not modify a captured generation.
+func (c *Cache) validUsersLocked() []AllowListUser {
 	if c.users == nil {
 		return nil
 	}
-
 	now := c.cacheNow()
 	if now.After(c.expiresAt) || (c.sourceBound && !now.Before(c.expiresAt)) {
 		return nil
 	}
-
-	// Return a copy to prevent external modification
-	return cloneCachedUsers(c.users)
+	return c.users
 }
 
 // Set stores the user list in cache with expiration.
@@ -118,7 +139,8 @@ func (c *Cache) cacheNow() time.Time {
 	return time.Now()
 }
 
-// Clear clears the cache.
+// Clear clears the cache for subsequent lookups. A hit captured before Clear
+// may still finish copying and return its detached rows.
 func (c *Cache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
