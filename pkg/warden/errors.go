@@ -8,6 +8,10 @@ import (
 // ErrResponseTooLarge is returned when a response exceeds MaxResponseBytes.
 var ErrResponseTooLarge = errors.New("warden: response exceeds size limit")
 
+// ErrCacheInvalidated indicates that a list response crossed a cache invalidation.
+// The response is neither returned nor cached; callers may issue a new request.
+var ErrCacheInvalidated = errors.New("warden: cache invalidated during request")
+
 // Error represents an error that occurred in the SDK.
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility

@@ -381,3 +381,12 @@ For complete examples, please refer to the [example](../../example) directory.
 ## License
 
 MIT License
+
+### List cache invalidation during a request
+
+`ClearCache`, `InvalidateCache` and invalidation-channel events fence list requests
+that started before the invalidation. Such a response is neither cached nor
+returned by `GetUsers`; the call returns `REQUEST_FAILED` wrapping
+`ErrCacheInvalidated` (detectable with `errors.Is`). The caller may start a new
+request. There is no automatic additional fetch. Cache TTL, optional source
+freshness and the normal request retry policy are unchanged.

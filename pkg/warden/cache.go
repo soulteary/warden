@@ -15,7 +15,10 @@ type Cache struct {
 	ttl         time.Duration
 	now         func() time.Time
 	sourceBound bool
+	epoch       uint64
 }
+
+type cacheRequest struct{ epoch uint64 }
 
 // NewCache creates a new cache instance with the specified TTL.
 func NewCache(ttl time.Duration) *Cache {
@@ -29,6 +32,17 @@ func (c *Cache) Get() []AllowListUser {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	return c.getLocked()
+}
+
+// beginRead captures the invalidation generation with the cache lookup.
+func (c *Cache) beginRead() ([]AllowListUser, cacheRequest) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.getLocked(), cacheRequest{epoch: c.epoch}
+}
+
+func (c *Cache) getLocked() []AllowListUser {
 	if c.users == nil {
 		return nil
 	}
@@ -52,6 +66,23 @@ func (c *Cache) Set(users []AllowListUser) {
 func (c *Cache) setUntil(users []AllowListUser, deadline time.Time) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.setUntilLocked(users, deadline)
+}
+
+// commitRead rejects work started before the most recent invalidation.
+func (c *Cache) commitRead(users []AllowListUser, deadline time.Time, request cacheRequest) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if request.epoch != c.epoch {
+		return NewError(ErrCodeRequestFailed, "cache invalidated during request", ErrCacheInvalidated)
+	}
+	if !c.setUntilLocked(users, deadline) {
+		return sourceFreshnessError(ErrSourceStale)
+	}
+	return nil
+}
+
+func (c *Cache) setUntilLocked(users []AllowListUser, deadline time.Time) bool {
 	now := c.cacheNow()
 	if !deadline.IsZero() && !now.Before(deadline) {
 		return false
@@ -78,6 +109,7 @@ func (c *Cache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.epoch++
 	c.users = nil
 	c.expiresAt = time.Time{}
 	c.sourceBound = false
