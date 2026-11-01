@@ -16,7 +16,7 @@ Shadow and V2 require Redis enabled and `REDIS_SNAPSHOT_NAMESPACE`: 1–64 lette
 
 Shadow/V2 source snapshots and V2 recoveries expose known timestamps and `origin` in snapshot health metadata. Unknown timestamps are omitted. V1 restore has unknown source age, so shadow does not manufacture a V2 timestamp from it.
 
-In V2, `loaded_at`, `age_seconds`, freshness health and the snapshot-age gauge use `source_succeeded_at`. Restarting and renewing TTL cannot rejuvenate the data. A stale V2 baseline may still serve queries: freshness remains health-only, following the existing availability policy. Original input count/version survive recovery, even when validation removed all records; genuine empty revocations remain distinct.
+In V2, `loaded_at`, `age_seconds`, freshness health and the snapshot-age gauge use `source_succeeded_at`. Restarting and renewing TTL cannot rejuvenate the data. A stale V2 baseline may still serve queries by default. Explicit strict-read enforcement can return 503; migration alone does not enable that policy. Original input count/version survive recovery, even when validation removed all records; genuine empty revocations remain distinct.
 
 ## Rollout and rollback
 

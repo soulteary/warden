@@ -16,9 +16,9 @@ Per una **tabella completa delle opzioni** (percorsi YAML, variabili d'ambiente,
 | Limitazione di frequenza | `rate_limit.rate`, `rate_limit.window` | predefinito 60/min, finestra di 1m |
 | Client HTTP | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
 | Remoto | `remote.*` / `CONFIG`, `KEY`, `MERGE_MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
-| Attività | `task.interval` | nessuna sovrascrittura tramite variabili d'ambiente quando si usa un file di configurazione; usare `INTERVAL` solo senza file di configurazione |
+| Attività | `task.interval` / `INTERVAL` / `--interval` | `--interval` esplicito > `INTERVAL` > YAML `task.interval` > valore predefinito, anche con un file di configurazione |
 | Applicazione | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
-| Tracciamento | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | Con `--config-file`, `tracing` non viene letto da quel file a meno che `CONFIG_FILE` non punti allo stesso percorso |
+| Tracciamento | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file also supplies tracing; OTLP environment values override YAML. |
 | Autenticazione tra servizi | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Solo variabili d'ambiente** (nessuna chiave YAML) |
 | Integrità | — / `SNAPSHOT_MAX_AGE` | Età massima accettata dello snapshot; durata Go, predefinito `max(30s, 3 × intervallo attività)` |
 

@@ -16,9 +16,9 @@
 | 속도 제한 | `rate_limit.rate`, `rate_limit.window` | 기본값 분당 60회, 윈도 1m |
 | HTTP 클라이언트 | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
 | 원격 | `remote.*` / `CONFIG`, `KEY`, `MERGE_MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
-| 작업 | `task.interval` | 설정 파일 사용 시 환경 변수로 재정의 불가. `INTERVAL`은 설정 파일을 사용하지 않을 때만 적용 |
+| 작업 | `task.interval` / `INTERVAL` / `--interval` | 명시적 `--interval` > `INTERVAL` > YAML `task.interval` > 기본값. 설정 파일 사용 시에도 동일 |
 | 애플리케이션 | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
-| 추적 | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | `--config-file` 사용 시 `CONFIG_FILE`이 같은 경로로 지정되지 않으면 해당 파일에서 tracing을 읽지 않습니다 |
+| 추적 | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file also supplies tracing; OTLP environment values override YAML. |
 | 서비스 간 인증 | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **환경 변수 전용**(YAML 키 없음) |
 | 상태 | — / `SNAPSHOT_MAX_AGE` | 허용되는 스냅샷 최대 경과 시간. Go duration 형식, 기본값 `max(30s, 작업 간격 × 3)` |
 
