@@ -40,7 +40,6 @@ const rootExactPattern = define.PATH_ROOT + "{$}"
 // the server Handler.
 func registerRoutes(app *App) *http.ServeMux {
 	mux := http.NewServeMux()
-	users := snapshotUsers{snapshots: app.snapshots, fallback: app.userCache}
 	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
 
@@ -154,7 +153,9 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.JSON(users, app.responseFields)),
+											router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+												return router.JSON(source, app.responseFields)
+											})),
 										),
 									),
 								),
@@ -202,7 +203,9 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.GetUserByIdentifier(users, app.responseFields)),
+											router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+												return router.GetUserByIdentifier(source, app.responseFields)
+											})),
 										),
 									),
 								),
@@ -225,7 +228,7 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(router.GetLookup(users)),
+											router.ProcessWithLogger(app.withSnapshotMetadata(router.GetLookup)),
 										),
 									),
 								),
