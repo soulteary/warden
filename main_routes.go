@@ -417,6 +417,16 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 			meta := map[string]any{
 				"source": string(snap.Source),
 			}
+			if snap.versioned {
+				if snap.Origin != "" {
+					meta["origin"] = string(snap.Origin)
+				}
+				for name, at := range map[string]time.Time{"source_succeeded_at": snap.SourceSucceededAt, "published_at": snap.PublishedAt, "restored_at": snap.RestoredAt} {
+					if !at.IsZero() {
+						meta[name] = at.UTC().Format(time.RFC3339Nano)
+					}
+				}
+			}
 			if snap.Version != "" {
 				meta["version"] = snap.Version
 			}

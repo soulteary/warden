@@ -51,6 +51,10 @@ type App struct {
 	userCache            *cache.SafeUserCache
 	redisUserCache       *cache.RedisUserCache
 	redisClient          *redis.Client
+	redisSnapshots       *cache.RedisSnapshotStore
+	snapshotLease        *cache.SnapshotLease
+	redisSnapshotMode    string
+	snapshotNow          func() time.Time
 	redisRefreshLocker   gocron.Locker
 	rateLimiter          *middlewarekit.RateLimiter
 	rulesLoader          *loader.RulesLoader
@@ -120,8 +124,8 @@ func NewApp(cfg *cmd.Config) *App {
 	}
 	app.snapshots = newSnapshotStore()
 	// Indirection so tests can observe the exact rule set a refresh publishes to the shared
-	// cache; production always uses the retrying writer.
-	app.publishToRedis = app.updateRedisCacheWithRetry
+	// cache; production selects the explicitly configured migration path.
+	app.publishToRedis = app.publishRedisSnapshots
 	app.loadFromRedis = app.readRedisUserCache
 	app.redisCacheExists = app.readRedisUserCacheExists
 	// ValidateConfig rejects an unrecognized policy during normal startup; direct NewApp
@@ -245,6 +249,8 @@ func NewApp(cfg *cmd.Config) *App {
 	}
 	define.SetRequireExplicitUserID(cfg.RequireExplicitUserID)
 
+	app.initRedisSnapshots(cfg)
+
 	// Load initial data (multi-level fallback)
 	if app.rulesLoader != nil {
 		if err := app.loadInitialData(cfg.DataFile, cfg.DataDir); err != nil {
@@ -344,6 +350,9 @@ func (app *App) shouldKeepPrepared(prepared *cache.PreparedRules) bool {
 // reduces to zero follows the configured empty-ruleset policy: availability-first rejects
 // it as a bootstrap baseline, while consistency-first adopts the effective empty set.
 func (app *App) bootstrapFromRedis() bool {
+	if app.redisSnapshotMode == "v2" {
+		return app.bootstrapVersionedSnapshot()
+	}
 	if app.loadFromRedis == nil {
 		return false
 	}
@@ -369,7 +378,9 @@ func (app *App) bootstrapFromRedis() bool {
 
 	applied := app.userCache.Get()
 
-	app.snapshots.StorePreservingFailures(snapshotFromRedis(applied, prepared.ReadView()))
+	restored := snapshotFromRedis(applied, prepared.ReadView())
+	restored.versioned = app.redisSnapshotMode == "shadow"
+	app.snapshots.StorePreservingFailures(restored)
 	app.updateSnapshotMetrics()
 	prommetrics.CacheHits.Inc()
 	app.log.Info().
@@ -476,7 +487,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 				return nil
 			}
 			app.userCache.ApplyPrepared(prepared)
-			app.snapshots.Store(snapshotFromResult(&localRes, prepared.ReadView()))
+			app.snapshots.Store(app.sourceSnapshot(&localRes, prepared.ReadView()))
 			app.updateSnapshotMetrics()
 			// Seed Redis with the effective cache contents, including a legitimate empty
 			// set. This uses the same retrying/testable writer as background refreshes.
@@ -531,7 +542,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			return nil
 		}
 		app.userCache.ApplyPrepared(prepared)
-		app.snapshots.Store(snapshotFromResult(&res, prepared.ReadView()))
+		app.snapshots.Store(app.sourceSnapshot(&res, prepared.ReadView()))
 		app.updateSnapshotMetrics()
 		if res.Degraded {
 			prommetrics.RemoteFallbackTotal.WithLabelValues(strings.ToUpper(strings.TrimSpace(app.appMode)), res.DegradedReason).Inc()
@@ -662,6 +673,18 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 // so an older slow load cannot write after a newer load from another replica.
 // Every replica still loads and applies the result to its process-local state.
 func (app *App) acquireRedisRefreshWriter() (writer bool, release func()) {
+	if app.redisSnapshotMode == "v2" {
+		return app.acquireSnapshotLease()
+	}
+	legacyWriter, legacyRelease := app.acquireLegacyRedisWriter()
+	if legacyWriter && app.redisSnapshotMode == "shadow" {
+		_, releaseSnapshot := app.acquireSnapshotLease()
+		return true, func() { releaseSnapshot(); legacyRelease() }
+	}
+	return legacyWriter, legacyRelease
+}
+
+func (app *App) acquireLegacyRedisWriter() (writer bool, release func()) {
 	if app.redisUserCache == nil {
 		return false, func() {}
 	}
@@ -693,7 +716,7 @@ func (app *App) updateRedisIfWriter(writer bool, users []define.AllowListUser) {
 	}
 	publish := app.publishToRedis
 	if publish == nil {
-		publish = app.updateRedisCacheWithRetry
+		publish = app.publishRedisSnapshots
 	}
 	if err := publish(users); err != nil {
 		app.log.Warn().
@@ -711,7 +734,7 @@ func (app *App) seedRedisIfWriter(writer bool, users []define.AllowListUser) {
 	}
 	publish := app.publishToRedis
 	if publish == nil {
-		publish = app.updateRedisCacheWithRetry
+		publish = app.publishRedisSnapshots
 	}
 	if err := publish(users); err != nil {
 		app.log.Warn().
@@ -803,7 +826,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	if !app.checkDataChanged(res.Version) {
 		// Even when unchanged, refresh snapshot metadata (age/source/degraded) so a
 		// successful refresh clears the failure counter and updates degraded state.
-		app.snapshots.Store(snapshotFromResult(&res, app.userCache.ReadView()))
+		app.snapshots.Store(app.sourceSnapshot(&res, app.userCache.ReadView()))
 		app.updateRedisIfWriter(writeRedis, app.userCache.Get())
 		app.updateSnapshotMetrics()
 		app.log.Debug().Msg(i18n.TWithLang(i18n.LangZH, "log.data_unchanged"))
@@ -878,7 +901,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	// has already completed during preparation; a conflict keeps the last-known-good snapshot and
 	// record a refresh failure instead of overwriting good data with a bad set.
 	app.userCache.ApplyPrepared(prepared)
-	app.snapshots.Store(snapshotFromResult(&res, prepared.ReadView()))
+	app.snapshots.Store(app.sourceSnapshot(&res, prepared.ReadView()))
 
 	// Mirror the EFFECTIVE cache contents into the shared Redis cache.
 	//

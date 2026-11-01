@@ -34,8 +34,17 @@ type Snapshot struct {
 	Source loader.Source
 	// Version is the loaded input hash used for change detection and legacy health reporting.
 	Version string
-	// LoadedAt is when this snapshot was produced.
+	// LoadedAt retains legacy timing by default; V2 uses source validation time.
 	LoadedAt time.Time
+	// SourceSucceededAt is completion of an accepted resolved source validation.
+	SourceSucceededAt time.Time
+	// PublishedAt is successful V2 publication; TTL renewal leaves it unchanged.
+	PublishedAt time.Time
+	// RestoredAt records local recovery and is never persisted as source evidence.
+	RestoredAt    time.Time
+	Origin        loader.Source
+	RedisRevision string
+	versioned     bool
 	// Degraded is true when the snapshot was served from local/last-known-good
 	// because the preferred remote source failed.
 	Degraded bool
@@ -193,6 +202,7 @@ func snapshotFromRedis(users []define.AllowListUser, view *cache.ReadView) *Snap
 		Source:           loader.SourceRedis,
 		Version:          cache.HashUserList(users),
 		LoadedAt:         time.Now(),
+		RestoredAt:       time.Now(),
 		Degraded:         true,
 		DegradedReason:   "redis_bootstrap",
 	}

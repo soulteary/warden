@@ -458,3 +458,9 @@ For more detailed information about parameter parsing mechanisms, priority rules
 - [Parameter Parsing Design Document](CONFIG_PARSING.md) - Detailed parameter parsing mechanism documentation
 - [Architecture Design Document](ARCHITECTURE.md) - Understand overall architecture and configuration impact
 - [Security Documentation](SECURITY.md) - Learn about inter-service authentication details
+
+## Redis snapshot migration
+
+The default Redis format remains unchanged. Opt-in `REDIS_SNAPSHOT_MODE` and
+`REDIS_SNAPSHOT_NAMESPACE` settings, time semantics, rollout and rollback are
+documented in [Redis snapshot migration](REDIS_SNAPSHOT_MIGRATION.md).
