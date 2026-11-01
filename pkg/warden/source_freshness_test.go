@@ -175,28 +175,59 @@ func TestSourceFreshnessPreservesDefaultResponsesAndStatusErrors(t *testing.T) {
 }
 
 func TestSourceFreshnessRechecksAfterBodyRead(t *testing.T) {
-	clock := newSourceTestClock()
-	now := clock.Now()
-	validated := make(chan struct{})
-	var once sync.Once
-	clock.onNow = func() { once.Do(func() { close(validated) }) }
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		setSourceTestHeaders(w.Header(), now, now.Add(time.Second))
-		w.WriteHeader(200)
-		flusher, ok := w.(http.Flusher)
-		require.True(t, ok)
-		flusher.Flush()
-		<-validated
-		clock.set(now.Add(time.Second))
-		_, err := io.WriteString(w, `[]`)
-		require.NoError(t, err)
-	}))
-	defer server.Close()
-	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL).WithClock(clock).WithMaxResponseBytes(-1).WithSourceFreshness(time.Minute, 0))
-	require.NoError(t, err)
-	_, err = client.GetUsers(context.Background())
-	require.ErrorIs(t, err, ErrSourceStale)
-	require.Nil(t, client.cache.Get())
+	methods := []struct {
+		read func(context.Context, *Client) error
+		name string
+		body string
+	}{
+		{name: "list", body: `[]`, read: func(ctx context.Context, c *Client) error { _, err := c.GetUsers(ctx); return err }},
+		{name: "page", body: `{"data":[],"pagination":{"page":1,"page_size":1,"total":0,"total_pages":0}}`, read: func(ctx context.Context, c *Client) error { _, err := c.GetUsersPaginated(ctx, 1, 1); return err }},
+		{name: "user", body: `{"user_id":"member"}`, read: func(ctx context.Context, c *Client) error {
+			_, err := c.GetUserByIdentifier(ctx, "", "", "member")
+			return err
+		}},
+	}
+	for _, method := range methods {
+		for _, elapsed := range []time.Duration{time.Second - time.Nanosecond, time.Second, time.Second + time.Nanosecond} {
+			t.Run(method.name+"/"+elapsed.String(), func(t *testing.T) {
+				clock := newSourceTestClock()
+				now := clock.Now()
+				validated := make(chan struct{})
+				var once sync.Once
+				clock.onNow = func() { once.Do(func() { close(validated) }) }
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					setSourceTestHeaders(w.Header(), now, now.Add(time.Second))
+					w.WriteHeader(http.StatusOK)
+					if err := http.NewResponseController(w).Flush(); err != nil {
+						t.Errorf("flush response headers: %v", err)
+						return
+					}
+					select {
+					case <-validated:
+					case <-r.Context().Done():
+						return
+					}
+					clock.set(now.Add(elapsed))
+					if _, err := io.WriteString(w, method.body); err != nil {
+						t.Errorf("write response: %v", err)
+					}
+				}))
+				t.Cleanup(server.Close)
+				client, err := NewClient(DefaultOptions().WithBaseURL(server.URL).WithClock(clock).WithMaxResponseBytes(-1).WithSourceFreshness(time.Minute, 0))
+				require.NoError(t, err)
+				t.Cleanup(client.Close)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				err = method.read(ctx, client)
+				if elapsed < time.Second {
+					require.NoError(t, err)
+				} else {
+					require.ErrorIs(t, err, ErrSourceStale)
+					require.Nil(t, client.cache.Get(), "expired response must not populate the list cache")
+				}
+			})
+		}
+	}
 }
 
 func TestSourceFreshnessExpiredResponseCannotEraseConcurrentFreshCache(t *testing.T) {
