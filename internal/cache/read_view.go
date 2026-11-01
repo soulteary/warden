@@ -41,9 +41,10 @@ func cloneUsers(users []define.AllowListUser) []define.AllowListUser {
 
 // Get returns a detached copy in the existing insertion order.
 func (v *ReadView) Get() []define.AllowListUser {
-	users := v.cache.GetAll() // cache-kit already detaches the outer slice.
-	for i := range users {
-		users[i] = cloneUser(users[i])
+	// make preserves the non-nil empty result of GetAll for the initial view.
+	users := make([]define.AllowListUser, len(v.rows))
+	for i := range v.rows {
+		users[i] = cloneUser(v.rows[i])
 	}
 	return users
 }
