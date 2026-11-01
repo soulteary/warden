@@ -74,9 +74,11 @@ func (v *ReadView) GetByUserID(userID string) (define.AllowListUser, bool) {
 
 // Iterate visits detached records in the existing insertion order.
 func (v *ReadView) Iterate(fn func(define.AllowListUser) bool) {
-	v.cache.Iterate(func(u define.AllowListUser) bool { //nolint:gocritic // hugeParam: required by cache-kit callback
-		return fn(cloneUser(u))
-	})
+	for i := range v.rows {
+		if !fn(cloneUser(v.rows[i])) {
+			return
+		}
+	}
 }
 
 // Page returns detached rows from this generation, together with its totals.
