@@ -12,8 +12,8 @@ client, err := warden.NewClient(opts)
 
 先部署服务端可选快照响应元数据，再开启 SDK 约束。数据请求协商 `Warden-Snapshot-Metadata: v1`，要求快照摘要、来源成功时间及有效截止时间。旧服务端或 V1 恢复缺失、重复、损坏的证据会被拒绝，不填入收包时刻；超出时钟裕量的未来来源时间也拒绝。
 
-有效截止为 `min(服务端截止时间, 来源成功时间 + 调用方最大年龄) - 裕量`。列表缓存再取其与本地 CacheTTL 的较早值。收包、重试、相同内容响应和解码均不延长来源期限。读取/解码期间过期的响应不返回、不缓存，也不删除其他并发请求的较新缓存代际。零 CacheTTL 仍不复用缓存。
+有效截止为 `min(服务端截止时间, 来源成功时间 + 调用方最大年龄) - 裕量`。列表缓存再取其与本地 CacheTTL 的较早值。收包、重试、相同内容响应和解码均不延长来源期限。读取/解码期间过期的响应不返回、不缓存，也不删除其他并发请求的较新缓存代际。零 CacheTTL 不提供正的缓存有效期；等号边界仍遵循现有规则。
 
-列表、分页、单用户查询都检查证据。新鲜 404 保持 NOT_FOUND；年龄未知或陈旧的 404 返回 SOURCE_FRESHNESS，不把旧数据中的缺失当作可靠结论。401/503 语义不变，不新增过期缓存回退。CheckUserInList 仍在错误时返回 false；需要区分原因时使用查询方法，读取 Error.Code 或 errors.Is 的 ErrSourceUnknown、ErrSourceStale、ErrSourceFuture。
+列表、分页、单用户查询都检查证据。新鲜 404 保持 NOT_FOUND；年龄未知或陈旧的 404 返回 SOURCE_FRESHNESS，不把旧数据中的缺失当作可靠结论。401 和默认 SDK 的 503 处理不变；启用来源新鲜度后，协商成功且携带 `Warden-Source-Error: expired`、`unknown` 或 `future` 的 503 分类为 SOURCE_FRESHNESS，可通过 errors.Is 判断相应的 ErrSourceStale、ErrSourceUnknown 或 ErrSourceFuture；普通或无法识别的 503 仍为 SERVER_ERROR，不新增过期缓存回退。CheckUserInList 仍在错误时返回 false；需要区分原因时使用查询方法，读取 Error.Code 或 errors.Is 的 ErrSourceUnknown、ErrSourceStale、ErrSourceFuture。
 
 此功能约束被接受的最终集合年龄，不代表上游内容刚产生或远端一定成功。响应头依赖可信服务和传输，摘要不是响应体签名；本地回退证据含义不变。下游会话期限需要单独约束，不因此启用服务端严格读取或修改 JSON。

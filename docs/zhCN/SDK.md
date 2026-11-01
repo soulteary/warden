@@ -539,3 +539,8 @@ func main() {
 
 - [API 文档](API.md) - 了解 API 端点详情
 - [配置文档](CONFIGURATION.md) - 了解服务器配置选项
+
+## Cache and source freshness contracts
+
+- [Cache isolation and hit behavior](SDK_CACHE_ISOLATION.md)
+- [Optional source freshness and source-error classification](SDK_SOURCE_FRESHNESS.md)

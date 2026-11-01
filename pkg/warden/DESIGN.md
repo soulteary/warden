@@ -24,14 +24,14 @@ This document describes the design principles, architecture, and implementation 
 
 - `http.Client` is concurrency-safe
 - `Cache` uses `sync.RWMutex` to ensure thread safety
-- All fields of `Client` are read-only after creation
+- Client configuration is fixed at creation; cache and invalidation state use synchronization
 - All methods are thread-safe and can be called concurrently in multiple goroutines
 
 ### Cache Strategy
 
 1. **GetUsers()**: Uses cache
    - First checks cache
-   - If cache is valid, returns directly
+   - If cache is valid, captures its immutable view under a shared lock and returns detached rows and Scope after unlocking
    - If cache is invalid or doesn't exist, fetches from API and updates cache
 
 2. **GetUsersPaginated()**: Does not use cache
@@ -79,7 +79,7 @@ The `CheckUserInList()` method uses the following strategy:
 
 The SDK supports configurable retry logic for handling transient failures:
 
-1. **Retryable Errors**: Network errors and server errors (5xx) are retryable by default
+1. **Retryable Errors**: Network errors and configured server errors (5xx) can be retried when retries are enabled; MaxRetries defaults to 0
 2. **Non-Retryable Errors**: Client errors (4xx) like 401 Unauthorized and 404 Not Found are never retried
 3. **Exponential Backoff**: Uses exponential backoff with configurable multiplier and max delay
 4. **Configurable**: Retry behavior can be customized via `RetryOptions`
@@ -129,3 +129,11 @@ The SDK supports multiple cache invalidation strategies:
 2. Support metrics collection
 3. Support connection pooling configuration
 4. Support circuit breaker pattern
+
+## Current cache and freshness contracts
+
+See [cache isolation](../../docs/enUS/SDK_CACHE_ISOLATION.md) and
+[optional source freshness](../../docs/enUS/SDK_SOURCE_FRESHNESS.md).
+Invalidation epochs fence in-flight list requests, successful newer responses fence
+older responses, and source-bounded caching retains the original source deadline.
+Server strict reads and SDK freshness must be enabled separately; neither is the default.
