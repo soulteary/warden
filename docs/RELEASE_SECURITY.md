@@ -16,6 +16,9 @@
   - `代码质量检查`（golangci-lint）
   - `依赖项安全扫描`（govulncheck）
   - `Docker 构建`（含 Trivy 镜像扫描、SBOM、非 root 校验）
+  - `构建检查`
+  - `Redis 快照集成测试`
+  - `Go quality report`（生成质量报告及英文文档拼写检查）
 - **Require branches to be up to date before merging**
 - **Require conversation resolution before merging**
 - **Do not allow bypassing the above settings**（含管理员）
@@ -26,7 +29,7 @@
 ## 2. 容器加固要点
 
 - 运行阶段以非 root 用户运行（uid/gid `10001`）。
-- 基础镜像固定到明确版本（`golang:1.27.2-alpine3.24`、`alpine:3.24`）；高保证场景追加 `@sha256:<digest>` 固定不可变镜像。
+- 基础镜像固定到明确版本（`golang:1.27.3-alpine3.24`、`alpine:3.24`）；高保证场景追加 `@sha256:<digest>` 固定不可变镜像。
 - 多阶段构建，运行镜像不含编译器、源码、私钥或测试数据。
 - 使用 `-trimpath` 去除构建路径信息。
 - UPX 默认关闭；如需开启：`make docker ENABLE_UPX=1` 或 `--build-arg ENABLE_UPX=1`。
@@ -52,11 +55,27 @@
 
 ## 5. GitHub Actions 固定策略
 
-当前第三方 Action 固定到主版本 tag，并由 `.github/dependabot.yml` 自动升级。
+当前 CI 和发布工作流中的第三方 Action 固定到 commit SHA，旁注标明对应版本；`.github/dependabot.yml` 跟踪后续升级。
 
-**高保证建议**：将第三方 Action 进一步固定到 commit SHA（例如 `uses: aquasecurity/trivy-action@<40 位 SHA> # v0.35.0`）。
+更新 Action 时应同时核对 SHA 和版本旁注，保持不可变引用。
 Dependabot 支持在 SHA 固定后自动提交升级 PR，兼顾可复现与可维护。
 
 ## 6. CHANGELOG 维护
 
 见根目录 `CHANGELOG.md` 顶部"维护流程"。Release 说明会引用该文件。
+
+## 7. 发布范围与验证
+
+`v1.4.4` 基于维护分支，不包含当时 main 上尚未发布的功能；不要只按 tag
+日期推断内容。`v1.5.0` 发布 main 上的功能，升级说明见
+[英文 Release Notes](releases/v1.5.0.md)。
+
+构建、race、覆盖率和集成验证继续使用 Linux。发布工作流在 Ubuntu 上交叉编译其他
+系统的二进制，这不等于已在这些系统上运行验证；其他宿主环境推荐使用 Linux 容器。
+分支 CI 按原始语句计数要求至少 95% 覆盖率，发布工作流自身的测试步骤不替代该门禁。
+发布前应确认 tag 指向已通过 main CI 的提交，发布后核对工作流、产物校验和、镜像
+签名和 SBOM。历史 tag、已发布报告及其原始阈值保持不变。
+
+发布工作流优先读取 tag 内的 `docs/releases/<tag>.md`；旧 tag 没有该文件时保留英文
+通用下载说明。版本化说明在删除/重建 Release 前选择，避免把缺少新文档的历史 tag
+误当成不可重发。Release Notes 不从当前 main 的文件替代旧 tag 内容。

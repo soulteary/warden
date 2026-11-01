@@ -81,14 +81,15 @@ go test ./...
 go test -cover ./...
 
 # Generate coverage report
-go test -coverprofile=coverage.out ./...
+go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+sh scripts/check-coverage.sh coverage.out
 go tool cover -html=coverage.out
 ```
 
 ### Testing Best Practices
 
 - Write unit tests for each new feature
-- Maintain test coverage at a reasonable level
+- Maintain at least 95% project-wide statement coverage using the exact-count gate
 - Use table-driven tests
 - Test boundary conditions and error cases
 

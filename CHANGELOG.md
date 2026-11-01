@@ -14,6 +14,46 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-02
+
+### Added
+
+- Opt-in Redis V2 snapshots preserve source-success and publication times across recovery; explicit migration, diagnostics and stale-replica follow recovery are available.
+- Optional server strict reads, aligned readiness, negotiated snapshot metadata and SDK source-freshness constraints.
+- Stable source identities, observed manifests and source-attempt evidence bound to accepted in-memory snapshots. Coverage enforcement remains unimplemented.
+- Exact 95% coverage gate, legacy ordering/hash differential tests, Scope ownership and residency contracts, and refresh/Redis stage benchmarks.
+
+### Fixed
+
+- SDK cached Scope aliases, in-flight responses crossing invalidation, and older responses replacing newer committed lists.
+- Configured Redis HMAC replay protection must be available at startup; data-cache Redis recovery remains a separate boundary.
+- Atomic prepared read views keep data, health and provenance on one generation. Snapshot ages advance at metric collection rather than only on refresh.
+
+### Changed
+
+- Reduce pagination, full-read, iteration, identity-ordering and rule-hash allocations without changing list order or InputVersion/EffectiveVersion.
+- Update released dependencies and Linux CI, and correct configuration, SDK, language-catalog and release documentation.
+- Document diagnostic compatibility and historical-log handling in the [release notes](docs/releases/v1.5.0.md). Defaults remain legacy Redis, bootstrap recovery and observe reads; SDK source freshness is opt-in.
+
+## [1.4.4] - 2026-11-01
+
+### Changed
+
+- 基于已发布的 `v1.4.3` 维护分支发布 SDK 补丁，同步 13 个已正式发布的 kit
+  补丁依赖，包括 `cache-kit/v2 v2.1.1`、`parser-kit/v3 v3.0.3` 和
+  `redis-kit v1.8.1`；`http-kit/v2` 保持 `v2.1.0`。
+- 更新上述依赖要求的兼容传递模块及校验和；Go 最低版本保持 `1.27.3`。
+- 为维护分支启用现有完整 CI，并使用发布 tag 自带的报告工作流验证该 tag。
+
+### Compatibility
+
+- SDK 和服务源码保持 `v1.4.3` 原样，不改变公开 API、默认行为或缓存契约。
+- 本补丁不包含 `main` 尚未发布的 source-freshness SDK API、版本化 Redis
+  快照、严格读取、来源证据或其他新功能；这些功能继续保留在 `main`。
+- 根 Go 模块的 SDK 与服务共用版本标签；正常发布流程同时生成服务二进制、
+  容器镜像、签名及 SBOM。
+
+
 ## [1.4.3] - 2026-10-31
 
 ### Changed

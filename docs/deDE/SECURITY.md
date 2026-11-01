@@ -312,3 +312,10 @@ client, err := warden.NewClient(warden.DefaultOptions().
 - [Bereitstellungsdokumentation](DEPLOYMENT.md) – Erfahren Sie mehr über Empfehlungen für die Bereitstellung in der Produktion
 - [API-Dokumentation](API.md) – Erfahren Sie mehr über die Sicherheitsfunktionen der API
 - [Architekturdokumentation](ARCHITECTURE.md) – Erfahren Sie mehr über die Architektur der Dienstintegration
+
+## Diagnostic compatibility and historical logs
+
+Upgrade requirements, diagnostic field semantics and historical log handling are
+covered in the [v1.5.0 release notes](../releases/v1.5.0.md). Upgrading does not
+rewrite previously stored logs. Masked identifiers and resource digests remain
+correlatable; access and retention controls still apply.

@@ -60,7 +60,7 @@ Warden AllowList 사용자 데이터 서비스 문서에 오신 것을 환영합
 
 ## 🌐 다국어 지원
 
-Warden은 완전한 국제화(i18N) 기능을 지원합니다. 모든 API 응답, 오류 메시지 및 로그가 국제화를 지원합니다.
+Warden은 내장 언어 카탈로그를 통해 사용자 메시지 번역을 제공합니다.
 
 ### 지원되는 언어
 
@@ -122,7 +122,9 @@ curl -H "X-API-Key: your-key" \
 
 ### 개발 참고 사항
 
-새로운 번역을 추가하거나 기존 번역을 수정하려면 `internal/i18n/i18n.go` 파일의 `translations` 맵을 편집하세요.
+Machine-readable fields, reason codes and fixed diagnostic events remain untranslated; background tasks can use a fixed language. Localization does not change protocol fields.
+
+번역은 내장 JSON 카탈로그 `locales/*.json`에서 관리합니다. 언어를 추가할 때는 `locales/embed.go`와 `internal/i18n/i18n.go`의 언어 등록도 확인하세요.
 
 ## 🚀 빠른 탐색
 
@@ -220,3 +222,8 @@ warden/
 1. 오류나 개선이 필요한 영역 찾기
 2. 문제를 설명하는 Issue 제출
 3. 또는 직접 Pull Request 제출
+
+## Release and ownership contracts
+
+- [Release notes and upgrade requirements](../releases/v1.5.0.md)
+- [Scope ownership and retained memory](../enUS/SCOPE_OWNERSHIP.md)

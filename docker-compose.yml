@@ -37,8 +37,8 @@ services:
 
   warden-redis:
     container_name: warden-redis
-    # Redis 7.4 是受支持的稳定版本；Warden 仅使用基础 GET/SET/INCR/EXPIRE，
-    # 与 6.x 完全向后兼容，无需迁移数据结构。6.2 已 EOL，请勿继续使用。
+    # 默认 legacy 模式保留原缓存格式；V2 快照还使用 Lua 与租约，不能按基础命令推断兼容性。
+    # 当前快照集成验证使用 Redis 8；启用 V2 前按迁移文档验证部署版本。
     image: redis:7.4-alpine
     # Redis port configuration: expose only, not mapped to host
     # Purpose: Redis cache for Warden service, used only within Docker internal network

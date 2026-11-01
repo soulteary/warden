@@ -60,7 +60,7 @@ Welcome to the Warden AllowList user data service documentation.
 
 ## 🌐 Multi-language Support
 
-Warden supports complete internationalization (i18N) functionality. All API responses, error messages, and logs support internationalization.
+Warden provides translated user-facing messages through embedded language catalogs.
 
 ### Supported Languages
 
@@ -122,7 +122,9 @@ The following content supports multiple languages:
 
 ### Development Notes
 
-To add new translations or modify existing translations, please edit the `translations` map in the `internal/i18n/i18n.go` file.
+Machine-readable fields, reason codes and some fixed diagnostic events are not translated. Background tasks can use a fixed language. Localization does not change protocol fields.
+
+Edit the embedded JSON catalogs in `locales/*.json`. For a new language, also update `locales/embed.go` and the language registration in `internal/i18n/i18n.go`.
 
 ## 🚀 Quick Navigation
 
@@ -149,7 +151,6 @@ To add new translations or modify existing translations, please edit the `transl
 ```
 warden/
 ├── README.md              # Main project document (English, default)
-├── README.md           # Main project document (English, alias)
 ├── docs/
 │   ├── enUS/
 │   │   ├── README.md       # Documentation index (English, this file)
@@ -221,3 +222,8 @@ Documentation improvements are welcome:
 1. Find errors or areas that need improvement
 2. Submit an Issue describing the problem
 3. Or directly submit a Pull Request
+
+## Release and ownership contracts
+
+- [Release notes and upgrade requirements](../releases/v1.5.0.md)
+- [Scope ownership and retained memory](SCOPE_OWNERSHIP.md)

@@ -93,14 +93,15 @@ go test ./...
 go test -cover ./...
 
 # 生成覆盖率报告
-go test -coverprofile=coverage.out ./...
+go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
+sh scripts/check-coverage.sh coverage.out
 go tool cover -html=coverage.out
 ```
 
 ### 测试最佳实践
 
 - 为每个新功能编写单元测试
-- 保持测试覆盖率在合理水平
+- 全项目语句覆盖率至少 95%，使用精确计数门禁
 - 使用表驱动测试（table-driven tests）
 - 测试边界条件和错误情况
 

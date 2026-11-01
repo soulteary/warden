@@ -60,7 +60,7 @@ Bienvenue dans la documentation du service de données utilisateur Warden AllowL
 
 ## 🌐 Support Multilingue
 
-Warden prend en charge une fonctionnalité d'internationalisation (i18N) complète. Toutes les réponses API, les messages d'erreur et les journaux prennent en charge l'internationalisation.
+Warden fournit des messages traduits au moyen de catalogues de langues intégrés.
 
 ### Langues Prises en Charge
 
@@ -122,7 +122,9 @@ Le contenu suivant prend en charge plusieurs langues :
 
 ### Notes de Développement
 
-Pour ajouter de nouvelles traductions ou modifier les traductions existantes, veuillez modifier la map `translations` dans le fichier `internal/i18n/i18n.go`.
+Machine-readable fields, reason codes and fixed diagnostic events remain untranslated; background tasks can use a fixed language. Localization does not change protocol fields.
+
+Modifiez les catalogues JSON intégrés dans `locales/*.json`. Pour une nouvelle langue, vérifiez aussi `locales/embed.go` et son enregistrement dans `internal/i18n/i18n.go`.
 
 ## 🚀 Navigation Rapide
 
@@ -220,3 +222,8 @@ Les améliorations de la documentation sont les bienvenues :
 1. Trouver des erreurs ou des domaines à améliorer
 2. Soumettre un Issue décrivant le problème
 3. Ou soumettre directement une Pull Request
+
+## Release and ownership contracts
+
+- [Release notes and upgrade requirements](../releases/v1.5.0.md)
+- [Scope ownership and retained memory](../enUS/SCOPE_OWNERSHIP.md)

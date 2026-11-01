@@ -485,13 +485,13 @@ password := "hardcoded_password"
 
 - 生产环境不要暴露详细的错误信息
 - 使用通用错误消息返回给用户
-- 详细错误只记录在日志中
+- 日志只记录已审查并脱敏的诊断信息
 
 ```go
 // ✅ 正确
 if isProduction {
     http.Error(w, "Internal server error", http.StatusInternalServerError)
-    log.Error().Err(err).Msg("详细错误信息")
+    log.Error().Str("reason", "operation_failed").Msg("request failed")
 } else {
     http.Error(w, err.Error(), http.StatusInternalServerError)
 }
@@ -553,3 +553,8 @@ if isProduction {
 
 遵循这些规范有助于保持代码库的一致性和可维护性。如有疑问，请参考项目中的现有代码或联系维护者。
 
+
+Error values can contain user data, URLs or credentials. Review and sanitize them
+before logging; production mode does not make raw error text safe. Use stable
+reason codes and masked identifiers for validation diagnostics. See the
+[release log-handling requirements](../releases/v1.5.0.md#historical-logs).
