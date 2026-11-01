@@ -83,21 +83,8 @@ func (o *Options) Validate() error {
 		return NewError(ErrCodeInvalidConfig, "BaseURL is required", nil)
 	}
 
-	// HMAC signing is enabled only as a complete key-id/secret pair. Reject a
-	// partial pair instead of silently constructing an unsigned client.
-	hmacKeyIDSet := strings.TrimSpace(o.HMACKeyID) != ""
-	hmacSecretSet := strings.TrimSpace(o.HMACSecret) != ""
-	switch {
-	case !hmacKeyIDSet && !hmacSecretSet:
-		// Treat a semantically blank pair as disabled. newHMACSigner intentionally
-		// preserves secret bytes, so leaving whitespace here would create a signer
-		// that overrides an otherwise valid API key with unusable HMAC headers.
-		o.HMACKeyID = ""
-		o.HMACSecret = ""
-	case hmacKeyIDSet != hmacSecretSet:
-		return NewError(ErrCodeInvalidConfig, "HMACKeyID and HMACSecret must be configured together", nil)
-	default:
-		o.HMACKeyID = strings.TrimSpace(o.HMACKeyID)
+	if err := o.validateHMAC(); err != nil {
+		return err
 	}
 
 	// Normalize BaseURL
@@ -127,23 +114,7 @@ func (o *Options) Validate() error {
 		o.Logger = &NoOpLogger{}
 	}
 
-	// Validate retry options if provided
-	if o.Retry != nil {
-		if o.Retry.MaxRetries < 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetries must be non-negative", nil)
-		}
-		if o.Retry.RetryDelay < 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.RetryDelay must be non-negative", nil)
-		}
-		if o.Retry.MaxRetryDelay < 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetryDelay must be non-negative", nil)
-		}
-		if o.Retry.BackoffMultiplier <= 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.BackoffMultiplier must be greater than 0", nil)
-		}
-	}
-
-	return nil
+	return o.validateRetry()
 }
 
 // WithBaseURL sets the base URL for the Warden service.
@@ -241,4 +212,45 @@ func (o *Options) WithSourceFreshness(maxAge, clockSkew time.Duration) *Options 
 	o.SourceMaxAge = maxAge
 	o.SourceClockSkew = clockSkew
 	return o
+}
+
+func (o *Options) validateHMAC() error {
+	// HMAC signing is enabled only as a complete key-id/secret pair. Reject a
+	// partial pair instead of silently constructing an unsigned client.
+	hmacKeyIDSet := strings.TrimSpace(o.HMACKeyID) != ""
+	hmacSecretSet := strings.TrimSpace(o.HMACSecret) != ""
+	switch {
+	case !hmacKeyIDSet && !hmacSecretSet:
+		// Treat a semantically blank pair as disabled. newHMACSigner intentionally
+		// preserves secret bytes, so leaving whitespace here would create a signer
+		// that overrides an otherwise valid API key with unusable HMAC headers.
+		o.HMACKeyID = ""
+		o.HMACSecret = ""
+	case hmacKeyIDSet != hmacSecretSet:
+		return NewError(ErrCodeInvalidConfig, "HMACKeyID and HMACSecret must be configured together", nil)
+	default:
+		o.HMACKeyID = strings.TrimSpace(o.HMACKeyID)
+	}
+
+	return nil
+}
+
+func (o *Options) validateRetry() error {
+	// Validate retry options if provided
+	if o.Retry != nil {
+		if o.Retry.MaxRetries < 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetries must be non-negative", nil)
+		}
+		if o.Retry.RetryDelay < 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.RetryDelay must be non-negative", nil)
+		}
+		if o.Retry.MaxRetryDelay < 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetryDelay must be non-negative", nil)
+		}
+		if o.Retry.BackoffMultiplier <= 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.BackoffMultiplier must be greater than 0", nil)
+		}
+	}
+
+	return nil
 }

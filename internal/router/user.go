@@ -63,14 +63,10 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 
 		// Validate only one identifier is provided
 		identifierCount := 0
-		if phone != "" {
-			identifierCount++
-		}
-		if mail != "" {
-			identifierCount++
-		}
-		if userID != "" {
-			identifierCount++
+		for _, value := range []string{phone, mail, userID} {
+			if value != "" {
+				identifierCount++
+			}
 		}
 		if identifierCount > 1 {
 			tracing.RecordError(span, fmt.Errorf("multiple identifiers provided"))
@@ -81,9 +77,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 		}
 
 		// Security: limit identifier length to prevent DoS and log/cache bloat
-		if (phone != "" && len(phone) > define.MAX_IDENTIFIER_LENGTH) ||
-			(mail != "" && len(mail) > define.MAX_IDENTIFIER_LENGTH) ||
-			(userID != "" && len(userID) > define.MAX_IDENTIFIER_LENGTH) {
+		if identifierTooLong(phone, mail, userID) {
 			tracing.RecordError(span, fmt.Errorf("identifier too long"))
 			logger.FromRequest(r).Warn().Msg(i18n.T(r, "error.invalid_identifier"))
 			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.invalid_identifier"))
@@ -115,15 +109,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 				Msg(i18n.T(r, "log.user_not_found"))
 
 			// Audit log: user query failed (identifier sanitized to avoid PII in audit storage)
-			identifier := phone
-			identifierType := "phone"
-			if mail != "" {
-				identifier = mail
-				identifierType = "mail"
-			} else if userID != "" {
-				identifier = userID
-				identifierType = "user_id"
-			}
+			identifier, identifierType := auditIdentifier(phone, mail, userID)
 			auditlog.LogUserQuery(r.Context(), "", sanitizeIdentifierForAudit(identifier, identifierType), identifierType, r.RemoteAddr, false, "user_not_found")
 
 			WriteJSONError(w, http.StatusNotFound, i18n.T(r, "http.user_not_found"))
@@ -159,15 +145,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 			Msg(i18n.T(r, "log.user_query_success"))
 
 		// Audit log: user query success (identifier sanitized to avoid PII in audit storage)
-		identifier := phone
-		identifierType := "phone"
-		if mail != "" {
-			identifier = mail
-			identifierType = "mail"
-		} else if userID != "" {
-			identifier = userID
-			identifierType = "user_id"
-		}
+		identifier, identifierType := auditIdentifier(phone, mail, userID)
 		auditlog.LogUserQuery(r.Context(), user.UserID, sanitizeIdentifierForAudit(identifier, identifierType), identifierType, r.RemoteAddr, true, "")
 	}
 }
@@ -183,4 +161,23 @@ func sanitizeIdentifierForAudit(identifier, identifierType string) string {
 	default:
 		return identifier
 	}
+}
+
+func identifierTooLong(values ...string) bool {
+	for _, value := range values {
+		if len(value) > define.MAX_IDENTIFIER_LENGTH {
+			return true
+		}
+	}
+	return false
+}
+
+func auditIdentifier(phone, mail, userID string) (identifier, identifierType string) {
+	if mail != "" {
+		return mail, "mail"
+	}
+	if userID != "" {
+		return userID, "user_id"
+	}
+	return phone, "phone"
 }

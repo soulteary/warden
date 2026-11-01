@@ -111,39 +111,12 @@ func ValidateAndIndexUsers(users []define.AllowListUser, opts Options) (Result, 
 			return Result{}, mErr
 		}
 
-		if phone != "" {
-			if prev, ok := phoneIdx[phone]; ok {
-				if cErr := handleConflict(&res, opts, FieldPhone, MaskPhone(phone), prev, i); cErr != nil {
-					return Result{}, cErr
-				}
-				continue
-			}
-			phoneIdx[phone] = i
-		}
-		if mail != "" {
-			if prev, ok := mailIdx[mail]; ok {
-				if cErr := handleConflict(&res, opts, FieldMail, MaskMail(mail), prev, i); cErr != nil {
-					return Result{}, cErr
-				}
-				continue
-			}
-			mailIdx[mail] = i
-		}
-		if uid != "" {
-			if prev, ok := userIDIdx[uid]; ok {
-				if cErr := handleConflict(&res, opts, FieldUserID, MaskUserID(uid), prev, i); cErr != nil {
-					return Result{}, cErr
-				}
-				continue
-			}
-			userIDIdx[uid] = i
+		err := indexIdentifiers(&res, opts, i, phone, mail, uid, phoneIdx, mailIdx, userIDIdx)
+		if err != nil {
+			return Result{}, err
 		}
 	}
 
-	if opts.ReportOnly {
-		res.Users = stableSort(normalized)
-		return res, nil
-	}
 	res.Users = stableSort(normalized)
 	return res, nil
 }
@@ -184,4 +157,29 @@ func canonicalKey(u *define.AllowListUser) string {
 		k = strings.ToLower(strings.TrimSpace(u.Mail))
 	}
 	return k
+}
+
+// indexIdentifiers stops at the first conflicting field, preserving report counts
+// and the partial indexes built before that conflict.
+func indexIdentifiers(res *Result, opts Options, index int, phone, mail, uid string, phoneIdx, mailIdx, userIDIdx map[string]int) error {
+	fields := []struct {
+		indexes map[string]int
+		mask    func(string) string
+		value   string
+		field   FieldType
+	}{
+		{phoneIdx, MaskPhone, phone, FieldPhone},
+		{mailIdx, MaskMail, mail, FieldMail},
+		{userIDIdx, MaskUserID, uid, FieldUserID},
+	}
+	for _, field := range fields {
+		if field.value == "" {
+			continue
+		}
+		if previous, ok := field.indexes[field.value]; ok {
+			return handleConflict(res, opts, field.field, field.mask(field.value), previous, index)
+		}
+		field.indexes[field.value] = index
+	}
+	return nil
 }

@@ -22,36 +22,7 @@ func TestServerSDKFreshnessMatrix(t *testing.T) {
 		for _, bound := range []bool{false, true} {
 			for _, state := range []string{"memory_fresh", "memory_stale", "memory_unknown", "v2_fresh", "v2_stale", "legacy_unknown", "empty_fresh"} {
 				t.Run(state+map[bool]string{true: "/enforce", false: "/observe"}[enforce]+map[bool]string{true: "/bound", false: "/default"}[bound], func(t *testing.T) {
-					app := responseMetadataApp(t)
-					app.snapshotReadEnforce = enforce
-					now := time.Now().UTC()
-					source := now.Add(-time.Second)
-					stale := state == "memory_stale" || state == "v2_stale"
-					unknown := state == "memory_unknown" || state == "legacy_unknown"
-					if stale {
-						source = now.Add(-time.Hour)
-					}
-					snap := *app.snapshots.Load()
-					snap.SourceSucceededAt = source
-					if unknown {
-						snap.SourceSucceededAt = time.Time{}
-					}
-					if state == "empty_fresh" {
-						_, empty := preparedTestSnapshot(t, []define.AllowListUser{})
-						snap = *empty
-						snap.SourceSucceededAt = source
-					}
-					app.snapshots.Store(&snap)
-					if state == "legacy_unknown" {
-						app.snapshots.Store(snapshotFromRedis(app.userCache.Get(), app.userCache.ReadView()))
-					}
-					if state == "v2_fresh" || state == "v2_stale" {
-						backing, _ := migrationFixture(t, "v2")
-						publishMigrationSource(t, backing, source, []define.AllowListUser{{Mail: "member@example.com", UserID: "member"}})
-						app.redisSnapshotMode = "v2"
-						app.redisSnapshots = backing.redisSnapshots
-						require.True(t, app.bootstrapFromRedis())
-					}
+					app, stale, unknown := sdkFreshnessApp(t, state, enforce)
 					server := httptest.NewServer(registerRoutes(app))
 					defer server.Close()
 					opts := sdk.DefaultOptions().WithBaseURL(server.URL).WithAPIKey("key")
@@ -62,48 +33,8 @@ func TestServerSDKFreshnessMatrix(t *testing.T) {
 					require.NoError(t, err)
 					defer client.Close()
 					for _, method := range []string{"list", "page", "user", "missing"} {
-						var callErr error
-						switch method {
-						case "list":
-							var users []sdk.AllowListUser
-							users, callErr = client.GetUsers(context.Background())
-							if callErr == nil {
-								if state == "empty_fresh" {
-									require.Empty(t, users)
-								} else {
-									require.Equal(t, "member", users[0].UserID)
-								}
-							}
-						case "page":
-							_, callErr = client.GetUsersPaginated(context.Background(), 1, 1)
-						case "user":
-							_, callErr = client.GetUserByIdentifier(context.Background(), "", "", "member")
-						case "missing":
-							_, callErr = client.GetUserByIdentifier(context.Background(), "", "", "missing")
-						}
-						code := ""
-						switch {
-						case enforce && (stale || unknown) && !bound:
-							code = sdk.ErrCodeServerError
-						case bound && (stale || unknown):
-							code = sdk.ErrCodeSourceFreshness
-						case method == "missing" || (method == "user" && state == "empty_fresh"):
-							code = sdk.ErrCodeNotFound
-						}
-						if code == "" {
-							require.NoError(t, callErr, method)
-						} else {
-							var e *sdk.Error
-							require.ErrorAs(t, callErr, &e, method)
-							require.Equal(t, code, e.Code, method)
-							if code == sdk.ErrCodeSourceFreshness {
-								if stale {
-									require.ErrorIs(t, callErr, sdk.ErrSourceStale)
-								} else {
-									require.ErrorIs(t, callErr, sdk.ErrSourceUnknown)
-								}
-							}
-						}
+						callErr := callSDKFreshnessMethod(t, client, method, state)
+						checkSDKFreshnessError(t, callErr, method, state, enforce, bound, stale, unknown)
 					}
 				})
 			}
@@ -231,31 +162,7 @@ func TestServerSource503NegotiationAndAuthentication(t *testing.T) {
 			routes := registerRoutes(app)
 			for _, authenticated := range []bool{false, true} {
 				for _, negotiated := range []bool{false, true} {
-					req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-					if authenticated {
-						req.Header.Set("X-API-Key", "key")
-					}
-					if negotiated {
-						req.Header.Set(snapshotMetadataHeader, "v1")
-					}
-					rec := httptest.NewRecorder()
-					routes.ServeHTTP(rec, req)
-					if !authenticated {
-						require.Equal(t, 401, rec.Code)
-					} else {
-						require.Equal(t, 503, rec.Code)
-					}
-					if authenticated && negotiated {
-						expected := state
-						if state == "no_snapshot" || state == "view_unknown" {
-							expected = "unknown"
-						}
-						require.Equal(t, expected, rec.Header().Get(sourceErrorHeader))
-						require.Equal(t, "v1", rec.Header().Get(snapshotMetadataHeader))
-					} else {
-						require.Empty(t, rec.Header().Get(sourceErrorHeader))
-						require.Empty(t, rec.Header().Get(snapshotMetadataHeader))
-					}
+					checkSource503Contract(t, routes, state, authenticated, negotiated)
 				}
 			}
 		})
@@ -294,5 +201,120 @@ func TestServerSDKSource503KeepsRetryPolicy(t *testing.T) {
 		require.EqualValues(t, 3, calls.Load())
 		client.Close()
 		server.Close()
+	}
+}
+
+func sdkFreshnessApp(t *testing.T, state string, enforce bool) (*App, bool, bool) {
+	t.Helper()
+	app := responseMetadataApp(t)
+	app.snapshotReadEnforce = enforce
+	now := time.Now().UTC()
+	source := now.Add(-time.Second)
+	stale := state == "memory_stale" || state == "v2_stale"
+	unknown := state == "memory_unknown" || state == "legacy_unknown"
+	if stale {
+		source = now.Add(-time.Hour)
+	}
+	snap := *app.snapshots.Load()
+	snap.SourceSucceededAt = source
+	if unknown {
+		snap.SourceSucceededAt = time.Time{}
+	}
+	if state == "empty_fresh" {
+		_, empty := preparedTestSnapshot(t, []define.AllowListUser{})
+		snap = *empty
+		snap.SourceSucceededAt = source
+	}
+	app.snapshots.Store(&snap)
+	if state == "legacy_unknown" {
+		app.snapshots.Store(snapshotFromRedis(app.userCache.Get(), app.userCache.ReadView()))
+	}
+	if state == "v2_fresh" || state == "v2_stale" {
+		backing, _ := migrationFixture(t, "v2")
+		publishMigrationSource(t, backing, source, []define.AllowListUser{{Mail: "member@example.com", UserID: "member"}})
+		app.redisSnapshotMode = "v2"
+		app.redisSnapshots = backing.redisSnapshots
+		require.True(t, app.bootstrapFromRedis())
+	}
+	return app, stale, unknown
+}
+
+func callSDKFreshnessMethod(t *testing.T, client *sdk.Client, method, state string) error {
+	t.Helper()
+	var callErr error
+	switch method {
+	case "list":
+		var users []sdk.AllowListUser
+		users, callErr = client.GetUsers(context.Background())
+		if callErr == nil {
+			if state == "empty_fresh" {
+				require.Empty(t, users)
+			} else {
+				require.Equal(t, "member", users[0].UserID)
+			}
+		}
+	case "page":
+		_, callErr = client.GetUsersPaginated(context.Background(), 1, 1)
+	case "user":
+		_, callErr = client.GetUserByIdentifier(context.Background(), "", "", "member")
+	case "missing":
+		_, callErr = client.GetUserByIdentifier(context.Background(), "", "", "missing")
+	}
+	return callErr
+}
+
+func checkSource503Contract(t *testing.T, routes http.Handler, state string, authenticated, negotiated bool) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+	if authenticated {
+		req.Header.Set("X-API-Key", "key")
+	}
+	if negotiated {
+		req.Header.Set(snapshotMetadataHeader, "v1")
+	}
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+	if !authenticated {
+		require.Equal(t, 401, rec.Code)
+	} else {
+		require.Equal(t, 503, rec.Code)
+	}
+	if authenticated && negotiated {
+		expected := state
+		if state == "no_snapshot" || state == "view_unknown" {
+			expected = "unknown"
+		}
+		require.Equal(t, expected, rec.Header().Get(sourceErrorHeader))
+		require.Equal(t, "v1", rec.Header().Get(snapshotMetadataHeader))
+	} else {
+		require.Empty(t, rec.Header().Get(sourceErrorHeader))
+		require.Empty(t, rec.Header().Get(snapshotMetadataHeader))
+	}
+}
+
+func checkSDKFreshnessError(t *testing.T, callErr error, method, state string, enforce, bound, stale, unknown bool) {
+	t.Helper()
+	code := ""
+	switch {
+	case enforce && (stale || unknown) && !bound:
+		code = sdk.ErrCodeServerError
+	case bound && (stale || unknown):
+		code = sdk.ErrCodeSourceFreshness
+	case method == "missing" || (method == "user" && state == "empty_fresh"):
+		code = sdk.ErrCodeNotFound
+	}
+	if code == "" {
+		require.NoError(t, callErr, method)
+	} else {
+		var e *sdk.Error
+		require.ErrorAs(t, callErr, &e, method)
+		require.Equal(t, code, e.Code, method)
+		if code == sdk.ErrCodeSourceFreshness {
+			if stale {
+				require.ErrorIs(t, callErr, sdk.ErrSourceStale)
+			} else {
+				require.ErrorIs(t, callErr, sdk.ErrSourceUnknown)
+			}
+		}
 	}
 }

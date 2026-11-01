@@ -36,37 +36,7 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, err.Error())
 	}
 
-	// Validate port using cli-kit validator
-	if _, err := validator.ValidatePortString(cfg.Port); err != nil {
-		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
-	}
-
-	// Validate Redis address format using cli-kit validator
-	if cfg.Redis != "" {
-		if _, _, err := validator.ValidateHostPort(cfg.Redis); err != nil {
-			errors = append(errors, fmt.Sprintf("Invalid Redis address format: %s (should be host:port): %v", cfg.Redis, err))
-		}
-	}
-
-	// Validate remote configuration URL through the injectable SSRF-safe resolver path.
-	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
-		if err := wardenvalidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
-			errors = append(errors, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
-		}
-	}
-
-	// Validate task interval
-	if cfg.TaskInterval < 1 {
-		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
-	}
-	if _, err := ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval); err != nil {
-		errors = append(errors, fmt.Sprintf("Invalid SNAPSHOT_MAX_AGE: %v", err))
-	}
-
-	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
-	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
-		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
-	}
+	errors = append(errors, validateEndpointsAndMode(cfg)...)
 
 	// Validate deployment environment (security-policy concern only).
 	environment, envOK := config.ParseEnvironment(cfg.Environment)
@@ -81,36 +51,14 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.empty_ruleset_policy_invalid", cfg.EmptyRulesetPolicy))
 	}
 
-	// Validate the complete HMAC key set before it reaches authentication middleware.
-	// A configured-but-empty secret must never become an authentication credential.
-	if strings.TrimSpace(cfg.HMACKeys) != "" {
-		if _, err := ParseHMACKeys(cfg.HMACKeys); err != nil {
-			errors = append(errors, fmt.Sprintf("Invalid WARDEN_HMAC_KEYS: %v", err))
-		}
-	}
-
-	if raw := os.Getenv("WARDEN_HMAC_ALLOW_V1"); strings.TrimSpace(raw) != "" {
-		if _, err := ParseHMACAllowV1(raw); err != nil {
-			errors = append(errors, fmt.Sprintf("Invalid WARDEN_HMAC_ALLOW_V1 %q: %v", strings.TrimSpace(raw), err))
-		}
-	}
+	errors = append(errors, validateHMACConfig(cfg)...)
 
 	// TLS must be configured as a complete transport. startServer enables HTTPS only
 	// when both the certificate and private key are present, so accepting a partial
 	// configuration here would silently start a plaintext HTTP listener.
 	errors = append(errors, validateTLSConfig(cfg)...)
 
-	if _, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err != nil {
-		errors = append(errors, err.Error())
-	}
-	if cfg.RemoteEncryptionRequired {
-		if !cfg.RemoteDecryptEnabled {
-			errors = append(errors, "REMOTE_ENCRYPTION_REQUIRED requires REMOTE_DECRYPT_ENABLED=true")
-		}
-		if strings.TrimSpace(cfg.RemoteRSAPrivateKeyFile) == "" && strings.TrimSpace(cfg.RemoteRSAPrivateKey) == "" {
-			errors = append(errors, "REMOTE_ENCRYPTION_REQUIRED requires REMOTE_RSA_PRIVATE_KEY_FILE or REMOTE_RSA_PRIVATE_KEY")
-		}
-	}
+	errors = append(errors, validateEncryptionConfig(cfg)...)
 
 	// Production-specific security validation. These key off ENVIRONMENT, never the merge mode.
 	if environment.IsProduction() {
@@ -131,34 +79,7 @@ func ValidateConfig(cfg *Config) error {
 		}
 	}
 
-	// When remote decrypt is enabled, either RSA private key file or inline PEM must be set
-	if cfg.RemoteDecryptEnabled {
-		if cfg.RemoteRSAPrivateKeyFile == "" && cfg.RemoteRSAPrivateKey == "" {
-			errors = append(errors, "REMOTE_DECRYPT_ENABLED is true but neither REMOTE_RSA_PRIVATE_KEY_FILE nor REMOTE_RSA_PRIVATE_KEY is set")
-		} else if cfg.RemoteRSAPrivateKeyFile != "" {
-			info, err := os.Stat(cfg.RemoteRSAPrivateKeyFile)
-			switch {
-			case err != nil:
-				if os.IsNotExist(err) {
-					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q does not exist", cfg.RemoteRSAPrivateKeyFile))
-				} else {
-					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q: %v", cfg.RemoteRSAPrivateKeyFile, err))
-				}
-			case info.IsDir():
-				errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is a directory, not a file", cfg.RemoteRSAPrivateKeyFile))
-			default:
-				f, err := os.Open(cfg.RemoteRSAPrivateKeyFile)
-				if err != nil {
-					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is not readable: %v", cfg.RemoteRSAPrivateKeyFile, err))
-				} else {
-					if closeErr := f.Close(); closeErr != nil {
-						errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q close: %v", cfg.RemoteRSAPrivateKeyFile, closeErr))
-					}
-				}
-			}
-		}
-		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
-	}
+	errors = append(errors, validateDecryptKey(cfg)...)
 
 	if len(errors) > 0 {
 		return fmt.Errorf("%s:\n  - %s", i18n.TWithLang(i18n.LangZH, "error.config_validation_failed"), strings.Join(errors, "\n  - "))
@@ -360,4 +281,110 @@ func ParseHMACKeys(raw string) (map[string]string, error) {
 		keys[normalizedID] = secret
 	}
 	return keys, nil
+}
+
+func validateEndpointsAndMode(cfg *Config) []string {
+	var errs []string
+	// Validate port using cli-kit validator
+	if _, err := validator.ValidatePortString(cfg.Port); err != nil {
+		errs = append(errs, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
+	}
+
+	// Validate Redis address format using cli-kit validator
+	if cfg.Redis != "" {
+		if _, _, err := validator.ValidateHostPort(cfg.Redis); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid Redis address format: %s (should be host:port): %v", cfg.Redis, err))
+		}
+	}
+
+	// Validate remote configuration URL through the injectable SSRF-safe resolver path.
+	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
+		if err := wardenvalidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
+		}
+	}
+
+	// Validate task interval
+	if cfg.TaskInterval < 1 {
+		errs = append(errs, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
+	}
+	if _, err := ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval); err != nil {
+		errs = append(errs, fmt.Sprintf("Invalid SNAPSHOT_MAX_AGE: %v", err))
+	}
+
+	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
+	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
+		errs = append(errs, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
+	}
+
+	return errs
+}
+
+func validateHMACConfig(cfg *Config) []string {
+	var errs []string
+	// Validate the complete HMAC key set before it reaches authentication middleware.
+	// A configured-but-empty secret must never become an authentication credential.
+	if strings.TrimSpace(cfg.HMACKeys) != "" {
+		if _, err := ParseHMACKeys(cfg.HMACKeys); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid WARDEN_HMAC_KEYS: %v", err))
+		}
+	}
+
+	if raw := os.Getenv("WARDEN_HMAC_ALLOW_V1"); strings.TrimSpace(raw) != "" {
+		if _, err := ParseHMACAllowV1(raw); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid WARDEN_HMAC_ALLOW_V1 %q: %v", strings.TrimSpace(raw), err))
+		}
+	}
+
+	return errs
+}
+
+func validateEncryptionConfig(cfg *Config) []string {
+	var errs []string
+	if _, err := remote.ParseEncryptionFormat(cfg.RemoteEncryptionFormat); err != nil {
+		errs = append(errs, err.Error())
+	}
+	if cfg.RemoteEncryptionRequired {
+		if !cfg.RemoteDecryptEnabled {
+			errs = append(errs, "REMOTE_ENCRYPTION_REQUIRED requires REMOTE_DECRYPT_ENABLED=true")
+		}
+		if strings.TrimSpace(cfg.RemoteRSAPrivateKeyFile) == "" && strings.TrimSpace(cfg.RemoteRSAPrivateKey) == "" {
+			errs = append(errs, "REMOTE_ENCRYPTION_REQUIRED requires REMOTE_RSA_PRIVATE_KEY_FILE or REMOTE_RSA_PRIVATE_KEY")
+		}
+	}
+
+	return errs
+}
+
+func validateDecryptKey(cfg *Config) []string {
+	var errs []string
+	// When remote decrypt is enabled, either RSA private key file or inline PEM must be set
+	if cfg.RemoteDecryptEnabled {
+		if cfg.RemoteRSAPrivateKeyFile == "" && cfg.RemoteRSAPrivateKey == "" {
+			errs = append(errs, "REMOTE_DECRYPT_ENABLED is true but neither REMOTE_RSA_PRIVATE_KEY_FILE nor REMOTE_RSA_PRIVATE_KEY is set")
+		} else if cfg.RemoteRSAPrivateKeyFile != "" {
+			info, err := os.Stat(cfg.RemoteRSAPrivateKeyFile)
+			switch {
+			case err != nil:
+				if os.IsNotExist(err) {
+					errs = append(errs, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q does not exist", cfg.RemoteRSAPrivateKeyFile))
+				} else {
+					errs = append(errs, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q: %v", cfg.RemoteRSAPrivateKeyFile, err))
+				}
+			case info.IsDir():
+				errs = append(errs, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is a directory, not a file", cfg.RemoteRSAPrivateKeyFile))
+			default:
+				f, err := os.Open(cfg.RemoteRSAPrivateKeyFile)
+				if err != nil {
+					errs = append(errs, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is not readable: %v", cfg.RemoteRSAPrivateKeyFile, err))
+				} else {
+					if closeErr := f.Close(); closeErr != nil {
+						errs = append(errs, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q close: %v", cfg.RemoteRSAPrivateKeyFile, closeErr))
+					}
+				}
+			}
+		}
+		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
+	}
+	return errs
 }

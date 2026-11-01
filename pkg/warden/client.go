@@ -333,16 +333,11 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 // GetUserByIdentifier fetches a single user by phone, mail, or user_id.
 // Only one identifier should be provided.
 func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID string) (*AllowListUser, error) {
-	// Validate that exactly one identifier is provided
 	identifierCount := 0
-	if phone != "" {
-		identifierCount++
-	}
-	if mail != "" {
-		identifierCount++
-	}
-	if userID != "" {
-		identifierCount++
+	for _, value := range []string{phone, mail, userID} {
+		if value != "" {
+			identifierCount++
+		}
 	}
 
 	if identifierCount == 0 {
@@ -352,20 +347,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 		return nil, NewError(ErrCodeInvalidConfig, "only one identifier (phone, mail, or user_id) should be provided", nil)
 	}
 
-	// Build request URL
-	reqURL := strings.TrimSuffix(c.baseURL, "/") + "/user"
-	params := url.Values{}
-	switch {
-	case phone != "":
-		params.Set("phone", phone)
-	case mail != "":
-		params.Set("mail", mail)
-	case userID != "":
-		params.Set("user_id", userID)
-	}
-	if len(params) > 0 {
-		reqURL += "?" + params.Encode()
-	}
+	reqURL := c.userRequestURL(phone, mail, userID)
 
 	// Sanitize URL in logs to mask sensitive query parameters
 	sanitizedURL := sanitizeURLString(reqURL)
@@ -501,24 +483,14 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 	maxAttempts := c.retry.MaxRetries + 1
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
-			// Calculate delay before retry
-			delay := c.calculateRetryDelay(attempt - 1)
-			c.logger.Debugf("Retrying request (attempt %d/%d) after %v: %s %s",
-				attempt+1, maxAttempts, delay, req.Method, req.URL.String())
-
-			// Wait before retry
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
+			if err := c.waitBeforeRetry(ctx, req, attempt, maxAttempts); err != nil {
+				return nil, err
 			}
 		}
 
 		// Make the request
-		if c.signer != nil {
-			if err := c.signer.sign(req); err != nil {
-				return nil, NewError(ErrCodeRequestFailed, "failed to sign request", err)
-			}
+		if err := c.signRequest(req); err != nil {
+			return nil, err
 		}
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
@@ -534,7 +506,7 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 		}
 
 		// Check if status code is retryable
-		if retryAllowed && c.isRetryableError(nil, resp.StatusCode) && attempt < c.retry.MaxRetries {
+		if c.shouldRetryResponse(retryAllowed, resp.StatusCode, attempt) {
 			// Close response body before retry
 			if err := resp.Body.Close(); err != nil {
 				c.logger.Debugf("Failed to close response body before retry: %v", err)
@@ -631,4 +603,51 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 	default:
 		return NewError(ErrCodeRequestFailed, fmt.Sprintf("warden API returned status %d: %s", resp.StatusCode, string(body)), nil)
 	}
+}
+
+func (c *Client) signRequest(req *http.Request) error {
+	if c.signer != nil {
+		if err := c.signer.sign(req); err != nil {
+			return NewError(ErrCodeRequestFailed, "failed to sign request", err)
+		}
+	}
+	return nil
+}
+
+func (c *Client) userRequestURL(phone, mail, userID string) string {
+	// Build request URL
+	reqURL := strings.TrimSuffix(c.baseURL, "/") + "/user"
+	params := url.Values{}
+	switch {
+	case phone != "":
+		params.Set("phone", phone)
+	case mail != "":
+		params.Set("mail", mail)
+	case userID != "":
+		params.Set("user_id", userID)
+	}
+	if len(params) > 0 {
+		reqURL += "?" + params.Encode()
+	}
+
+	return reqURL
+}
+
+func (c *Client) waitBeforeRetry(ctx context.Context, req *http.Request, attempt, maxAttempts int) error {
+	// Calculate delay before retry
+	delay := c.calculateRetryDelay(attempt - 1)
+	c.logger.Debugf("Retrying request (attempt %d/%d) after %v: %s %s",
+		attempt+1, maxAttempts, delay, req.Method, req.URL.String())
+
+	// Wait before retry
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(delay):
+	}
+	return nil
+}
+
+func (c *Client) shouldRetryResponse(allowed bool, status, attempt int) bool {
+	return allowed && c.isRetryableError(nil, status) && attempt < c.retry.MaxRetries
 }

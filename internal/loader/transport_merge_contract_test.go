@@ -32,10 +32,7 @@ func TestTransportMergeContract(t *testing.T) {
 		t.Run(identifier, func(t *testing.T) {
 			localShared := define.AllowListUser{Mail: "shared@example.com", UserID: "shared", Status: "active", Role: "reader", Scope: []string{"read"}, Name: "Local member", DingtalkUserID: "local-member"}
 			remoteShared := define.AllowListUser{Mail: "shared@example.com", UserID: "shared", Status: "inactive", Role: "admin", Scope: []string{"read", "write"}, Name: "Remote member", DingtalkUserID: "remote-member"}
-			if identifier == "phone" {
-				localShared.Phone = "13800138000"
-				remoteShared.Phone = "13800138000"
-			}
+			setContractPhones(identifier, &localShared, &remoteShared)
 			localOnly := define.AllowListUser{Mail: "local@example.com", UserID: "local-only", Status: "active", Role: "reader", Scope: []string{}}
 			remoteOnly := define.AllowListUser{Mail: "remote@example.com", UserID: "remote-only", Status: "active", Role: "reader", Scope: []string{}}
 			localBody, err := json.Marshal([]define.AllowListUser{localShared, localOnly})
@@ -82,13 +79,7 @@ func TestTransportMergeContract(t *testing.T) {
 						{"encrypted", tc.encryptedWinner},
 					} {
 						t.Run(transport.name, func(t *testing.T) {
-							cfg := &cmd.Config{HTTPTimeout: 1}
-							if transport.name == "encrypted" {
-								cfg.RemoteDecryptEnabled = true
-								cfg.RemoteRSAPrivateKey = keyPEM
-								cfg.RemoteEncryptionRequired = true
-								cfg.RemoteEncryptionFormat = "v2"
-							}
+							cfg := transportContractConfig(transport.name, keyPEM)
 							loader, err := NewRulesLoader(cfg, tc.mode)
 							require.NoError(t, err)
 							url := srv.URL + "/" + transport.name
@@ -102,11 +93,7 @@ func TestTransportMergeContract(t *testing.T) {
 							require.NoError(t, result.Err)
 							require.False(t, result.Degraded)
 							require.Equal(t, cache.HashUserList(result.Users), result.Version)
-							got := make(map[string]define.AllowListUser)
-							for _, user := range result.Users {
-								require.NotContains(t, got, user.UserID)
-								got[user.UserID] = user
-							}
+							got := contractUsersByID(t, result.Users)
 							shared := localShared
 							if transport.winner == "remote" {
 								shared = remoteShared
@@ -154,4 +141,32 @@ func TestTransportMergeContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+func transportContractConfig(name, keyPEM string) *cmd.Config {
+	cfg := &cmd.Config{HTTPTimeout: 1}
+	if name == "encrypted" {
+		cfg.RemoteDecryptEnabled = true
+		cfg.RemoteRSAPrivateKey = keyPEM
+		cfg.RemoteEncryptionRequired = true
+		cfg.RemoteEncryptionFormat = "v2"
+	}
+	return cfg
+}
+
+func setContractPhones(identifier string, localShared, remoteShared *define.AllowListUser) {
+	if identifier == "phone" {
+		localShared.Phone = "13800138000"
+		remoteShared.Phone = "13800138000"
+	}
+}
+
+func contractUsersByID(t *testing.T, users []define.AllowListUser) map[string]define.AllowListUser {
+	t.Helper()
+	got := make(map[string]define.AllowListUser)
+	for i := range users {
+		require.NotContains(t, got, users[i].UserID)
+		got[users[i].UserID] = users[i]
+	}
+	return got
 }

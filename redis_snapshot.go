@@ -198,9 +198,7 @@ func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
 			result = cache.SnapshotFailureReason(err)
 		}
 		app.recordSnapshotResult(operation, result)
-		if err != nil && app.log != nil {
-			app.log.Warn().Str("result", result).Msg("Versioned Redis snapshot recovery rejected")
-		}
+		app.logSnapshotRejection(err, result)
 		prommetrics.CacheMisses.Inc()
 		return false
 	}
@@ -219,12 +217,7 @@ func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
 		RestoredAt: app.snapshotTime(), RedisRevision: envelope.Revision, Degraded: true, DegradedReason: "redis_bootstrap",
 	}
 	if expected != nil {
-		now := app.snapshotTime()
-		current := captureHealthState(app.snapshots, app.userCache)
-		current.observedAt = now
-		candidate := &healthReadState{state: &snapshotState{snapshot: restored}, view: restored.view, observedAt: now}
-		if current.state.snapshot != expected || evaluateSnapshotRead(current, app.snapshotMaxAge).reason != readSourceExpired ||
-			!restored.SourceSucceededAt.After(expected.SourceSucceededAt) || !snapshotReadFresh(candidate, app.snapshotMaxAge) {
+		if !app.eligibleRedisRecovery(expected, restored) {
 			app.recordSnapshotResult(operation, "ineligible")
 			return false
 		}
@@ -283,5 +276,20 @@ func (s *snapshotStore) restoreIfCurrent(expected, recovered *Snapshot) bool {
 		if s.current.CompareAndSwap(previous, next) {
 			return true
 		}
+	}
+}
+
+func (app *App) eligibleRedisRecovery(expected, restored *Snapshot) bool {
+	now := app.snapshotTime()
+	current := captureHealthState(app.snapshots, app.userCache)
+	current.observedAt = now
+	candidate := &healthReadState{state: &snapshotState{snapshot: restored}, view: restored.view, observedAt: now}
+	return current.state.snapshot == expected && evaluateSnapshotRead(current, app.snapshotMaxAge).reason == readSourceExpired &&
+		restored.SourceSucceededAt.After(expected.SourceSucceededAt) && snapshotReadFresh(candidate, app.snapshotMaxAge)
+}
+
+func (app *App) logSnapshotRejection(err error, result string) {
+	if err != nil && app.log != nil {
+		app.log.Warn().Str("result", result).Msg("Versioned Redis snapshot recovery rejected")
 	}
 }

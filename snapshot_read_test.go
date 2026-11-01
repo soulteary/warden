@@ -19,19 +19,7 @@ func TestSnapshotStrictReadRoutes(t *testing.T) {
 			t.Run(state+map[bool]string{true: "/enforce", false: "/observe"}[enforce], func(t *testing.T) {
 				app := responseMetadataApp(t)
 				app.snapshotReadEnforce = enforce
-				snap := *app.snapshots.Load()
-				switch state {
-				case "stale":
-					snap.SourceSucceededAt = time.Now().Add(-3 * time.Minute)
-				case "unknown":
-					snap.SourceSucceededAt = time.Time{}
-				case "legacy":
-					snap = *snapshotFromRedis(app.userCache.Get(), app.userCache.ReadView())
-				case "fallback":
-					snap.view = nil
-				case "future":
-					snap.SourceSucceededAt = time.Now().Add(time.Hour)
-				}
+				snap := strictReadSnapshot(app, state)
 				app.snapshots.Store(&snap)
 				mux := registerRoutes(app)
 				for _, path := range []string{"/", "/data.json", "/v1/users", "/?page=1&page_size=1", "/user?user_id=member", "/v1/user?user_id=member", "/v1/lookup?identifier=member", "/user?user_id=missing", "/v1/user?user_id=missing", "/v1/lookup?identifier=missing"} {
@@ -151,4 +139,21 @@ func TestSnapshotReadPolicyAppConfiguration(t *testing.T) {
 		app := NewApp(&cmd.Config{SnapshotReadPolicy: tc.policy})
 		require.Equal(t, tc.enforce, app.snapshotReadEnforce)
 	}
+}
+
+func strictReadSnapshot(app *App, state string) Snapshot {
+	snap := *app.snapshots.Load()
+	switch state {
+	case "stale":
+		snap.SourceSucceededAt = time.Now().Add(-3 * time.Minute)
+	case "unknown":
+		snap.SourceSucceededAt = time.Time{}
+	case "legacy":
+		snap = *snapshotFromRedis(app.userCache.Get(), app.userCache.ReadView())
+	case "fallback":
+		snap.view = nil
+	case "future":
+		snap.SourceSucceededAt = time.Now().Add(time.Hour)
+	}
+	return snap
 }

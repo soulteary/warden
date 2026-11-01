@@ -265,20 +265,7 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) 
 		}
 	}
 
-	// Process Redis password (priority: environment variable > password file > command-line argument)
-	redisPasswordEnv := env.GetTrimmed("REDIS_PASSWORD", "")
-	redisPasswordFile := env.GetTrimmed("REDIS_PASSWORD_FILE", "")
-
-	switch {
-	case redisPasswordEnv != "":
-		cfg.RedisPassword = redisPasswordEnv
-	case redisPasswordFile != "":
-		if password, err := flagutil.ReadPasswordFromFile(redisPasswordFile); err == nil {
-			cfg.RedisPassword = password
-		}
-	case flagVals != nil && flagutil.HasFlag(fs, "redis-password"):
-		cfg.RedisPassword = flagVals.redisPassword
-	}
+	processRedisPassword(cfg, fs, flagVals)
 }
 
 // processRemoteConfigFromFlags processes remote configuration
@@ -794,4 +781,21 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.TLSKeyFile = tempCfg.TLSKeyFile
 	cfg.TLSCAFile = tempCfg.TLSCAFile
 	cfg.TLSRequireClientCert = tempCfg.TLSRequireClientCert
+}
+
+func processRedisPassword(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) {
+	// Process Redis password (priority: environment variable > password file > command-line argument)
+	redisPasswordEnv := env.GetTrimmed("REDIS_PASSWORD", "")
+	redisPasswordFile := env.GetTrimmed("REDIS_PASSWORD_FILE", "")
+
+	switch {
+	case redisPasswordEnv != "":
+		cfg.RedisPassword = redisPasswordEnv
+	case redisPasswordFile != "":
+		if password, err := flagutil.ReadPasswordFromFile(redisPasswordFile); err == nil {
+			cfg.RedisPassword = password
+		}
+	case flagVals != nil && flagutil.HasFlag(fs, "redis-password"):
+		cfg.RedisPassword = flagVals.redisPassword
+	}
 }
