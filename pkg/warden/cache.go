@@ -36,9 +36,7 @@ func (c *Cache) Get() []AllowListUser {
 	}
 
 	// Return a copy to prevent external modification
-	result := make([]AllowListUser, len(c.users))
-	copy(result, c.users)
-	return result
+	return cloneCachedUsers(c.users)
 }
 
 // Set stores the user list in cache with expiration.
@@ -47,8 +45,7 @@ func (c *Cache) Set(users []AllowListUser) {
 	defer c.mu.Unlock()
 
 	// Store a copy to prevent external modification
-	c.users = make([]AllowListUser, len(users))
-	copy(c.users, users)
+	c.users = cloneCachedUsers(users)
 	c.expiresAt = time.Now().Add(c.ttl)
 }
 
@@ -59,4 +56,16 @@ func (c *Cache) Clear() {
 
 	c.users = nil
 	c.expiresAt = time.Time{}
+}
+
+// cloneCachedUsers preserves the cache's non-nil outer slice and detaches Scope.
+func cloneCachedUsers(users []AllowListUser) []AllowListUser {
+	result := make([]AllowListUser, len(users))
+	copy(result, users)
+	for i := range result {
+		if users[i].Scope != nil {
+			result[i].Scope = append([]string{}, users[i].Scope...)
+		}
+	}
+	return result
 }
