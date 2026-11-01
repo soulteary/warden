@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, maintenance/v1.4.x]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, maintenance/v1.4.x]
 
 env:
   DOCKER_BUILDKIT: 1

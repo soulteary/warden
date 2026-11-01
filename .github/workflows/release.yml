@@ -200,7 +200,14 @@ jobs:
           body: |
             ## Changes
 
-            See [CHANGELOG](CHANGELOG.md) for details.
+            Maintenance dependency patch based on v1.4.3. SDK and service Go source are unchanged;
+            unreleased main-branch features are excluded.
+            See [CHANGELOG](https://github.com/${{ github.repository }}/blob/${{ steps.release.outputs.tag }}/CHANGELOG.md) for details.
+
+            ## Go SDK
+            ```bash
+            go get github.com/soulteary/warden@${{ steps.release.outputs.tag }}
+            ```
 
             ## Downloads
 
@@ -244,9 +251,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
-          gh workflow run go-quality-reports.yml --repo "$REPOSITORY" --ref "$DEFAULT_BRANCH" \
+          gh workflow run go-quality-reports.yml --repo "$REPOSITORY" --ref "$RELEASE_TAG" \
             -f "source_ref=refs/tags/$RELEASE_TAG" -f reuse_existing_tag_report=true

@@ -8,20 +8,20 @@ require (
 	github.com/pterm/pterm v0.12.84
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/rs/zerolog v1.35.1
-	github.com/soulteary/audit-kit/v2 v2.1.2
-	github.com/soulteary/cache-kit/v2 v2.1.0
-	github.com/soulteary/cli-kit v1.9.2
-	github.com/soulteary/health-kit/v4 v4.0.4
+	github.com/soulteary/audit-kit/v2 v2.1.3
+	github.com/soulteary/cache-kit/v2 v2.1.1
+	github.com/soulteary/cli-kit v1.9.3
+	github.com/soulteary/health-kit/v4 v4.0.5
 	github.com/soulteary/http-kit/v2 v2.1.0
-	github.com/soulteary/i18n-kit/v4 v4.0.3
-	github.com/soulteary/logger-kit/v3 v3.0.3
-	github.com/soulteary/metrics-kit/v3 v3.0.3
-	github.com/soulteary/middleware-kit/v3 v3.0.3
-	github.com/soulteary/parser-kit/v3 v3.0.2
-	github.com/soulteary/redis-kit v1.8.0
-	github.com/soulteary/secure-kit/v2 v2.1.2
-	github.com/soulteary/tracing-kit/v2 v2.0.2
-	github.com/soulteary/version-kit/v4 v4.0.2
+	github.com/soulteary/i18n-kit/v4 v4.0.4
+	github.com/soulteary/logger-kit/v3 v3.0.4
+	github.com/soulteary/metrics-kit/v3 v3.0.4
+	github.com/soulteary/middleware-kit/v3 v3.0.4
+	github.com/soulteary/parser-kit/v3 v3.0.3
+	github.com/soulteary/redis-kit v1.8.1
+	github.com/soulteary/secure-kit/v2 v2.1.3
+	github.com/soulteary/tracing-kit/v2 v2.0.3
+	github.com/soulteary/version-kit/v4 v4.0.3
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
@@ -40,16 +40,17 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.32.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pandatix/go-abnf v0.5.5 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
-	github.com/prometheus/common v0.72.1 // indirect
-	github.com/prometheus/procfs v0.22.0 // indirect
+	github.com/prometheus/common v0.73.1 // indirect
+	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/yuin/gopher-lua v1.1.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -60,13 +61,13 @@ require (
 	go.opentelemetry.io/otel/sdk v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261019180522-ce908d29299b // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
-	google.golang.org/grpc v1.84.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261026165753-2ffab32bce7e // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261026165753-2ffab32bce7e // indirect
+	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
