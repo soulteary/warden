@@ -535,3 +535,31 @@ separately if reads must stop at the source deadline. A later source-success tim
 is evidence of a later accepted validation, not an ordered upstream business
 version or proof that every remote source succeeded. Use distinct namespaces for
 distinct datasets; a policy match does not infer tenant identity from source URLs.
+
+## Enabling server and SDK freshness together
+
+Deploy metadata-capable servers and SDKs before enabling constraints. For a bound
+on data used by an SDK caller, configure both sides explicitly:
+
+- Server: `SNAPSHOT_READ_POLICY=enforce` and, for example, `SNAPSHOT_MAX_AGE=2m`.
+- SDK: `DefaultOptions().WithSourceFreshness(2*time.Minute, 5*time.Second)` before
+  `NewClient`, alongside the existing URL and authentication options.
+
+The SDK's cache deadline is the earlier of its own source-age limit and the
+server's valid-until, minus the clock-skew allowance, and remains bounded by its
+local CacheTTL. Publication, restart recovery and receiving a response do not
+restart source age. Fresh missing users remain NOT_FOUND; freshness failure must
+not be interpreted as an absent user or an accepted empty list.
+
+Server enforcement only governs requests reaching the server. The default SDK
+still uses its existing list-cache TTL and error mapping; `Cache-Control: no-store`
+does not automatically disable this application cache. Enabling only the server
+therefore does not impose an end-to-end source-age bound on already cached lists.
+Enable SDK source freshness explicitly, and account for downstream gateway/session
+caches separately. This bounds accepted validation age, not instantaneous
+revocation or the upstream content's creation time.
+
+Legacy Redis recovery has no source-success evidence. Migrate to V2 with preserved
+source times before requiring freshness after restart. A fresh accepted local
+fallback is still resolved-set evidence, not proof that every remote source
+succeeded. Keep clocks synchronized and budget skew conservatively.
