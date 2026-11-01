@@ -1102,18 +1102,20 @@ func TestJob_run(t *testing.T) {
 func TestJob_runWithContext(t *testing.T) {
 	sched := NewScheduler()
 	ctx, cancel := context.WithCancel(context.Background())
-
+	defer cancel()
+	release, finished := make(chan struct{}), make(chan struct{})
 	job := sched.Every(1).Second().WithContext(ctx)
 	assert.NoError(t, job.Do(func() {
-		// Job function
+		defer close(finished)
+		<-release
 	}))
-
-	// Cancel context before running
+	// Keep completion unavailable while selecting the already-cancelled context.
+	// Wait for the worker after releasing it so this test leaves no goroutine.
+	defer func() { close(release); <-finished }()
 	cancel()
-
 	result, err := job.runWithContext(ctx)
-	assert.Error(t, err, "取消的context应该返回错误")
-	assert.Nil(t, result, "结果应该为nil")
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Nil(t, result)
 }
 
 // TestJob_runWithContext_Timeout tests runWithContext with timeout
