@@ -52,6 +52,8 @@ func TestSnapshotResponseMetadataNegotiationAndAliases(t *testing.T) {
 		require.Equal(t, ordinary.Code, enabled.Code, path)
 		require.Equal(t, ordinary.Body.String(), enabled.Body.String(), path)
 		require.Empty(t, ordinary.Header().Get(snapshotMetadataHeader), path)
+		require.Contains(t, ordinary.Header().Values("Vary"), snapshotMetadataHeader, path)
+		require.Contains(t, enabled.Header().Values("Vary"), snapshotMetadataHeader, path)
 		require.Equal(t, "v1", enabled.Header().Get(snapshotMetadataHeader), path)
 		require.Equal(t, app.snapshots.Load().view.GetHash(), enabled.Header().Get(snapshotVersionHeader), path)
 		require.Equal(t, app.snapshots.Load().SourceSucceededAt.Format(time.RFC3339Nano), enabled.Header().Get(sourceSucceededHeader), path)
