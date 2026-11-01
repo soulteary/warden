@@ -27,3 +27,16 @@ fixtures and CPU configuration. Keep raw samples and report allocation and live
 heap results separately. A reduction in temporary copying need not reduce the
 memory retained by an old view. Retained-view setup is intentionally expensive;
 use the bounded one-iteration command above for diagnostics.
+
+## Owned validation ordering
+
+```sh
+GOMAXPROCS=1 go test ./internal/identity -run '^$' -bench '^BenchmarkOwnedValidationOrder/' -benchmem -benchtime=1s -count=5
+```
+
+The sorted, reverse and shuffled fixtures use 10,000 unique valid identifiers.
+Public and Owned both reset a preallocated outer scratch slice inside the timed
+loop; that reset copy is included in timing but allocates no additional list.
+Public measures the copy-preserving entry point. Owned consumes the private outer
+slice. Neither benchmark includes the caller-side Scope detachment performed by
+PrepareRules; use the full Prepare stage to assess the complete candidate path.
