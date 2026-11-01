@@ -4,6 +4,9 @@ package cache
 
 import (
 	// Standard library
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"sort"
 	"strconv"
@@ -13,7 +16,6 @@ import (
 	// External packages
 	cache "github.com/soulteary/cache-kit/v2"
 	"github.com/soulteary/cli-kit/validator"
-	secure "github.com/soulteary/secure-kit/v2"
 
 	// Internal packages
 	"github.com/soulteary/warden/internal/define"
@@ -192,7 +194,8 @@ func normalizeUser(user define.AllowListUser) define.AllowListUser {
 // Used by SafeUserCache internally and by main for backgroundTask comparison.
 func HashUserList(users []define.AllowListUser) string {
 	if len(users) == 0 {
-		return secure.GetSHA256Hash("empty")
+		sum := sha256.Sum256([]byte("empty"))
+		return hex.EncodeToString(sum[:])
 	}
 	sorted := make([]struct {
 		key  string
@@ -206,11 +209,20 @@ func HashUserList(users []define.AllowListUser) string {
 	// Keep the previous sort and comparator semantics for equal keys. Only the
 	// repeated key calculation moves out of the comparison callback.
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].key < sorted[j].key })
-	var encoded strings.Builder
+	digest := sha256.New()
+	// Bound temporary encoding storage without reserving 4 KiB for tiny lists.
+	bufferSize := 4096
+	if len(sorted) < 32 {
+		bufferSize = len(sorted) * 128
+	}
+	encoded := bufio.NewWriterSize(digest, bufferSize)
+	var prefix [21]byte
 	writeField := func(value string) {
-		encoded.WriteString(strconv.Itoa(len(value)))
-		encoded.WriteByte(':')
-		encoded.WriteString(value)
+		framedLength := strconv.AppendInt(prefix[:0], int64(len(value)), 10)
+		framedLength = append(framedLength, ':')
+		// SHA256's Write never returns an error, including through this buffer.
+		_, _ = encoded.Write(framedLength) //nolint:errcheck // The underlying SHA256 writer cannot fail.
+		_, _ = encoded.WriteString(value)  //nolint:errcheck // The underlying SHA256 writer cannot fail.
 	}
 	for i := range sorted {
 		writeField(sorted[i].user.Phone)
@@ -225,7 +237,9 @@ func HashUserList(users []define.AllowListUser) string {
 		writeField(sorted[i].user.Name)
 		writeField(sorted[i].user.DingtalkUserID)
 	}
-	return secure.GetSHA256Hash(encoded.String())
+	_ = encoded.Flush() //nolint:errcheck // The underlying SHA256 writer cannot fail.
+	var sum [sha256.Size]byte
+	return hex.EncodeToString(digest.Sum(sum[:0]))
 }
 
 // hashUsers calculates hash value of user data for change detection (cache-kit callback)
