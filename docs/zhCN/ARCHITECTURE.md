@@ -54,7 +54,7 @@ graph TB
     Middleware --> Compress
     Middleware --> Metrics
     Router --> UserCache
-    UserCache -->|读取| RedisCache
+    RedisCache -.->|仅启动引导| UserCache
     RedisCache --> Redis
     Scheduler -->|定时触发| Loader
     Loader -->|读取| LocalFile
@@ -107,68 +107,67 @@ graph TB
 ```mermaid
 sequenceDiagram
     participant App as 应用程序
-    participant Redis as Redis 缓存
-    participant Remote as 远程 API
-    participant Local as 本地文件
-    participant Memory as 内存缓存
+    participant Redis as 共享 Redis 缓存
+    participant Loader as 按模式加载数据
+    participant Memory as 本地缓存和快照
 
-    App->>Redis: 1. 尝试从 Redis 加载
-    alt Redis 有数据
-        Redis-->>App: 返回缓存数据
-        App->>Memory: 加载到内存
-    else Redis 无数据
-        App->>Remote: 2. 尝试从远程 API 加载
-        alt 远程 API 成功
-            Remote-->>App: 返回用户数据
-            App->>Memory: 加载到内存
-            App->>Redis: 更新 Redis 缓存
-        else 远程 API 失败
-            App->>Local: 3. 从本地文件加载
-            Local-->>App: 返回用户数据
-            App->>Memory: 加载到内存
-            App->>Redis: 更新 Redis 缓存
+    alt ONLY_LOCAL
+        App->>Loader: 加载本地来源，跳过常规 Redis 引导
+    else 其他模式
+        App->>Redis: Redis 可用时尝试引导
+        alt 已知有效缓存，包括已存储的合法空集
+            Redis-->>App: 生效用户
+            App->>Memory: 采纳集合并记录 Redis 引导来源
+        else 缓存缺失、不可读或未通过校验
+            App->>Loader: 按合并模式加载配置的数据源
+        end
+    end
+    opt 尝试加载了数据源
+        Loader-->>App: 结果或错误
+        App->>App: 应用身份校验及空规则集策略
+        opt 结果可采纳
+            App->>Memory: 应用生效用户和快照元数据
+            App->>Redis: 仅持有共享写入者锁时发布
         end
     end
 ```
+
+严格模式不会在远程失败后无条件回退到本地文件。被拒绝的输入遵循空规则集策略，
+其中可包含 Redis 恢复重试。启动加载失败会记录日志，后台刷新仍可继续重试。
 
 ### 定时任务更新流程
 
 ```mermaid
 sequenceDiagram
-    participant Scheduler as 定时调度器
-    participant Lock as 分布式锁
+    participant Scheduler as 副本调度器
+    participant Lock as Redis 写入者锁
     participant Loader as 数据加载器
-    participant Remote as 远程 API
-    participant Local as 本地文件
-    participant Memory as 内存缓存
-    participant Redis as Redis 缓存
+    participant Memory as 本地缓存和快照
+    participant Redis as 共享 Redis 缓存
 
-    Scheduler->>Lock: 1. 尝试获取分布式锁
-    alt 获取锁成功
-        Lock-->>Scheduler: 锁获取成功
-        Scheduler->>Loader: 2. 触发数据更新
-        Loader->>Remote: 请求远程 API
-        alt 远程 API 成功
-            Remote-->>Loader: 返回数据
-        else 远程 API 失败
-            Loader->>Local: 回退到本地文件
-            Local-->>Loader: 返回数据
+    Scheduler->>Scheduler: 仅跳过本进程内重叠的刷新
+    Scheduler->>Lock: 尝试取得共享缓存写入者锁
+    Lock-->>Scheduler: 返回写入者资格，不影响本地刷新
+    Scheduler->>Loader: 每个副本都按合并模式加载数据源
+    alt 加载或身份校验失败
+        Loader-->>Scheduler: 返回失败
+        Scheduler->>Memory: 保留有效集合及时间，记录刷新失败
+    else 加载成功
+        Loader-->>Scheduler: 候选数据和来源元数据
+        Scheduler->>Memory: 应用校验与空规则集策略
+        Note over Memory: 内容未变但加载成功时也更新快照元数据
+        opt 本副本持有写入者锁
+            Scheduler->>Redis: 按策略发布生效集合或续期已知有效集合
         end
-        Loader->>Loader: 3. 应用合并策略
-        Loader->>Loader: 4. 计算数据哈希
-        alt 数据有变化
-            Loader->>Memory: 5. 更新内存缓存
-            Loader->>Redis: 6. 更新 Redis 缓存
-            Redis-->>Loader: 更新成功
-        else 数据无变化
-            Loader->>Loader: 跳过更新
-        end
-        Scheduler->>Lock: 7. 释放锁
-    else 获取锁失败
-        Lock-->>Scheduler: 其他实例正在执行
-        Scheduler->>Scheduler: 跳过本次执行
+    end
+    opt 已取得写入者锁
+        Scheduler->>Lock: 释放写入者锁
     end
 ```
+
+写入者锁不会阻止其他副本访问上游。每个副本刷新自己的内存，锁只协调共享 Redis
+写入。加载失败保留旧快照；非空输入全部被拒绝时，空规则集策略可以保留并续期
+已知有效集合，但不会推进其成功加载时间。
 
 ### 请求处理流程
 
