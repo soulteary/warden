@@ -11,6 +11,9 @@ import (
 // Values returned to callers own their Scope slices; none can mutate this view.
 type ReadView struct {
 	cache *cachekit.MemoryCache[define.AllowListUser]
+	// rows is the cache's effective insertion order, captured once before publication.
+	// Its Scope slices are shared only with the private immutable indexes.
+	rows []define.AllowListUser
 }
 
 // ViewSource supplies a generation that a consumer can retain for an entire read.
@@ -74,4 +77,27 @@ func (v *ReadView) Iterate(fn func(define.AllowListUser) bool) {
 	v.cache.Iterate(func(u define.AllowListUser) bool { //nolint:gocritic // hugeParam: required by cache-kit callback
 		return fn(cloneUser(u))
 	})
+}
+
+// Page returns detached rows from this generation, together with its totals.
+// It copies only the requested page, including Scope, without scanning other rows.
+// Invalid page sizes return an empty page and zero total pages.
+func (v *ReadView) Page(page, pageSize int) (rows []define.AllowListUser, total, totalPages int) {
+	total = len(v.rows)
+	if total == 0 || pageSize <= 0 {
+		return []define.AllowListUser{}, total, 0
+	}
+	totalPages = total / pageSize
+	if total%pageSize != 0 {
+		totalPages++
+	}
+	if page < 1 || page > totalPages {
+		return []define.AllowListUser{}, total, totalPages
+	}
+	start := (page - 1) * pageSize
+	count := pageSize
+	if count > total-start {
+		count = total - start
+	}
+	return cloneUsers(v.rows[start : start+count]), total, totalPages
 }
