@@ -193,10 +193,7 @@ func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
 	defer cancel()
 	envelope, err := app.redisSnapshots.Read(ctx)
 	if err != nil || envelope == nil {
-		result := "missing"
-		if err != nil {
-			result = cache.SnapshotFailureReason(err)
-		}
+		result := snapshotReadOutcome(err)
 		app.recordSnapshotResult(operation, result)
 		if err != nil && app.log != nil {
 			app.log.Warn().Str("result", result).Msg("Versioned Redis snapshot recovery rejected")
@@ -219,15 +216,11 @@ func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
 		RestoredAt: app.snapshotTime(), RedisRevision: envelope.Revision, Degraded: true, DegradedReason: "redis_bootstrap",
 	}
 	if expected != nil {
-		now := app.snapshotTime()
-		current := captureHealthState(app.snapshots, app.userCache)
-		current.observedAt = now
-		candidate := &healthReadState{state: &snapshotState{snapshot: restored}, view: restored.view, observedAt: now}
-		if current.state.snapshot != expected || evaluateSnapshotRead(current, app.snapshotMaxAge).reason != readSourceExpired ||
-			!restored.SourceSucceededAt.After(expected.SourceSucceededAt) || !snapshotReadFresh(candidate, app.snapshotMaxAge) {
+		if !app.followSnapshotEligible(expected, restored) {
 			app.recordSnapshotResult(operation, "ineligible")
 			return false
 		}
+
 		restored.DegradedReason = "redis_follow_recovery"
 		if !app.snapshots.restoreIfCurrent(expected, restored) {
 			app.recordSnapshotResult(operation, "superseded")
@@ -284,4 +277,20 @@ func (s *snapshotStore) restoreIfCurrent(expected, recovered *Snapshot) bool {
 			return true
 		}
 	}
+}
+
+func (app *App) followSnapshotEligible(expected, restored *Snapshot) bool {
+	now := app.snapshotTime()
+	current := captureHealthState(app.snapshots, app.userCache)
+	current.observedAt = now
+	candidate := &healthReadState{state: &snapshotState{snapshot: restored}, view: restored.view, observedAt: now}
+	return current.state.snapshot == expected && evaluateSnapshotRead(current, app.snapshotMaxAge).reason == readSourceExpired &&
+		restored.SourceSucceededAt.After(expected.SourceSucceededAt) && snapshotReadFresh(candidate, app.snapshotMaxAge)
+}
+
+func snapshotReadOutcome(err error) string {
+	if err != nil {
+		return cache.SnapshotFailureReason(err)
+	}
+	return "missing"
 }

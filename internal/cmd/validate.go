@@ -23,50 +23,11 @@ import (
 // ValidateConfig validates configuration validity
 func ValidateConfig(cfg *Config) error {
 	var errors []string
-	if err := validateSourceSetID(cfg.SourceSetID); err != nil {
-		errors = append(errors, err.Error())
-	}
-	if err := validateRedisRecovery(cfg); err != nil {
-		errors = append(errors, err.Error())
-	}
-	if _, err := ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy); err != nil {
-		errors = append(errors, err.Error())
-	}
-	if err := validateRedisSnapshot(cfg); err != nil {
-		errors = append(errors, err.Error())
-	}
+	errors = append(errors, validateSourcePolicies(cfg)...)
 
-	// Validate port using cli-kit validator
-	if _, err := validator.ValidatePortString(cfg.Port); err != nil {
-		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
-	}
+	errors = append(errors, validateEndpoints(cfg)...)
 
-	// Validate Redis address format using cli-kit validator
-	if cfg.Redis != "" {
-		if _, _, err := validator.ValidateHostPort(cfg.Redis); err != nil {
-			errors = append(errors, fmt.Sprintf("Invalid Redis address format: %s (should be host:port): %v", cfg.Redis, err))
-		}
-	}
-
-	// Validate remote configuration URL through the injectable SSRF-safe resolver path.
-	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
-		if err := wardenvalidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
-			errors = append(errors, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
-		}
-	}
-
-	// Validate task interval
-	if cfg.TaskInterval < 1 {
-		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
-	}
-	if _, err := ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval); err != nil {
-		errors = append(errors, fmt.Sprintf("Invalid SNAPSHOT_MAX_AGE: %v", err))
-	}
-
-	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
-	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
-		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
-	}
+	errors = append(errors, validateTimingAndMode(cfg)...)
 
 	// Validate deployment environment (security-policy concern only).
 	environment, envOK := config.ParseEnvironment(cfg.Environment)
@@ -117,48 +78,7 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, validateProduction(cfg)...)
 	}
 
-	// Validate DATA_DIR when set: must exist and be a directory
-	if cfg.DataDir != "" {
-		info, err := os.Stat(cfg.DataDir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				errors = append(errors, fmt.Sprintf("DATA_DIR %q does not exist", cfg.DataDir))
-			} else {
-				errors = append(errors, fmt.Sprintf("DATA_DIR %q: %v", cfg.DataDir, err))
-			}
-		} else if !info.IsDir() {
-			errors = append(errors, fmt.Sprintf("DATA_DIR %q is not a directory", cfg.DataDir))
-		}
-	}
-
-	// When remote decrypt is enabled, either RSA private key file or inline PEM must be set
-	if cfg.RemoteDecryptEnabled {
-		if cfg.RemoteRSAPrivateKeyFile == "" && cfg.RemoteRSAPrivateKey == "" {
-			errors = append(errors, "REMOTE_DECRYPT_ENABLED is true but neither REMOTE_RSA_PRIVATE_KEY_FILE nor REMOTE_RSA_PRIVATE_KEY is set")
-		} else if cfg.RemoteRSAPrivateKeyFile != "" {
-			info, err := os.Stat(cfg.RemoteRSAPrivateKeyFile)
-			switch {
-			case err != nil:
-				if os.IsNotExist(err) {
-					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q does not exist", cfg.RemoteRSAPrivateKeyFile))
-				} else {
-					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q: %v", cfg.RemoteRSAPrivateKeyFile, err))
-				}
-			case info.IsDir():
-				errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is a directory, not a file", cfg.RemoteRSAPrivateKeyFile))
-			default:
-				f, err := os.Open(cfg.RemoteRSAPrivateKeyFile)
-				if err != nil {
-					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is not readable: %v", cfg.RemoteRSAPrivateKeyFile, err))
-				} else {
-					if closeErr := f.Close(); closeErr != nil {
-						errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q close: %v", cfg.RemoteRSAPrivateKeyFile, closeErr))
-					}
-				}
-			}
-		}
-		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
-	}
+	errors = append(errors, validateSourceFiles(cfg)...)
 
 	if len(errors) > 0 {
 		return fmt.Errorf("%s:\n  - %s", i18n.TWithLang(i18n.LangZH, "error.config_validation_failed"), strings.Join(errors, "\n  - "))
@@ -360,4 +280,112 @@ func ParseHMACKeys(raw string) (map[string]string, error) {
 		keys[normalizedID] = secret
 	}
 	return keys, nil
+}
+
+func validateSourcePolicies(cfg *Config) []string {
+	var errors []string
+	if err := validateSourceSetID(cfg.SourceSetID); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := validateRedisRecovery(cfg); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if _, err := ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy); err != nil {
+		errors = append(errors, err.Error())
+	}
+	if err := validateRedisSnapshot(cfg); err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	return errors
+}
+
+func validateEndpoints(cfg *Config) []string {
+	var errors []string
+	// Validate port using cli-kit validator
+	if _, err := validator.ValidatePortString(cfg.Port); err != nil {
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.port_invalid", cfg.Port))
+	}
+
+	// Validate Redis address format using cli-kit validator
+	if cfg.Redis != "" {
+		if _, _, err := validator.ValidateHostPort(cfg.Redis); err != nil {
+			errors = append(errors, fmt.Sprintf("Invalid Redis address format: %s (should be host:port): %v", cfg.Redis, err))
+		}
+	}
+
+	// Validate remote configuration URL through the injectable SSRF-safe resolver path.
+	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
+		if err := wardenvalidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
+			errors = append(errors, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
+		}
+	}
+
+	return errors
+}
+
+func validateTimingAndMode(cfg *Config) []string {
+	var errors []string
+	// Validate task interval
+	if cfg.TaskInterval < 1 {
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))
+	}
+	if _, err := ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval); err != nil {
+		errors = append(errors, fmt.Sprintf("Invalid SNAPSHOT_MAX_AGE: %v", err))
+	}
+
+	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
+	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
+		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
+	}
+
+	return errors
+}
+
+func validateSourceFiles(cfg *Config) []string {
+	var errors []string
+	// Validate DATA_DIR when set: must exist and be a directory
+	if cfg.DataDir != "" {
+		info, err := os.Stat(cfg.DataDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				errors = append(errors, fmt.Sprintf("DATA_DIR %q does not exist", cfg.DataDir))
+			} else {
+				errors = append(errors, fmt.Sprintf("DATA_DIR %q: %v", cfg.DataDir, err))
+			}
+		} else if !info.IsDir() {
+			errors = append(errors, fmt.Sprintf("DATA_DIR %q is not a directory", cfg.DataDir))
+		}
+	}
+
+	// When remote decrypt is enabled, either RSA private key file or inline PEM must be set
+	if cfg.RemoteDecryptEnabled {
+		if cfg.RemoteRSAPrivateKeyFile == "" && cfg.RemoteRSAPrivateKey == "" {
+			errors = append(errors, "REMOTE_DECRYPT_ENABLED is true but neither REMOTE_RSA_PRIVATE_KEY_FILE nor REMOTE_RSA_PRIVATE_KEY is set")
+		} else if cfg.RemoteRSAPrivateKeyFile != "" {
+			info, err := os.Stat(cfg.RemoteRSAPrivateKeyFile)
+			switch {
+			case err != nil:
+				if os.IsNotExist(err) {
+					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q does not exist", cfg.RemoteRSAPrivateKeyFile))
+				} else {
+					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q: %v", cfg.RemoteRSAPrivateKeyFile, err))
+				}
+			case info.IsDir():
+				errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is a directory, not a file", cfg.RemoteRSAPrivateKeyFile))
+			default:
+				f, err := os.Open(cfg.RemoteRSAPrivateKeyFile)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q is not readable: %v", cfg.RemoteRSAPrivateKeyFile, err))
+				} else {
+					if closeErr := f.Close(); closeErr != nil {
+						errors = append(errors, fmt.Sprintf("REMOTE_RSA_PRIVATE_KEY_FILE %q close: %v", cfg.RemoteRSAPrivateKeyFile, closeErr))
+					}
+				}
+			}
+		}
+		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
+	}
+
+	return errors
 }

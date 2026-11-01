@@ -127,12 +127,7 @@ func (s *RedisSnapshotStore) validate(e *SnapshotEnvelope) error {
 	if e.Origin != "local" && e.Origin != "remote" && e.Origin != "merged" {
 		return ErrSnapshotInvalid
 	}
-	latest := s.now().Add(5 * time.Second)
-	if e.SourceSucceededAt.IsZero() || e.PublishedAt.IsZero() || e.SourceSucceededAt.After(latest) ||
-		e.PublishedAt.After(latest) || e.SourceSucceededAt.After(e.PublishedAt.Add(5*time.Second)) {
-		return ErrSnapshotTimestamp
-	}
-	return nil
+	return s.validateSnapshotTime(e)
 }
 
 // SnapshotLease authorizes writes only while its Redis owner token still matches.
@@ -254,4 +249,13 @@ return 0`)
 // Release cannot delete a successor's lease after expiry.
 func (l *SnapshotLease) Release(ctx context.Context) error {
 	return releaseSnapshot.Run(ctx, l.store.client, []string{l.store.lock}, l.token).Err()
+}
+
+func (s *RedisSnapshotStore) validateSnapshotTime(e *SnapshotEnvelope) error {
+	latest := s.now().Add(5 * time.Second)
+	if e.SourceSucceededAt.IsZero() || e.PublishedAt.IsZero() || e.SourceSucceededAt.After(latest) ||
+		e.PublishedAt.After(latest) || e.SourceSucceededAt.After(e.PublishedAt.Add(5*time.Second)) {
+		return ErrSnapshotTimestamp
+	}
+	return nil
 }

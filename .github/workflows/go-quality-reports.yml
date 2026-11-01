@@ -190,6 +190,9 @@ jobs:
           threshold: "0"
           report: "true"
           commit: "false"
+      - name: Explain spelling check scope
+        if: success() && steps.go_report_card.outcome == 'success' && hashFiles('scripts/annotate-quality-report.py') != ''
+        run: python3 scripts/annotate-quality-report.py .github/goreportcard-report.md
       - name: Restore project Go toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -207,6 +210,7 @@ jobs:
             .github/coverage.svg
             .github/goreportcard.svg
             .github/goreportcard-report.md
+            .github/quality-report-notes.md
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

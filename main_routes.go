@@ -399,26 +399,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 	}
 
 	aggregator.AddChecker(health.NewCustomChecker("data", func(ctx context.Context) error {
-		state := readHealthState(ctx, snapshots, userCache)
-		if state.view == nil {
-			return errors.New("cache not initialized")
-		}
-		if state.view.Len() == 0 {
-			// An empty cache is healthy when a successful load explicitly produced an
-			// empty snapshot (mass revocation). Keep treating the zero-value cache as
-			// "not loaded" when provenance is absent or claims non-empty data.
-			if snapshots != nil {
-				snap := state.state.snapshot
-				if isKnownGoodSnapshot(snap) && snap.Count == 0 {
-					return nil
-				}
-			}
-			if isOnlyLocalMode {
-				return nil
-			}
-			return errors.New("no data loaded yet")
-		}
-		return nil
+		return checkDataHealth(readHealthState(ctx, snapshots, userCache), snapshots != nil, isOnlyLocalMode)
 	}))
 
 	// Snapshot provenance checker. Serving a last-known-good snapshot after a
@@ -428,104 +409,11 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 	// digest, loaded-at). Raw errors, URLs, and keys are never surfaced here.
 	if snapshots != nil {
 		aggregator.AddChecker(health.NewCheckerFunc("snapshot", func(ctx context.Context) health.CheckResult {
-			pinned := readHealthState(ctx, snapshots, userCache)
-			snap := pinned.state.snapshot
-			failures, refreshReason := pinned.state.failures, pinned.state.reason
-			res := health.CheckResult{
-				Name:      "snapshot",
-				Status:    health.StatusHealthy,
-				Timestamp: time.Now(),
-			}
-			if snap == nil || snap.Source == loader.SourceNone {
-				res.Status = health.StatusDegraded
-				res.Message = "no snapshot loaded"
-				res.Metadata = map[string]any{"reason": "no_snapshot"}
-				return res
-			}
-			meta := map[string]any{
-				"source": string(snap.Source),
-			}
-			if snap.versioned {
-				if !snap.SourceSucceededAt.IsZero() {
-					meta["input_version"] = snap.Version
-				}
-				meta["effective_version"] = snap.EffectiveVersion
-				meta["effective_count"] = snap.EffectiveCount
-				if snap.RedisRevision != "" {
-					meta["redis_revision"] = snap.RedisRevision
-				}
-				if snap.Origin != "" {
-					meta["origin"] = string(snap.Origin)
-				}
-				for name, at := range map[string]time.Time{"source_succeeded_at": snap.SourceSucceededAt, "published_at": snap.PublishedAt, "restored_at": snap.RestoredAt} {
-					if !at.IsZero() {
-						meta[name] = at.UTC().Format(time.RFC3339Nano)
-					}
-				}
-			}
-			if snap.Version != "" {
-				meta["version"] = snap.Version
-			}
-			if !snap.LoadedAt.IsZero() {
-				meta["loaded_at"] = snap.LoadedAt.UTC().Format(time.RFC3339)
-				age := pinned.observedAt.Sub(snap.LoadedAt)
-				if age < 0 {
-					age = 0
-				}
-				meta["age_seconds"] = age.Seconds()
-			}
-			if failures > 0 {
-				if refreshReason == "" {
-					refreshReason = "unknown"
-				}
-				meta["reason"] = refreshReason
-				meta["consecutive_failures"] = failures
-				res.Status = health.StatusDegraded
-				res.Message = "serving last-known-good snapshot after refresh failure"
-			} else if snap.Degraded {
-				reason := snap.DegradedReason
-				if reason == "" {
-					reason = "unknown"
-				}
-				meta["reason"] = reason
-				res.Status = health.StatusDegraded
-				res.Message = "serving last-known-good snapshot"
-			}
-			res.Metadata = meta
-			return res
+			return checkSnapshotHealth(readHealthState(ctx, snapshots, userCache))
 		}))
 
 		aggregator.AddChecker(health.NewCheckerFunc("snapshot_freshness", func(ctx context.Context) health.CheckResult {
-			pinned := readHealthState(ctx, snapshots, userCache)
-			res := health.CheckResult{
-				Name:      "snapshot_freshness",
-				Status:    health.StatusHealthy,
-				Timestamp: time.Now(),
-			}
-			if snapshotMaxAge <= 0 {
-				return res
-			}
-			snap := pinned.state.snapshot
-			if snap == nil || snap.Source == loader.SourceNone || snap.LoadedAt.IsZero() {
-				res.Status = health.StatusUnhealthy
-				res.Message = "snapshot provenance unavailable"
-				res.Metadata = map[string]any{"reason": "snapshot_unknown"}
-				return res
-			}
-			age := pinned.observedAt.Sub(snap.LoadedAt)
-			if age < 0 {
-				age = 0
-			}
-			res.Metadata = map[string]any{
-				"age_seconds":     age.Seconds(),
-				"max_age_seconds": snapshotMaxAge.Seconds(),
-			}
-			if age > snapshotMaxAge {
-				res.Status = health.StatusUnhealthy
-				res.Message = "snapshot exceeded maximum age"
-				res.Metadata["reason"] = "snapshot_stale"
-			}
-			return res
+			return checkSnapshotFreshnessHealth(readHealthState(ctx, snapshots, userCache), snapshotMaxAge)
 		}))
 	}
 
@@ -538,4 +426,135 @@ func wrapWithTracingIfEnabled(tracingMiddleware func(http.Handler) http.Handler,
 		return tracingMiddleware(handler)
 	}
 	return handler
+}
+
+func checkDataHealth(state *healthReadState, hasSnapshots, isOnlyLocalMode bool) error {
+
+	if state.view == nil {
+		return errors.New("cache not initialized")
+	}
+	if state.view.Len() == 0 {
+		// An empty cache is healthy when a successful load explicitly produced an
+		// empty snapshot (mass revocation). Keep treating the zero-value cache as
+		// "not loaded" when provenance is absent or claims non-empty data.
+		if hasSnapshots {
+			snap := state.state.snapshot
+			if isKnownGoodSnapshot(snap) && snap.Count == 0 {
+				return nil
+			}
+		}
+		if isOnlyLocalMode {
+			return nil
+		}
+		return errors.New("no data loaded yet")
+	}
+	return nil
+}
+
+func checkSnapshotHealth(pinned *healthReadState) health.CheckResult {
+
+	snap := pinned.state.snapshot
+	failures, refreshReason := pinned.state.failures, pinned.state.reason
+	res := health.CheckResult{
+		Name:      "snapshot",
+		Status:    health.StatusHealthy,
+		Timestamp: time.Now(),
+	}
+	if snap == nil || snap.Source == loader.SourceNone {
+		res.Status = health.StatusDegraded
+		res.Message = "no snapshot loaded"
+		res.Metadata = map[string]any{"reason": "no_snapshot"}
+		return res
+	}
+	meta := snapshotHealthMetadata(pinned)
+	if failures > 0 {
+		if refreshReason == "" {
+			refreshReason = "unknown"
+		}
+		meta["reason"] = refreshReason
+		meta["consecutive_failures"] = failures
+		res.Status = health.StatusDegraded
+		res.Message = "serving last-known-good snapshot after refresh failure"
+	} else if snap.Degraded {
+		reason := snap.DegradedReason
+		if reason == "" {
+			reason = "unknown"
+		}
+		meta["reason"] = reason
+		res.Status = health.StatusDegraded
+		res.Message = "serving last-known-good snapshot"
+	}
+	res.Metadata = meta
+	return res
+}
+
+func checkSnapshotFreshnessHealth(pinned *healthReadState, snapshotMaxAge time.Duration) health.CheckResult {
+
+	res := health.CheckResult{
+		Name:      "snapshot_freshness",
+		Status:    health.StatusHealthy,
+		Timestamp: time.Now(),
+	}
+	if snapshotMaxAge <= 0 {
+		return res
+	}
+	snap := pinned.state.snapshot
+	if snap == nil || snap.Source == loader.SourceNone || snap.LoadedAt.IsZero() {
+		res.Status = health.StatusUnhealthy
+		res.Message = "snapshot provenance unavailable"
+		res.Metadata = map[string]any{"reason": "snapshot_unknown"}
+		return res
+	}
+	age := pinned.observedAt.Sub(snap.LoadedAt)
+	if age < 0 {
+		age = 0
+	}
+	res.Metadata = map[string]any{
+		"age_seconds":     age.Seconds(),
+		"max_age_seconds": snapshotMaxAge.Seconds(),
+	}
+	if age > snapshotMaxAge {
+		res.Status = health.StatusUnhealthy
+		res.Message = "snapshot exceeded maximum age"
+		res.Metadata["reason"] = "snapshot_stale"
+	}
+	return res
+}
+
+func snapshotHealthMetadata(pinned *healthReadState) map[string]any {
+	snap := pinned.state.snapshot
+	meta := map[string]any{
+		"source": string(snap.Source),
+	}
+	if snap.versioned {
+		if !snap.SourceSucceededAt.IsZero() {
+			meta["input_version"] = snap.Version
+		}
+		meta["effective_version"] = snap.EffectiveVersion
+		meta["effective_count"] = snap.EffectiveCount
+		if snap.RedisRevision != "" {
+			meta["redis_revision"] = snap.RedisRevision
+		}
+		if snap.Origin != "" {
+			meta["origin"] = string(snap.Origin)
+		}
+		for name, at := range map[string]time.Time{"source_succeeded_at": snap.SourceSucceededAt, "published_at": snap.PublishedAt, "restored_at": snap.RestoredAt} {
+			if !at.IsZero() {
+				meta[name] = at.UTC().Format(time.RFC3339Nano)
+			}
+		}
+	}
+	if snap.Version != "" {
+		meta["version"] = snap.Version
+	}
+	if !snap.LoadedAt.IsZero() {
+		meta["loaded_at"] = snap.LoadedAt.UTC().Format(time.RFC3339)
+		age := pinned.observedAt.Sub(snap.LoadedAt)
+		if age < 0 {
+			age = 0
+		}
+		meta["age_seconds"] = age.Seconds()
+	}
+
+	return meta
 }

@@ -176,6 +176,8 @@ jobs:
           threshold: "0"
           report: "true"
           commit: "false"
+      - name: Explain spelling check scope
+        run: python3 scripts/annotate-quality-report.py .github/goreportcard-report.md
       - name: Upload quality report
         if: always() && steps.quality_cleanup.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -184,6 +186,7 @@ jobs:
           path: |
             .github/goreportcard.svg
             .github/goreportcard-report.md
+            .github/quality-report-notes.md
           include-hidden-files: true
           retention-days: 14
 

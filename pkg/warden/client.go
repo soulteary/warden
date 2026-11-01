@@ -333,38 +333,9 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 // GetUserByIdentifier fetches a single user by phone, mail, or user_id.
 // Only one identifier should be provided.
 func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID string) (*AllowListUser, error) {
-	// Validate that exactly one identifier is provided
-	identifierCount := 0
-	if phone != "" {
-		identifierCount++
-	}
-	if mail != "" {
-		identifierCount++
-	}
-	if userID != "" {
-		identifierCount++
-	}
-
-	if identifierCount == 0 {
-		return nil, NewError(ErrCodeInvalidConfig, "at least one identifier (phone, mail, or user_id) must be provided", nil)
-	}
-	if identifierCount > 1 {
-		return nil, NewError(ErrCodeInvalidConfig, "only one identifier (phone, mail, or user_id) should be provided", nil)
-	}
-
-	// Build request URL
-	reqURL := strings.TrimSuffix(c.baseURL, "/") + "/user"
-	params := url.Values{}
-	switch {
-	case phone != "":
-		params.Set("phone", phone)
-	case mail != "":
-		params.Set("mail", mail)
-	case userID != "":
-		params.Set("user_id", userID)
-	}
-	if len(params) > 0 {
-		reqURL += "?" + params.Encode()
+	reqURL, err := c.userRequestURL(phone, mail, userID)
+	if err != nil {
+		return nil, err
 	}
 
 	// Sanitize URL in logs to mask sensitive query parameters
@@ -500,26 +471,10 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 
 	maxAttempts := c.retry.MaxRetries + 1
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if attempt > 0 {
-			// Calculate delay before retry
-			delay := c.calculateRetryDelay(attempt - 1)
-			c.logger.Debugf("Retrying request (attempt %d/%d) after %v: %s %s",
-				attempt+1, maxAttempts, delay, req.Method, req.URL.String())
-
-			// Wait before retry
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
-			}
+		if err := c.prepareRequestAttempt(ctx, req, attempt, maxAttempts); err != nil {
+			return nil, err
 		}
 
-		// Make the request
-		if c.signer != nil {
-			if err := c.signer.sign(req); err != nil {
-				return nil, NewError(ErrCodeRequestFailed, "failed to sign request", err)
-			}
-		}
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = err
@@ -631,4 +586,62 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 	default:
 		return NewError(ErrCodeRequestFailed, fmt.Sprintf("warden API returned status %d: %s", resp.StatusCode, string(body)), nil)
 	}
+}
+
+func (c *Client) userRequestURL(phone, mail, userID string) (string, error) {
+	// Validate that exactly one identifier is provided
+	identifierCount := 0
+	for _, value := range []string{phone, mail, userID} {
+		if value != "" {
+			identifierCount++
+		}
+	}
+
+	if identifierCount == 0 {
+		return "", NewError(ErrCodeInvalidConfig, "at least one identifier (phone, mail, or user_id) must be provided", nil)
+	}
+	if identifierCount > 1 {
+		return "", NewError(ErrCodeInvalidConfig, "only one identifier (phone, mail, or user_id) should be provided", nil)
+	}
+
+	// Build request URL
+	reqURL := strings.TrimSuffix(c.baseURL, "/") + "/user"
+	params := url.Values{}
+	switch {
+	case phone != "":
+		params.Set("phone", phone)
+	case mail != "":
+		params.Set("mail", mail)
+	case userID != "":
+		params.Set("user_id", userID)
+	}
+	if len(params) > 0 {
+		reqURL += "?" + params.Encode()
+	}
+
+	return reqURL, nil
+}
+
+func (c *Client) prepareRequestAttempt(ctx context.Context, req *http.Request, attempt, maxAttempts int) error {
+	if attempt > 0 {
+		// Calculate delay before retry
+		delay := c.calculateRetryDelay(attempt - 1)
+		c.logger.Debugf("Retrying request (attempt %d/%d) after %v: %s %s",
+			attempt+1, maxAttempts, delay, req.Method, req.URL.String())
+
+		// Wait before retry
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+
+	// Make the request
+	if c.signer != nil {
+		if err := c.signer.sign(req); err != nil {
+			return NewError(ErrCodeRequestFailed, "failed to sign request", err)
+		}
+	}
+	return nil
 }

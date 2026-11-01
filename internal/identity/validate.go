@@ -85,11 +85,7 @@ type Options struct {
 // In normal mode it returns the first violation as a typed error. In ReportOnly mode
 // it returns counts of all violations without an error (used by the read-only check).
 func ValidateAndIndexUsers(users []define.AllowListUser, opts Options) (Result, error) {
-	normalized := make([]define.AllowListUser, len(users))
-	copy(normalized, users)
-	for i := range normalized {
-		normalized[i].Normalize()
-	}
+	normalized := normalizeIdentityUsers(users)
 
 	phoneIdx := make(map[string]int, len(normalized))
 	mailIdx := make(map[string]int, len(normalized))
@@ -184,4 +180,14 @@ func canonicalKey(u *define.AllowListUser) string {
 		k = strings.ToLower(strings.TrimSpace(u.Mail))
 	}
 	return k
+}
+
+func normalizeIdentityUsers(users []define.AllowListUser) []define.AllowListUser {
+	normalized := make([]define.AllowListUser, len(users))
+	copy(normalized, users)
+	for i := range normalized {
+		normalized[i].Normalize()
+	}
+
+	return normalized
 }

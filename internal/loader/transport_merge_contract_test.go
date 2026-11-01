@@ -30,12 +30,7 @@ func TestTransportMergeContract(t *testing.T) {
 
 	for _, identifier := range []string{"phone", "mail"} {
 		t.Run(identifier, func(t *testing.T) {
-			localShared := define.AllowListUser{Mail: "shared@example.com", UserID: "shared", Status: "active", Role: "reader", Scope: []string{"read"}, Name: "Local member", DingtalkUserID: "local-member"}
-			remoteShared := define.AllowListUser{Mail: "shared@example.com", UserID: "shared", Status: "inactive", Role: "admin", Scope: []string{"read", "write"}, Name: "Remote member", DingtalkUserID: "remote-member"}
-			if identifier == "phone" {
-				localShared.Phone = "13800138000"
-				remoteShared.Phone = "13800138000"
-			}
+			localShared, remoteShared := mergeContractSharedUsers(identifier)
 			localOnly := define.AllowListUser{Mail: "local@example.com", UserID: "local-only", Status: "active", Role: "reader", Scope: []string{}}
 			remoteOnly := define.AllowListUser{Mail: "remote@example.com", UserID: "remote-only", Status: "active", Role: "reader", Scope: []string{}}
 			localBody, err := json.Marshal([]define.AllowListUser{localShared, localOnly})
@@ -46,18 +41,7 @@ func TestTransportMergeContract(t *testing.T) {
 			require.NoError(t, err)
 			localFile := filepath.Join(t.TempDir(), "users.json")
 			require.NoError(t, os.WriteFile(localFile, localBody, 0o600))
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				body := remoteBody
-				w.Header().Set("Content-Type", "application/json")
-				if r.URL.Path == "/encrypted" {
-					body = encryptedBody
-					w.Header().Set("Content-Type", remote.EncryptedContentType)
-				}
-				if _, err := w.Write(body); err != nil {
-					t.Errorf("write remote users: %v", err)
-				}
-			}))
-			t.Cleanup(srv.Close)
+			srv := mergeContractServer(t, remoteBody, encryptedBody)
 
 			for _, tc := range []struct {
 				mode            string
@@ -154,4 +138,31 @@ func TestTransportMergeContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mergeContractSharedUsers(identifier string) (localShared, remoteShared define.AllowListUser) {
+	localShared = define.AllowListUser{Mail: "shared@example.com", UserID: "shared", Status: "active", Role: "reader", Scope: []string{"read"}, Name: "Local member", DingtalkUserID: "local-member"}
+	remoteShared = define.AllowListUser{Mail: "shared@example.com", UserID: "shared", Status: "inactive", Role: "admin", Scope: []string{"read", "write"}, Name: "Remote member", DingtalkUserID: "remote-member"}
+	if identifier == "phone" {
+		localShared.Phone = "13800138000"
+		remoteShared.Phone = "13800138000"
+	}
+	return localShared, remoteShared
+}
+
+func mergeContractServer(t *testing.T, remoteBody, encryptedBody []byte) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := remoteBody
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/encrypted" {
+			body = encryptedBody
+			w.Header().Set("Content-Type", remote.EncryptedContentType)
+		}
+		if _, err := w.Write(body); err != nil {
+			t.Errorf("write remote users: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
 }

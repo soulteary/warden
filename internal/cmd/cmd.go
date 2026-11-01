@@ -223,13 +223,7 @@ func processPortFromFlags(cfg *Config, fs *flag.FlagSet) {
 // processRedisFromFlags processes Redis configuration
 // flagVals can be nil when only processing environment variables (e.g., in overrideFromEnvInternal)
 func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) {
-	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable for safety)
-	isOnlyLocalMode := false
-	if cfg.Mode != "" {
-		isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
-	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
-		isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
-	}
+	isOnlyLocalMode := redisOnlyLocalMode(cfg)
 
 	// Check if Redis address is explicitly set (command-line argument or environment variable)
 	redisExplicitlySet := (flagVals != nil && flagutil.HasFlag(fs, "redis")) || env.GetTrimmed("REDIS", "") != ""
@@ -794,4 +788,16 @@ func overrideFromEnvInternal(cfg *config.CmdConfigData) {
 	cfg.TLSKeyFile = tempCfg.TLSKeyFile
 	cfg.TLSCAFile = tempCfg.TLSCAFile
 	cfg.TLSRequireClientCert = tempCfg.TLSRequireClientCert
+}
+
+func redisOnlyLocalMode(cfg *Config) bool {
+	// Check if Mode is ONLY_LOCAL (check both cfg.Mode and environment variable for safety)
+	isOnlyLocalMode := false
+	if cfg.Mode != "" {
+		isOnlyLocalMode = strings.EqualFold(strings.TrimSpace(cfg.Mode), "ONLY_LOCAL")
+	} else if modeEnv := env.GetTrimmed("MODE", ""); modeEnv != "" {
+		isOnlyLocalMode = strings.EqualFold(modeEnv, "ONLY_LOCAL")
+	}
+
+	return isOnlyLocalMode
 }

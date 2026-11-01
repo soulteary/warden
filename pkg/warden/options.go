@@ -127,23 +127,7 @@ func (o *Options) Validate() error {
 		o.Logger = &NoOpLogger{}
 	}
 
-	// Validate retry options if provided
-	if o.Retry != nil {
-		if o.Retry.MaxRetries < 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetries must be non-negative", nil)
-		}
-		if o.Retry.RetryDelay < 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.RetryDelay must be non-negative", nil)
-		}
-		if o.Retry.MaxRetryDelay < 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetryDelay must be non-negative", nil)
-		}
-		if o.Retry.BackoffMultiplier <= 0 {
-			return NewError(ErrCodeInvalidConfig, "Retry.BackoffMultiplier must be greater than 0", nil)
-		}
-	}
-
-	return nil
+	return validateRetryOptions(o.Retry)
 }
 
 // WithBaseURL sets the base URL for the Warden service.
@@ -241,4 +225,24 @@ func (o *Options) WithSourceFreshness(maxAge, clockSkew time.Duration) *Options 
 	o.SourceMaxAge = maxAge
 	o.SourceClockSkew = clockSkew
 	return o
+}
+
+func validateRetryOptions(retry *RetryOptions) error {
+	// Validate retry options if provided
+	if retry != nil {
+		if retry.MaxRetries < 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetries must be non-negative", nil)
+		}
+		if retry.RetryDelay < 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.RetryDelay must be non-negative", nil)
+		}
+		if retry.MaxRetryDelay < 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.MaxRetryDelay must be non-negative", nil)
+		}
+		if retry.BackoffMultiplier <= 0 {
+			return NewError(ErrCodeInvalidConfig, "Retry.BackoffMultiplier must be greater than 0", nil)
+		}
+	}
+
+	return nil
 }

@@ -307,19 +307,7 @@ func overrideFromEnv(cfg *Config) {
 		cfg.Server.Port = port
 	}
 
-	// Redis
-	if redis := os.Getenv("REDIS"); redis != "" {
-		cfg.Redis.Addr = redis
-	}
-	// Redis password priority: environment variable > password file > configuration file
-	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
-	redisPasswordFile := strings.TrimSpace(os.Getenv("REDIS_PASSWORD_FILE"))
-	if redisPasswordEnv != "" {
-		cfg.Redis.Password = redisPasswordEnv
-		cfg.Redis.PasswordFile = "" // Clear file path
-	} else if redisPasswordFile != "" {
-		cfg.Redis.PasswordFile = redisPasswordFile
-	}
+	overrideRedisEnv(cfg)
 
 	// Remote
 	if config := os.Getenv("CONFIG"); config != "" {
@@ -333,40 +321,9 @@ func overrideFromEnv(cfg *Config) {
 		cfg.App.Mode = mode
 	}
 
-	// HTTP
-	if timeout := os.Getenv("HTTP_TIMEOUT"); timeout != "" {
-		if t, err := time.ParseDuration(timeout); err == nil {
-			cfg.HTTP.Timeout = t
-		}
-	}
-	if maxIdleConns := os.Getenv("HTTP_MAX_IDLE_CONNS"); maxIdleConns != "" {
-		if n, err := parseInt(maxIdleConns); err == nil {
-			cfg.HTTP.MaxIdleConns = n
-		}
-	}
-	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
-		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
-	}
+	overrideHTTPEnv(cfg)
 
-	// App
-	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
-		cfg.App.APIKey = apiKey
-	}
-	if dataFile := os.Getenv("DATA_FILE"); dataFile != "" {
-		cfg.App.DataFile = dataFile
-	}
-	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
-		cfg.App.DataDir = dataDir
-	}
-	if v := os.Getenv("REMOTE_DECRYPT_ENABLED"); v != "" {
-		cfg.Remote.DecryptEnabled = strings.EqualFold(v, "true") || v == "1"
-	}
-	if v := os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE"); v != "" {
-		cfg.Remote.RSAPrivateKeyFile = v
-	}
-	if responseFields := os.Getenv("RESPONSE_FIELDS"); responseFields != "" {
-		cfg.App.ResponseFields = parseResponseFields(responseFields)
-	}
+	overrideAppEnv(cfg)
 
 	// Tracing
 	if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" {
@@ -606,16 +563,104 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		responseFields = parseResponseFields(os.Getenv("RESPONSE_FIELDS"))
 	}
 	// Service-to-service auth: from env only (no YAML fields yet)
-	hmacKeys := strings.TrimSpace(os.Getenv("WARDEN_HMAC_KEYS"))
-	hmacTolerance := 0
-	if v := strings.TrimSpace(os.Getenv("WARDEN_HMAC_TIMESTAMP_TOLERANCE")); v != "" {
-		if i, err := strconv.Atoi(v); err == nil && i > 0 {
-			hmacTolerance = i
+	security := c.securityCmdConfig()
+
+	return &CmdConfigData{
+		Port:                     c.Server.Port,
+		Redis:                    c.Redis.Addr,
+		RedisPassword:            redisPassword,
+		RedisEnabled:             redisEnabled,
+		RemoteConfig:             c.Remote.URL,
+		RemoteKey:                c.Remote.Key,
+		TaskInterval:             int(c.Task.Interval.Seconds()),
+		Mode:                     mode,
+		Environment:              environment,
+		LegacyModeUsedForEnv:     legacyModeUsedForEnv,
+		DataFile:                 dataFile,
+		DataDir:                  dataDir,
+		ResponseFields:           responseFields,
+		RemoteDecryptEnabled:     security.RemoteDecryptEnabled,
+		RemoteRSAPrivateKeyFile:  security.RemoteRSAPrivateKeyFile,
+		RemoteRSAPrivateKey:      security.RemoteRSAPrivateKey,
+		RemoteEncryptionRequired: security.RemoteEncryptionRequired,
+		RemoteEncryptionFormat:   security.RemoteEncryptionFormat,
+		UserIDStrategy:           security.UserIDStrategy,
+		RequireExplicitUserID:    security.RequireExplicitUserID,
+		EmptyRulesetPolicy:       security.EmptyRulesetPolicy,
+		HTTPTimeout:              int(c.HTTP.Timeout.Seconds()),
+		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
+		HTTPInsecureTLS:          c.HTTP.InsecureTLS,
+		APIKey:                   c.App.APIKey,
+		HMACKeys:                 security.HMACKeys,
+		HMACToleranceSec:         security.HMACToleranceSec,
+		TLSCertFile:              security.TLSCertFile,
+		TLSKeyFile:               security.TLSKeyFile,
+		TLSCAFile:                security.TLSCAFile,
+		TLSRequireClientCert:     security.TLSRequireClientCert,
+	}
+}
+
+func overrideRedisEnv(cfg *Config) {
+	// Redis
+	if redis := os.Getenv("REDIS"); redis != "" {
+		cfg.Redis.Addr = redis
+	}
+	// Redis password priority: environment variable > password file > configuration file
+	redisPasswordEnv := strings.TrimSpace(os.Getenv("REDIS_PASSWORD"))
+	redisPasswordFile := strings.TrimSpace(os.Getenv("REDIS_PASSWORD_FILE"))
+	if redisPasswordEnv != "" {
+		cfg.Redis.Password = redisPasswordEnv
+		cfg.Redis.PasswordFile = "" // Clear file path
+	} else if redisPasswordFile != "" {
+		cfg.Redis.PasswordFile = redisPasswordFile
+	}
+
+}
+
+func overrideHTTPEnv(cfg *Config) {
+	// HTTP
+	if timeout := os.Getenv("HTTP_TIMEOUT"); timeout != "" {
+		if t, err := time.ParseDuration(timeout); err == nil {
+			cfg.HTTP.Timeout = t
 		}
 	}
-	if hmacTolerance <= 0 && hmacKeys != "" {
-		hmacTolerance = 60
+	if maxIdleConns := os.Getenv("HTTP_MAX_IDLE_CONNS"); maxIdleConns != "" {
+		if n, err := parseInt(maxIdleConns); err == nil {
+			cfg.HTTP.MaxIdleConns = n
+		}
 	}
+	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
+		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
+	}
+
+}
+
+func overrideAppEnv(cfg *Config) {
+	// App
+	if apiKey := os.Getenv("API_KEY"); apiKey != "" {
+		cfg.App.APIKey = apiKey
+	}
+	if dataFile := os.Getenv("DATA_FILE"); dataFile != "" {
+		cfg.App.DataFile = dataFile
+	}
+	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
+		cfg.App.DataDir = dataDir
+	}
+	if v := os.Getenv("REMOTE_DECRYPT_ENABLED"); v != "" {
+		cfg.Remote.DecryptEnabled = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE"); v != "" {
+		cfg.Remote.RSAPrivateKeyFile = v
+	}
+	if responseFields := os.Getenv("RESPONSE_FIELDS"); responseFields != "" {
+		cfg.App.ResponseFields = parseResponseFields(responseFields)
+	}
+
+}
+
+func (c *Config) securityCmdConfig() *CmdConfigData {
+	hmacKeys := strings.TrimSpace(os.Getenv("WARDEN_HMAC_KEYS"))
+	hmacTolerance := hmacTimestampTolerance(os.Getenv("WARDEN_HMAC_TIMESTAMP_TOLERANCE"), hmacKeys)
 	tlsRequire := false
 	if v := strings.TrimSpace(os.Getenv("WARDEN_TLS_REQUIRE_CLIENT_CERT")); v != "" {
 		tlsRequire = strings.EqualFold(v, "true") || v == "1"
@@ -644,36 +689,32 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		requireExplicitUserID = strings.EqualFold(v, "true") || v == "1"
 	}
 	return &CmdConfigData{
-		Port:                     c.Server.Port,
-		Redis:                    c.Redis.Addr,
-		RedisPassword:            redisPassword,
-		RedisEnabled:             redisEnabled,
-		RemoteConfig:             c.Remote.URL,
-		RemoteKey:                c.Remote.Key,
-		TaskInterval:             int(c.Task.Interval.Seconds()),
-		Mode:                     mode,
-		Environment:              environment,
-		LegacyModeUsedForEnv:     legacyModeUsedForEnv,
-		DataFile:                 dataFile,
-		DataDir:                  dataDir,
-		ResponseFields:           responseFields,
-		RemoteDecryptEnabled:     remoteDecrypt,
-		RemoteRSAPrivateKeyFile:  rsaKeyFile,
-		RemoteRSAPrivateKey:      rsaKeyPEM,
-		RemoteEncryptionRequired: remoteEncRequired,
-		RemoteEncryptionFormat:   remoteEncFormat,
-		UserIDStrategy:           userIDStrategy,
-		RequireExplicitUserID:    requireExplicitUserID,
-		EmptyRulesetPolicy:       emptyRulesetPolicy,
-		HTTPTimeout:              int(c.HTTP.Timeout.Seconds()),
-		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
-		HTTPInsecureTLS:          c.HTTP.InsecureTLS,
-		APIKey:                   c.App.APIKey,
 		HMACKeys:                 hmacKeys,
 		HMACToleranceSec:         hmacTolerance,
 		TLSCertFile:              strings.TrimSpace(os.Getenv("WARDEN_TLS_CERT")),
 		TLSKeyFile:               strings.TrimSpace(os.Getenv("WARDEN_TLS_KEY")),
 		TLSCAFile:                strings.TrimSpace(os.Getenv("WARDEN_TLS_CA")),
 		TLSRequireClientCert:     tlsRequire,
+		RemoteDecryptEnabled:     remoteDecrypt,
+		RemoteRSAPrivateKeyFile:  rsaKeyFile,
+		RemoteRSAPrivateKey:      rsaKeyPEM,
+		RemoteEncryptionRequired: remoteEncRequired,
+		RemoteEncryptionFormat:   remoteEncFormat,
+		UserIDStrategy:           userIDStrategy,
+		EmptyRulesetPolicy:       emptyRulesetPolicy,
+		RequireExplicitUserID:    requireExplicitUserID,
 	}
+}
+
+func hmacTimestampTolerance(raw, hmacKeys string) int {
+	hmacTolerance := 0
+	if v := strings.TrimSpace(raw); v != "" {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			hmacTolerance = i
+		}
+	}
+	if hmacTolerance <= 0 && hmacKeys != "" {
+		hmacTolerance = 60
+	}
+	return hmacTolerance
 }

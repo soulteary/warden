@@ -43,13 +43,7 @@ func TestSnapshotStrictReadRoutes(t *testing.T) {
 						}
 						rec := httptest.NewRecorder()
 						mux.ServeHTTP(rec, req)
-						expected := http.StatusOK
-						if path == "/user?user_id=missing" || path == "/v1/user?user_id=missing" || path == "/v1/lookup?identifier=missing" {
-							expected = http.StatusNotFound
-						}
-						if enforce && state != "fresh" {
-							expected = http.StatusServiceUnavailable
-						}
+						expected := expectedStrictReadStatus(path, state, enforce)
 						require.Equal(t, expected, rec.Code, path)
 						if enforce {
 							require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
@@ -151,4 +145,15 @@ func TestSnapshotReadPolicyAppConfiguration(t *testing.T) {
 		app := NewApp(&cmd.Config{SnapshotReadPolicy: tc.policy})
 		require.Equal(t, tc.enforce, app.snapshotReadEnforce)
 	}
+}
+
+func expectedStrictReadStatus(path, state string, enforce bool) int {
+	expected := http.StatusOK
+	if path == "/user?user_id=missing" || path == "/v1/user?user_id=missing" || path == "/v1/lookup?identifier=missing" {
+		expected = http.StatusNotFound
+	}
+	if enforce && state != "fresh" {
+		expected = http.StatusServiceUnavailable
+	}
+	return expected
 }

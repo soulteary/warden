@@ -12,6 +12,7 @@ import (
 
 	// Third-party libraries
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	// Internal packages
 	tracing "github.com/soulteary/tracing-kit/v2"
@@ -52,41 +53,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 			attribute.String("warden.query.user_id", userID),
 		)
 
-		// Validate at least one identifier is provided
-		if phone == "" && mail == "" && userID == "" {
-			tracing.RecordError(span, fmt.Errorf("missing identifier"))
-			logger.FromRequest(r).Warn().
-				Msg(i18n.T(r, "log.missing_query_params"))
-			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.missing_identifier"))
-			return
-		}
-
-		// Validate only one identifier is provided
-		identifierCount := 0
-		if phone != "" {
-			identifierCount++
-		}
-		if mail != "" {
-			identifierCount++
-		}
-		if userID != "" {
-			identifierCount++
-		}
-		if identifierCount > 1 {
-			tracing.RecordError(span, fmt.Errorf("multiple identifiers provided"))
-			logger.FromRequest(r).Warn().
-				Msg(i18n.T(r, "log.multiple_query_params"))
-			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.multiple_identifiers"))
-			return
-		}
-
-		// Security: limit identifier length to prevent DoS and log/cache bloat
-		if (phone != "" && len(phone) > define.MAX_IDENTIFIER_LENGTH) ||
-			(mail != "" && len(mail) > define.MAX_IDENTIFIER_LENGTH) ||
-			(userID != "" && len(userID) > define.MAX_IDENTIFIER_LENGTH) {
-			tracing.RecordError(span, fmt.Errorf("identifier too long"))
-			logger.FromRequest(r).Warn().Msg(i18n.T(r, "error.invalid_identifier"))
-			WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.invalid_identifier"))
+		if !validateUserQuery(w, r, span, phone, mail, userID) {
 			return
 		}
 
@@ -183,4 +150,46 @@ func sanitizeIdentifierForAudit(identifier, identifierType string) string {
 	default:
 		return identifier
 	}
+}
+
+func validateUserQuery(w http.ResponseWriter, r *http.Request, span trace.Span, phone, mail, userID string) bool {
+	// Validate at least one identifier is provided
+	if phone == "" && mail == "" && userID == "" {
+		tracing.RecordError(span, fmt.Errorf("missing identifier"))
+		logger.FromRequest(r).Warn().
+			Msg(i18n.T(r, "log.missing_query_params"))
+		WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.missing_identifier"))
+		return false
+	}
+
+	// Validate only one identifier is provided
+	identifierCount := 0
+	if phone != "" {
+		identifierCount++
+	}
+	if mail != "" {
+		identifierCount++
+	}
+	if userID != "" {
+		identifierCount++
+	}
+	if identifierCount > 1 {
+		tracing.RecordError(span, fmt.Errorf("multiple identifiers provided"))
+		logger.FromRequest(r).Warn().
+			Msg(i18n.T(r, "log.multiple_query_params"))
+		WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.multiple_identifiers"))
+		return false
+	}
+
+	// Security: limit identifier length to prevent DoS and log/cache bloat
+	if (phone != "" && len(phone) > define.MAX_IDENTIFIER_LENGTH) ||
+		(mail != "" && len(mail) > define.MAX_IDENTIFIER_LENGTH) ||
+		(userID != "" && len(userID) > define.MAX_IDENTIFIER_LENGTH) {
+		tracing.RecordError(span, fmt.Errorf("identifier too long"))
+		logger.FromRequest(r).Warn().Msg(i18n.T(r, "error.invalid_identifier"))
+		WriteJSONError(w, http.StatusBadRequest, i18n.T(r, "error.invalid_identifier"))
+		return false
+	}
+
+	return true
 }
