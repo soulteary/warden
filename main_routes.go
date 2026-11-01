@@ -137,7 +137,7 @@ func registerRoutes(app *App) *http.ServeMux {
 				errorHandlerMiddleware(
 					wrapWithTracingIfEnabled(tracingMiddleware,
 						ipAllowlistMiddleware(metricsAuth(
-							middleware.MetricsMiddleware(prommetrics.Handler()),
+							middleware.MetricsMiddleware(prommetrics.HandlerWithSnapshot(app.snapshotMetricSample)),
 						)),
 					),
 				),
