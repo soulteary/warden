@@ -485,13 +485,13 @@ password := "hardcoded_password"
 
 - 生产环境不要暴露详细的错误信息
 - 使用通用错误消息返回给用户
-- 详细错误只记录在日志中
+- 日志只记录已审查并脱敏的诊断信息
 
 ```go
 // ✅ 正确
 if isProduction {
     http.Error(w, "Internal server error", http.StatusInternalServerError)
-    log.Error().Err(err).Msg("详细错误信息")
+    log.Error().Str("reason", "operation_failed").Msg("request failed")
 } else {
     http.Error(w, err.Error(), http.StatusInternalServerError)
 }

@@ -485,7 +485,7 @@ password := "hardcoded_password"
 
 - Don't expose detailed error information in production
 - Use generic error messages returned to users
-- Detailed errors are only recorded in logs
+- Log only reviewed and sanitized diagnostics
 
 ```go
 // ✅ Correct
