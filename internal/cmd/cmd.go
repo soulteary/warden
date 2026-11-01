@@ -45,17 +45,19 @@ type Config struct {
 	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
 	UserIDStrategy           string   // env USER_ID_STRATEGY: legacy|sha256-128 (default legacy)
 	RequireExplicitUserID    bool     // env REQUIRE_EXPLICIT_USER_ID: reject records without user_id
-	EmptyRulesetPolicy       string   // env EMPTY_RULESET_POLICY: consistency-first|availability-first
-	TaskInterval             int      // 8 bytes
-	HTTPTimeout              int      // 8 bytes
-	HTTPMaxIdleConns         int      // 8 bytes
-	HTTPInsecureTLS          bool     // 1 byte (padding to 8 bytes)
-	HMACKeys                 string   // JSON map key_id -> secret (env WARDEN_HMAC_KEYS)
-	HMACToleranceSec         int      // env WARDEN_HMAC_TIMESTAMP_TOLERANCE, default 60
-	TLSCertFile              string   // env WARDEN_TLS_CERT
-	TLSKeyFile               string   // env WARDEN_TLS_KEY
-	TLSCAFile                string   // env WARDEN_TLS_CA (client CA for mTLS)
-	TLSRequireClientCert     bool     // env WARDEN_TLS_REQUIRE_CLIENT_CERT
+	RedisSnapshotMode        string
+	RedisSnapshotNamespace   string
+	EmptyRulesetPolicy       string // env EMPTY_RULESET_POLICY: consistency-first|availability-first
+	TaskInterval             int    // 8 bytes
+	HTTPTimeout              int    // 8 bytes
+	HTTPMaxIdleConns         int    // 8 bytes
+	HTTPInsecureTLS          bool   // 1 byte (padding to 8 bytes)
+	HMACKeys                 string // JSON map key_id -> secret (env WARDEN_HMAC_KEYS)
+	HMACToleranceSec         int    // env WARDEN_HMAC_TIMESTAMP_TOLERANCE, default 60
+	TLSCertFile              string // env WARDEN_TLS_CERT
+	TLSKeyFile               string // env WARDEN_TLS_KEY
+	TLSCAFile                string // env WARDEN_TLS_CA (client CA for mTLS)
+	TLSRequireClientCert     bool   // env WARDEN_TLS_REQUIRE_CLIENT_CERT
 }
 
 // flagValues holds parsed flag values
@@ -552,13 +554,14 @@ func getArgsFromFlags() *Config {
 	processIdentityFromEnv(cfg)
 	processDataPolicyFromEnv(cfg)
 	processServiceAuthFromEnv(cfg)
+	processRedisSnapshotFromEnv(cfg)
 
 	return cfg
 }
 
 // convertToConfig converts internal configuration type to Config
 func convertToConfig(cfg *config.CmdConfigData) *Config {
-	return &Config{
+	result := &Config{
 		Port:                     cfg.Port,
 		Redis:                    cfg.Redis,
 		RedisPassword:            cfg.RedisPassword,
@@ -591,6 +594,8 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		TLSCAFile:                cfg.TLSCAFile,
 		TLSRequireClientCert:     cfg.TLSRequireClientCert,
 	}
+	processRedisSnapshotFromEnv(result)
+	return result
 }
 
 // overrideWithFlags overrides configuration with command-line arguments (command-line arguments have highest priority)

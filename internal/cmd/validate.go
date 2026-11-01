@@ -23,6 +23,9 @@ import (
 // ValidateConfig validates configuration validity
 func ValidateConfig(cfg *Config) error {
 	var errors []string
+	if err := validateRedisSnapshot(cfg); err != nil {
+		errors = append(errors, err.Error())
+	}
 
 	// Validate port using cli-kit validator
 	if _, err := validator.ValidatePortString(cfg.Port); err != nil {

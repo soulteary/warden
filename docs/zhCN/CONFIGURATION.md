@@ -498,3 +498,9 @@ export STARGATE_WARDEN_BASE_URL=http://warden:8081
 - [参数解析设计文档](CONFIG_PARSING.md) - 详细的参数解析机制说明
 - [架构设计文档](ARCHITECTURE.md) - 了解整体架构和配置影响
 - [安全文档](SECURITY.md) - 了解服务间鉴权详细说明
+
+## Redis 快照迁移
+
+默认 Redis 格式保持不变。可选的 `REDIS_SNAPSHOT_MODE`、
+`REDIS_SNAPSHOT_NAMESPACE` 配置、时间含义和部署回滚步骤见
+[Redis 快照迁移](REDIS_SNAPSHOT_MIGRATION.md)。
