@@ -9,6 +9,8 @@ import (
 
 // Negotiated response metadata is separate from the compatibility JSON schema.
 const (
+	// HeaderSourceError classifies negotiated source refusals on HTTP 503 only.
+	HeaderSourceError        = "Warden-Source-Error"
 	HeaderSnapshotMetadata   = "Warden-Snapshot-Metadata"
 	HeaderSnapshotVersion    = "Warden-Snapshot-Version"
 	HeaderSourceSucceededAt  = "Warden-Source-Succeeded-At"
@@ -79,6 +81,12 @@ func (c *Client) checkDataResponse(resp *http.Response) (time.Time, error) {
 	if c.sourceMaxAge <= 0 {
 		return time.Time{}, statusErr
 	}
+	if resp.StatusCode == http.StatusServiceUnavailable {
+		if reason := negotiatedSourceError(resp.Header); reason != nil {
+			// Keep the original server error in the chain without exposing raw metadata.
+			return time.Time{}, sourceFreshnessError(errors.Join(reason, statusErr))
+		}
+	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
 		return time.Time{}, statusErr
 	}
@@ -87,4 +95,25 @@ func (c *Client) checkDataResponse(resp *http.Response) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return deadline, statusErr
+}
+
+func negotiatedSourceError(headers http.Header) error {
+	metadata, ok := singleSourceHeader(headers, HeaderSnapshotMetadata)
+	if !ok || metadata != "v1" {
+		return nil
+	}
+	reason, ok := singleSourceHeader(headers, HeaderSourceError)
+	if !ok {
+		return nil
+	}
+	switch reason {
+	case "expired":
+		return ErrSourceStale
+	case "unknown":
+		return ErrSourceUnknown
+	case "future":
+		return ErrSourceFuture
+	default:
+		return nil
+	}
 }

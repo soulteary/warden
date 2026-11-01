@@ -577,3 +577,18 @@ SDK 缓存截止时间取客户端来源年龄上限与服务端 valid-until 的
 旧 Redis 快照恢复缺少来源时间证据，建议先迁移 V2 再要求重启后的来源新鲜度。
 新鲜本地回退仍只证明最终数据集被接受，不证明所有远程来源成功。应同步各节点时钟，
 并保守设置偏差预算。
+
+### 协商式来源 503 错误
+
+经过认证的元数据 v1 请求被 enforce 拒绝时，返回 HTTP 503，并附
+`Warden-Snapshot-Metadata: v1` 和有限枚举 `Warden-Source-Error`：截止时间已到为
+`expired`，缺少来源证据或对应规范视图为 `unknown`，来源时间在未来为 `future`。
+普通请求保留原 503 响应，不附这些标记；认证失败不暴露标记。服务端年龄配置非法
+不会被误报为来源年龄未知。
+
+仅启用来源约束的 SDK 解释这些标记：SOURCE_FRESHNESS 包装 ErrSourceStale、
+ErrSourceUnknown 或 ErrSourceFuture，可用 errors.Is 判断；原 SERVER_ERROR 保留在
+错误链中。普通 503、标记缺失、格式错误或重复、不支持的协议版本、未知原因均继续
+返回 SERVER_ERROR。其他 HTTP 状态上的标记不会触发来源 503 映射。默认 SDK 即使
+收到标记，也保留原缓存和错误行为。分类在既有 HTTP 重试策略之后进行，不新增重试，
+也不跳过已配置的 503 重试。新鲜集合中的真实 404 仍为 NOT_FOUND。

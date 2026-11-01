@@ -403,3 +403,14 @@ This is local request ordering, not a global source-version guarantee. Snapshot
 hashes and Redis revision tokens are not ordered, and sequential requests routed
 to different replicas may still observe different accepted datasets. No extra
 fetch, retry or change to default freshness settings is introduced.
+
+### Source errors from an enforcing server
+
+With `WithSourceFreshness` enabled, a metadata-v1 server can classify a source
+refusal on HTTP 503. `errors.Is(err, ErrSourceStale)` identifies expiry;
+`ErrSourceUnknown` identifies unavailable age evidence, and `ErrSourceFuture`
+identifies future source time. These errors use `SOURCE_FRESHNESS` and retain the
+original server error in their chain. Plain or unrecognized 503 responses keep
+`SERVER_ERROR`. Default clients keep their existing mapping and cache behavior.
+The existing retry policy runs before classification, including configured 503
+retries. See the configuration guide for paired server and SDK enablement.

@@ -7,6 +7,7 @@ import (
 )
 
 const snapshotMetadataHeader = "Warden-Snapshot-Metadata"
+const sourceErrorHeader = "Warden-Source-Error"
 const snapshotVersionHeader = "Warden-Snapshot-Version"
 const sourceSucceededHeader = "Warden-Source-Succeeded-At"
 const snapshotValidUntilHeader = "Warden-Snapshot-Valid-Until"
@@ -31,7 +32,14 @@ func (app *App) withSnapshotMetadata(build snapshotDataFactory) func(http.Respon
 		pinned := captureHealthState(app.snapshots, app.userCache)
 		if app.snapshotReadEnforce {
 			w.Header().Set("Cache-Control", "no-store")
-			if !snapshotReadFresh(pinned, app.snapshotMaxAge) {
+			decision := evaluateSnapshotRead(pinned, app.snapshotMaxAge)
+			if decision.reason != readAllowed {
+				if negotiated {
+					w.Header().Set(snapshotMetadataHeader, "v1")
+					if reason := sourceErrorReason(decision.reason); reason != "" {
+						w.Header().Set(sourceErrorHeader, reason)
+					}
+				}
 				http.Error(w, "snapshot source freshness unavailable", http.StatusServiceUnavailable)
 				return
 			}
@@ -52,5 +60,20 @@ func (app *App) withSnapshotMetadata(build snapshotDataFactory) func(http.Respon
 			}
 		}
 		build(fixedSnapshotView{view: pinned.view})(w, r)
+	}
+}
+
+// Only negotiated source refusals carry this bounded protocol marker. A bad
+// max-age configuration is not classified as missing source-age evidence.
+func sourceErrorReason(reason string) string {
+	switch reason {
+	case readSourceExpired:
+		return "expired"
+	case readSourceFuture:
+		return "future"
+	case readNoSnapshot, readViewUnknown, readSourceUnknown:
+		return "unknown"
+	default:
+		return ""
 	}
 }
