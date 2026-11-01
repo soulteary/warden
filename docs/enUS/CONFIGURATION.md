@@ -581,3 +581,39 @@ keeps SERVER_ERROR. A marker on another HTTP status does not activate 503 mappin
 The default SDK keeps its existing cache and status mapping, even if markers arrive.
 Classification happens after the existing HTTP retry policy; enabling it adds no
 retry and does not skip configured 503 retries. Fresh 404 remains NOT_FOUND.
+
+## Actual source-attempt diagnostics
+
+Loader results now include per-call attempt diagnostics. Set `LOG_LEVEL=debug`
+(or use the existing runtime log-level control) to emit `source attempt completed`
+events during startup source loads and background refreshes. Default info-level
+logging is unchanged. No additional source request, decode or normalization is
+performed for diagnostics; configured but unread sources produce no event.
+
+Each event includes a per-load attempt number, source-family ordinal such as
+`local_1` or `remote_1`, file/plain/decrypt transport, start/finish timestamps,
+`success`, `failure` or `absent` outcome, a bounded failure-stage reason, decoded
+row count, `selected_input`, and `winning_rows`. Ordinals follow the existing
+source builder (sorted directory files, then the explicit file), not stable global
+source identities. Repeated fallback reads remain separate attempts with the same
+ordinal. A remote source invocation includes its existing transport retries; this
+is not a per-HTTP-retry trace. Discovery failures and configured sources never
+opened are not fabricated as attempted sources.
+
+Success means the source passed loader decoding/normalization (or the encrypted
+load pipeline), not final cache validation. An allowed missing file is `absent`,
+while explicit `[]` is a successful empty input. `selected_input` means an input
+participated in successful loader resolution; a shadowed source or accepted empty
+input may have zero winning rows. A successful but ignored empty local input is
+not selected. `winning_rows` attributes final loader rows using the existing merge
+callbacks and precedence, including identical duplicate records. A failed overall
+load has no selected input, even if some source calls succeeded.
+
+Diagnostics contain no source path/URL, credentials, payload, user identifiers or
+raw error text. Events expose counts and generated ordinals only. The diagnostic
+maps used to track winners are local to a load and are not returned or persisted.
+These events do not prove required-source coverage, upstream content age, or
+remote revocation. They do not change the historical Source label, plaintext and
+encrypted merge differences, fallback/degraded policy, LoadedAt, SourceSucceededAt,
+readiness or SDK freshness. Subsequent cache validation may reject the resolved
+candidate. No attempt evidence is added to Redis V2 envelopes or data/health APIs.

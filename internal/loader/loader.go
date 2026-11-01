@@ -249,6 +249,7 @@ type RulesLoader struct {
 	remoteDecrypt          bool
 	httpInsecureTLS        bool
 	dl                     parserkit.DataLoader[define.AllowListUser]
+	loadOptions            *parserkit.LoadOptions[define.AllowListUser]
 	remoteOpts             RemoteOptions
 	httpTimeout            time.Duration
 	appMode                string
@@ -287,6 +288,7 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 	}
 	return &RulesLoader{
 		dl:                     dl,
+		loadOptions:            opts,
 		remoteOpts:             BuildRemoteOptions(cfg),
 		appMode:                appMode,
 		remoteDecrypt:          decrypt,
@@ -324,7 +326,10 @@ func (r *RulesLoader) Load(ctx context.Context, rulesFile, dataDir, configURL, a
 // the mode policy is applied: modes that tolerate remote failure fall back to the
 // local rule set and mark the result Degraded, while strict modes surface the root
 // cause. This function never returns partial/unvalidated data with a nil Err.
-func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, configURL, auth string) LoadResult {
+func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, configURL, auth string) (result LoadResult) {
+	evidence := &sourceEvidence{}
+	ctx = context.WithValue(ctx, evidenceKey{}, evidence)
+	defer func() { evidence.finish(&result) }()
 	mode := normalizeMode(r.appMode)
 	now := time.Now()
 
@@ -347,7 +352,7 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 	if len(sources) == 0 {
 		return LoadResult{Source: SourceNone, LoadedAt: now, Err: fmt.Errorf("no sources for mode %s", r.appMode)}
 	}
-	users, err := r.dl.Load(ctx, sources...)
+	users, err := r.loadObserved(ctx, sources...)
 	if err != nil {
 		// parser-kit already honors per-mode fallback across the source list; a hard
 		// error here means all eligible sources failed. Attempt a local-only fallback
@@ -377,7 +382,8 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 
 func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
 	remoteSources := BuildSources("", "", configURL, auth, ModeOnlyRemote, r.remoteOpts)
-	remoteUsers, remoteErr := r.dl.Load(ctx, remoteSources...)
+	remoteUsers, remoteErr := r.loadObserved(ctx, remoteSources...)
+	remoteBatch := selectedBatch(ctx)
 	if remoteErr != nil {
 		if !allowsRemoteFailure(mode) {
 			return LoadResult{
@@ -407,6 +413,7 @@ func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataD
 
 	localUsers, localErr := r.loadLocalOnly(ctx, rulesFile, dataDir)
 	if localErr != nil || len(localUsers) == 0 {
+		selectBatch(ctx, remoteBatch)
 		return LoadResult{
 			Users:    remoteUsers,
 			Source:   SourceRemote,
@@ -415,7 +422,7 @@ func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataD
 		}
 	}
 
-	merged := mergeByMode(remoteUsers, localUsers, mode)
+	merged := mergeObserved(ctx, remoteUsers, localUsers, mode, remoteBatch, selectedBatch(ctx))
 	return LoadResult{
 		Users:    merged,
 		Source:   SourceMerged,
@@ -426,6 +433,9 @@ func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataD
 
 // loadDecryptPath implements the encrypted remote path with uniform mode fallback.
 func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
+	evidence := evidenceFrom(ctx)
+	remoteBatch := newSourceBatch(evidence)
+	id := evidence.begin("remote_1", SourceRemote, "decrypt")
 	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, &remote.FetchOptions{
 		URL:                configURL,
 		AuthHeader:         auth,
@@ -438,6 +448,9 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 		Format:             r.remoteEncFormat,
 	})
 	if rerr != nil {
+		evidence.attempts[id].Outcome = "failure"
+		evidence.attempts[id].Reason = "decrypt_load_failed"
+		evidence.attempts[id].FinishedAt = time.Now().UTC()
 		// Uniform policy: strict modes surface the root cause; tolerant modes fall back
 		// to validated local rules and mark degraded. Never return ciphertext/partial data.
 		if allowsRemoteFailure(mode) {
@@ -458,17 +471,29 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 		return LoadResult{Source: SourceNone, LoadedAt: now, Err: fmt.Errorf("remote decrypt fetch: %w", rerr)}
 	}
 	remoteUsers = normalizeAllowListUser(remoteUsers)
+	evidence.attempts[id].Outcome = "success"
+	evidence.attempts[id].Rows = len(remoteUsers)
+	evidence.attempts[id].FinishedAt = time.Now().UTC()
+	remoteBatch.inputs[id] = true
+	remoteBatch.fallbackOwner = id
+	for i := range remoteUsers {
+		if key, ok := allowListUserKey(remoteUsers[i]); ok {
+			remoteBatch.owners[key] = id
+		}
+	}
+	selectBatch(ctx, remoteBatch)
 
 	fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode, r.remoteOpts)
 	if len(fileSources) == 0 {
 		return LoadResult{Users: remoteUsers, Source: SourceRemote, Version: cache.HashUserList(remoteUsers), LoadedAt: now}
 	}
-	fileUsers, ferr := r.dl.Load(ctx, fileSources...)
+	fileUsers, ferr := r.loadObserved(ctx, fileSources...)
 	if ferr != nil {
+		selectBatch(ctx, remoteBatch)
 		// Local read failed but remote succeeded: use remote (not degraded).
 		return LoadResult{Users: remoteUsers, Source: SourceRemote, Version: cache.HashUserList(remoteUsers), LoadedAt: now}
 	}
-	merged := mergeByMode(remoteUsers, fileUsers, mode)
+	merged := mergeObserved(ctx, remoteUsers, fileUsers, mode, remoteBatch, selectedBatch(ctx))
 	return LoadResult{Users: merged, Source: SourceMerged, Version: cache.HashUserList(merged), LoadedAt: now}
 }
 
@@ -478,7 +503,7 @@ func (r *RulesLoader) loadLocalOnly(ctx context.Context, rulesFile, dataDir stri
 	if len(fileSources) == 0 {
 		return nil, fmt.Errorf("no local sources available for fallback")
 	}
-	return r.dl.Load(ctx, fileSources...)
+	return r.loadObserved(ctx, fileSources...)
 }
 
 // sourceForMode reports the likely source label when parser-kit resolved sources

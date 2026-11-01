@@ -228,6 +228,10 @@ func TestLoadWithResult_ConcurrentReads(t *testing.T) {
 			defer wg.Done()
 			res := r.LoadWithResult(context.Background(), path, "", "", "")
 			assert.NoError(t, res.Err)
+			if assert.Len(t, res.Attempts, 1) {
+				assert.Equal(t, 1, res.Attempts[0].Attempt)
+				assert.True(t, res.Attempts[0].SelectedInput)
+			}
 		}()
 	}
 	wg.Wait()
