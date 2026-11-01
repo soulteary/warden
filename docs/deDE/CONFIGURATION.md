@@ -22,6 +22,11 @@ Eine **vollständige Optionstabelle** (YAML-Pfade, Umgebungsvariablen, Standardw
 | Dienstauthentifizierung | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Nur Umgebungsvariablen** (keine YAML-Schlüssel) |
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximal akzeptiertes Snapshot-Alter; Go-Duration, Standard `max(30s, 3 × Task-Intervall)` |
 
+> Einige YAML-Felder werden nur geparst, aber noch nicht in die Anwendung übernommen. Siehe [Schema und Laufzeit](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring).
+> `server.*` (except `port`), `redis.db`, `cache.*`, `rate_limit.*`,
+> `http.max_retries` and `http.retry_delay` are schema-only in the current binary.
+> Scheduling uses `task.interval` / `INTERVAL` / `--interval` with a five-second runtime minimum.
+
 ## Betriebsmodus (MERGE_MODE)
 
 Das System unterstützt 7 Modi zum Zusammenführen von Daten, ausgewählt über `MERGE_MODE` (`MODE` ist veraltet):

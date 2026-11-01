@@ -22,6 +22,11 @@ Pour un **tableau complet des options** (chemins YAML, variables d'environnement
 | Authentification de service | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Variables d'environnement uniquement** (aucune clé YAML) |
 | Santé | — / `SNAPSHOT_MAX_AGE` | Âge maximal accepté pour l'instantané ; durée Go, par défaut `max(30s, 3 × intervalle de tâche)` |
 
+> Certains champs YAML sont analysés sans être utilisés par l’application. Voir [schéma et exécution](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring).
+> `server.*` (except `port`), `redis.db`, `cache.*`, `rate_limit.*`,
+> `http.max_retries` and `http.retry_delay` are schema-only in the current binary.
+> Scheduling uses `task.interval` / `INTERVAL` / `--interval` with a five-second runtime minimum.
+
 ## Mode d'exécution (MERGE_MODE)
 
 Le système prend en charge 7 modes de fusion de données, sélectionnés via `MERGE_MODE` (`MODE` est déprécié) :

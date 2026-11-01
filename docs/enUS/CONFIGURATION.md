@@ -23,6 +23,31 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
 | Data policy | — / `EMPTY_RULESET_POLICY` | What a refresh does when every loaded record is rejected; `consistency-first` (default) or `availability-first`, see [Empty ruleset policy](#empty-ruleset-policy) |
 
+## YAML schema and application wiring
+
+Parsing a YAML key does not guarantee that the current binary uses it. The main
+startup path projects configuration through `Config.ToCmdConfig` and `cmd.Config`.
+The following schema fields are not wired into that application path:
+
+- `server.read_timeout`, `server.write_timeout`, `server.shutdown_timeout`,
+  `server.idle_timeout`, `server.max_header_bytes` (only `server.port` is projected).
+- `redis.db`, `cache.ttl`, `cache.update_interval`, `rate_limit.rate`,
+  `rate_limit.window`, `http.max_retries`, `http.retry_delay`.
+
+The tables/examples below include schema fields for reference, not promises that
+changing those fields changes the running service. Current runtime values come
+from application defaults: Redis snapshot/cache TTL is one hour; rate limiting is
+60 requests per minute; the parser-kit loader retry policy uses three retries with a one-second base
+delay. Refresh scheduling uses `task.interval` / `INTERVAL` / `--interval`, not
+`cache.update_interval`; valid intervals below five seconds are clamped to five
+seconds by the application. SDK CacheTTL is a separate client option.
+
+See `internal/config/config.go: ToCmdConfig`, `main.go: NewApp`,
+`internal/di/di.go`, `internal/cache/redis_cache.go`, and
+`internal/loader/loader.go`. Wiring additional fields requires a separate behavior
+change, not a documentation correction.
+
+
 ## Running Mode (MERGE_MODE)
 
 The system supports 7 data merging modes, selected with `MERGE_MODE` (`MODE` is deprecated):

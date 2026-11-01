@@ -4,6 +4,27 @@
 
 本文档详细说明 Warden 的配置选项，包括运行模式、配置文件格式、环境变量等。配置来源优先级：**命令行参数 > 环境变量 > 配置文件 (YAML) > 默认值**。
 
+## YAML schema 与应用实际接线
+
+YAML 字段能被解析，不代表当前二进制会使用它。主启动流程通过
+`Config.ToCmdConfig` 转换到 `cmd.Config`，以下 schema 字段尚未接入该应用路径：
+
+- `server.read_timeout`、`server.write_timeout`、`server.shutdown_timeout`、
+  `server.idle_timeout`、`server.max_header_bytes`（服务端仅传递 `server.port`）。
+- `redis.db`、`cache.ttl`、`cache.update_interval`、`rate_limit.rate`、
+  `rate_limit.window`、`http.max_retries`、`http.retry_delay`。
+
+下方表格和示例包含 schema 字段作为参考，不能据此认为修改它们会改变服务运行值。
+当前 Redis 快照/缓存 TTL 固定为一小时，限流为每分钟 60 次，parser-kit 加载器重试策略使用三次重试及
+一秒基础延迟。刷新调度使用 `task.interval` / `INTERVAL` / `--interval`，
+不使用 `cache.update_interval`；合法但小于五秒的间隔会在应用层提升到五秒。
+SDK 的 CacheTTL 是另一项独立客户端选项。
+
+接线依据见 `internal/config/config.go` 的 `ToCmdConfig`、`main.go` 的 `NewApp`、
+`internal/di/di.go`、`internal/cache/redis_cache.go` 和 `internal/loader/loader.go`。
+启用这些未接线字段需要独立的行为变更，不能随文档纠错一并修改。
+
+
 ## 配置项总览
 
 以下为当前代码实际支持的配置项与默认值（参见 `internal/config/config.go`、`internal/define/define.go`、`internal/cmd/cmd.go`）：

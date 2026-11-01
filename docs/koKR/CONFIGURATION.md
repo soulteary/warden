@@ -22,6 +22,11 @@
 | 서비스 간 인증 | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **환경 변수 전용**(YAML 키 없음) |
 | 상태 | — / `SNAPSHOT_MAX_AGE` | 허용되는 스냅샷 최대 경과 시간. Go duration 형식, 기본값 `max(30s, 작업 간격 × 3)` |
 
+> 일부 YAML 필드는 파싱되지만 현재 애플리케이션에서는 사용되지 않습니다. [스키마와 런타임 연결](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring)을 참고하세요.
+> `server.*` (except `port`), `redis.db`, `cache.*`, `rate_limit.*`,
+> `http.max_retries` and `http.retry_delay` are schema-only in the current binary.
+> Scheduling uses `task.interval` / `INTERVAL` / `--interval` with a five-second runtime minimum.
+
 ## 실행 모드(MERGE_MODE)
 
 시스템은 7가지 데이터 병합 모드를 지원하며 `MERGE_MODE`로 선택합니다(`MODE`는 더 이상 권장되지 않음).
