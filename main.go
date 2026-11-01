@@ -76,6 +76,7 @@ type App struct {
 	taskInterval         uint64
 	snapshotMaxAge       time.Duration
 	redisEnabled         bool
+	redisStartupFailed   bool
 	hmacKeys             map[string]string
 	hmacToleranceSec     int
 	hmacAllowV1          bool
@@ -202,17 +203,19 @@ func NewApp(cfg *cmd.Config) *App {
 		}
 
 		var err error
-		app.redisClient, err = rediskitclient.NewClient(redisCfg)
+		app.redisClient, err = newRecoverableRedisClient(&redisCfg)
 		if err != nil {
-			// Redis connection failed, log warning and fallback to memory mode
+			// Keep a lazy backend so already-registered routes and stores can recover.
+			// Skip additional Redis work during this startup, as before.
 			app.log.Warn().
 				Err(err).
 				Str("redis", cfg.Redis).
 				Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connection_failed_fallback"))
-			app.redisClient = nil
-			app.redisUserCache = nil
+			app.redisStartupFailed = true
 		} else {
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
+		}
+		if app.redisClient != nil {
 			// Initialize Redis cache
 			app.redisUserCache = cache.NewRedisUserCache(app.redisClient)
 			// Shared-cache writes must fail closed when Redis is unavailable; the
@@ -257,6 +260,10 @@ func NewApp(cfg *cmd.Config) *App {
 			app.log.Warn().Err(err).Msg(i18n.TWithLang(i18n.LangZH, "log.load_initial_data_failed"))
 		}
 	}
+
+	// Startup is complete before routes are registered. Subsequent commands use
+	// the same backend and go-redis reconnects on demand.
+	app.redisStartupFailed = false
 
 	// Read-only identity diagnostic: report (masked) conflict / missing-id counts and the
 	// active user_id strategy so operators can assess migration risk without failing startup.
@@ -350,6 +357,9 @@ func (app *App) shouldKeepPrepared(prepared *cache.PreparedRules) bool {
 // reduces to zero follows the configured empty-ruleset policy: availability-first rejects
 // it as a bootstrap baseline, while consistency-first adopts the effective empty set.
 func (app *App) bootstrapFromRedis() bool {
+	if app.redisStartupFailed {
+		return false
+	}
 	if app.redisSnapshotMode == "v2" {
 		return app.bootstrapVersionedSnapshot()
 	}
@@ -532,6 +542,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			// already emitted the specific validation diagnostic; retain the existing
 			// startup summary and leave both local and shared caches untouched.
 			app.log.Warn().Err(identityErr).Msg(i18n.TWithLang(i18n.LangZH, "log.all_sources_failed"))
+			app.recoverVersionedBaseline()
 			return nil
 		}
 		if app.shouldKeepPrepared(prepared) {
@@ -550,6 +561,10 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 		// Seed Redis with the effective cache contents, including a legitimate empty
 		// set. This uses the same retrying/testable writer as background refreshes.
 		app.seedRedisIfWriter(writeRedis, app.userCache.Get())
+		return nil
+	}
+
+	if app.recoverVersionedBaseline() {
 		return nil
 	}
 
@@ -673,6 +688,9 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 // so an older slow load cannot write after a newer load from another replica.
 // Every replica still loads and applies the result to its process-local state.
 func (app *App) acquireRedisRefreshWriter() (writer bool, release func()) {
+	if app.redisStartupFailed {
+		return false, func() {}
+	}
 	if app.redisSnapshotMode == "v2" {
 		return app.acquireSnapshotLease()
 	}
@@ -807,6 +825,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		// Refresh failed: keep the last-known-good snapshot and cache untouched.
 		reason := classifyRefreshReason(res.Err)
 		failures := app.snapshots.RecordRefreshFailure(reason)
+		app.recoverVersionedBaseline()
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reason).Inc()
 		app.log.Warn().
@@ -856,6 +875,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	prepared, identityErr := app.prepareUsers(newUsers)
 	if identityErr != nil {
 		failures := app.snapshots.RecordRefreshFailure(reasonIdentityConflict)
+		app.recoverVersionedBaseline()
 		app.updateSnapshotMetrics()
 		prommetrics.RefreshFailuresTotal.WithLabelValues(reasonIdentityConflict).Inc()
 		app.log.Warn().

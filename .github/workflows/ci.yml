@@ -167,6 +167,34 @@ jobs:
           include-hidden-files: true
     permissions:
       contents: read
+  redis-snapshot-integration:
+    name: Redis 快照集成测试
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      WARDEN_REDIS_INTEGRATION_ADDR: localhost:6379
+      WARDEN_REDIS_INTEGRATION_REQUIRE_COLD: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Run Redis 8 snapshot protocol tests
+        run: go test -race -count=1 -v -run '^TestRedisSnapshotIntegration' ./internal/cache
+
   lint:
     name: 代码质量检查
     runs-on: ubuntu-latest

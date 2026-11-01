@@ -217,3 +217,13 @@ func (app *App) recordSnapshotResult(operation, result string) {
 		prommetrics.RecordRedisSnapshotResult(app.redisSnapshotMode, operation, result)
 	}
 }
+
+// recoverVersionedBaseline fills only an uninitialized V2 replica after a failed
+// source attempt. Recovery preserves source age and refresh-failure diagnostics.
+func (app *App) recoverVersionedBaseline() bool {
+	if app.redisSnapshotMode != "v2" || app.hasKnownGoodSnapshot() ||
+		strings.EqualFold(strings.TrimSpace(app.appMode), "ONLY_LOCAL") {
+		return false
+	}
+	return app.bootstrapFromRedis()
+}
