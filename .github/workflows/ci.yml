@@ -96,11 +96,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version-file: go.mod
-      - name: Branch tests and coverage gate
+      - name: Coverage gate fixtures
+        run: sh scripts/test-coverage-gate.sh
+      - name: Branch tests and coverage
         run: |-
           go test -race -count=1 -covermode=atomic -coverprofile=coverage.out ./...
-          ci_floor=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/,"",$3); print $3}')
-          awk -v t="$ci_floor" 'BEGIN {exit !(t+0 >= 95)}'
         if: "!(github.event_name == 'pull_request')"
       - name: Remove stale generated report evidence
         id: report_cleanup
@@ -131,6 +131,19 @@ jobs:
           PROFILE: ${{ steps.go_test_report.outputs.coverage_profile }}
         run: |-
           cp "$PROFILE" coverage.out
+      - name: Exact statement coverage gate
+        run: |
+          sh scripts/check-coverage.sh coverage.out
+          git rev-parse HEAD > coverage.commit
+      - name: Upload main coverage evidence
+        if: success() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: main-coverage-${{ github.sha }}
+          path: |
+            coverage.out
+            coverage.commit
+          retention-days: 14
       - name: 显示测试摘要
         if: (always()) && (github.event_name == 'pull_request')
         run: |
