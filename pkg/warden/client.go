@@ -25,6 +25,9 @@ type Client struct {
 	baseURL                  string
 	apiKey                   string
 	cache                    *Cache
+	sourceMaxAge             time.Duration
+	sourceClockSkew          time.Duration
+	sourceClock              Clock
 	logger                   Logger
 	retry                    *RetryOptions
 	signer                   *hmacSigner
@@ -85,7 +88,12 @@ func NewClient(opts *Options) (*Client, error) {
 		maxResp = DefaultMaxResponseBytes
 	}
 
+	sourceClock := opts.Clock
+	if sourceClock == nil {
+		sourceClock = systemClock{}
+	}
 	client := &Client{
+		sourceMaxAge: opts.SourceMaxAge, sourceClockSkew: opts.SourceClockSkew, sourceClock: sourceClock,
 		httpClient:               httpClient,
 		baseURL:                  opts.BaseURL,
 		apiKey:                   opts.APIKey,
@@ -95,6 +103,10 @@ func NewClient(opts *Options) (*Client, error) {
 		signer:                   newHMACSigner(opts.HMACKeyID, opts.HMACSecret, opts.Clock),
 		maxResponseBytes:         maxResp,
 		cacheInvalidationChannel: opts.CacheInvalidationChannel,
+	}
+
+	if opts.SourceMaxAge > 0 {
+		client.cache.now = sourceClock.Now
 	}
 
 	// Start cache invalidation listener if channel is provided
@@ -170,8 +182,9 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	}()
 
 	// Check status code
-	if err := c.checkResponseStatus(resp); err != nil {
-		return nil, err
+	deadline, responseErr := c.checkDataResponse(resp)
+	if responseErr != nil {
+		return nil, responseErr
 	}
 
 	// Parse response
@@ -180,8 +193,17 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
 	}
 
-	// Update cache
-	c.cache.Set(users)
+	// Recheck after decoding; receipt time never establishes new source evidence.
+	if err := c.checkSourceDeadline(deadline); err != nil {
+		return nil, err
+	}
+	if c.sourceMaxAge > 0 {
+		if !c.cache.setUntil(users, deadline) {
+			return nil, sourceFreshnessError(ErrSourceStale)
+		}
+	} else {
+		c.cache.Set(users)
+	}
 
 	c.logger.Debugf("Fetched %d users from Warden API", len(users))
 
@@ -232,14 +254,19 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	}()
 
 	// Check status code
-	if err := c.checkResponseStatus(resp); err != nil {
-		return nil, err
+	deadline, responseErr := c.checkDataResponse(resp)
+	if responseErr != nil {
+		return nil, responseErr
 	}
 
 	// Parse response
 	var paginatedResp PaginatedResponse
 	if err := json.NewDecoder(resp.Body).Decode(&paginatedResp); err != nil {
 		return nil, NewError(ErrCodeInvalidResponse, "failed to decode paginated response", err)
+	}
+
+	if err := c.checkSourceDeadline(deadline); err != nil {
+		return nil, err
 	}
 
 	c.logger.Debugf("Fetched paginated users: page=%d, pageSize=%d, total=%d", page, pageSize, paginatedResp.Pagination.Total)
@@ -370,14 +397,19 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	}()
 
 	// Check status code
-	if err := c.checkResponseStatus(resp); err != nil {
-		return nil, err
+	deadline, responseErr := c.checkDataResponse(resp)
+	if responseErr != nil {
+		return nil, responseErr
 	}
 
 	// Parse response
 	var user AllowListUser
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
+	}
+
+	if err := c.checkSourceDeadline(deadline); err != nil {
+		return nil, err
 	}
 
 	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", user.UserID, sanitizePhone(user.Phone), sanitizeEmail(user.Mail))
@@ -536,6 +568,9 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 
 // addAuthHeaders adds authentication headers to the request.
 func (c *Client) addAuthHeaders(req *http.Request) {
+	if c.sourceMaxAge > 0 {
+		req.Header.Set(HeaderSnapshotMetadata, "v1")
+	}
 	if c.apiKey != "" {
 		req.Header.Set("X-API-Key", c.apiKey)
 		// Also support Authorization header

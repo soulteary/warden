@@ -36,6 +36,7 @@ const (
 	ErrCodeUnauthorized    = "UNAUTHORIZED"
 	ErrCodeNotFound        = "NOT_FOUND"
 	ErrCodeServerError     = "SERVER_ERROR"
+	ErrCodeSourceFreshness = "SOURCE_FRESHNESS"
 )
 
 // NewError creates a new SDK error.

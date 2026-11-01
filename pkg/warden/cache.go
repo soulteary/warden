@@ -9,10 +9,12 @@ import (
 //
 //nolint:govet // fieldalignment: field order has been optimized, but not further adjusted to maintain API compatibility
 type Cache struct {
-	mu        sync.RWMutex
-	users     []AllowListUser
-	expiresAt time.Time
-	ttl       time.Duration
+	mu          sync.RWMutex
+	users       []AllowListUser
+	expiresAt   time.Time
+	ttl         time.Duration
+	now         func() time.Time
+	sourceBound bool
 }
 
 // NewCache creates a new cache instance with the specified TTL.
@@ -31,7 +33,8 @@ func (c *Cache) Get() []AllowListUser {
 		return nil
 	}
 
-	if time.Now().After(c.expiresAt) {
+	now := c.cacheNow()
+	if now.After(c.expiresAt) || (c.sourceBound && !now.Before(c.expiresAt)) {
 		return nil
 	}
 
@@ -41,12 +44,33 @@ func (c *Cache) Get() []AllowListUser {
 
 // Set stores the user list in cache with expiration.
 func (c *Cache) Set(users []AllowListUser) {
+	c.setUntil(users, time.Time{})
+}
+
+// setUntil publishes rows and their bounded expiry under one lock. A response
+// that expired while decoding cannot replace a newer concurrent cache entry.
+func (c *Cache) setUntil(users []AllowListUser, deadline time.Time) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	// Store a copy to prevent external modification
+	now := c.cacheNow()
+	if !deadline.IsZero() && !now.Before(deadline) {
+		return false
+	}
+	expires := now.Add(c.ttl)
+	if !deadline.IsZero() && deadline.Before(expires) {
+		expires = deadline
+	}
 	c.users = cloneCachedUsers(users)
-	c.expiresAt = time.Now().Add(c.ttl)
+	c.expiresAt = expires
+	c.sourceBound = !deadline.IsZero()
+	return true
+}
+
+func (c *Cache) cacheNow() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now()
 }
 
 // Clear clears the cache.
@@ -56,6 +80,7 @@ func (c *Cache) Clear() {
 
 	c.users = nil
 	c.expiresAt = time.Time{}
+	c.sourceBound = false
 }
 
 // cloneCachedUsers preserves the cache's non-nil outer slice and detaches Scope.
