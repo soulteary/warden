@@ -468,3 +468,15 @@ func TestRedisReplayGuard_FailsClosed(t *testing.T) {
 	assert.False(t, seen)
 	require.Error(t, err)
 }
+
+func TestRedisReplayGuardNilClientFailsClosed(t *testing.T) {
+	guard := NewRedisReplayGuard(nil)
+	require.NotNil(t, guard)
+	var seen bool
+	require.NotPanics(t, func() {
+		var err error
+		seen, err = guard.SeenBefore("key:nonce", time.Minute)
+		require.Error(t, err)
+	})
+	require.False(t, seen)
+}

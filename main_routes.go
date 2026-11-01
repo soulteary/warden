@@ -76,7 +76,9 @@ func registerRoutes(app *App) *http.ServeMux {
 			prommetrics.RecordDeprecation("hmac_v1")
 		},
 	}
-	if app.redisClient != nil {
+	// Required distributed replay protection must not become process-local
+	// just because the initial Redis connection failed.
+	if app.redisClient != nil || requiresRedisForHMACReplay(app.redisEnabled, app.hmacKeys) {
 		hmacCfg.ReplayGuard = middleware.NewRedisReplayGuard(app.redisClient)
 	}
 	authMiddleware := middleware.ServiceAuthChain(hmacCfg, apiKeyMiddleware)
