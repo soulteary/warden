@@ -504,3 +504,20 @@ export STARGATE_WARDEN_BASE_URL=http://warden:8081
 默认 Redis 格式保持不变。可选的 `REDIS_SNAPSHOT_MODE`、
 `REDIS_SNAPSHOT_NAMESPACE` 配置、时间含义和部署回滚步骤见
 [Redis 快照迁移](REDIS_SNAPSHOT_MIGRATION.md)。
+
+## 服务端数据读取新鲜度
+
+环境变量 `SNAPSHOT_READ_POLICY=observe` 为默认值，保持现有数据读取行为，健康检查报告
+过期时仍可读取。设置为 `enforce` 后，所有经过认证的列表、分页、用户和 lookup 路由
+及其别名都检查来源新鲜度；使用 YAML 配置时也读取此环境变量。非法值使启动校验失败。
+
+检查与查询使用同一个不可变快照。来源成功时间必须已知、不晚于请求观察时间，且请求
+必须早于 `SourceSucceededAt + SNAPSHOT_MAX_AGE`。到达截止时间、来源年龄未知、缺少
+对应读取视图或来源时间在未来时，查询前返回 503。新鲜快照中的用户确实不存在仍返回
+404，已接受的空集合列表仍返回 200。认证先于此检查；严格读取响应设置
+`Cache-Control: no-store`。
+
+发布、续期和重启恢复不会延长截止时间。旧版 Redis 快照没有来源成功时间证据，严格
+模式下返回 503，建议先迁移到保留来源时间的 V2 快照再启用。新鲜的本地回退仍可用：
+本策略检查合并后实际生效的数据集，并不要求每个远程依赖均成功。健康检查、指标、
+合并优先级、Redis 存储格式及 SDK 默认策略不变。

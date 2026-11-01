@@ -44,7 +44,10 @@ refresh errors. These tests do not change loading or authorization behavior.
 
 ## Reads and health
 
-`SNAPSHOT_MAX_AGE` affects health reporting, not data reads. In `ONLY_REMOTE` and
+By default, `SNAPSHOT_MAX_AGE` affects health reporting, not data reads.
+Opt-in `SNAPSHOT_READ_POLICY=enforce` also applies it to source freshness on data
+reads; see [configuration](CONFIGURATION.md#server-data-read-freshness). With the
+default read policy, in `ONLY_REMOTE` and
 `REMOTE_FIRST`, an old snapshot can make health return HTTP 503 while authenticated
 list and user queries still return cached data. Clients must not interpret a
 successful query as proof that its source was recently checked.
