@@ -85,8 +85,18 @@ type Options struct {
 // In normal mode it returns the first violation as a typed error. In ReportOnly mode
 // it returns counts of all violations without an error (used by the read-only check).
 func ValidateAndIndexUsers(users []define.AllowListUser, opts Options) (Result, error) {
-	normalized := make([]define.AllowListUser, len(users))
-	copy(normalized, users)
+	owned := make([]define.AllowListUser, len(users))
+	copy(owned, users)
+	return ValidateAndIndexOwnedUsers(owned, opts)
+}
+
+// ValidateAndIndexOwnedUsers consumes an exclusively owned outer users slice.
+// It normalizes records in place before validating and returning the ordered
+// result. Callers must not rely on the outer slice retaining its original fields,
+// including on error. Existing Scope contents are neither copied nor modified;
+// callers retain responsibility for the ownership of those nested slices.
+func ValidateAndIndexOwnedUsers(users []define.AllowListUser, opts Options) (Result, error) {
+	normalized := users
 	for i := range normalized {
 		normalized[i].Normalize()
 	}

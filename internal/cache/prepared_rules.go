@@ -17,7 +17,8 @@ type PreparedRules struct {
 // or logging per-record rejections. Empty-ruleset policy can inspect the candidate
 // before deciding whether to publish it.
 func PrepareRules(users []define.AllowListUser, opts identity.Options) (*PreparedRules, error) {
-	res, err := identity.ValidateAndIndexUsers(cloneUsers(users), opts)
+	// Detach the input and Scope once before allowing in-place normalization.
+	res, err := identity.ValidateAndIndexOwnedUsers(cloneUsers(users), opts)
 	if err != nil {
 		return nil, err
 	}
