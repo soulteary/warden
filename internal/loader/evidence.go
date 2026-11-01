@@ -146,11 +146,6 @@ func (r *RulesLoader) loadObserved(ctx context.Context, sources ...parserkit.Sou
 		b.inputs[b.current] = true
 		if opts.LoadStrategy == parserkit.LoadStrategyFallback {
 			b.fallbackOwner = b.current
-			for i := range users {
-				if key, ok := allowListUserKey(users[i]); ok {
-					b.owners[key] = b.current
-				}
-			}
 		}
 		return users
 	})
@@ -196,6 +191,20 @@ func mergeObserved(ctx context.Context, remoteUsers, fileUsers []define.AllowLis
 	users := mergeByMode(remoteUsers, fileUsers, mode)
 	if e := evidenceFrom(ctx); e != nil {
 		merged := newSourceBatch(e)
+		// Fallback batches have one owner; materialize per-row ownership only
+		// when their results participate in a subsequent merge.
+		for _, group := range []struct {
+			batch *sourceBatch
+			users []define.AllowListUser
+		}{{remoteBatch, remoteUsers}, {fileBatch, fileUsers}} {
+			if group.batch != nil && group.batch.fallbackOwner >= 0 {
+				for i := range group.users {
+					if key, ok := allowListUserKey(group.users[i]); ok {
+						group.batch.owners[key] = group.batch.fallbackOwner
+					}
+				}
+			}
+		}
 		first, second := fileBatch, remoteBatch
 		if mode == ModeLocalFirst || mode == ModeLocalFirstAllowRemoteFail {
 			first, second = remoteBatch, fileBatch
@@ -219,14 +228,18 @@ func (e *sourceEvidence) finish(result *LoadResult) {
 		for id := range e.selected.inputs {
 			e.attempts[id].SelectedInput = true
 		}
-		for i := range result.Users {
-			key, ok := allowListUserKey(result.Users[i])
-			id, owned := e.selected.owners[key]
-			if !ok || !owned {
-				id = e.selected.fallbackOwner
-			}
-			if id >= 0 {
-				e.attempts[id].WinningRows++
+		if e.selected.fallbackOwner >= 0 {
+			e.attempts[e.selected.fallbackOwner].WinningRows = len(result.Users)
+		} else {
+			for i := range result.Users {
+				key, ok := allowListUserKey(result.Users[i])
+				id, owned := e.selected.owners[key]
+				if !ok || !owned {
+					id = e.selected.fallbackOwner
+				}
+				if id >= 0 {
+					e.attempts[id].WinningRows++
+				}
 			}
 		}
 	}
