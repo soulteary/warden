@@ -256,7 +256,7 @@ func buildReadView(users []define.AllowListUser, report bool) *ReadView {
 		}
 	}
 	indexes.Set(valid)
-	view := &ReadView{cache: indexes}
+	view := &ReadView{cache: indexes, rows: indexes.GetAll()}
 	if report {
 		reportSet(users, view)
 	}

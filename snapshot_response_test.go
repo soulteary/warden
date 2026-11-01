@@ -101,3 +101,41 @@ func TestSnapshotResponseUnknownV1AgeIsNotInvented(t *testing.T) {
 	require.Empty(t, rec.Header().Get(sourceSucceededHeader))
 	require.Empty(t, rec.Header().Get(snapshotValidUntilHeader))
 }
+
+func TestPaginatedSnapshotPinsFreshnessVersionAndRows(t *testing.T) {
+	app := responseMetadataApp(t)
+	app.snapshotReadEnforce = true
+	old := app.snapshots.Load()
+	nextPrepared, next := preparedTestSnapshot(t, []define.AllowListUser{{Mail: "new@example.com", UserID: "new"}})
+	next.SourceSucceededAt = time.Now().Add(-time.Hour)
+	handler := app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+		return func(w http.ResponseWriter, r *http.Request) {
+			app.userCache.ApplyPrepared(nextPrepared)
+			app.snapshots.Store(next)
+			router.JSON(source, nil)(w, r)
+		}
+	})
+	req := httptest.NewRequest(http.MethodGet, "/?page=1&page_size=1", http.NoBody)
+	req.Header.Set(snapshotMetadataHeader, "v1")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var response struct {
+		Data       []define.AllowListUser `json:"data"`
+		Pagination struct {
+			Total int `json:"total"`
+		} `json:"pagination"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, 1, response.Pagination.Total)
+	require.Len(t, response.Data, 1)
+	require.Equal(t, "member", response.Data[0].UserID)
+	require.Equal(t, old.EffectiveVersion, rec.Header().Get(snapshotVersionHeader))
+	require.Equal(t, old.SourceSucceededAt.Format(time.RFC3339Nano), rec.Header().Get(sourceSucceededHeader))
+	// A later request sees the replacement generation's expired source evidence.
+	denied := httptest.NewRecorder()
+	app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+		return router.JSON(source, nil)
+	})(denied, req)
+	require.Equal(t, http.StatusServiceUnavailable, denied.Code)
+}

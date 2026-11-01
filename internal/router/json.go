@@ -187,7 +187,6 @@ func JSON(userCache cache.ViewSource, responseFields []string) func(http.Respons
 		}
 
 		view := userCache.ReadView()
-		userData := view.Get()
 		prommetrics.CacheHits.Inc()
 
 		w.Header().Set("Content-Type", "application/json")
@@ -196,6 +195,7 @@ func JSON(userCache cache.ViewSource, responseFields []string) func(http.Respons
 		useFieldFilter := len(responseFields) > 0
 
 		if !hasPagination {
+			userData := view.Get()
 			var payload interface{} = userData
 			if useFieldFilter {
 				payload = UsersToMaps(userData, responseFields)
@@ -230,7 +230,7 @@ func JSON(userCache cache.ViewSource, responseFields []string) func(http.Respons
 			return
 		}
 
-		paginatedData, total, totalPages := paginate(userData, page, pageSize)
+		paginatedData, total, totalPages := view.Page(page, pageSize)
 		var response map[string]interface{}
 		if useFieldFilter {
 			response = map[string]interface{}{
