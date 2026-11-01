@@ -221,12 +221,9 @@ func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
 			app.recordSnapshotResult(operation, "ineligible")
 			return false
 		}
-		restored.DegradedReason = "redis_follow_recovery"
-		if !app.snapshots.restoreIfCurrent(expected, restored) {
-			app.recordSnapshotResult(operation, "superseded")
+		if !app.adoptFollowSnapshot(expected, restored, prepared) {
 			return false
 		}
-		app.userCache.ApplyPrepared(prepared)
 	} else {
 		app.userCache.ApplyPrepared(prepared)
 		app.snapshots.StorePreservingFailures(restored)
@@ -234,6 +231,18 @@ func (app *App) restoreVersionedSnapshot(expected *Snapshot) bool {
 	app.updateSnapshotMetrics()
 	prommetrics.CacheHits.Inc()
 	app.recordSnapshotResult(operation, "restored")
+	return true
+}
+
+// adoptFollowSnapshot fences the final adoption against publication changes after
+// eligibility was checked. A rejected candidate must not reach the fallback cache.
+func (app *App) adoptFollowSnapshot(expected, restored *Snapshot, prepared *cache.PreparedRules) bool {
+	restored.DegradedReason = "redis_follow_recovery"
+	if !app.snapshots.restoreIfCurrent(expected, restored) {
+		app.recordSnapshotResult("follow_read", "superseded")
+		return false
+	}
+	app.userCache.ApplyPrepared(prepared)
 	return true
 }
 
