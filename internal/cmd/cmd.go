@@ -45,6 +45,7 @@ type Config struct {
 	RemoteEncryptionFormat   string   // env REMOTE_ENCRYPTION_FORMAT: auto|v2|legacy
 	UserIDStrategy           string   // env USER_ID_STRATEGY: legacy|sha256-128 (default legacy)
 	RequireExplicitUserID    bool     // env REQUIRE_EXPLICIT_USER_ID: reject records without user_id
+	SourceSetID              string
 	SnapshotReadPolicy       string
 	RedisSnapshotRecovery    string
 	RedisSnapshotMode        string
@@ -557,6 +558,7 @@ func getArgsFromFlags() *Config {
 	processDataPolicyFromEnv(cfg)
 	processServiceAuthFromEnv(cfg)
 	processRedisSnapshotFromEnv(cfg)
+	cfg.SourceSetID = strings.TrimSpace(os.Getenv("SOURCE_SET_ID"))
 	processRedisRecoveryFromEnv(cfg)
 	processSnapshotReadPolicyFromEnv(cfg)
 
@@ -599,6 +601,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		TLSRequireClientCert:     cfg.TLSRequireClientCert,
 	}
 	processRedisSnapshotFromEnv(result)
+	result.SourceSetID = strings.TrimSpace(os.Getenv("SOURCE_SET_ID"))
 	processRedisRecoveryFromEnv(result)
 	processSnapshotReadPolicyFromEnv(result)
 	return result

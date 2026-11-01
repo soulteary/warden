@@ -13,6 +13,8 @@ func (app *App) recordSourceAttempts(result *loader.LoadResult) {
 		app.log.Debug().
 			Int("attempt", attempt.Attempt).
 			Str("source_id", attempt.SourceID).
+			Str("source_ordinal", attempt.SourceOrdinal).
+			Str("manifest_revision", attempt.ManifestRevision).
 			Str("source_kind", string(attempt.Kind)).
 			Str("transport", attempt.Transport).
 			Str("outcome", attempt.Outcome).

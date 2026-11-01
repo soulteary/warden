@@ -44,7 +44,9 @@ const (
 type LoadResult struct {
 	// Attempts records actual source calls for this load only. It is diagnostic,
 	// not required-source coverage or source-success freshness evidence.
-	Attempts []SourceAttempt
+	Attempts    []SourceAttempt
+	Manifests   []SourceManifest
+	SourceSetID string
 	// Users is the resolved rule set. It is only meaningful when Err is nil.
 	Users []define.AllowListUser
 	// Source records where the resolved rule set came from.

@@ -196,6 +196,10 @@ func listJSONFiles(dir string) ([]string, error) {
 // order and priority numbers are identical to those the Type-based swap
 // produced.
 func BuildSources(rulesFile, dataDir, configURL, auth, appMode string, remoteOpts RemoteOptions) []parserkit.Source {
+	return buildSources(rulesFile, dataDir, configURL, auth, appMode, remoteOpts, nil)
+}
+
+func buildSources(rulesFile, dataDir, configURL, auth, appMode string, remoteOpts RemoteOptions, discovery *string) []parserkit.Source {
 	mode := strings.ToUpper(strings.TrimSpace(appMode))
 	// ONLY_LOCAL is the mode that tolerated a missing rules file in v1, via
 	// LoadOptions.AllowEmptyFile.
@@ -204,9 +208,14 @@ func BuildSources(rulesFile, dataDir, configURL, auth, appMode string, remoteOpt
 	localFiles := make([]parserkit.Fetcher, 0, 2)
 	if dataDir != "" {
 		if files, err := listJSONFiles(dataDir); err == nil {
+			if discovery != nil {
+				*discovery = "success"
+			}
 			for _, path := range files {
 				localFiles = append(localFiles, newFileFetcher(path, allowMissing))
 			}
+		} else if discovery != nil {
+			*discovery = "failed"
 		}
 	}
 	if rulesFile != "" {
@@ -250,6 +259,7 @@ type RulesLoader struct {
 	httpInsecureTLS        bool
 	dl                     parserkit.DataLoader[define.AllowListUser]
 	loadOptions            *parserkit.LoadOptions[define.AllowListUser]
+	sourceSetID            string
 	remoteOpts             RemoteOptions
 	httpTimeout            time.Duration
 	appMode                string
@@ -289,6 +299,7 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 	return &RulesLoader{
 		dl:                     dl,
 		loadOptions:            opts,
+		sourceSetID:            sourceSetIDFromConfig(cfg),
 		remoteOpts:             BuildRemoteOptions(cfg),
 		appMode:                appMode,
 		remoteDecrypt:          decrypt,
@@ -327,7 +338,7 @@ func (r *RulesLoader) Load(ctx context.Context, rulesFile, dataDir, configURL, a
 // local rule set and mark the result Degraded, while strict modes surface the root
 // cause. This function never returns partial/unvalidated data with a nil Err.
 func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, configURL, auth string) (result LoadResult) {
-	evidence := &sourceEvidence{}
+	evidence := &sourceEvidence{sourceSetID: r.sourceSetID}
 	ctx = context.WithValue(ctx, evidenceKey{}, evidence)
 	defer func() { evidence.finish(&result) }()
 	mode := normalizeMode(r.appMode)
@@ -348,7 +359,7 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 	}
 
 	// Non-decrypt path: parser-kit resolves the configured sources.
-	sources := BuildSources(rulesFile, dataDir, configURL, auth, r.appMode, r.remoteOpts)
+	sources := r.buildObservedSources(ctx, rulesFile, dataDir, configURL, auth, r.appMode)
 	if len(sources) == 0 {
 		return LoadResult{Source: SourceNone, LoadedAt: now, Err: fmt.Errorf("no sources for mode %s", r.appMode)}
 	}
@@ -381,7 +392,7 @@ func (r *RulesLoader) LoadWithResult(ctx context.Context, rulesFile, dataDir, co
 }
 
 func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
-	remoteSources := BuildSources("", "", configURL, auth, ModeOnlyRemote, r.remoteOpts)
+	remoteSources := r.buildObservedSources(ctx, "", "", configURL, auth, ModeOnlyRemote)
 	remoteUsers, remoteErr := r.loadObserved(ctx, remoteSources...)
 	remoteBatch := selectedBatch(ctx)
 	if remoteErr != nil {
@@ -435,7 +446,11 @@ func (r *RulesLoader) loadPlainRemoteFirst(ctx context.Context, rulesFile, dataD
 func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, configURL, auth, mode string, now time.Time) LoadResult {
 	evidence := evidenceFrom(ctx)
 	remoteBatch := newSourceBatch(evidence)
-	id := evidence.begin("remote_1", SourceRemote, "decrypt")
+	descriptor := SourceDescriptor{ID: sourceIdentity(evidence.sourceSetID, SourceRemote, configURL), Ordinal: "remote_1", Kind: SourceRemote}
+	manifest := evidence.manifest([]SourceDescriptor{descriptor}, "not_requested")
+	id := evidence.begin(descriptor.ID, SourceRemote, "decrypt")
+	evidence.attempts[id].SourceOrdinal = descriptor.Ordinal
+	evidence.attempts[id].ManifestRevision = manifest.Revision
 	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, &remote.FetchOptions{
 		URL:                configURL,
 		AuthHeader:         auth,
@@ -483,7 +498,7 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 	}
 	selectBatch(ctx, remoteBatch)
 
-	fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode, r.remoteOpts)
+	fileSources := r.buildObservedSources(ctx, rulesFile, dataDir, "", "", r.appMode)
 	if len(fileSources) == 0 {
 		return LoadResult{Users: remoteUsers, Source: SourceRemote, Version: cache.HashUserList(remoteUsers), LoadedAt: now}
 	}
@@ -499,7 +514,7 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 
 // loadLocalOnly loads rules from local sources only (no remote), used as a fallback.
 func (r *RulesLoader) loadLocalOnly(ctx context.Context, rulesFile, dataDir string) ([]define.AllowListUser, error) {
-	fileSources := BuildSources(rulesFile, dataDir, "", "", r.appMode, r.remoteOpts)
+	fileSources := r.buildObservedSources(ctx, rulesFile, dataDir, "", "", r.appMode)
 	if len(fileSources) == 0 {
 		return nil, fmt.Errorf("no local sources available for fallback")
 	}

@@ -32,7 +32,7 @@ func TestSourceAttemptLoggingIsDiagnosticAndRedacted(t *testing.T) {
 		var event map[string]any
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &event))
 		require.Equal(t, "source attempt completed", event["message"])
-		require.Equal(t, "local_1", event["source_id"])
+		require.Equal(t, "local_1", event["source_ordinal"])
 		require.Equal(t, "file", event["transport"])
 		require.Equal(t, true, event["selected_input"])
 		require.Equal(t, false, event["load_succeeded"])
