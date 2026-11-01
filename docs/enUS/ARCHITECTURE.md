@@ -2,6 +2,8 @@
 
 > 🌐 **Language / 语言**: [English](ARCHITECTURE.md) | [中文](../zhCN/ARCHITECTURE.md) | [Français](../frFR/ARCHITECTURE.md) | [Italiano](../itIT/ARCHITECTURE.md) | [日本語](../jaJP/ARCHITECTURE.md) | [Deutsch](../deDE/ARCHITECTURE.md) | [한국어](../koKR/ARCHITECTURE.md)
 
+See [Current data contract](DATA_CONTRACT.md).
+
 This document details the system architecture, core components, and data flow of Warden.
 
 Warden is a **standalone** allowlist user data service that can be used independently or optionally integrated with other services.
