@@ -14,6 +14,30 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-07
+
+### Security
+
+- Restrict plain and encrypted remote source connections: validate DNS addresses
+  at dial time, preserve TLS hostname verification, reject redirects and bypass
+  environment proxies. Exact private-origin exceptions retain local-address bans.
+- Require verified HTTPS for production sources, including encrypted envelopes.
+  Default production snapshot reads to `enforce`; development/test retain `observe`.
+- Add optional HMAC key action permissions with distinct-secret validation and
+  no API-key or client-certificate fallback when policies are enabled.
+- Reject SDK redirects with `ErrRedirect` without forwarding credentials or
+  retrying. HMAC-signed SDK requests omit reusable API-key headers; API-key-only
+  requests and independent mTLS configuration remain supported.
+- Require Redis authentication and isolate the data network in the Compose example.
+
+### Changed
+
+- Refresh the project banner and add an architecture animation.
+- Keep public SDK method signatures, data JSON and Go 1.27.3 requirements compatible.
+  Network and production defaults require explicit upgrade checks; see
+  [v1.6.0 migration and release notes](docs/releases/v1.6.0.md), including old-key
+  retirement, restored snapshot freshness and existing Redis deployments.
+
 ## [1.5.0] - 2026-11-02
 
 ### Added
