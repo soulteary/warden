@@ -492,8 +492,9 @@ documented in [Redis snapshot migration](REDIS_SNAPSHOT_MIGRATION.md).
 
 ## Server data read freshness
 
-`SNAPSHOT_READ_POLICY=observe` (default) preserves existing data reads, even when
-health reports stale data. Set the environment variable to `enforce` to require
+`SNAPSHOT_READ_POLICY` defaults to `enforce` in production and `observe` in
+development/test. Explicit `observe` preserves existing data reads, even when
+health reports stale data. Use `enforce` to require
 source freshness on all authenticated list, paginated list, user and lookup routes,
 including their aliases. This setting also applies when configuration comes from YAML.
 Invalid values fail startup validation.
@@ -511,7 +512,7 @@ Redis snapshots have no source-success evidence and therefore return 503 under
 enforcement; use V2 snapshots with preserved source timestamps before enabling it.
 Fresh local fallback remains valid: this policy checks the resolved dataset, not
 whether every configured remote dependency succeeded. Metrics, merge precedence,
-Redis storage format and the SDK default policy are unchanged. Default observe-mode
+Redis storage format and the SDK default policy are unchanged. Explicit observe-mode
 health behavior is unchanged; enforce-mode readiness is described below.
 
 When `SNAPSHOT_READ_POLICY=enforce`, all existing health aliases include a critical
@@ -674,3 +675,32 @@ Redis V2 stores no such evidence: restoration leaves it unknown, rather than
 inventing provenance from origin, publication or recovery time. No data/health API,
 Redis format, read policy or source-age semantics change.
 Directory discovery is indeterminate when filepath.Glob returns normally: it suppresses filesystem errors, so an empty or partial match is not proof of complete discovery. Only a reported pattern error is marked failed. No extra filesystem probe is added.
+
+
+## Remote source connection policy
+
+Plain and encrypted remote sources use the same connection policy. Redirects are
+rejected, environment HTTP proxies are ignored, and each new connection resolves
+the configured hostname, checks every returned address and dials a checked IP
+directly. TLS still verifies the configured hostname. Loopback, link-local,
+metadata, multicast and reserved destinations are rejected.
+
+Public unicast destinations are accepted by default. A private source can be
+allowed with `REMOTE_PRIVATE_ORIGINS`, a comma-separated list of exact HTTP(S)
+origins such as `https://rules.internal:8443`. The exception includes scheme,
+hostname and effective port; it never permits loopback, link-local or metadata
+addresses and does not enable redirects. Startup URL checks use the same policy.
+Prefer HTTPS; HTTP remains supported for existing deployments. Production TLS
+verification cannot be disabled.
+
+The Compose example requires `REDIS_PASSWORD` and places Redis on a separate
+internal network. The gateway should join only `auth-internal`. Do not attach
+untrusted containers to either network. For Redis ACL deployments, verify the
+commands and key prefixes required by the chosen cache/snapshot mode, including
+Lua and leases, before restricting the default user.
+
+Before upgrading production, ensure snapshots have source-success timestamps.
+Legacy Redis snapshots cannot establish freshness and return 503 under enforcement
+until a source refresh succeeds; V2 snapshots preserve that evidence. An explicit
+`SNAPSHOT_READ_POLICY=observe` retains the previous availability policy during a
+planned migration, at the cost of allowing stale directory reads.

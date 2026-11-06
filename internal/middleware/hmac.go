@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/serviceauth"
 )
 
 const (
@@ -43,6 +44,8 @@ type ReplayObserver func()
 //
 //nolint:govet // fieldalignment: readability over a few bytes for a config struct
 type HMACConfig struct {
+	// ServicePolicies optionally requires HMAC v2 and authorizes each operation.
+	ServicePolicies map[string]serviceauth.Policy
 	// Keys maps key_id -> secret for verification.
 	Keys map[string]string
 	// TimestampToleranceSec is the allowed clock skew in seconds (default 60). It is
@@ -129,6 +132,10 @@ func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) ht
 	c := hmacCfg.normalized()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if c.ServicePolicies != nil {
+				servePolicyAuthenticated(c, next, w, r)
+				return
+			}
 			if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
 				next.ServeHTTP(w, r)
 				return

@@ -25,3 +25,19 @@ func TestSnapshotReadPolicy(t *testing.T) {
 	cfg.SnapshotReadPolicy = "invalid"
 	require.ErrorContains(t, ValidateConfig(cfg), "SNAPSHOT_READ_POLICY")
 }
+
+func TestSnapshotReadPolicyDefaultsByEnvironment(t *testing.T) {
+	for _, environment := range []string{"production", "prod", " PRODUCTION "} {
+		policy, err := ParseSnapshotReadPolicy("", environment)
+		require.NoError(t, err)
+		require.Equal(t, "enforce", policy)
+		policy, err = ParseSnapshotReadPolicy("observe", environment)
+		require.NoError(t, err)
+		require.Equal(t, "observe", policy)
+	}
+	for _, environment := range []string{"development", "test", ""} {
+		policy, err := ParseSnapshotReadPolicy("", environment)
+		require.NoError(t, err)
+		require.Equal(t, "observe", policy)
+	}
+}

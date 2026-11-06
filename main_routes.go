@@ -23,6 +23,7 @@ import (
 	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/prommetrics"
 	"github.com/soulteary/warden/internal/router"
+	"github.com/soulteary/warden/internal/serviceauth"
 	internal_tracing "github.com/soulteary/warden/internal/tracing"
 )
 
@@ -66,7 +67,14 @@ func registerRoutes(app *App) *http.ServeMux {
 	// Service auth chain: mTLS (client cert) > HMAC > API Key.
 	// Accept only authenticated v2 signatures by default. Operators can explicitly
 	// enable legacy v1 during a bounded migration; usage is surfaced via a metric.
+	policies, policyErr := serviceauth.Parse(os.Getenv("WARDEN_SERVICE_POLICIES"), app.hmacKeys)
+	if policyErr != nil {
+		// Normal startup rejects malformed policies; direct router construction also fails closed.
+		policies = map[string]serviceauth.Policy{}
+		app.log.Error().Err(policyErr).Msg("Invalid service policy; denying protected requests")
+	}
 	hmacCfg := middleware.HMACConfig{
+		ServicePolicies:       policies,
 		Keys:                  app.hmacKeys,
 		TimestampToleranceSec: app.hmacToleranceSec,
 		AllowV1:               &app.hmacAllowV1,

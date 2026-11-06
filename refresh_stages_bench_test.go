@@ -39,7 +39,7 @@ func refreshBenchmarkUsers(count int, scope string, generation int) []define.All
 
 func benchmarkLocalApp(b *testing.B) *App {
 	b.Helper()
-	rules, err := loader.NewRulesLoader(nil, loader.ModeOnlyLocal)
+	rules, err := newTestRulesLoader(nil, loader.ModeOnlyLocal)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -69,7 +69,7 @@ func TestLoadWithResult_LocalSuccess(t *testing.T) {
 	dir := t.TempDir()
 	path := writeLocal(t, dir)
 
-	r, err := NewRulesLoader(nil, ModeOnlyLocal)
+	r, err := newTestRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 
 	res := r.LoadWithResult(context.Background(), path, "", "", "")
@@ -99,7 +99,7 @@ func TestLoadWithResult_RemoteFailure_Modes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.mode, func(t *testing.T) {
 			cfg := &cmd.Config{HTTPTimeout: 1}
-			r, err := NewRulesLoader(cfg, tc.mode)
+			r, err := newTestRulesLoader(cfg, tc.mode)
 			require.NoError(t, err)
 			res := r.LoadWithResult(context.Background(), path, "", badURL, "")
 			if tc.wantErr {
@@ -118,7 +118,7 @@ func TestLoadWithResult_RemoteFailure_Modes(t *testing.T) {
 func TestLoadWithResult_OnlyRemote_StrictFailure(t *testing.T) {
 	badURL := unreachableURL(t)
 	cfg := &cmd.Config{HTTPTimeout: 1}
-	r, err := NewRulesLoader(cfg, ModeOnlyRemote)
+	r, err := newTestRulesLoader(cfg, ModeOnlyRemote)
 	require.NoError(t, err)
 
 	res := r.LoadWithResult(context.Background(), "", "", badURL, "")
@@ -134,7 +134,7 @@ func TestLoadWithResult_PlainRemoteFirstSuccess(t *testing.T) {
 	defer srv.Close()
 
 	cfg := &cmd.Config{HTTPTimeout: 1}
-	r, err := NewRulesLoader(cfg, ModeRemoteFirst)
+	r, err := newTestRulesLoader(cfg, ModeRemoteFirst)
 	require.NoError(t, err)
 
 	t.Run("remote only", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestLoadWithResult_DecryptPath_StrictModeSurfacesError(t *testing.T) {
 		RemoteEncryptionRequired: true,
 		RemoteEncryptionFormat:   "v2",
 	}
-	r, err := NewRulesLoader(cfg, ModeRemoteFirst)
+	r, err := newTestRulesLoader(cfg, ModeRemoteFirst)
 	require.NoError(t, err)
 
 	res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
@@ -202,7 +202,7 @@ func TestLoadWithResult_DecryptPath_TolerantFallsBackDegraded(t *testing.T) {
 	}
 	for _, mode := range []string{define.DEFAULT_MODE, ModeLocalFirstAllowRemoteFail} {
 		t.Run(mode, func(t *testing.T) {
-			r, err := NewRulesLoader(cfg, mode)
+			r, err := newTestRulesLoader(cfg, mode)
 			require.NoError(t, err)
 
 			res := r.LoadWithResult(context.Background(), path, "", srv.URL, "")
@@ -218,7 +218,7 @@ func TestLoadWithResult_DecryptPath_TolerantFallsBackDegraded(t *testing.T) {
 func TestLoadWithResult_ConcurrentReads(t *testing.T) {
 	dir := t.TempDir()
 	path := writeLocal(t, dir)
-	r, err := NewRulesLoader(nil, ModeOnlyLocal)
+	r, err := newTestRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -251,7 +251,7 @@ func TestLoadResultVersionMatchesCacheHash(t *testing.T) {
 		{"phone":"13900139000","mail":"c@example.com","status":"active"}
 	]`), 0o600))
 
-	rl, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 5}, ModeOnlyLocal)
+	rl, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 5}, ModeOnlyLocal)
 	require.NoError(t, err)
 
 	res := rl.LoadWithResult(context.Background(), path, "", "", "")

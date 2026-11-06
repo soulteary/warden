@@ -37,7 +37,7 @@ func TestBaselinePlaintextMergeModeContract(t *testing.T) {
 		{ModeLocalFirstAllowRemoteFail, "remote@example.com", true, true},
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
-			loader, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 1}, tc.mode)
+			loader, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 1}, tc.mode)
 			require.NoError(t, err)
 			result := loader.LoadWithResult(context.Background(), local, "", srv.URL, "")
 			require.NoError(t, result.Err)

@@ -14,7 +14,6 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
-	"github.com/soulteary/warden/internal/loader"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +24,7 @@ func failedSourceRecoveryApp(t *testing.T) (app *App, dataFile string) {
 	// This local endpoint fails immediately; no real upstream or DNS is needed.
 	app.configURL = "http://127.0.0.1:1/unavailable"
 	var err error
-	app.rulesLoader, err = loader.NewRulesLoader(&cmd.Config{HTTPTimeout: 1}, app.appMode)
+	app.rulesLoader, err = newTestRulesLoader(&cmd.Config{HTTPTimeout: 1}, app.appMode)
 	require.NoError(t, err)
 	return app, filepath.Join(t.TempDir(), "missing.json")
 }
@@ -127,7 +126,7 @@ func TestV2IdentityFailureRecoversSharedBaseline(t *testing.T) {
 	app.appMode = "DEFAULT"
 	app.configURL = ""
 	var err error
-	app.rulesLoader, err = loader.NewRulesLoader(&cmd.Config{HTTPTimeout: 1}, app.appMode)
+	app.rulesLoader, err = newTestRulesLoader(&cmd.Config{HTTPTimeout: 1}, app.appMode)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(file, []byte(`[{"mail":"a@example.com","user_id":"same"},{"mail":"b@example.com","user_id":"same"}]`), 0o600))
 	app.backgroundTask(file, "")

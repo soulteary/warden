@@ -32,7 +32,7 @@ const oneUserJSON = `[{"phone":"13800138000","mail":"a@example.com"}]`
 // ONLY_LOCAL mode a rules file that does not exist loads as an empty list
 // rather than an error, which is what File().AllowMissing() now provides.
 func TestOnlyLocalMissingFileIsEmpty(t *testing.T) {
-	r, err := NewRulesLoader(nil, ModeOnlyLocal)
+	r, err := newTestRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 
 	missing := filepath.Join(t.TempDir(), "absent.json")
@@ -51,7 +51,7 @@ func TestOnlyLocalMissingFileIsEmpty(t *testing.T) {
 	})
 
 	t.Run("other_modes_still_fail", func(t *testing.T) {
-		strict, err := NewRulesLoader(nil, ModeLocalFirst)
+		strict, err := newTestRulesLoader(nil, ModeLocalFirst)
 		require.NoError(t, err)
 		_, err = strict.FromFile(context.Background(), missing)
 		require.Error(t, err)
@@ -67,7 +67,7 @@ func TestZeroByteSourceFails(t *testing.T) {
 		empty := filepath.Join(t.TempDir(), "empty.json")
 		require.NoError(t, os.WriteFile(empty, []byte{}, 0o600))
 
-		r, err := NewRulesLoader(nil, ModeOnlyLocal)
+		r, err := newTestRulesLoader(nil, ModeOnlyLocal)
 		require.NoError(t, err)
 
 		_, err = r.FromFile(context.Background(), empty)
@@ -83,7 +83,7 @@ func TestZeroByteSourceFails(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
+		r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
 		require.NoError(t, err)
 
 		res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
@@ -95,7 +95,7 @@ func TestZeroByteSourceFails(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "a.json"), []byte{}, 0o600))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "b.json"), []byte(oneUserJSON), 0o600))
 
-		r, err := NewRulesLoader(nil, ModeOnlyLocal)
+		r, err := newTestRulesLoader(nil, ModeOnlyLocal)
 		require.NoError(t, err)
 
 		res := r.LoadWithResult(context.Background(), "", dir, "", "")
@@ -112,7 +112,7 @@ func TestEmptyArrayIsAValidEmptyList(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "empty-array.json")
 		require.NoError(t, os.WriteFile(path, []byte(`[]`), 0o600))
 
-		r, err := NewRulesLoader(nil, ModeOnlyLocal)
+		r, err := newTestRulesLoader(nil, ModeOnlyLocal)
 		require.NoError(t, err)
 
 		users, err := r.FromFile(context.Background(), path)
@@ -132,7 +132,7 @@ func TestEmptyArrayIsAValidEmptyList(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
+		r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
 		require.NoError(t, err)
 
 		res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
@@ -170,7 +170,7 @@ func TestRemoteRequestCarriesTraceparent(t *testing.T) {
 		TraceFlags: trace.FlagsSampled,
 	}))
 
-	r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
+	r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
 	require.NoError(t, err)
 
 	res := r.LoadWithResult(ctx, "", "", srv.URL, "")
@@ -201,7 +201,7 @@ func TestRemoteRequestWithoutTracingSendsNoTraceparent(t *testing.T) {
 	defer otel.SetTextMapPropagator(prev)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator())
 
-	r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
+	r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
 	require.NoError(t, err)
 
 	res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
@@ -227,7 +227,7 @@ func TestInvalidRemoteURLFailsOnlyThatSource(t *testing.T) {
 			})
 
 			t.Run("merge_mode_still_loads_local", func(t *testing.T) {
-				r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeLocalFirst)
+				r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeLocalFirst)
 				require.NoError(t, err)
 
 				res := r.LoadWithResult(context.Background(), local, "", badURL, "")
@@ -237,7 +237,7 @@ func TestInvalidRemoteURLFailsOnlyThatSource(t *testing.T) {
 			})
 
 			t.Run("only_remote_reports_the_error", func(t *testing.T) {
-				r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
+				r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3}, ModeOnlyRemote)
 				require.NoError(t, err)
 
 				res := r.LoadWithResult(context.Background(), "", "", badURL, "")
@@ -259,7 +259,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 	defer srv.Close()
 
 	t.Run("off_rejects_self_signed", func(t *testing.T) {
-		r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3, HTTPInsecureTLS: false}, ModeOnlyRemote)
+		r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3, HTTPInsecureTLS: false}, ModeOnlyRemote)
 		require.NoError(t, err)
 
 		res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")
@@ -273,7 +273,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 	})
 
 	t.Run("on_accepts_self_signed", func(t *testing.T) {
-		r, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 3, HTTPInsecureTLS: true}, ModeOnlyRemote)
+		r, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 3, HTTPInsecureTLS: true}, ModeOnlyRemote)
 		require.NoError(t, err)
 
 		res := r.LoadWithResult(context.Background(), "", "", srv.URL, "")

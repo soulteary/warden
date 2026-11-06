@@ -6,7 +6,6 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
-	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/stretchr/testify/require"
 	"os"
@@ -151,7 +150,7 @@ func TestRedisFollowBackgroundFailure(t *testing.T) {
 			backing, mr := migrationFixture(t, "v2")
 			app.appMode = "DEFAULT"
 			var err error
-			app.rulesLoader, err = loader.NewRulesLoader(&cmd.Config{}, "DEFAULT")
+			app.rulesLoader, err = newTestRulesLoader(&cmd.Config{}, "DEFAULT")
 			require.NoError(t, err)
 			app.redisSnapshotMode = "v2"
 			app.redisSnapshots = backing.redisSnapshots

@@ -16,7 +16,7 @@ func TestAcceptedSourcesBindAndDetachFromLoaderResult(t *testing.T) {
 	app := responseMetadataApp(t)
 	file := filepath.Join(t.TempDir(), "rules.json")
 	require.NoError(t, os.WriteFile(file, []byte(goodRuleSet), 0o600))
-	rules, err := loader.NewRulesLoader(&cmd.Config{SourceSetID: "tenant-a"}, loader.ModeOnlyLocal)
+	rules, err := newTestRulesLoader(&cmd.Config{SourceSetID: "tenant-a"}, loader.ModeOnlyLocal)
 	require.NoError(t, err)
 	result := rules.LoadWithResult(context.Background(), file, "", "", "")
 	require.NoError(t, result.Err)
