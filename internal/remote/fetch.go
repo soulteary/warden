@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -59,6 +58,10 @@ func ParseEncryptionFormat(s string) (EncryptionFormat, error) {
 //
 //nolint:govet // fieldalignment: readability over a few bytes for a config struct
 type FetchOptions struct {
+	// HTTPClient optionally supplies a trusted transport, for embedded callers and tests.
+	// Command-line deployments always construct the restricted rule-source client.
+	HTTPClient *http.Client
+
 	URL         string
 	AuthHeader  string
 	RSAKeyPath  string // file path (preferred)
@@ -180,14 +183,15 @@ func fetchBody(ctx context.Context, opts *FetchOptions) (body []byte, contentTyp
 	if opts.AuthHeader != "" {
 		req.Header.Set("Authorization", opts.AuthHeader)
 	}
-	client := &http.Client{Timeout: opts.Timeout}
-	if opts.InsecureTLS {
-		client.Transport = &http.Transport{
-			// InsecureSkipVerify is intentional when HTTP_INSECURE_TLS is set (e.g. dev/self-signed).
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
+	client := opts.HTTPClient
+	if client == nil {
+		client, err = NewHTTPClient(opts.Timeout, opts.InsecureTLS)
+		if err != nil {
+			return nil, "", err
 		}
+		defer client.CloseIdleConnections()
 	}
-	resp, err := client.Do(req) // #nosec G704 -- URL from config, caller is responsible for allowlist
+	resp, err := client.Do(req) // #nosec G704 -- restricted transport validates resolved addresses at connection time
 	if err != nil {
 		return nil, "", fmt.Errorf("remote fetch: %w", err)
 	}

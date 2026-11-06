@@ -20,7 +20,7 @@ func TestManifestIdentitySurvivesFallbackDiscoveryChanges(t *testing.T) {
 		require.NoError(t, err)
 	}))
 	defer server.Close()
-	l, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 1, SourceSetID: "tenant-a"}, "DEFAULT")
+	l, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 1, SourceSetID: "tenant-a"}, "DEFAULT")
 	require.NoError(t, err)
 	result := l.LoadWithResult(context.Background(), "", dir, server.URL, "")
 	require.NoError(t, result.Err)
@@ -37,7 +37,7 @@ func TestManifestIncludesUnreadSourcesWithoutAttemptingThem(t *testing.T) {
 	for _, name := range []string{"a.json", "b.json"} {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(`[]`), 0o600))
 	}
-	l, err := NewRulesLoader(nil, ModeOnlyLocal)
+	l, err := newTestRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 	result := l.LoadWithResult(context.Background(), "", dir, "", "")
 	require.NoError(t, result.Err)

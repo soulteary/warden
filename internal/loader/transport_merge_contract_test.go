@@ -80,7 +80,7 @@ func TestTransportMergeContract(t *testing.T) {
 					} {
 						t.Run(transport.name, func(t *testing.T) {
 							cfg := transportContractConfig(transport.name, keyPEM)
-							loader, err := NewRulesLoader(cfg, tc.mode)
+							loader, err := newTestRulesLoader(cfg, tc.mode)
 							require.NoError(t, err)
 							url := srv.URL + "/" + transport.name
 							// Match App's ONLY_LOCAL invocation: it supplies no remote URL.

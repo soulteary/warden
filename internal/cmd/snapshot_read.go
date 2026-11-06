@@ -2,15 +2,22 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/soulteary/warden/internal/config"
 	"os"
 	"strings"
 )
 
 // ParseSnapshotReadPolicy normalizes the environment-only data read policy.
-func ParseSnapshotReadPolicy(raw string) (string, error) {
+func ParseSnapshotReadPolicy(raw string, environment ...string) (string, error) {
 	policy := strings.ToLower(strings.TrimSpace(raw))
 	if policy == "" {
 		policy = "observe"
+		if len(environment) > 0 {
+			env, ok := config.ParseEnvironment(environment[0])
+			if ok && env.IsProduction() {
+				policy = "enforce"
+			}
+		}
 	}
 	switch policy {
 	case "observe", "enforce":

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/soulteary/cli-kit/validator"
+	"github.com/soulteary/warden/internal/remote"
 )
 
 const remoteURLResolveTimeout = 5 * time.Second
@@ -47,7 +48,11 @@ func validateRemoteURL(urlStr string, resolver ipResolver) error {
 	// a zero field must not switch a security check off -- so opt out
 	// explicitly. The check is not lost: every resolved address goes back
 	// through ValidateURL below.
-	opts := &validator.URLOptions{DisableHostResolution: true}
+	if err := remote.ValidatePrivateOrigins(); err != nil {
+		return err
+	}
+	allowPrivate := remote.PrivateOriginAllowed(urlStr)
+	opts := &validator.URLOptions{DisableHostResolution: true, AllowPrivateIP: allowPrivate}
 	if err := validator.ValidateURL(urlStr, opts); err != nil {
 		return err
 	}
@@ -57,7 +62,10 @@ func validateRemoteURL(urlStr string, resolver ipResolver) error {
 		return fmt.Errorf("invalid URL format: %w", err)
 	}
 	host := u.Hostname()
-	if net.ParseIP(host) != nil {
+	if ip := net.ParseIP(host); ip != nil {
+		if !remote.AddressAllowed(ip, allowPrivate) {
+			return fmt.Errorf("remote URL has a prohibited address")
+		}
 		return nil
 	}
 
@@ -72,6 +80,10 @@ func validateRemoteURL(urlStr string, resolver ipResolver) error {
 	}
 
 	for _, addr := range addrs {
+		if !remote.AddressAllowed(addr.IP, allowPrivate) {
+			return fmt.Errorf("remote host resolves to a prohibited address")
+		}
+
 		resolved := *u
 		resolved.Host = resolvedURLHost(addr.IP.String(), u.Port())
 		if err := validator.ValidateURL(resolved.String(), opts); err != nil {

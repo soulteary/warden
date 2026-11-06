@@ -51,7 +51,7 @@ func TestInitialLoadRejectsIdentityConflict(t *testing.T) {
 	defer server.Close()
 	app.configURL = server.URL
 	var err error
-	app.rulesLoader, err = loader.NewRulesLoader(nil, "ONLY_REMOTE")
+	app.rulesLoader, err = newTestRulesLoader(nil, "ONLY_REMOTE")
 	require.NoError(t, err)
 	require.NoError(t, app.loadInitialData("", ""))
 	require.Zero(t, app.userCache.Len())
@@ -60,7 +60,7 @@ func TestInitialLocalLoadRejectsConflictingIDs(t *testing.T) {
 	app, _ := migrationFixture(t, "legacy")
 	app.appMode = "ONLY_LOCAL"
 	var err error
-	app.rulesLoader, err = loader.NewRulesLoader(nil, "ONLY_LOCAL")
+	app.rulesLoader, err = newTestRulesLoader(nil, "ONLY_LOCAL")
 	require.NoError(t, err)
 	path := filepath.Join(t.TempDir(), "users.json")
 	require.NoError(t, os.WriteFile(path, []byte(`[{"mail":"a@example.com","user_id":"one"},{"mail":"b@example.com","user_id":"one"}]`), 0o600))

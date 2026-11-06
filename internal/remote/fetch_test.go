@@ -139,7 +139,7 @@ func TestFetchDecrypted_PlainResponse(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	body, err := FetchDecrypted(ctx, srv.URL, "", false, "", "", testTimeout, false)
+	body, err := fetchTestDecrypted(ctx, srv.URL, "", false, "", "", testTimeout, false)
 	require.NoError(t, err)
 	assert.Equal(t, payload, body)
 }
@@ -151,7 +151,7 @@ func TestFetchDecrypted_StatusCodeNotOK(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	_, err := FetchDecrypted(ctx, srv.URL, "", false, "", "", testTimeout, false)
+	_, err := fetchTestDecrypted(ctx, srv.URL, "", false, "", "", testTimeout, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "status 404")
 }
@@ -166,7 +166,7 @@ func TestFetchDecryptedUsers_PlainJSON(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	users, err := FetchDecryptedUsers(ctx, srv.URL, "", false, "", "", testTimeout, false)
+	users, err := fetchTestUsers(ctx, srv.URL, "", false, "", "", testTimeout, false)
 	require.NoError(t, err)
 	require.Len(t, users, 1)
 	assert.Equal(t, "13800138000", users[0].Phone)

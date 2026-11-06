@@ -25,7 +25,7 @@ func BenchmarkObservedSingleSource(b *testing.B) {
 			if err = os.WriteFile(file, raw, 0o600); err != nil {
 				b.Fatal(err)
 			}
-			loader, err := NewRulesLoader(nil, ModeOnlyLocal)
+			loader, err := newTestRulesLoader(nil, ModeOnlyLocal)
 			if err != nil {
 				b.Fatal(err)
 			}

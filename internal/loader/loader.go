@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	httpkit "github.com/soulteary/http-kit/v2"
+	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -64,6 +66,8 @@ func BuildLoadOptions(_ *cmd.Config, appMode string) *parserkit.LoadOptions[defi
 // on LoadOptions. Retries are fixed by define, so only the two configurable
 // values live here.
 type RemoteOptions struct {
+	HTTPClient *http.Client
+
 	// Timeout bounds one remote request, retries included. Zero leaves the
 	// request bounded only by the caller's context, which is what a zero
 	// LoadOptions.HTTPTimeout did in v1.
@@ -150,7 +154,20 @@ func newFileFetcher(path string, allowMissing bool) parserkit.Fetcher {
 // newRemoteFetcher builds the remote source with the settings v1 kept on
 // LoadOptions, plus the trace propagation it injected implicitly.
 func newRemoteFetcher(rawURL, auth string, remoteOpts RemoteOptions) parserkit.Fetcher {
-	opts := make([]remotesource.Option, 0, 5)
+	client := remoteOpts.HTTPClient
+	if client == nil {
+		var err error
+		client, err = remote.NewHTTPClient(remoteOpts.Timeout, remoteOpts.InsecureSkipVerify)
+		if err != nil {
+			return errFetcher{err: err}
+		}
+	}
+	kitClient, err := httpkit.NewClient(&httpkit.Options{Timeout: remoteOpts.Timeout, Propagator: otelprop.Global()})
+	if err != nil {
+		return errFetcher{err: err}
+	}
+	*kitClient.GetHTTPClient() = *client
+	opts := []remotesource.Option{remotesource.WithClient(kitClient)}
 	if auth != "" {
 		opts = append(opts, remotesource.WithAuthorization(auth))
 	}
@@ -312,6 +329,18 @@ func NewRulesLoader(cfg *cmd.Config, appMode string) (*RulesLoader, error) {
 	}, nil
 }
 
+// NewRulesLoaderWithHTTPClient supplies a caller-owned remote client. It is useful
+// for embedded callers with their own network policy and deterministic tests.
+// Server startup always uses NewRulesLoader and the restricted default transport.
+func NewRulesLoaderWithHTTPClient(cfg *cmd.Config, appMode string, client *http.Client) (*RulesLoader, error) {
+	r, err := NewRulesLoader(cfg, appMode)
+	if err != nil {
+		return nil, err
+	}
+	r.remoteOpts.HTTPClient = client
+	return r, nil
+}
+
 // FromFile loads rules from a local file.
 //
 // The fetcher is built exactly as BuildSources builds a file source, so a
@@ -452,6 +481,7 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 	evidence.attempts[id].SourceOrdinal = descriptor.Ordinal
 	evidence.attempts[id].ManifestRevision = manifest.Revision
 	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, &remote.FetchOptions{
+		HTTPClient:         r.remoteOpts.HTTPClient,
 		URL:                configURL,
 		AuthHeader:         auth,
 		RSAKeyPath:         r.remoteRSAPrivateKey,

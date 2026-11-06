@@ -106,7 +106,7 @@ func NewApp(cfg *cmd.Config) *App {
 	if recoveryErr != nil {
 		recoveryPolicy = "bootstrap"
 	}
-	readPolicy, readPolicyErr := cmd.ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy)
+	readPolicy, readPolicyErr := cmd.ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy, cfg.Environment)
 	hmacAllowV1, hmacAllowV1Err := cmd.ParseHMACAllowV1(os.Getenv("WARDEN_HMAC_ALLOW_V1"))
 	snapshotMaxAge, snapshotMaxAgeErr := cmd.ParseSnapshotMaxAge(os.Getenv("SNAPSHOT_MAX_AGE"), cfg.TaskInterval)
 	app := &App{

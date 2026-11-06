@@ -12,15 +12,18 @@ services:
       - 8081
     networks:
       - auth-internal
+      - warden-data
     env_file:
       - ./.env
     environment:
       - PORT=${PORT}
-      - REDIS=${REDIS}
+      - REDIS=${REDIS:-warden-redis:6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?set REDIS_PASSWORD in .env before starting Warden}
       - CONFIG=${CONFIG}
       - KEY=${KEY}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - API_KEY=${API_KEY:?set API_KEY in .env before starting Warden}
+      - SNAPSHOT_READ_POLICY=${SNAPSHOT_READ_POLICY:-enforce}
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
@@ -46,9 +49,12 @@ services:
     expose:
       - 6379
     networks:
-      - auth-internal
+      - warden-data
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env before starting Warden}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env before starting Warden}"]
     healthcheck:
-      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping']
       interval: 10s
       timeout: 1s
       retries: 3
@@ -59,3 +65,7 @@ networks:
   auth-internal:
     name: auth-internal
     driver: bridge
+
+  # Redis is reachable only from Warden; the gateway joins auth-internal.
+  warden-data:
+    internal: true

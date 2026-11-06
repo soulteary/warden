@@ -252,7 +252,7 @@ func TestFetchDecryptedWithOptions_V2(t *testing.T) {
 	defer srv.Close()
 
 	pemKey := privToPEM(t, priv)
-	got, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
+	got, err := fetchTestWithOptions(context.Background(), &FetchOptions{
 		URL:            srv.URL,
 		RSAKeyPEM:      pemKey,
 		Timeout:        testTimeout,
@@ -273,7 +273,7 @@ func TestFetchDecryptedWithOptions_RequiredRejectsPlaintext(t *testing.T) {
 	defer srv.Close()
 
 	priv := mustGenKey(t, 2048)
-	_, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
+	_, err := fetchTestWithOptions(context.Background(), &FetchOptions{
 		URL:                srv.URL,
 		RSAKeyPEM:          privToPEM(t, priv),
 		Timeout:            testTimeout,
@@ -294,7 +294,7 @@ func TestFetchDecryptedWithOptions_RequiredNoDecrypt(t *testing.T) {
 	defer srv.Close()
 
 	// DecryptEnabled=false but EncryptionRequired=true must fail closed.
-	_, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
+	_, err := fetchTestWithOptions(context.Background(), &FetchOptions{
 		URL:                srv.URL,
 		Timeout:            testTimeout,
 		DecryptEnabled:     false,
@@ -319,7 +319,7 @@ func TestFetchDecryptedWithOptions_WrongContentTypeNoDowngrade(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
+	got, err := fetchTestWithOptions(context.Background(), &FetchOptions{
 		URL:            srv.URL,
 		RSAKeyPEM:      privToPEM(t, priv),
 		Timeout:        testTimeout,
@@ -342,7 +342,7 @@ func TestFetchDecryptedWithOptions_LegacyExplicitAndDeprecation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := FetchDecryptedWithOptions(context.Background(), &FetchOptions{
+	got, err := fetchTestWithOptions(context.Background(), &FetchOptions{
 		URL:            srv.URL,
 		RSAKeyPEM:      privToPEM(t, priv),
 		Timeout:        testTimeout,

@@ -29,7 +29,7 @@ func ValidateConfig(cfg *Config) error {
 	if err := validateRedisRecovery(cfg); err != nil {
 		errors = append(errors, err.Error())
 	}
-	if _, err := ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy); err != nil {
+	if _, err := ParseSnapshotReadPolicy(cfg.SnapshotReadPolicy, cfg.Environment); err != nil {
 		errors = append(errors, err.Error())
 	}
 	if err := validateRedisSnapshot(cfg); err != nil {
@@ -52,6 +52,10 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	errors = append(errors, validateHMACConfig(cfg)...)
+	errors = append(errors, validateServicePolicies(cfg)...)
+	if err := remote.ValidatePrivateOrigins(); err != nil {
+		errors = append(errors, err.Error())
+	}
 
 	// TLS must be configured as a complete transport. startServer enables HTTPS only
 	// when both the certificate and private key are present, so accepting a partial

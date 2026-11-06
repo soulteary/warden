@@ -111,7 +111,7 @@ func TestTransportFallbackContract(t *testing.T) {
 								cfg.RemoteEncryptionRequired = true
 								cfg.RemoteEncryptionFormat = "v2"
 							}
-							loader, err := NewRulesLoader(cfg, mode)
+							loader, err := newTestRulesLoader(cfg, mode)
 							require.NoError(t, err)
 							url := srv.URL + "/" + transport.name
 							// App passes an empty remote URL in ONLY_LOCAL mode.

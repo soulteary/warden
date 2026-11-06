@@ -16,7 +16,7 @@ import (
 func TestSourceAttemptLoggingIsDiagnosticAndRedacted(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "private-rules.json")
 	require.NoError(t, os.WriteFile(file, []byte(`[{"mail":"private@example.com","user_id":"private-member"}]`), 0o600))
-	rules, err := loader.NewRulesLoader(nil, loader.ModeOnlyLocal)
+	rules, err := newTestRulesLoader(nil, loader.ModeOnlyLocal)
 	require.NoError(t, err)
 	result := rules.LoadWithResult(context.Background(), file, "", "", "")
 	require.NoError(t, result.Err)

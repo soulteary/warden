@@ -206,20 +206,20 @@ func TestBuildSources(t *testing.T) {
 func TestNewRulesLoader(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		cfg := &cmd.Config{HTTPTimeout: 5, HTTPInsecureTLS: false}
-		r, err := NewRulesLoader(cfg, "development")
+		r, err := newTestRulesLoader(cfg, "development")
 		require.NoError(t, err)
 		require.NotNil(t, r)
 	})
 
 	t.Run("ONLY_LOCAL", func(t *testing.T) {
-		r, err := NewRulesLoader(nil, "ONLY_LOCAL")
+		r, err := newTestRulesLoader(nil, "ONLY_LOCAL")
 		require.NoError(t, err)
 		require.NotNil(t, r)
 	})
 
 	t.Run("invalid encryption format", func(t *testing.T) {
 		cfg := &cmd.Config{RemoteEncryptionFormat: "typo"}
-		r, err := NewRulesLoader(cfg, "ONLY_REMOTE")
+		r, err := newTestRulesLoader(cfg, "ONLY_REMOTE")
 		require.Error(t, err)
 		assert.Nil(t, r)
 	})
@@ -231,7 +231,7 @@ func TestRulesLoader_FromFile(t *testing.T) {
 	err := os.WriteFile(path, []byte(`[{"phone":"13800138000","mail":"a@example.com"}]`), 0o600)
 	require.NoError(t, err)
 
-	r, err := NewRulesLoader(nil, "ONLY_LOCAL")
+	r, err := newTestRulesLoader(nil, "ONLY_LOCAL")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -243,7 +243,7 @@ func TestRulesLoader_FromFile(t *testing.T) {
 }
 
 func TestRulesLoader_FromFile_NotFound(t *testing.T) {
-	r, err := NewRulesLoader(nil, "ONLY_LOCAL")
+	r, err := newTestRulesLoader(nil, "ONLY_LOCAL")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -263,7 +263,7 @@ func TestRulesLoader_Load(t *testing.T) {
 	err := os.WriteFile(path, []byte(`[{"phone":"13800138000","mail":"a@example.com"}]`), 0o600)
 	require.NoError(t, err)
 
-	r, err := NewRulesLoader(nil, "ONLY_LOCAL")
+	r, err := newTestRulesLoader(nil, "ONLY_LOCAL")
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -273,7 +273,7 @@ func TestRulesLoader_Load(t *testing.T) {
 }
 
 func TestRulesLoader_Load_NoSources(t *testing.T) {
-	r, err := NewRulesLoader(nil, "ONLY_REMOTE")
+	r, err := newTestRulesLoader(nil, "ONLY_REMOTE")
 	require.NoError(t, err)
 
 	ctx := context.Background()

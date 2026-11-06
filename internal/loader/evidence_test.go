@@ -33,7 +33,7 @@ func TestSourceAttemptsCaptureActualFailuresAndSelection(t *testing.T) {
 					cfg.RemoteRSAPrivateKey = mustGenKeyLoader(t)
 					cfg.RemoteEncryptionRequired = true
 				}
-				loader, err := NewRulesLoader(cfg, mode)
+				loader, err := newTestRulesLoader(cfg, mode)
 				require.NoError(t, err)
 				result := loader.LoadWithResult(context.Background(), path, "", server.URL, "secret-auth")
 				require.EqualValues(t, 1, calls.Load(), "diagnostics must not add a source read")
@@ -84,7 +84,7 @@ func TestSourceAttemptsFallbackSkipsUnreadSourcesAndDistinguishesAbsence(t *test
 	second := filepath.Join(dir, "b.json")
 	require.NoError(t, os.WriteFile(first, []byte(`[]`), 0o600))
 	require.NoError(t, os.WriteFile(second, []byte(`invalid`), 0o600))
-	loader, err := NewRulesLoader(nil, ModeOnlyLocal)
+	loader, err := newTestRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 	result := loader.LoadWithResult(context.Background(), "", dir, "", "")
 	require.NoError(t, result.Err)
@@ -108,7 +108,7 @@ func TestSourceAttemptsShadowingAndIgnoredEmptyInput(t *testing.T) {
 	for _, name := range []string{"a.json", "b.json"} {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, name), body, 0o600))
 	}
-	loader, err := NewRulesLoader(nil, "DEFAULT")
+	loader, err := newTestRulesLoader(nil, "DEFAULT")
 	require.NoError(t, err)
 	result := loader.LoadWithResult(context.Background(), "", dir, "", "")
 	require.NoError(t, result.Err)
@@ -124,7 +124,7 @@ func TestSourceAttemptsShadowingAndIgnoredEmptyInput(t *testing.T) {
 	defer server.Close()
 	file := filepath.Join(t.TempDir(), "empty.json")
 	require.NoError(t, os.WriteFile(file, []byte(`[]`), 0o600))
-	remoteFirst, err := NewRulesLoader(&cmd.Config{HTTPTimeout: 1}, ModeRemoteFirst)
+	remoteFirst, err := newTestRulesLoader(&cmd.Config{HTTPTimeout: 1}, ModeRemoteFirst)
 	require.NoError(t, err)
 	resolved := remoteFirst.LoadWithResult(context.Background(), file, "", server.URL, "")
 	require.NoError(t, resolved.Err)
@@ -137,7 +137,7 @@ func TestSourceAttemptsShadowingAndIgnoredEmptyInput(t *testing.T) {
 func TestSourceAttemptsDoNotChangeLoadedTime(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "rules.json")
 	require.NoError(t, os.WriteFile(path, []byte(`[]`), 0o600))
-	loader, err := NewRulesLoader(nil, ModeOnlyLocal)
+	loader, err := newTestRulesLoader(nil, ModeOnlyLocal)
 	require.NoError(t, err)
 	before := time.Now()
 	result := loader.LoadWithResult(context.Background(), path, "", "", "")
