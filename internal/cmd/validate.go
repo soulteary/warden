@@ -175,6 +175,9 @@ func validateProduction(cfg *Config) []string {
 
 	hasRemote := usesRemoteSource(cfg)
 	if hasRemote {
+		if err := remote.ValidateSourceURL(cfg.RemoteConfig, true); err != nil {
+			errs = append(errs, err.Error())
+		}
 		// 2. Remote fetch must have a bounded timeout.
 		if cfg.HTTPTimeout <= 0 {
 			errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_remote_timeout_required"))

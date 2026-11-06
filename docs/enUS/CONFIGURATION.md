@@ -690,8 +690,10 @@ allowed with `REMOTE_PRIVATE_ORIGINS`, a comma-separated list of exact HTTP(S)
 origins such as `https://rules.internal:8443`. The exception includes scheme,
 hostname and effective port; it never permits loopback, link-local or metadata
 addresses and does not enable redirects. Startup URL checks use the same policy.
-Prefer HTTPS; HTTP remains supported for existing deployments. Production TLS
-verification cannot be disabled.
+Production remote sources must use HTTPS with certificate verification. An
+explicit private-origin exception does not relax this requirement. HTTP remains
+supported in development/test. Both plaintext and encrypted source fetchers apply
+the selected transport policy even when constructed without CLI validation.
 
 The Compose example requires `REDIS_PASSWORD` and places Redis on a separate
 internal network. The gateway should join only `auth-internal`. Do not attach

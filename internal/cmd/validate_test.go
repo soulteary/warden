@@ -345,7 +345,7 @@ func TestValidateConfig_ProductionRemoteOK(t *testing.T) {
 		TaskInterval:             5,
 		Mode:                     "DEFAULT",
 		Environment:              "production",
-		RemoteConfig:             "http://93.184.216.34/data.json",
+		RemoteConfig:             "https://93.184.216.34/data.json",
 		HTTPTimeout:              30,
 		RemoteEncryptionRequired: true,
 		RemoteDecryptEnabled:     true,

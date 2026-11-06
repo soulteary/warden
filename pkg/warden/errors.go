@@ -5,6 +5,10 @@ import (
 	"fmt"
 )
 
+// ErrRedirect indicates a rejected service redirect. SDK credentials are bound
+// to the configured service and are never forwarded to a redirect target.
+var ErrRedirect = errors.New("warden: redirects are disabled")
+
 // ErrResponseTooLarge is returned when a response exceeds MaxResponseBytes.
 var ErrResponseTooLarge = errors.New("warden: response exceeds size limit")
 
