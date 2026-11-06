@@ -172,7 +172,7 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
 
-	// Add API key header if configured
+	// Add authentication headers if configured
 	c.addAuthHeaders(req)
 
 	// Make request with retry
@@ -239,7 +239,7 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
 
-	// Add API key header if configured
+	// Add authentication headers if configured
 	c.addAuthHeaders(req)
 
 	// Make request with retry
@@ -364,7 +364,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
 
-	// Add API key header if configured
+	// Add authentication headers if configured
 	c.addAuthHeaders(req)
 
 	// Make request with retry
@@ -548,7 +548,7 @@ func (c *Client) addAuthHeaders(req *http.Request) {
 	if c.sourceMaxAge > 0 {
 		req.Header.Set(HeaderSnapshotMetadata, "v1")
 	}
-	if c.apiKey != "" {
+	if c.signer == nil && c.apiKey != "" {
 		req.Header.Set("X-API-Key", c.apiKey)
 		// Also support Authorization header
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
