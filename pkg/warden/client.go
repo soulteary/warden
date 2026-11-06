@@ -178,7 +178,7 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	// Make request with retry
 	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
-		c.logger.Errorf("Failed to fetch users from Warden API: %v", err)
+		c.logger.Errorf("Failed to fetch users from Warden API: code=%s", logErrorCode(err))
 		return nil, err
 	}
 	defer func() {
@@ -245,7 +245,7 @@ func (c *Client) GetUsersPaginated(ctx context.Context, page, pageSize int) (*Pa
 	// Make request with retry
 	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
-		c.logger.Errorf("Failed to fetch paginated users from Warden API: %v", err)
+		c.logger.Errorf("Failed to fetch paginated users from Warden API: code=%s", logErrorCode(err))
 		return nil, err
 	}
 	defer func() {
@@ -302,7 +302,7 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 				user, err = c.GetUserByIdentifier(ctx, "", mail, "")
 			} else {
 				// Log error but don't expose details to caller (security: don't reveal if user exists)
-				c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, sanitizePhone(phone), sanitizeEmail(mail))
+				c.logger.Debugf("Failed to get user from Warden API: code=%s (phone=%s, mail=%s)", logErrorCode(err), sanitizePhone(phone), sanitizeEmail(mail))
 				return false
 			}
 		} else if user != nil && !user.IsActive() {
@@ -321,7 +321,7 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 
 	if err != nil {
 		// Log error but don't expose details to caller (security: don't reveal if user exists)
-		c.logger.Debugf("Failed to get user from Warden API: %v (phone=%s, mail=%s)", err, sanitizePhone(phone), sanitizeEmail(mail))
+		c.logger.Debugf("Failed to get user from Warden API: code=%s (phone=%s, mail=%s)", logErrorCode(err), sanitizePhone(phone), sanitizeEmail(mail))
 		return false
 	}
 
@@ -370,7 +370,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	// Make request with retry
 	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
-		c.logger.Errorf("Failed to fetch user from Warden API: %v", err)
+		c.logger.Errorf("Failed to fetch user from Warden API: code=%s", logErrorCode(err))
 		return nil, err
 	}
 	defer func() {
@@ -518,7 +518,7 @@ func (c *Client) doRequestWithRetry(ctx context.Context, req *http.Request) (*ht
 		if c.shouldRetryResponse(retryAllowed, resp.StatusCode, attempt) {
 			// Close response body before retry
 			if err := resp.Body.Close(); err != nil {
-				c.logger.Debugf("Failed to close response body before retry: %v", err)
+				c.logger.Debug("Failed to close response body before retry")
 			}
 			lastResp = nil
 			lastErr = NewError(ErrCodeServerError, fmt.Sprintf("server error: status %d", resp.StatusCode), nil)
@@ -576,7 +576,7 @@ func (c *Client) applyResponseLimit(resp *http.Response) error {
 	orig := resp.Body
 	body, err := io.ReadAll(io.LimitReader(orig, readLimit))
 	if closeErr := orig.Close(); closeErr != nil {
-		c.logger.Debugf("Failed to close response body after bounded read: %v", closeErr)
+		c.logger.Debug("Failed to close response body after bounded read")
 	}
 	if err != nil {
 		return err
@@ -596,10 +596,10 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.logger.Warnf("Warden API returned non-200 status: %d, failed to read body: %v", resp.StatusCode, err)
+		c.logger.Warnf("Warden API returned non-200 status: %d, failed to read body", resp.StatusCode)
 		body = []byte("")
 	} else {
-		c.logger.Warnf("Warden API returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
+		c.logger.Warnf("Warden API returned non-200 status: %d", resp.StatusCode)
 	}
 
 	switch resp.StatusCode {
@@ -645,8 +645,8 @@ func (c *Client) userRequestURL(phone, mail, userID string) string {
 func (c *Client) waitBeforeRetry(ctx context.Context, req *http.Request, attempt, maxAttempts int) error {
 	// Calculate delay before retry
 	delay := c.calculateRetryDelay(attempt - 1)
-	c.logger.Debugf("Retrying request (attempt %d/%d) after %v: %s %s",
-		attempt+1, maxAttempts, delay, req.Method, req.URL.String())
+	c.logger.Debugf("Retrying request (attempt %d/%d) after %v: method=%s",
+		attempt+1, maxAttempts, delay, req.Method)
 
 	// Wait before retry
 	select {

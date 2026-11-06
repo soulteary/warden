@@ -1,6 +1,7 @@
 package warden
 
 import (
+	"errors"
 	"net/url"
 	"strings"
 
@@ -111,3 +112,17 @@ func (n *NoOpLogger) Error(msg string) {}
 
 // Errorf discards formatted error messages.
 func (n *NoOpLogger) Errorf(format string, args ...interface{}) {}
+
+// logErrorCode permits only SDK-owned categories in internal diagnostics. Error
+// text and wrapped transport errors can contain request URLs or response data.
+func logErrorCode(err error) string {
+	var sdkErr *Error
+	if errors.As(err, &sdkErr) {
+		switch sdkErr.Code {
+		case ErrCodeInvalidConfig, ErrCodeRequestFailed, ErrCodeInvalidResponse,
+			ErrCodeUnauthorized, ErrCodeNotFound, ErrCodeServerError, ErrCodeSourceFreshness:
+			return sdkErr.Code
+		}
+	}
+	return "UNKNOWN"
+}
