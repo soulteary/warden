@@ -193,3 +193,20 @@ func AddressAllowed(ip net.IP, allowPrivate bool) bool {
 	addr, ok := netip.AddrFromSlice(ip)
 	return ok && allowedAddress(addr, allowPrivate)
 }
+
+// ValidateSourceURL checks source syntax and the selected transport policy.
+// Encryption envelopes do not authenticate their publisher; production delivery
+// requires HTTPS in addition to decryption.
+func ValidateSourceURL(raw string, requireHTTPS bool) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return errors.New("invalid remote source URL")
+	}
+	if _, err = remoteOrigin(u); err != nil {
+		return err
+	}
+	if requireHTTPS && u.Scheme != "https" {
+		return errors.New("production remote configuration requires HTTPS")
+	}
+	return nil
+}

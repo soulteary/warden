@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -76,6 +77,10 @@ func NewClient(opts *Options) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
+
+	// Redirects must not forward API keys, signatures or client certificates,
+	// including redirects to another path on the same host.
+	httpClient.GetHTTPClient().CheckRedirect = func(*http.Request, []*http.Request) error { return ErrRedirect }
 
 	// Set default retry options if not provided
 	retry := opts.Retry
@@ -420,6 +425,10 @@ func isIdempotentMethod(method string) bool {
 
 // isRetryableError checks if an error should trigger a retry.
 func (c *Client) isRetryableError(err error, statusCode int) bool {
+	if errors.Is(err, ErrRedirect) {
+		return false
+	}
+
 	if c.retry == nil || c.retry.MaxRetries == 0 {
 		return false
 	}

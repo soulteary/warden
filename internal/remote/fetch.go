@@ -61,6 +61,8 @@ type FetchOptions struct {
 	// HTTPClient optionally supplies a trusted transport, for embedded callers and tests.
 	// Command-line deployments always construct the restricted rule-source client.
 	HTTPClient *http.Client
+	// RequireHTTPS authenticates production rule delivery through verified TLS.
+	RequireHTTPS bool
 
 	URL         string
 	AuthHeader  string
@@ -176,6 +178,13 @@ func decryptAuto(body []byte, priv *rsa.PrivateKey, contentType string, required
 
 // fetchBody performs the HTTP GET and returns the (size-limited) body and content-type.
 func fetchBody(ctx context.Context, opts *FetchOptions) (body []byte, contentType string, err error) {
+	if policyErr := ValidateSourceURL(opts.URL, opts.RequireHTTPS); policyErr != nil {
+		return nil, "", policyErr
+	}
+	if opts.RequireHTTPS && opts.InsecureTLS {
+		return nil, "", errors.New("production rule sources require verified TLS")
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, opts.URL, http.NoBody)
 	if err != nil {
 		return nil, "", fmt.Errorf("remote fetch: %w", err)

@@ -17,6 +17,7 @@ import (
 	"github.com/soulteary/parser-kit/v3/remotesource"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
+	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/remote"
 )
@@ -75,6 +76,7 @@ type RemoteOptions struct {
 
 	// InsecureSkipVerify disables TLS verification for remote sources.
 	InsecureSkipVerify bool
+	RequireHTTPS       bool
 }
 
 // BuildRemoteOptions builds the remote source settings from warden config.
@@ -90,7 +92,9 @@ func BuildRemoteOptions(cfg *cmd.Config) RemoteOptions {
 	if cfg == nil {
 		return RemoteOptions{Timeout: time.Duration(define.DEFAULT_TIMEOUT) * time.Second}
 	}
+	environment, _ := config.ParseEnvironment(cfg.Environment)
 	return RemoteOptions{
+		RequireHTTPS:       environment.IsProduction(),
 		Timeout:            time.Duration(cfg.HTTPTimeout) * time.Second,
 		InsecureSkipVerify: cfg.HTTPInsecureTLS,
 	}
@@ -154,6 +158,13 @@ func newFileFetcher(path string, allowMissing bool) parserkit.Fetcher {
 // newRemoteFetcher builds the remote source with the settings v1 kept on
 // LoadOptions, plus the trace propagation it injected implicitly.
 func newRemoteFetcher(rawURL, auth string, remoteOpts RemoteOptions) parserkit.Fetcher {
+	if err := remote.ValidateSourceURL(rawURL, remoteOpts.RequireHTTPS); err != nil {
+		return errFetcher{err: err}
+	}
+	if remoteOpts.RequireHTTPS && remoteOpts.InsecureSkipVerify {
+		return errFetcher{err: errors.New("production rule sources require verified TLS")}
+	}
+
 	client := remoteOpts.HTTPClient
 	if client == nil {
 		var err error
@@ -482,6 +493,7 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 	evidence.attempts[id].ManifestRevision = manifest.Revision
 	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, &remote.FetchOptions{
 		HTTPClient:         r.remoteOpts.HTTPClient,
+		RequireHTTPS:       r.remoteOpts.RequireHTTPS,
 		URL:                configURL,
 		AuthHeader:         auth,
 		RSAKeyPath:         r.remoteRSAPrivateKey,

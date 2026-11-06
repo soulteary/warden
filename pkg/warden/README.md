@@ -419,3 +419,11 @@ retries. See the configuration guide for paired server and SDK enablement.
 
 - [Cache isolation and hit behavior](../../docs/enUS/SDK_CACHE_ISOLATION.md)
 - [Optional source freshness and source-error classification](../../docs/enUS/SDK_SOURCE_FRESHNESS.md)
+
+
+### Redirect policy
+
+The SDK rejects HTTP redirects with `ErrRedirect`. This applies to all SDK calls
+and all credentials, including API keys, HMAC signing and client certificates. A
+redirect policy error is not retried. Set `BaseURL` to the final service URL;
+redirect response bodies are not returned or cached.

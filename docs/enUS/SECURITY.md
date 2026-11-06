@@ -319,3 +319,24 @@ Upgrade requirements, diagnostic field semantics and historical log handling are
 covered in the [v1.5.0 release notes](../releases/v1.5.0.md). Upgrading does not
 rewrite previously stored logs. Masked identifiers and resource digests remain
 correlatable; access and retention controls still apply.
+
+
+## Remote source authenticity
+
+Production rule sources require HTTPS with certificate verification, including
+sources permitted by `REMOTE_PRIVATE_ORIGINS`. Migrate an existing HTTP source to
+a verified HTTPS endpoint before upgrading. Decryption and required v2 envelopes
+remain separate checks.
+
+RSA-OAEP and AES-GCM provide confidentiality and integrity for the encrypted
+envelope. They do not identify its publisher: anyone with the recipient public
+key can create an envelope. HTTPS authenticates the configured delivery endpoint;
+it does not prove the age or publisher identity of an object stored there. If
+objects must remain verifiable independently of that endpoint, use a separately
+designed publisher-signature and version/expiry protocol.
+
+The Go SDK rejects every redirect, including same-origin redirects and HTTPS
+downgrades. API keys, HMAC headers and client-certificate handshakes must remain
+bound to the configured endpoint. Configure the final Warden URL directly rather
+than relying on an HTTP redirect. This policy is local to the SDK client and does
+not change the process-wide HTTP client or the generic http-kit defaults.
