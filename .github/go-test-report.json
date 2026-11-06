@@ -1,24 +1,24 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 854,
-    "passed": 849,
+    "total": 878,
+    "passed": 873,
     "failed": 0,
     "skipped": 5
   },
   "coverage": {
-    "covered_statements": 4424,
-    "total_statements": 4628,
-    "percentage": 95.59,
+    "covered_statements": 4623,
+    "total_statements": 4841,
+    "percentage": 95.5,
     "threshold": 95
   },
   "packages": [
     {
       "name": ".",
       "status": "pass",
-      "tests": 163,
+      "tests": 165,
       "failed": 0,
-      "coverage": 90.41
+      "coverage": 90.34
     },
     {
       "name": "internal/auditlog",
@@ -37,9 +37,9 @@
     {
       "name": "internal/cmd",
       "status": "pass",
-      "tests": 75,
+      "tests": 78,
       "failed": 0,
-      "coverage": 97.8
+      "coverage": 97.71
     },
     {
       "name": "internal/config",
@@ -86,9 +86,9 @@
     {
       "name": "internal/loader",
       "status": "pass",
-      "tests": 39,
+      "tests": 41,
       "failed": 0,
-      "coverage": 97.19
+      "coverage": 96.59
     },
     {
       "name": "internal/logger",
@@ -100,9 +100,9 @@
     {
       "name": "internal/middleware",
       "status": "pass",
-      "tests": 69,
+      "tests": 71,
       "failed": 0,
-      "coverage": 96.86
+      "coverage": 97.13
     },
     {
       "name": "internal/prommetrics",
@@ -114,9 +114,9 @@
     {
       "name": "internal/remote",
       "status": "pass",
-      "tests": 34,
+      "tests": 43,
       "failed": 0,
-      "coverage": 92.24
+      "coverage": 92.77
     },
     {
       "name": "internal/router",
@@ -124,6 +124,13 @@
       "tests": 61,
       "failed": 0,
       "coverage": 96
+    },
+    {
+      "name": "internal/serviceauth",
+      "status": "pass",
+      "tests": 1,
+      "failed": 0,
+      "coverage": 100
     },
     {
       "name": "internal/tracing",
@@ -137,7 +144,7 @@
       "status": "pass",
       "tests": 6,
       "failed": 0,
-      "coverage": 93.33
+      "coverage": 86.49
     },
     {
       "name": "locales",
@@ -156,9 +163,9 @@
     {
       "name": "pkg/warden",
       "status": "pass",
-      "tests": 101,
+      "tests": 106,
       "failed": 0,
-      "coverage": 98.08
+      "coverage": 98.1
     }
   ],
   "failures": null
