@@ -19,6 +19,9 @@
 - Keep raw transport errors, retry URLs and response bodies out of SDK internal
   diagnostics when a custom logger is enabled. Logs retain allowlisted SDK error
   categories and HTTP status codes; returned error chains remain compatible.
+- Align current English and Chinese data contracts, configuration and Redis
+  rollout/rollback guidance with the production `enforce` default introduced in
+  v1.6.0. Explain unknown-age legacy recovery and explicit observe-mode staging.
 
 ## [1.6.0] - 2026-11-07
 

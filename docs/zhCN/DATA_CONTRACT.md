@@ -1,6 +1,6 @@
 # 当前数据契约
 
-本文描述当前兼容基线；严格读取、版本化 Redis 恢复和 SDK 新鲜度约束均为可选功能，见 [配置](CONFIGURATION.md)、[响应元数据](SNAPSHOT_RESPONSE_METADATA.md) 和 [SDK 新鲜度](SDK_SOURCE_FRESHNESS.md)。
+本文描述当前数据契约；严格读取在生产环境默认 enforce，在开发/测试环境默认 observe。版本化 Redis 恢复和 SDK 新鲜度约束仍需显式启用，见 [配置](CONFIGURATION.md)、[响应元数据](SNAPSHOT_RESPONSE_METADATA.md) 和 [SDK 新鲜度](SDK_SOURCE_FRESHNESS.md)。
 
 ## 合并与撤权
 
@@ -38,9 +38,9 @@ parser-kit v3.0.3，加密远程响应使用 v2 envelope）：
 
 ## 查询与健康检查
 
-默认情况下，`SNAPSHOT_MAX_AGE` 影响健康检查，不限制数据查询。显式启用
-`SNAPSHOT_READ_POLICY=enforce` 后，数据查询也检查同一快照的来源新鲜度，
-详见[配置说明](CONFIGURATION.md#服务端数据读取新鲜度)。默认读取策略下，`ONLY_REMOTE` 和
+显式 `observe` 模式下，`SNAPSHOT_MAX_AGE` 影响健康检查，不限制数据查询。
+`SNAPSHOT_READ_POLICY=enforce`（生产默认值）时，数据查询也检查同一快照的来源新鲜度，
+详见[配置说明](CONFIGURATION.md#服务端数据读取新鲜度)。显式 `observe` 模式下，`ONLY_REMOTE` 和
 `REMOTE_FIRST` 中，旧快照可使健康接口返回 HTTP 503，而通过鉴权的列表及用户接口
 仍返回缓存数据。查询成功不能证明数据源最近校验过。
 
@@ -93,5 +93,5 @@ Warden。用户状态仍需调用方校验。Warden 不会使已签发的网关�
 
 快照发布会复制输入元数据及嵌套 Scope。新代发布后，已持有的旧代仍有效。刷新失败
 保留同一集合；Redis 恢复仍保留失败诊断，来源成功刷新仍清零诊断。旧健康数量、版本
-及全部 HTTP 响应体和状态规则不变，默认兼容模式下陈旧快照仍可查询；显式严格读取策略可拒绝它们。本次解决的是发布一致性，
-不是增加新鲜度强制或新的授权策略。
+及 JSON 响应体保持原有契约。发布一致性本身不构成新鲜度保证，也不改变授权。
+显式 `observe` 模式仍可查询陈旧快照；生产默认 `enforce`，来源证据过期或未知时返回 503。
