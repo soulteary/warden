@@ -435,3 +435,13 @@ A simultaneously configured API key is omitted from both `X-API-Key` and
 `Authorization`. API-key-only clients continue to send both headers. This avoids
 exposing an additional reusable credential on signed requests; it does not change
 server authentication policies or TLS client certificate configuration.
+
+### SDK diagnostic logging
+
+The SDK uses `NoOpLogger` by default. With a custom logger, internal request
+failure messages report SDK error categories and HTTP status codes without raw
+transport error text, response bodies or retry URLs. This prevents those error
+paths from exposing lookup identifiers or upstream response data in SDK logs.
+Returned errors retain their existing details and wrapping for caller
+compatibility; applications must apply their own logging policy to those errors.
+The `Logger` interface and adapter do not sanitize messages supplied by callers.
