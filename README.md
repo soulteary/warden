@@ -23,6 +23,10 @@ Warden is a lightweight HTTP API service developed in Go, primarily used for pro
 
 Warden can be used **standalone** or integrated with other services (such as Stargate and Herald) as part of a larger authentication architecture. For detailed architecture information, see [Architecture Documentation](docs/enUS/ARCHITECTURE.md).
 
+## Architecture
+
+![Warden architecture](.github/architecture.gif)
+
 ## ✨ Core Features
 
 - 🚀 **High Performance**: 5000+ requests per second with 21ms average latency
