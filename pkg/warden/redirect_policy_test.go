@@ -17,7 +17,7 @@ import (
 
 func TestSDKRejectsRedirectBeforeForwardingCredentials(t *testing.T) {
 	for _, code := range []int{301, 302, 303, 307, 308} {
-		for _, credential := range []string{"api-key", "hmac"} {
+		for _, credential := range []string{"api-key", "hmac", "combined"} {
 			t.Run(http.StatusText(code)+"/"+credential, func(t *testing.T) {
 				var targetRequests, originRequests atomic.Int32
 				target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { targetRequests.Add(1); w.WriteHeader(http.StatusOK) }))
@@ -29,6 +29,8 @@ func TestSDKRejectsRedirectBeforeForwardingCredentials(t *testing.T) {
 						require.Equal(t, "directory-secret", r.Header.Get("X-API-Key"))
 					} else {
 						require.NotEmpty(t, r.Header.Get("X-Signature"))
+						require.Empty(t, r.Header.Get("X-API-Key"))
+						require.Empty(t, r.Header.Get("Authorization"))
 					}
 					http.Redirect(w, r, destination, code)
 				}))
@@ -40,6 +42,9 @@ func TestSDKRejectsRedirectBeforeForwardingCredentials(t *testing.T) {
 					opts = opts.WithAPIKey("directory-secret")
 				} else {
 					opts = opts.WithHMAC("gateway", "signing-secret")
+					if credential == "combined" {
+						opts = opts.WithAPIKey("directory-secret")
+					}
 				}
 				client, err := NewClient(opts)
 				require.NoError(t, err)

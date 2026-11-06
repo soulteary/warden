@@ -427,3 +427,11 @@ The SDK rejects HTTP redirects with `ErrRedirect`. This applies to all SDK calls
 and all credentials, including API keys, HMAC signing and client certificates. A
 redirect policy error is not retried. Set `BaseURL` to the final service URL;
 redirect response bodies are not returned or cached.
+
+### Credential selection
+
+When HMAC signing is configured, the SDK sends only HMAC authentication headers.
+A simultaneously configured API key is omitted from both `X-API-Key` and
+`Authorization`. API-key-only clients continue to send both headers. This avoids
+exposing an additional reusable credential on signed requests; it does not change
+server authentication policies or TLS client certificate configuration.
