@@ -1,6 +1,6 @@
 # Current data contract
 
-This is the compatibility baseline. Strict reads, versioned Redis recovery and SDK source freshness are optional; see [configuration](CONFIGURATION.md), [response metadata](SNAPSHOT_RESPONSE_METADATA.md) and [SDK freshness](SDK_SOURCE_FRESHNESS.md).
+This is the current data contract. Strict reads default to enforcement in production and observation in development/test. Versioned Redis recovery and SDK source freshness remain opt-in; see [configuration](CONFIGURATION.md), [response metadata](SNAPSHOT_RESPONSE_METADATA.md) and [SDK freshness](SDK_SOURCE_FRESHNESS.md).
 
 ## Merging and removal
 
@@ -116,6 +116,7 @@ all data/provenance checks. Redis probes still check the live dependency.
 Snapshot publication copies input metadata and nested scopes. Retained generations
 remain valid while newer ones are published. Refresh failure retains the same rules;
 Redis recovery still preserves failure diagnostics, and a successful source refresh
-still resets them. Legacy health count/version and all HTTP bodies/status rules are
-unchanged. In particular, stale snapshots remain queryable by default. Explicit strict-read enforcement
-can reject them; publication consistency alone is not a freshness or authorization policy.
+still resets them. Publication consistency does not itself establish freshness or
+change authorization. Legacy health count/version and JSON bodies retain their
+contracts. Under explicit `observe`, stale snapshots remain queryable; production
+defaults to `enforce`, which rejects expired or unknown source evidence with 503.
