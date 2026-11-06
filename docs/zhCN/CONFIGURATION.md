@@ -528,8 +528,9 @@ export STARGATE_WARDEN_BASE_URL=http://warden:8081
 
 ## 服务端数据读取新鲜度
 
-环境变量 `SNAPSHOT_READ_POLICY=observe` 为默认值，保持现有数据读取行为，健康检查报告
-过期时仍可读取。设置为 `enforce` 后，所有经过认证的列表、分页、用户和 lookup 路由
+环境变量 `SNAPSHOT_READ_POLICY` 在生产环境默认 `enforce`，在开发/测试环境默认
+`observe`。显式选择 `observe` 保持现有读取行为，健康检查报告过期时仍可读取。
+`enforce` 模式下，所有经过认证的列表、分页、用户和 lookup 路由
 及其别名都检查来源新鲜度；使用 YAML 配置时也读取此环境变量。非法值使启动校验失败。
 
 检查与查询使用同一个不可变快照。来源成功时间必须已知、不晚于请求观察时间，且请求
@@ -541,7 +542,7 @@ export STARGATE_WARDEN_BASE_URL=http://warden:8081
 发布、续期和重启恢复不会延长截止时间。旧版 Redis 快照没有来源成功时间证据，严格
 模式下返回 503，建议先迁移到保留来源时间的 V2 快照再启用。新鲜的本地回退仍可用：
 本策略检查合并后实际生效的数据集，并不要求每个远程依赖均成功。指标、
-合并优先级、Redis 存储格式及 SDK 默认策略不变。默认 observe 模式的健康行为不变，
+合并优先级、Redis 存储格式及 SDK 默认策略不变。显式 observe 模式的健康行为不变，
 enforce 模式的就绪规则见下文。
 
 `SNAPSHOT_READ_POLICY=enforce` 时，所有现有健康接口别名增加关键检查 `read_ready`，
