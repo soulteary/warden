@@ -32,12 +32,23 @@ services:
   warden-redis:
     image: redis:7.4-alpine
     container_name: warden-redis-basic
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          set -- --requirepass "$$REDIS_PASSWORD"
+        else
+          set --
+        fi
+        exec redis-server "$$@" --appendonly yes
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'if [ -n "$$REDIS_PASSWORD" ]; then REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping; else redis-cli ping; fi | grep -q PONG']
       interval: 5s
       timeout: 3s
       retries: 5
