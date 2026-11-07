@@ -500,7 +500,7 @@ Authorization: Bearer your-token-here
 
 ## 与 Stargate 集成（调用方配置）
 
-Warden 支持 **mTLS、HMAC、API Key** 三种服务间鉴权（优先级 mTLS > HMAC > API Key）。若由 Stargate 调用 Warden，请在 **Stargate 侧**配置 Warden 服务地址与认证方式：
+Warden 支持 **mTLS、HMAC、API Key**，按请求分支校验；完整 HMAC 签名失败不会回退 API Key，`WARDEN_SERVICE_POLICIES` 则要求 HMAC v2 key ID/action，不能由 API Key 或 mTLS 绕过。详见 [安全说明](SECURITY.md#服务间鉴权可选)。若由 Stargate 调用 Warden，请在 **Stargate 侧**配置 Warden 服务地址与认证方式：
 
 **Stargate 配置示例**（环境变量）：
 ```bash

@@ -10,6 +10,8 @@
 - 多种数据合并策略
 - Docker Compose 完整部署
 
+此隔离模拟示例显式使用 `ENVIRONMENT=development`，仅放行精确私网来源 `http://mock-api:8080`。它不是生产来源配置。修改 `CONFIG` 时应同步核对该来源设置；生产仍要求 HTTPS 及既有加密策略。手动运行时也应导出 `env.example` 中的两项设置。
+
 ## 📋 前置要求
 
 - Docker 和 Docker Compose
@@ -40,7 +42,7 @@
 
 ```bash
 cd example/advanced
-cp .env.example .env
+cp env.example .env
 # 编辑 .env 文件，设置你的配置
 ```
 

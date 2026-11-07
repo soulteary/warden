@@ -213,11 +213,7 @@ Warden 自动添加以下安全相关的 HTTP 响应头：
 
 ## 服务间鉴权（可选）
 
-如果选择与其他服务（如 Stargate）集成使用，可以进行服务间鉴权以确保安全性。
-
-**当前实现**：Warden 支持三种服务间鉴权方式，优先级为 **mTLS > HMAC > API Key**。配置 mTLS 或 HMAC 后，通过验证的请求将不再校验 API Key；未配置或验证未通过时回退到 API Key。
-
-**注意**：如果 Warden 独立使用，服务间鉴权是可选的。
+Warden 支持 mTLS、HMAC 和 API Key，按下述实际请求分支鉴权。独立部署也必须满足生产鉴权要求；只有开发或测试环境可以使用文档允许的未鉴权策略。
 
 ### mTLS（已实现/推荐）
 
@@ -296,9 +292,10 @@ client, err := warden.NewClient(warden.DefaultOptions().
 
 ### 配置优先级
 
-1. **mTLS**：若配置了 `WARDEN_TLS_CERT` 与 `WARDEN_TLS_KEY`，且请求携带并验证通过客户端证书，则视为已鉴权
-2. **HMAC**：若未走 mTLS 且请求带有有效的 `X-Signature`/`X-Timestamp`/`X-Key-Id`，则视为已鉴权
-3. **API Key**：以上均未通过时，使用 API Key（`X-API-Key` 或 `Authorization: Bearer`）保护 `/`、`/user`、`/v1/lookup`、`/log/level` 等端点
+1. 启用 `WARDEN_SERVICE_POLICIES` 时，只接受已验证的 HMAC v2 key ID 及其允许的 action；API Key 和 mTLS 不能绕过该模式。
+2. 未启用该模式时，请求携带符合服务端 TLS 策略的客户端证书，才可跳过请求头鉴权。仅配置服务端证书不等于每个请求都已鉴权。
+3. 否则，完整的 HMAC 请求头与已配置密钥进入签名校验；签名失败直接返回 401，不回退 API Key。旧 v1 还需显式开启兼容开关。
+4. 没有进入上述完整 HMAC 分支的请求交给 API Key 中间件（`X-API-Key` 或 Bearer）。配置 HMAC 本身不会关闭另外配置的 API Key 访问。
 
 ### 安全建议
 

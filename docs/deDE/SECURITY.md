@@ -213,9 +213,7 @@ Wenn Sie eine Sicherheitslücke entdecken, melden Sie diese bitte auf einem der 
 
 ## Authentifizierung zwischen Diensten (optional)
 
-Wenn Sie eine Integration mit anderen Diensten (etwa Stargate) wählen, kann die Authentifizierung zwischen Diensten die Sicherheit gewährleisten. **mTLS und HMAC sind umgesetzt**; die Reihenfolge der Authentifizierung ist **mTLS > HMAC > API-Key**. Warden unterstützt die folgenden Verfahren:
-
-**Hinweis**: Wird Warden eigenständig betrieben, ist die Authentifizierung zwischen Diensten optional.
+Warden unterstützt mTLS, HMAC und API-Keys. Die Auswahl erfolgt pro Anfrage nach den folgenden Regeln. Auch ein eigenständiger Produktionsbetrieb benötigt Authentifizierung; nur Entwicklung und Tests können die dokumentierte unauthentifizierte Betriebsart verwenden.
 
 ### mTLS (empfohlen)
 
@@ -295,9 +293,10 @@ client, err := warden.NewClient(warden.DefaultOptions().
 
 ### Konfigurationspriorität
 
-1. **mTLS**: Sind TLS-Zertifikate konfiguriert, wird zuerst mTLS verwendet
-2. **HMAC**: Ist mTLS nicht konfiguriert, wird die HMAC-Signatur verwendet
-3. **API-Key**: Ist keines von beiden konfiguriert, wird auf die API-Key-Authentifizierung zurückgegriffen (für Aufrufe zwischen Diensten nicht empfohlen)
+1. Mit `WARDEN_SERVICE_POLICIES` sind eine verifizierte HMAC-v2-Key-ID und die erlaubte Aktion erforderlich. API-Keys und mTLS umgehen diese Prüfung nicht.
+2. Ohne dieses Profil kann ein nach der Server-TLS-Richtlinie akzeptiertes Clientzertifikat die Header-Prüfung ersetzen. Ein konfiguriertes Serverzertifikat allein authentifiziert keine Anfrage.
+3. Vollständige HMAC-Header mit konfigurierten Schlüsseln werden geprüft. Eine ungültige Signatur führt zu 401 ohne API-Key-Fallback; v1 erfordert den expliziten Kompatibilitätsschalter.
+4. Andere Anfragen erreichen die API-Key-Middleware (`X-API-Key` oder Bearer). HMAC schaltet einen separat konfigurierten API-Key-Zugang nicht ab.
 
 ### Sicherheitsempfehlungen
 

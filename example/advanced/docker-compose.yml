@@ -10,6 +10,8 @@ services:
       - "${PORT:-8081}:8081"
     environment:
       - PORT=${PORT:-8081}
+      - ENVIRONMENT=development
+      - REMOTE_PRIVATE_ORIGINS=http://mock-api:8080
       - REDIS=warden-redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - CONFIG=${CONFIG:-http://mock-api:8080/api/users}
@@ -43,17 +45,23 @@ services:
   warden-redis:
     image: redis:7.4-alpine
     container_name: warden-redis-advanced
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     restart: unless-stopped
-    command: >
-      sh -c "redis-server
-      ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
-      --appendonly yes
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru"
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          set -- --requirepass "$$REDIS_PASSWORD"
+        else
+          set --
+        fi
+        exec redis-server "$$@" --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "${REDIS_PASSWORD:+-a $REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", 'if [ -n "$$REDIS_PASSWORD" ]; then REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping; else redis-cli ping; fi | grep -q PONG']
       interval: 5s
       timeout: 3s
       retries: 5

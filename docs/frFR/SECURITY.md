@@ -213,9 +213,7 @@ Si vous découvrez une vulnérabilité de sécurité, veuillez la signaler ainsi
 
 ## Authentification entre services (facultatif)
 
-Si vous choisissez de vous intégrer à d'autres services (comme Stargate), l'authentification entre services permet d'assurer la sécurité. **mTLS et HMAC sont implémentés** ; l'ordre de priorité est **mTLS > HMAC > clé d'API**. Warden prend en charge les méthodes suivantes :
-
-**Remarque** : si Warden est utilisé de manière autonome, l'authentification entre services est facultative.
+Warden prend en charge mTLS, HMAC et les clés API. Le choix se fait par requête selon les règles suivantes. Une instance autonome doit aussi être authentifiée en production ; seuls le développement et les tests peuvent utiliser le mode sans authentification documenté.
 
 ### mTLS (recommandé)
 
@@ -295,9 +293,10 @@ client, err := warden.NewClient(warden.DefaultOptions().
 
 ### Priorité de configuration
 
-1. **mTLS** : si des certificats TLS sont configurés, mTLS est utilisé en premier
-2. **HMAC** : si mTLS n'est pas configuré, la signature HMAC est utilisée
-3. **Clé d'API** : si aucun des deux n'est configuré, repli sur l'authentification par clé d'API (déconseillé pour les appels entre services)
+1. Avec `WARDEN_SERVICE_POLICIES`, une clé HMAC v2 authentifiée et son action autorisée sont requises. Les clés API et mTLS ne contournent pas ce profil.
+2. Sans ce profil, un certificat client accepté par la politique TLS du serveur remplace la vérification des en-têtes. Configurer seulement un certificat serveur ne suffit pas à authentifier une requête.
+3. Des en-têtes HMAC complets avec des clés configurées déclenchent la vérification. Une signature invalide renvoie 401 sans repli sur une clé API ; v1 exige le commutateur explicite de compatibilité.
+4. Les autres requêtes passent au middleware de clé API (`X-API-Key` ou Bearer). Activer HMAC ne désactive pas un accès par clé API configuré séparément.
 
 ### Recommandations de sécurité
 

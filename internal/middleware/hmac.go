@@ -95,11 +95,12 @@ func (cfg HMACConfig) normalized() HMACConfig {
 // supply one. It bounds memory to a generous cap.
 var defaultReplayGuard = NewMemoryReplayGuard(1 << 20)
 
-// HMACAuth returns a middleware that verifies an HMAC-SHA256 request signature.
-// It accepts both the legacy v1 canonical form and the authenticated v2 form
-// (with per-request nonce + replay rejection). If Keys is empty or the required
-// headers are absent, the middleware passes through without requiring HMAC
-// (unchanged historical behavior — the API-Key layer enforces auth).
+// HMACAuth verifies complete signature, timestamp and key-ID headers. Missing
+// any required header passes to the next handler, which must enforce any other
+// authentication policy. A complete but invalid signature returns 401, including
+// an unknown or unconfigured key. V2 binds a nonce and rejects replays; legacy v1
+// is accepted only when AllowV1 is enabled. Server routes use ServiceAuthChain
+// for their combined credential and service-policy selection.
 func HMACAuth(cfg HMACConfig) func(http.Handler) http.Handler {
 	c := cfg.normalized()
 	return func(next http.Handler) http.Handler {
@@ -124,10 +125,13 @@ func writeUnauthorized(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
 }
 
-// ServiceAuthChain returns a middleware that implements: mTLS (client cert) > HMAC > API Key.
-// If the request has a verified TLS client certificate, the inner handler is called directly.
-// If HMAC headers are present and valid (v1 or v2), the inner handler is called (API Key
-// skipped). Otherwise the request is passed to apiKeyMiddleware.
+// ServiceAuthChain selects authentication per request. Without ServicePolicies,
+// a TLS peer certificate accepted by the configured server TLS policy bypasses
+// header authentication. Otherwise complete HMAC headers with configured keys
+// are verified; invalid signatures return 401 without API-key fallback. Requests
+// outside that complete HMAC branch reach apiKeyMiddleware. Legacy v1 requires
+// AllowV1. With ServicePolicies enabled, only authenticated HMAC v2 key IDs and
+// their allowed actions are accepted; API keys and mTLS do not bypass policy.
 func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	c := hmacCfg.normalized()
 	return func(next http.Handler) http.Handler {
