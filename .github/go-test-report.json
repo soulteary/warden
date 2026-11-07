@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 878,
-    "passed": 873,
+    "total": 882,
+    "passed": 877,
     "failed": 0,
     "skipped": 5
   },
   "coverage": {
-    "covered_statements": 4623,
-    "total_statements": 4841,
-    "percentage": 95.5,
+    "covered_statements": 4631,
+    "total_statements": 4846,
+    "percentage": 95.56,
     "threshold": 95
   },
   "packages": [
@@ -163,9 +163,9 @@
     {
       "name": "pkg/warden",
       "status": "pass",
-      "tests": 106,
+      "tests": 110,
       "failed": 0,
-      "coverage": 98.1
+      "coverage": 98.63
     }
   ],
   "failures": null

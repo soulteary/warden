@@ -4,11 +4,11 @@
 
 | Metric | Value |
 | --- | --- |
-| Total | 878 |
-| Passed | 873 |
+| Total | 882 |
+| Passed | 877 |
 | Failed | 0 |
 | Skipped | 5 |
-| Coverage | 95.50% |
+| Coverage | 95.56% |
 | Threshold | 95.00% |
 
 ### Packages
@@ -36,4 +36,4 @@
 | internal/validator | pass | 6 | 0 | 86.49% |
 | locales | pass | 4 | 0 | N/A |
 | pkg/gocron | pass | 58 | 0 | 98.14% |
-| pkg/warden | pass | 106 | 0 | 98.10% |
+| pkg/warden | pass | 110 | 0 | 98.63% |
