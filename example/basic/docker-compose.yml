@@ -6,9 +6,9 @@ services:
     container_name: warden-basic
     restart: unless-stopped
     ports:
-      - "8081:8081"
+      - "${PORT:-8081}:8081"
     environment:
-      - PORT=${PORT:-8081}
+      - PORT=8081
       - REDIS=warden-redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - MERGE_MODE=ONLY_LOCAL

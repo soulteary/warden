@@ -6,7 +6,8 @@
 set -e
 
 API_KEY="${API_KEY:-your-secret-api-key-here}"
-BASE_URL="http://localhost:8081"
+BASE_URL="${BASE_URL:-http://localhost:${PORT:-8081}}"
+MOCK_API_BASE_URL="${MOCK_API_BASE_URL:-http://localhost:${MOCK_API_PORT:-8080}}"
 
 echo "🧪 Warden 复杂示例测试"
 echo "===================="
@@ -48,7 +49,7 @@ test_endpoint() {
 
 # 检查服务是否运行
 echo "检查服务状态..."
-if ! curl -s http://localhost:8081/health > /dev/null; then
+if ! curl -s "$BASE_URL/health" > /dev/null; then
     echo -e "${RED}错误: Warden 服务未运行${NC}"
     echo "请先启动服务: docker-compose up -d"
     exit 1
@@ -95,9 +96,9 @@ echo ""
 
 # 测试 7: Mock API
 echo "7. Mock API 测试"
-if curl -s http://localhost:8080/health > /dev/null; then
-    test_endpoint "Mock API 健康检查" "GET" "http://localhost:8080/health" "200"
-    test_endpoint "Mock API 用户列表" "GET" "http://localhost:8080/api/users" \
+if curl -s "$MOCK_API_BASE_URL/health" > /dev/null; then
+    test_endpoint "Mock API 健康检查" "GET" "$MOCK_API_BASE_URL/health" "200"
+    test_endpoint "Mock API 用户列表" "GET" "$MOCK_API_BASE_URL/api/users" \
         "200" -H "Authorization: Bearer mock-token"
 else
     echo -e "${YELLOW}⚠ Mock API 未运行，跳过测试${NC}"
