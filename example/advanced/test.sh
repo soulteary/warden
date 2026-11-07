@@ -23,16 +23,12 @@ test_endpoint() {
     local name=$1
     local method=$2
     local url=$3
-    local headers=$4
-    local expected_status=$5
+    local expected_status=$4
+    shift 4
 
     echo -n "测试 $name... "
     
-    if [ "$method" = "GET" ]; then
-        response=$(curl -s -w "\n%{http_code}" $headers "$url")
-    else
-        response=$(curl -s -w "\n%{http_code}" -X "$method" $headers "$url")
-    fi
+    response=$(curl -s -w "\n%{http_code}" -X "$method" "$@" "$url")
     
     http_code=$(echo "$response" | tail -n1)
     body=$(echo "$response" | sed '$d')
@@ -62,47 +58,47 @@ echo ""
 
 # 测试 1: 健康检查
 echo "1. 健康检查端点"
-test_endpoint "健康检查" "GET" "$BASE_URL/health" "" "200"
+test_endpoint "健康检查" "GET" "$BASE_URL/health" "200"
 echo ""
 
 # 测试 2: 获取用户列表（需要认证）
 echo "2. 用户列表端点"
 test_endpoint "获取用户列表" "GET" "$BASE_URL/" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "200" -H "X-API-Key: $API_KEY"
 echo ""
 
 # 测试 3: 分页查询
 echo "3. 分页查询"
 test_endpoint "分页查询 (page=1, page_size=2)" "GET" \
     "$BASE_URL/?page=1&page_size=2" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "200" -H "X-API-Key: $API_KEY"
 echo ""
 
 # 测试 4: 未授权访问
 echo "4. 安全测试"
-test_endpoint "未授权访问" "GET" "$BASE_URL/" "" "401"
+test_endpoint "未授权访问" "GET" "$BASE_URL/" "401"
 echo ""
 
 # 测试 5: Prometheus 指标
 echo "5. 监控指标"
-test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" "" "200"
+test_endpoint "Prometheus 指标" "GET" "$BASE_URL/metrics" "200"
 echo ""
 
 # 测试 6: 日志级别管理
 echo "6. 日志级别管理"
 test_endpoint "获取日志级别" "GET" "$BASE_URL/log/level" \
-    "-H 'X-API-Key: $API_KEY'" "200"
+    "200" -H "X-API-Key: $API_KEY"
 
 test_endpoint "设置日志级别" "POST" "$BASE_URL/log/level" \
-    "-H 'X-API-Key: $API_KEY' -H 'Content-Type: application/json' -d '{\"level\":\"debug\"}'" "200"
+    "200" -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" -d '{"level":"debug"}'
 echo ""
 
 # 测试 7: Mock API
 echo "7. Mock API 测试"
 if curl -s http://localhost:8080/health > /dev/null; then
-    test_endpoint "Mock API 健康检查" "GET" "http://localhost:8080/health" "" "200"
+    test_endpoint "Mock API 健康检查" "GET" "http://localhost:8080/health" "200"
     test_endpoint "Mock API 用户列表" "GET" "http://localhost:8080/api/users" \
-        "-H 'Authorization: Bearer mock-token'" "200"
+        "200" -H "Authorization: Bearer mock-token"
 else
     echo -e "${YELLOW}⚠ Mock API 未运行，跳过测试${NC}"
 fi

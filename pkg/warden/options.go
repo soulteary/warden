@@ -11,7 +11,7 @@ import (
 //
 //nolint:govet // fieldalignment: field order optimized for API compatibility
 type RetryOptions struct {
-	RetryableStatusCodes []int         // HTTP status codes that should trigger retry (default: 5xx)
+	RetryableStatusCodes []int         // HTTP status codes eligible for retry, excluding 4xx (default: 500, 502, 503, 504)
 	MaxRetries           int           // Maximum number of retries (default 0, no retry)
 	RetryDelay           time.Duration // Initial delay between retries (default 100ms)
 	MaxRetryDelay        time.Duration // Maximum delay between retries (default 5s)

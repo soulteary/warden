@@ -64,7 +64,7 @@ func registerRoutes(app *App) *http.ServeMux {
 	authBaseCfg.TrustedProxyConfig = trustedProxyConfig
 	authBaseCfg.Logger = logger.ZerologPtr()
 	apiKeyMiddleware := middlewarekit.APIKeyAuthStd(authBaseCfg)
-	// Service auth chain: mTLS (client cert) > HMAC > API Key.
+	// ServiceAuthChain selects per-request credentials; service policies require HMAC v2.
 	// Accept only authenticated v2 signatures by default. Operators can explicitly
 	// enable legacy v1 during a bounded migration; usage is surfaced via a metric.
 	policies, policyErr := serviceauth.Parse(os.Getenv("WARDEN_SERVICE_POLICIES"), app.hmacKeys)

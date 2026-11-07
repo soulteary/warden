@@ -34,12 +34,12 @@ Create a `data.json` file:
 
 ```bash
 # Execute in project root directory (Redis disabled by default)
-go run . \
+API_KEY=your-secret-api-key-here go run . \
   --port 8081 \
   --mode ONLY_LOCAL
 
 # Or set Redis address (Redis will be enabled automatically, no need for --redis-enabled)
-go run . \
+API_KEY=your-secret-api-key-here go run . \
   --port 8081 \
   --redis localhost:6379 \
   --mode ONLY_LOCAL
@@ -58,11 +58,13 @@ redis-server
 
 ```bash
 # Get user list (requires API Key)
-curl -H "X-API-Key: your-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
 # Health check (no API Key required)
 curl http://localhost:8081/health
 ```
+
+The `run.sh` helper requires an explicit `API_KEY` and uses `example/basic/data.json` by default. A relative `DATA_FILE` override is resolved from the caller's current directory. Use the same key in client requests; the helper does not print it.
 
 ### Method 2: Using Docker Compose
 
@@ -155,7 +157,7 @@ them and returns only the aggregate status and service name.
 ### 2. Get User List
 
 ```bash
-curl -H "X-API-Key: your-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 ```
 
 Expected response:
@@ -175,7 +177,7 @@ Expected response:
 ### 3. Paginated Query
 
 ```bash
-curl -H "X-API-Key: your-api-key" "http://localhost:8081/?page=1&page_size=1"
+curl -H "X-API-Key: your-secret-api-key-here" "http://localhost:8081/?page=1&page_size=1"
 ```
 
 Expected response:
@@ -205,7 +207,7 @@ A: Warden uses Redis for:
 - Distributed locks (prevent scheduled tasks from executing repeatedly)
 - Multi-instance data synchronization
 
-Even when using only local files, Redis is required.
+In `ONLY_LOCAL` mode, Redis is disabled by default unless a Redis address is explicitly set. The Compose example explicitly configures Redis; local Go runs can omit it.
 
 ### Q: How to modify data?
 

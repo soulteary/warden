@@ -243,8 +243,8 @@ Modify `MERGE_MODE` in `.env` to test different modes (`MODE` is deprecated):
 - `ONLY_LOCAL`: Local-only
 
 ```bash
-# Restart service after modifying configuration
-docker-compose restart warden
+# Recreate the service with the updated .env configuration
+docker-compose up -d warden
 ```
 
 ### 4. View Monitoring Metrics

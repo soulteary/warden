@@ -243,8 +243,8 @@ vim mock-api/data.json
 - `ONLY_LOCAL`: 仅本地
 
 ```bash
-# 修改配置后重启服务
-docker-compose restart warden
+# 修改 .env 后重新创建服务以应用配置
+docker-compose up -d warden
 ```
 
 ### 4. 查看监控指标

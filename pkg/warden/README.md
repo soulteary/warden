@@ -359,9 +359,9 @@ The `RetryOptions` struct configures retry behavior:
 - `RetryDelay`: Initial delay between retries (default 100ms)
 - `MaxRetryDelay`: Maximum delay between retries (default 5s)
 - `BackoffMultiplier`: Multiplier for exponential backoff (default 2.0)
-- `RetryableStatusCodes`: HTTP status codes that trigger retry (default: 5xx)
+- `RetryableStatusCodes`: HTTP status codes that trigger retry (default: 500, 502, 503, 504)
 
-**Note:** Network errors are always retryable. Client errors (4xx) are never retried.
+**Note:** Retries require `MaxRetries > 0` and remain bounded by the request context. Transport errors are eligible for retry, except redirect-policy errors (`ErrRedirect`). Client errors (4xx) are never retried, even if listed in `RetryableStatusCodes`.
 
 ## Best Practices
 

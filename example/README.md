@@ -41,7 +41,7 @@ docker-compose up -d
 ### 2. [Advanced Example](./advanced/) - Full Features
 
 **Suitable Scenarios**:
-- Production environment deployment reference
+- Isolated development deployment with a mock remote source; production needs separate HTTPS, authentication and network configuration
 - Need remote API data source
 - Complete monitoring and testing
 
@@ -76,7 +76,7 @@ docker-compose up -d
 ### Choose Advanced Example if you:
 - Need to fetch data from remote APIs
 - Need to understand complete data merging strategies
-- Are preparing to deploy to production
+- Want to learn remote-source configuration in an isolated development environment
 - Need a complete monitoring and testing solution
 
 ## 🚀 Quick Comparison
@@ -116,7 +116,7 @@ docker-compose up -d
 
 - All examples can run independently
 - Recommend running the simple example first to ensure environment configuration is correct
-- Advanced example includes complete production environment best practices
+- Advanced example uses a development-only HTTP mock; review production security requirements separately
 - You can modify configuration and data files according to actual needs
 
 ## ❓ Need Help?
