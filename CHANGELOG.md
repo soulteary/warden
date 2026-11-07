@@ -14,6 +14,8 @@
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-07
+
 ### Fixed
 
 - Keep raw transport errors, retry URLs and response bodies out of SDK internal
@@ -22,6 +24,9 @@
 - Align current English and Chinese data contracts, configuration and Redis
   rollout/rollback guidance with the production `enforce` default introduced in
   v1.6.0. Explain unknown-age legacy recovery and explicit observe-mode staging.
+
+See [v1.6.1 release notes](docs/releases/v1.6.1.md) for SDK rollout, log-parser
+compatibility and rollback requirements.
 
 ## [1.6.0] - 2026-11-07
 
