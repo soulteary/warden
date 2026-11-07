@@ -10,7 +10,7 @@ This is Warden's complete feature example, demonstrating all core features, incl
 - Multiple data merging strategies
 - Complete Docker Compose deployment
 
-This isolated mock example explicitly uses `ENVIRONMENT=development` and the exact private origin `http://mock-api:8080`. This is not a production source configuration. If you change `CONFIG`, review that origin setting too; production still requires HTTPS and its encryption policy. For manual runs, export both settings from `env.example`.
+This isolated mock example explicitly uses `ENVIRONMENT=development` and the exact private origin `http://mock-api:8080`. This is not a production source configuration. If you change `CONFIG`, review that origin setting too; production still requires HTTPS and its encryption policy. For manual runs, use the separate private-host origin settings below; the Compose hostname does not resolve on the host.
 
 ## 📋 Prerequisites
 
@@ -81,7 +81,7 @@ docker-compose logs -f mock-api
 curl http://localhost:8081/health
 
 # Get user list (requires API Key)
-curl -H "X-API-Key: your-secret-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
 # View Prometheus metrics
 curl http://localhost:8081/metrics
@@ -98,8 +98,9 @@ docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 2. **Start Mock API Service**
 
 ```bash
-cd example/advanced
-go run mock-api/main.go
+cd example/advanced/mock-api
+cp ../../../data.example.json data.json
+PORT=8080 go run .
 ```
 
 Mock API will serve at `http://localhost:8080/api/users`.
@@ -107,15 +108,33 @@ Mock API will serve at `http://localhost:8080/api/users`.
 3. **Run Warden**
 
 ```bash
-# In project root directory
-go run . \
+# In project root directory. Set this to an actual RFC1918 address on this host.
+# Loopback (localhost/127.0.0.1) is rejected even in development.
+export MOCK_API_HOST=192.168.1.10 # replace with your host address
+ENVIRONMENT=development \
+REMOTE_PRIVATE_ORIGINS="http://$MOCK_API_HOST:8080" \
+API_KEY=your-secret-api-key-here go run . \
+  --data-file ./data.example.json \
   --port 8081 \
   --redis localhost:6379 \
-  --config http://localhost:8080/api/users \
+  --config "http://$MOCK_API_HOST:8080/api/users" \
   --key "Bearer mock-token" \
   --mode DEFAULT \
   --interval 10
 ```
+
+### Test script and host ports
+
+Compose keeps Warden listening on container port 8081. `PORT` selects the published host port; `MOCK_API_PORT` selects the mock's host port. The commands above use the default ports and demo API key. Adjust client URLs and credentials when changing them.
+
+`test.sh` reads exported variables, not `.env`. Pass values matching your Compose configuration explicitly:
+
+```bash
+cd example/advanced # from the project root
+API_KEY=your-secret-api-key-here PORT=8081 MOCK_API_PORT=8080 ./test.sh
+```
+
+`BASE_URL` and `MOCK_API_BASE_URL` can override the complete observer URLs.
 
 ## 📝 Configuration
 
@@ -261,14 +280,14 @@ curl http://localhost:8081/health | jq
 
 ```bash
 # Get all users
-curl -H "X-API-Key: your-secret-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
 # Paginated query
-curl -H "X-API-Key: your-secret-api-key" \
+curl -H "X-API-Key: your-secret-api-key-here" \
   "http://localhost:8081/?page=1&page_size=10"
 
 # Dynamically adjust log level
-curl -X POST -H "X-API-Key: your-secret-api-key" \
+curl -X POST -H "X-API-Key: your-secret-api-key-here" \
   -H "Content-Type: application/json" \
   -d '{"level":"debug"}' \
   http://localhost:8081/log/level
@@ -331,7 +350,7 @@ Use `wrk` for stress testing:
 
 # Run test
 wrk -t4 -c100 -d30s \
-  -H "X-API-Key: your-secret-api-key" \
+  -H "X-API-Key: your-secret-api-key-here" \
   http://localhost:8081/
 ```
 

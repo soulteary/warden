@@ -10,7 +10,7 @@
 - 多种数据合并策略
 - Docker Compose 完整部署
 
-此隔离模拟示例显式使用 `ENVIRONMENT=development`，仅放行精确私网来源 `http://mock-api:8080`。它不是生产来源配置。修改 `CONFIG` 时应同步核对该来源设置；生产仍要求 HTTPS 及既有加密策略。手动运行时也应导出 `env.example` 中的两项设置。
+此隔离模拟示例显式使用 `ENVIRONMENT=development`，仅放行精确私网来源 `http://mock-api:8080`。它不是生产来源配置。修改 `CONFIG` 时应同步核对该来源设置；生产仍要求 HTTPS 及既有加密策略。手动运行时应使用下方单独列出的私网主机来源配置，宿主机不能直接解析 Compose 服务名。
 
 ## 📋 前置要求
 
@@ -81,7 +81,7 @@ docker-compose logs -f mock-api
 curl http://localhost:8081/health
 
 # 获取用户列表（需要 API Key）
-curl -H "X-API-Key: your-secret-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
 # 查看 Prometheus 指标
 curl http://localhost:8081/metrics
@@ -98,8 +98,9 @@ docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 2. **启动 Mock API 服务**
 
 ```bash
-cd example/advanced
-go run mock-api/main.go
+cd example/advanced/mock-api
+cp ../../../data.example.json data.json
+PORT=8080 go run .
 ```
 
 Mock API 将在 `http://localhost:8080/api/users` 提供服务。
@@ -107,15 +108,33 @@ Mock API 将在 `http://localhost:8080/api/users` 提供服务。
 3. **运行 Warden**
 
 ```bash
-# 在项目根目录
-go run . \
+# 在项目根目录。填写本机实际可访问的 RFC1918 私网地址。
+# 即使在开发环境也不允许 localhost/127.0.0.1 回环来源。
+export MOCK_API_HOST=192.168.1.10 # 替换为本机地址
+ENVIRONMENT=development \
+REMOTE_PRIVATE_ORIGINS="http://$MOCK_API_HOST:8080" \
+API_KEY=your-secret-api-key-here go run . \
+  --data-file ./data.example.json \
   --port 8081 \
   --redis localhost:6379 \
-  --config http://localhost:8080/api/users \
+  --config "http://$MOCK_API_HOST:8080/api/users" \
   --key "Bearer mock-token" \
   --mode DEFAULT \
   --interval 10
 ```
+
+### 测试脚本与宿主机端口
+
+Compose 内的 Warden 固定监听 8081；`PORT` 选择发布到宿主机的端口，`MOCK_API_PORT` 选择模拟服务的宿主机端口。上方命令使用默认端口和示例 API Key，修改配置后应同步调整客户端地址及密钥。
+
+`test.sh` 读取导出的环境变量，不会读取 `.env`。请显式传入与 Compose 配置一致的值：
+
+```bash
+cd example/advanced # 从项目根目录执行
+API_KEY=your-secret-api-key-here PORT=8081 MOCK_API_PORT=8080 ./test.sh
+```
+
+也可以用 `BASE_URL` 和 `MOCK_API_BASE_URL` 覆盖完整的测试请求地址。
 
 ## 📝 配置说明
 
@@ -261,14 +280,14 @@ curl http://localhost:8081/health | jq
 
 ```bash
 # 获取所有用户
-curl -H "X-API-Key: your-secret-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
 # 分页查询
-curl -H "X-API-Key: your-secret-api-key" \
+curl -H "X-API-Key: your-secret-api-key-here" \
   "http://localhost:8081/?page=1&page_size=10"
 
 # 动态调整日志级别
-curl -X POST -H "X-API-Key: your-secret-api-key" \
+curl -X POST -H "X-API-Key: your-secret-api-key-here" \
   -H "Content-Type: application/json" \
   -d '{"level":"debug"}' \
   http://localhost:8081/log/level
@@ -331,7 +350,7 @@ docker-compose stop warden-redis
 
 # 运行测试
 wrk -t4 -c100 -d30s \
-  -H "X-API-Key: your-secret-api-key" \
+  -H "X-API-Key: your-secret-api-key-here" \
   http://localhost:8081/
 ```
 

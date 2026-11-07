@@ -9,7 +9,7 @@ services:
     ports:
       - "${PORT:-8081}:8081"
     environment:
-      - PORT=${PORT:-8081}
+      - PORT=8081
       - ENVIRONMENT=development
       - REMOTE_PRIVATE_ORIGINS=http://mock-api:8080
       - REDIS=warden-redis:6379
