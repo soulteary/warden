@@ -8,7 +8,7 @@ Warden SDK is a Go client library for interacting with the Warden API. It provid
 
 - 🚀 **Simple and Easy**: Provides clean API interfaces
 - ⚡ **High Performance**: Built-in cache support (GetUsers), direct queries (GetUserByIdentifier) reduce API calls
-- 🔒 **Secure**: Supports API Key authentication, error handling doesn't leak sensitive information
+- 🔒 **Secure**: Supports API keys, HMAC and TLS client certificates; internal diagnostic errors are redacted (returned errors retain details; see SDK diagnostic logging)
 - 📦 **Flexible**: Configurable timeout, cache TTL, etc.
 - 🔌 **Extensible**: Supports custom logger implementations
 - 🎯 **Smart Fallback**: CheckUserInList supports automatic fallback to mail when phone is not found

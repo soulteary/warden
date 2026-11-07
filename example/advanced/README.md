@@ -10,6 +10,8 @@ This is Warden's complete feature example, demonstrating all core features, incl
 - Multiple data merging strategies
 - Complete Docker Compose deployment
 
+This isolated mock example explicitly uses `ENVIRONMENT=development` and the exact private origin `http://mock-api:8080`. This is not a production source configuration. If you change `CONFIG`, review that origin setting too; production still requires HTTPS and its encryption policy. For manual runs, export both settings from `env.example`.
+
 ## 📋 Prerequisites
 
 - Docker and Docker Compose
@@ -40,7 +42,7 @@ This example includes the following components:
 
 ```bash
 cd example/advanced
-cp .env.example .env
+cp env.example .env
 # Edit .env file, set your configuration
 ```
 

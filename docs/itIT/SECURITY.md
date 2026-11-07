@@ -213,9 +213,7 @@ Se individui una vulnerabilità di sicurezza, segnalala così:
 
 ## Autenticazione tra servizi (facoltativa)
 
-Se scegli di integrarti con altri servizi (come Stargate), l'autenticazione tra servizi consente di garantire la sicurezza. **mTLS e HMAC sono implementati**; l'ordine di priorità è **mTLS > HMAC > chiave API**. Warden supporta i metodi seguenti:
-
-**Nota**: se Warden viene usato in modo autonomo, l'autenticazione tra servizi è facoltativa.
+Warden supporta mTLS, HMAC e chiavi API. La scelta avviene per richiesta secondo le regole seguenti. Anche un servizio autonomo richiede autenticazione in produzione; solo sviluppo e test possono usare la modalità non autenticata documentata.
 
 ### mTLS (consigliato)
 
@@ -295,9 +293,10 @@ client, err := warden.NewClient(warden.DefaultOptions().
 
 ### Priorità di configurazione
 
-1. **mTLS**: se sono configurati certificati TLS, viene usato per primo mTLS
-2. **HMAC**: se mTLS non è configurato, viene usata la firma HMAC
-3. **Chiave API**: se nessuno dei due è configurato, si ripiega sull'autenticazione con chiave API (sconsigliata per le chiamate tra servizi)
+1. Con `WARDEN_SERVICE_POLICIES` sono richiesti un key ID HMAC v2 autenticato e la relativa azione consentita. Le chiavi API e mTLS non aggirano questo profilo.
+2. Senza questo profilo, un certificato client accettato dalla politica TLS del server sostituisce la verifica degli header. Configurare solo un certificato server non autentica una richiesta.
+3. Gli header HMAC completi, con chiavi configurate, attivano la verifica. Una firma non valida restituisce 401 senza ripiego sulla chiave API; v1 richiede il selettore esplicito di compatibilità.
+4. Le altre richieste passano al middleware API key (`X-API-Key` o Bearer). HMAC non disabilita un accesso API key configurato separatamente.
 
 ### Raccomandazioni di sicurezza
 

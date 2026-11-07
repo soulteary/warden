@@ -213,9 +213,7 @@ If you discover a security vulnerability, please report it through:
 
 ## Inter-Service Authentication (Optional)
 
-If you choose to integrate with other services (such as Stargate), inter-service authentication can be used to ensure security. **mTLS and HMAC are implemented**; the authentication priority is **mTLS > HMAC > API Key**. Warden supports the following authentication methods:
-
-**Note**: If Warden is used standalone, inter-service authentication is optional.
+Warden supports mTLS, HMAC and API keys. Authentication is selected per request as described below. Standalone deployments still require configured authentication in production; only development/test may use the documented unauthenticated policy.
 
 ### mTLS (Recommended)
 
@@ -295,9 +293,10 @@ client, err := warden.NewClient(warden.DefaultOptions().
 
 ### Configuration Priority
 
-1. **mTLS**: If TLS certificates are configured, mTLS is used first
-2. **HMAC**: If mTLS is not configured, HMAC signature is used
-3. **API Key**: If neither is configured, falls back to API Key authentication (not recommended for inter-service calls)
+1. With `WARDEN_SERVICE_POLICIES`, require an authenticated HMAC v2 key ID and its permitted action. API keys and mTLS do not bypass this profile.
+2. Without that profile, a request with a peer certificate accepted by the server TLS policy bypasses header authentication. Merely configuring a server certificate does not authenticate every request.
+3. Otherwise, complete HMAC headers plus configured keys enter signature verification. A failed signature returns 401 without falling back to API key; legacy v1 requires the explicit compatibility switch.
+4. Requests outside that complete HMAC branch go to the API-key middleware (`X-API-Key` or Bearer). Enabling HMAC does not by itself disable separately configured API-key access.
 
 ### Security Recommendations
 
