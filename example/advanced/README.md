@@ -100,7 +100,7 @@ docker run -d --name redis -p 6379:6379 redis:7.4-alpine
 ```bash
 cd example/advanced/mock-api
 cp ../../../data.example.json data.json
-go run .
+PORT=8080 go run .
 ```
 
 Mock API will serve at `http://localhost:8080/api/users`.
