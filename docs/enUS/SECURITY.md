@@ -87,7 +87,7 @@ app:
 **Log Level Management**:
 - Production environments recommend using `info` or `warn` level
 - All log level modification operations are recorded in security audit logs
-- Log levels can be dynamically adjusted via `/log/level` API (requires API Key authentication)
+- Log levels can be dynamically adjusted via `/log/level` API (requires the configured service authentication)
 
 ## API Security
 

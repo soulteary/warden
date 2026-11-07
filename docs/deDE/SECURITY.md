@@ -87,7 +87,7 @@ app:
 **Verwaltung des Log-Levels**:
 - In Produktionsumgebungen wird das Level `info` oder `warn` empfohlen
 - Alle Änderungen des Log-Levels werden in den Sicherheits-Audit-Logs festgehalten
-- Log-Level lassen sich dynamisch über die API `/log/level` anpassen (erfordert API-Key-Authentifizierung)
+- Log-Level lassen sich dynamisch über die API `/log/level` anpassen (erfordert die konfigurierte Dienstauthentifizierung)
 
 ## API-Sicherheit
 

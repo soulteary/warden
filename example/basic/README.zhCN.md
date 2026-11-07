@@ -34,12 +34,12 @@
 
 ```bash
 # 在项目根目录执行（默认禁用 Redis）
-go run . \
+API_KEY=your-secret-api-key-here go run . \
   --port 8081 \
   --mode ONLY_LOCAL
 
 # 或者设置 Redis 地址（会自动启用 Redis，无需额外设置 --redis-enabled）
-go run . \
+API_KEY=your-secret-api-key-here go run . \
   --port 8081 \
   --redis localhost:6379 \
   --mode ONLY_LOCAL
@@ -58,11 +58,13 @@ redis-server
 
 ```bash
 # 获取用户列表（需要设置 API Key）
-curl -H "X-API-Key: your-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 
 # 健康检查（不需要 API Key）
 curl http://localhost:8081/health
 ```
+
+`run.sh` 辅助脚本要求显式设置 `API_KEY`，默认读取 `example/basic/data.json`。相对路径的 `DATA_FILE` 按调用者的当前目录解析。客户端应使用同一密钥，脚本不会输出该密钥。
 
 ### 方式二：使用 Docker Compose
 
@@ -154,7 +156,7 @@ curl http://localhost:8081/health
 ### 2. 获取用户列表
 
 ```bash
-curl -H "X-API-Key: your-api-key" http://localhost:8081/
+curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8081/
 ```
 
 预期响应：
@@ -174,7 +176,7 @@ curl -H "X-API-Key: your-api-key" http://localhost:8081/
 ### 3. 分页查询
 
 ```bash
-curl -H "X-API-Key: your-api-key" "http://localhost:8081/?page=1&page_size=1"
+curl -H "X-API-Key: your-secret-api-key-here" "http://localhost:8081/?page=1&page_size=1"
 ```
 
 预期响应：
@@ -204,7 +206,7 @@ A: Warden 使用 Redis 进行：
 - 分布式锁（防止定时任务重复执行）
 - 多实例数据同步
 
-即使只使用本地文件，Redis 也是必需的。
+`ONLY_LOCAL` 模式默认禁用 Redis；显式设置 Redis 地址会启用它。Compose 示例显式配置了 Redis，本地 Go 运行可以省略。
 
 ### Q: 如何修改数据？
 

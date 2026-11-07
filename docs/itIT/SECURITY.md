@@ -87,7 +87,7 @@ app:
 **Gestione del livello di log**:
 - In produzione si consiglia il livello `info` oppure `warn`
 - Tutte le operazioni di modifica del livello di log sono registrate nei log di audit di sicurezza
-- Il livello di log può essere modificato dinamicamente tramite l'API `/log/level` (richiede autenticazione con chiave API)
+- Il livello di log può essere modificato dinamicamente tramite l'API `/log/level` (richiede l'autenticazione di servizio configurata)
 
 ## Sicurezza dell'API
 

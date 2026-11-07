@@ -87,7 +87,7 @@ app:
 **Gestion du niveau de journalisation** :
 - En production, le niveau `info` ou `warn` est recommandé
 - Toutes les opérations de modification du niveau de journalisation sont enregistrées dans les journaux d'audit de sécurité
-- Le niveau de journalisation peut être ajusté dynamiquement via l'API `/log/level` (authentification par clé d'API requise)
+- Le niveau de journalisation peut être ajusté dynamiquement via l'API `/log/level` (authentification de service configurée requise)
 
 ## Sécurité de l'API
 
