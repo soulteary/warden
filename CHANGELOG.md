@@ -14,6 +14,24 @@
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-08
+
+### Changed
+
+- Update `secure-kit/v2` and `audit-kit/v2` to v2.1.4. Their relevant masking
+  helpers preserve Unicode code-point boundaries; identity hashes, authentication,
+  SDK return contracts and Redis formats remain unchanged.
+
+### Documentation and examples
+
+- Align current authentication, SDK logging/retry and snapshot/OpenAPI contracts
+  with existing behavior.
+- Correct example credentials, local/private-source setup, shell arguments,
+  host/container ports and Redis password configuration/diagnostics.
+
+See [release notes](docs/releases/v1.6.2.md) for upgrade and rollback.
+
+
 ## [1.6.1] - 2026-11-07
 
 ### Fixed

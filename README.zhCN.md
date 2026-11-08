@@ -5,6 +5,8 @@
 [![Published report coverage](.github/coverage.svg)](.github/go-test-report.md)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 
+当前发布：**v1.6.2** — [升级与回滚说明](docs/releases/v1.6.2.md)。
+
 徽章展示已发布的报告快照；当前 Linux CI 要求覆盖率至少 95%。参见[报告来源](.github/GO-REPORTS.md)。
 
 > 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
