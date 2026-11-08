@@ -376,7 +376,11 @@ Expected results:
 **Solution**:
 1. Check if Redis is running: `docker-compose ps warden-redis`
 2. Check Redis password configuration
-3. Check network connection: `redis-cli -h localhost -p 6379 ping`
+3. Check Redis inside its Compose container (Redis is not published on host port 6379):
+
+```bash
+docker-compose exec warden-redis sh -c 'if [ -n "$REDIS_PASSWORD" ]; then REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping; else redis-cli ping; fi'
+```
 
 ### Issue 3: Data Not Updated
 

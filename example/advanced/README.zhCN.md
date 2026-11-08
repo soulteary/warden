@@ -376,7 +376,11 @@ wrk -t4 -c100 -d30s \
 **解决方案**:
 1. 检查 Redis 是否运行：`docker-compose ps warden-redis`
 2. 检查 Redis 密码配置
-3. 检查网络连接：`redis-cli -h localhost -p 6379 ping`
+3. 在 Compose 容器内检查 Redis（示例未将 Redis 发布到宿主机 6379 端口）：
+
+```bash
+docker-compose exec warden-redis sh -c 'if [ -n "$REDIS_PASSWORD" ]; then REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping; else redis-cli ping; fi'
+```
 
 ### 问题 3: 数据未更新
 
