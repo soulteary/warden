@@ -938,6 +938,14 @@ func showBanner() {
 }
 
 func main() {
+	if handled, err := handleVersionCommand(os.Args[1:], os.Stdout); handled {
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "warden: version command failed")
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Display startup banner
 	showBanner()
 
