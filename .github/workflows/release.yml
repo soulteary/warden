@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: '手动发布/覆盖的已存在 v* tag（例如 v1.2.3）'
+        description: '仅发布尚无 Release/版本镜像的已存在 v* tag（例如 v1.2.3）'
         required: true
         type: string
+
+# Serialize this workflow for the exact version, including manual/tag triggers.
+concurrency:
+  group: release-version-${{ github.repository }}-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -24,11 +29,25 @@ jobs:
       packages: write
       id-token: write # keyless cosign 签名（OIDC）所需
 
+    defaults:
+      run:
+        working-directory: release-source
+
     steps:
+      # Guard code follows the workflow revision, even for an older manual tag.
+      - name: Checkout release tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-tools
+          persist-credentials: false
+
       - name: 检出代码
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          path: release-source
+          persist-credentials: false
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: 解析发布 tag
@@ -43,20 +62,32 @@ jobs:
             TAG="${GITHUB_REF#refs/tags/}"
           fi
           if ! printf '%s' "${TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-            echo "::error::release_tag 必须是形如 vX.Y.Z 的语义化 tag，实际为 '${TAG}'"
+            echo "::error::release_tag must be a valid vX.Y.Z version tag"
             exit 1
           fi
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            git rev-parse --verify "refs/tags/${TAG}^{commit}" >/dev/null
-            test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          test "$GITHUB_REPOSITORY" = "soulteary/warden"
+          SOURCE_REVISION=$(git rev-parse --verify 'HEAD^{commit}')
+          TAG_REVISION=$(git rev-parse --verify "refs/tags/${TAG}^{commit}")
+          test "$SOURCE_REVISION" = "$TAG_REVISION"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            test "$SOURCE_REVISION" = "$GITHUB_SHA"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "manual=${{ github.event_name == 'workflow_dispatch' }}" >> "$GITHUB_OUTPUT"
+          echo "source_revision=${SOURCE_REVISION}" >> "$GITHUB_OUTPUT"
+
+      - name: Reject existing release versions before build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
+        run: |
+          python3 -I -B ../release-tools/scripts/release_version_guard.py \
+            --tag "$RELEASE_TAG" --source-revision "$SOURCE_REVISION"
 
       - name: 设置 Go 环境
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version-file: 'release-source/go.mod'
 
       - name: 缓存 Go 模块
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -64,7 +95,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('release-source/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -79,7 +110,7 @@ jobs:
         run: |
           TAG="${{ steps.release.outputs.tag }}"
           VERSION=${TAG#v}
-          COMMIT=$(git rev-parse --short HEAD)
+          COMMIT="${{ steps.release.outputs.source_revision }}"
           BUILD_DATE=$(date -u +%FT%T%z)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
@@ -90,8 +121,8 @@ jobs:
         run: |
           mkdir -p dist
           VERSION=${{ steps.version.outputs.version }}
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +%FT%T%z)
+          COMMIT="${{ steps.version.outputs.commit }}"
+          BUILD_DATE="${{ steps.version.outputs.build_date }}"
           LDFLAGS="-s -w -X github.com/soulteary/version-kit/v4.Version=${VERSION} -X github.com/soulteary/version-kit/v4.Commit=${COMMIT} -X github.com/soulteary/version-kit/v4.BuildDate=${BUILD_DATE}"
 
           # 构建多个平台
@@ -133,15 +164,30 @@ jobs:
             type=semver,pattern={{major}},value=${{ steps.release.outputs.tag }}
             type=raw,value=latest,enable=${{ !contains(steps.release.outputs.tag, '-') }}
 
+      - name: Recheck version absence immediately before registry publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
+        run: |
+          python3 -I -B ../release-tools/scripts/release_version_guard.py \
+            --tag "$RELEASE_TAG" --source-revision "$SOURCE_REVISION"
+
       - name: 构建并推送 Docker 镜像
         id: build-push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
-          context: .
-          file: ./docker/Dockerfile
+          context: ./release-source
+          file: ./release-source/docker/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/soulteary/warden
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.created=${{ steps.version.outputs.build_date }}
+            org.opencontainers.image.revision=${{ steps.release.outputs.source_revision }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             COMMIT=${{ steps.version.outputs.commit }}
@@ -156,7 +202,7 @@ jobs:
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-push.outputs.digest }}
           format: spdx-json
-          output-file: dist/warden-image-sbom.spdx.json
+          output-file: release-source/dist/warden-image-sbom.spdx.json
 
       # keyless cosign 签名（基于 OIDC，无需长期私钥）
       - name: 安装 cosign
@@ -181,66 +227,40 @@ jobs:
           cd dist
           sha256sum -c checksums.txt
 
-      - name: Select versioned release notes
-        id: notes
+      - name: Create release only; never update or replace an existing release
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
         run: |
-          NOTES_PATH="docs/releases/${RELEASE_TAG}.md"
-          if [ -f "$NOTES_PATH" ]; then
-            echo "path=$NOTES_PATH" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: 覆盖前删除已存在的 Release
-        if: steps.release.outputs.manual == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          # 手动重发：删除同名 Release（保留 git tag），随后重新创建以覆盖。
-          gh release delete "$TAG" --yes --repo "$GITHUB_REPOSITORY" || true
-
-      - name: 创建 Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          files: |
-            dist/*
-          tag_name: ${{ steps.release.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
-          body_path: ${{ steps.notes.outputs.path }}
-          body: |
-            ## Changes
-
-            See [CHANGELOG](https://github.com/${{ github.repository }}/blob/${{ steps.release.outputs.tag }}/CHANGELOG.md) for details.
-
-            ## Downloads
-
-            ### Docker Image
-            ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ```
-
-            ### Binaries
-            - Linux AMD64: `warden-linux-amd64`
-            - Linux ARM64: `warden-linux-arm64`
-            - macOS AMD64: `warden-darwin-amd64`
-            - macOS ARM64: `warden-darwin-arm64`
-            - Windows AMD64: `warden-windows-amd64.exe`
-            - Windows ARM64: `warden-windows-arm64.exe`
-
-            ### Checksums
-            See `checksums.txt` for SHA256 checksums.
-
-            ### Supply chain
-            - Verify the keyless-signed container image:
-              ```bash
-              cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
-                --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
-                --certificate-oidc-issuer https://token.actions.githubusercontent.com
-              ```
-            - SBOM (SPDX): `warden-image-sbom.spdx.json`
-          draft: false
-          prerelease: false
+          set -euo pipefail
+          # POST /releases is create-only. A race/collision fails; no delete,
+          # adoption, PATCH of an existing release, or clobber upload is allowed.
+          python3 - "$RELEASE_TAG" "$SOURCE_REVISION" > release-create.json <<'PY_CREATE'
+          import json, pathlib, sys
+          tag, source = sys.argv[1:]
+          notes = pathlib.Path('docs/releases') / (tag + '.md')
+          body = notes.read_text() if notes.is_file() else 'See CHANGELOG.md at ' + source
+          print(json.dumps(dict(tag_name=tag, target_commitish=source,
+              name='Release ' + tag, body=body, draft=True, prerelease=False)))
+          PY_CREATE
+          # pipefail propagates either gh failure or strict parser refusal.
+          # The parser reads at most 1 MiB + 1, requires explicit HTTP 201 and
+          # emits only a validated ID. No arbitrary successful 2xx is creation.
+          RELEASE_ID=$(gh api --include --method POST "repos/$GITHUB_REPOSITORY/releases" \
+            --input release-create.json | \
+            python3 -I -B ../release-tools/scripts/release_created_id.py --tag "$RELEASE_TAG")
+          # Fixed outputs only; POST asset collisions fail without replacement.
+          for name in warden-linux-amd64 warden-linux-arm64 warden-darwin-amd64 warden-darwin-arm64 warden-windows-amd64.exe warden-windows-arm64.exe warden-image-sbom.spdx.json checksums.txt; do
+            test -f "dist/$name"
+            gh api --method POST -H 'Content-Type: application/octet-stream' \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$name" \
+              --input "dist/$name" > /dev/null
+          done
+          # Finalize only the ID returned by this invocation's successful POST.
+          printf '{"draft":false}\n' > release-publish.json
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            --input release-publish.json > /dev/null
 
   report_release:
     name: Dispatch verified release reports
