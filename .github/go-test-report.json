@@ -1,24 +1,24 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 882,
-    "passed": 877,
+    "total": 887,
+    "passed": 882,
     "failed": 0,
     "skipped": 5
   },
   "coverage": {
-    "covered_statements": 4631,
-    "total_statements": 4846,
-    "percentage": 95.56,
+    "covered_statements": 4637,
+    "total_statements": 4857,
+    "percentage": 95.47,
     "threshold": 95
   },
   "packages": [
     {
       "name": ".",
       "status": "pass",
-      "tests": 165,
+      "tests": 170,
       "failed": 0,
-      "coverage": 90.34
+      "coverage": 89.96
     },
     {
       "name": "internal/auditlog",

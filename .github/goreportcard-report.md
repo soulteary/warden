@@ -1,11 +1,11 @@
 # Go Report Card
 
-**Grade: A+** (100.0%)
+**Grade: A+** (99.9%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 231 |
-| Issues | 0 |
+| Files | 234 |
+| Issues | 1 |
 
 ## Checks
 
@@ -14,11 +14,16 @@
 | gofmt | 100% |
 | go_vet | 100% |
 | ineffassign | 100% |
-| gocyclo | 100% |
+| gocyclo | 99% |
 | license | 100% |
 | misspell | 100% |
 
-No issues found. Nice work!
+## Issues
+
+### gocyclo
+
+- `version_command_test.go`
+  - Line 61: cyclomatic complexity 20 for function TestVersionCommandBinaryEarlyExit
 
 ---
 
