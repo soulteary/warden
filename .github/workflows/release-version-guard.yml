@@ -1,0 +1,26 @@
+name: Release version guard
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - '.github/workflows/release-version-guard.yml'
+      - 'scripts/release_version_guard.py'
+      - 'scripts/release_created_id.py'
+      - 'scripts/test_release_version_guard.py'
+      - 'docs/RELEASE_VERSION_GUARD.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Offline protocol and publication shell controls
+        # PyYAML is part of the hosted Ubuntu tool image; fail if unavailable.
+        run: python3 -I -B scripts/test_release_version_guard.py
