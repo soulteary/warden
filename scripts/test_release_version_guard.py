@@ -122,6 +122,8 @@ class CreatedResponseTest(unittest.TestCase):
         for separator in (b'\n', b'\r\n'):
             response = separator.join([b'HTTP/2.0 201 Created', b'Content-Type: application/json', b'', body])
             self.assertEqual(created.created_id(io.BytesIO(response), 'v1.6.3'), 123)
+        mixed = b'HTTP/2.0 201 Created\nContent-Type: application/json\r\n\r\n' + body
+        self.assertEqual(created.created_id(io.BytesIO(mixed), 'v1.6.3'), 123)
         valid = b'HTTP/2.0 201 Created\nContent-Type: application/json\n\n' + body
         for response in (body, valid.replace(b'201', b'200', 1), valid.replace(b'201', b'202', 1),
                          valid.replace(b'application/json', b'text/html'), valid + b'TAIL',
@@ -211,7 +213,7 @@ else:print('{}')
                 result, calls = self.run_publish(http_status=status)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(len(calls), 1)
-                self.assertEqual(result.stderr, 'release create response refused\n')
+                self.assertEqual(result.stderr, 'release create response refused: http-status\n')
 
     def test_new_release_uploads_then_only_own_id_is_finalized(self):
         result, calls = self.run_publish()
