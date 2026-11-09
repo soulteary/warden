@@ -68,6 +68,7 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "warden-version-test")
 	// These are explicit synthetic linker values, never release identity claims.
 	flags := "-w -s -X github.com/soulteary/version-kit/v4.Version=version-command-test -X github.com/soulteary/version-kit/v4.Commit=synthetic-full-commit -X github.com/soulteary/version-kit/v4.BuildDate=synthetic-build-date"
+	// #nosec G204 -- goTool is the host Go toolchain resolved from PATH, not application input.
 	build := exec.CommandContext(ctx, goTool, "build", "-mod=readonly", "-buildvcs=false", "-trimpath", "-ldflags", flags, "-o", binary, ".")
 	build.Env = []string{"CGO_ENABLED=0", "GOPROXY=off", "GOSUMDB=off", "GOTOOLCHAIN=local", "GOENV=off", "GOWORK=off"}
 	for _, key := range []string{"PATH", "HOME", "USERPROFILE", "SystemRoot", "WINDIR", "PATHEXT", "GOROOT", "GOMODCACHE", "GOCACHE", "TMPDIR", "TEMP", "TMP"} {
@@ -75,8 +76,8 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 			build.Env = append(build.Env, key+"="+value)
 		}
 	}
-	if output, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build version fixture: %v\n%s", err, output)
+	if output, buildErr := build.CombinedOutput(); buildErr != nil {
+		t.Fatalf("build version fixture: %v\n%s", buildErr, output)
 	}
 	// No inherited application configuration or secrets. If startup is reached,
 	// this nonexistent config must fail before any service can be initialized.
@@ -85,6 +86,7 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 		t.Helper()
 		probe, stop := context.WithTimeout(context.Background(), 5*time.Second)
 		defer stop()
+		// #nosec G204 -- binary was built above in this test's owned t.TempDir; arguments are fixed test cases.
 		cmd := exec.CommandContext(probe, binary, args...)
 		cmd.Env = env
 		cmd.Stdout = stdout
@@ -99,7 +101,7 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 		t.Fatalf("metadata-only command failed: %v stderr=%q", err, stderr)
 	}
 	var got version.Info
-	if err := json.Unmarshal(output.Bytes(), &got); err != nil {
+	if decodeErr := json.Unmarshal(output.Bytes(), &got); decodeErr != nil {
 		t.Fatal("expected only JSON metadata, without the startup banner")
 	}
 	if got.Version != "version-command-test" || got.Commit != "synthetic-full-commit" || got.BuildDate != "synthetic-build-date" || got.GoVersion == "" || got.Platform == "" {
@@ -114,7 +116,11 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = badOutput.Close() }()
+	defer func() {
+		if closeErr := badOutput.Close(); closeErr != nil {
+			t.Errorf("close broken-output fixture: %v", closeErr)
+		}
+	}()
 	stderr, err = run([]string{"--version"}, badOutput)
 	if err == nil || stderr != "warden: version command failed\n" {
 		t.Fatal("real stdout failure must exit nonzero without entering application startup")
