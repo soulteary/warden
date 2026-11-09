@@ -32,7 +32,7 @@ exact `capsule.json` SHA256 in reviewed source. The capsule names only this
 attempt and an independently chosen nonce. There is no CLI override for either
 hash, target, source, tag, image or draft ID.
 
-Use the manual workflow from main after merge. `plan` has contents-read only and
+Use the manual workflow from main after merge. `plan` has contents-write for owned draft visibility and
 outputs current safe observations plus missing Root bindings; it performs no
 build or remote write. The helper checks actual tag ref/object, source/tree,
 original run/event/attempt/only-step23 failure, exact draft body/author/empty
@@ -133,5 +133,18 @@ GitHub POST or recovery was run by the author.
 Native scanner target reference: https://oss.anchore.com/docs/reference/syft/cli/
 
 Both job scopes explicitly grant `actions: read` solely to inspect the original
-Actions run and jobs. The plan retains contents-read and recovery contents-write;
+Actions run and jobs. Both jobs require contents-write for owned draft visibility;
 no Actions write, packages write or OIDC permission is granted.
+
+## Draft visibility and read-only plan
+
+The first actual plan stopped at draft GET with HTTP403 after the Actions run
+and jobs reads passed; no remote write was attempted. GitHub documents that
+draft listings require push access, unlike public release reads:
+https://docs.github.com/en/rest/releases/releases#list-releases .
+The plan job therefore grants contents-write plus actions-read. This is token
+capability, not permission for the helper to mutate: Client rejects every
+non-GET method and every GET body before opening a request in plan, inspect-partial
+and rebuild. Only the explicit upload phase can use POST/PATCH. This does not
+change the independent published-tag404 check or interpret a draft as published
+absence. Actual workflow-token/API compatibility remains a live plan gate.
