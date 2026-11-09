@@ -1,0 +1,20 @@
+name: Exact Warden163 recovery offline controls
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/recover-warden163-owned-attempt.yml'
+      - '.github/workflows/warden163-recovery-controls.yml'
+      - 'scripts/warden163_recovery/**'
+      - 'docs/WARDEN163_OWNED_RECOVERY.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pure fake HTTP and inert build/publication controls
+        run: python3 -I -B scripts/warden163_recovery/test_recover.py
