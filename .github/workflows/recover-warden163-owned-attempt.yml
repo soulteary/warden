@@ -29,7 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
-      contents: read
+      # GitHub requires push access to observe this owned draft. Client is GET-only.
+      contents: write
     steps:
       - name: Checkout reviewed recovery tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

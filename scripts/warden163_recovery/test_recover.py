@@ -173,12 +173,41 @@ class RecoveryTest(unittest.TestCase):
     def test_original_actions_run_reads_have_exact_job_permissions(self):
         root=Path(__file__).resolve().parents[2]
         workflow=yaml.safe_load((root/'.github/workflows/recover-warden163-owned-attempt.yml').read_text())
-        self.assertEqual(workflow['jobs']['plan']['permissions'],{'actions':'read','contents':'read'})
+        self.assertEqual(workflow['jobs']['plan']['permissions'],{'actions':'read','contents':'write'})
         self.assertEqual(workflow['jobs']['recover']['permissions'],{'actions':'read','contents':'write'})
         r.live_bindings(self.client,self.command)
         paths=[url for method,url in self.client.calls if method=='GET']
         self.assertTrue(any('/actions/runs/'+str(r.RUN) in url for url in paths))
         self.assertTrue(any('/actions/runs/'+str(r.RUN)+'/jobs?per_page=100' in url for url in paths))
+    def test_non_upload_clients_reject_mutation_before_opener(self):
+        with patch.dict(os.environ,{'GH_TOKEN':'synthetic-canary'}):
+            for phase in ('plan','inspect-partial','rebuild'):
+                client=r.Client(phase)
+                with patch.object(client.opener,'open') as opened:
+                    for method,body in [('POST',b'{}'),('PATCH',b'{}'),('DELETE',None),('PUT',None),('GET',b'{}')]:
+                        with self.assertRaises(r.Refused) as caught:
+                            client.request(method,r.API+'/releases/'+str(r.RELEASE),body)
+                        self.assertEqual(caught.exception.reason,'read-only-client')
+                    opened.assert_not_called()
+    def test_phase_selection_and_get_read_capability(self):
+        class Response:
+            code=200
+            def read(self,limit):return b'{}'
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        with patch.dict(os.environ,{'GH_TOKEN':'synthetic-canary'}):
+            for phase in ('plan','inspect-partial','rebuild','upload'):
+                client=r.Client(phase)
+                with patch.object(client.opener,'open',return_value=Response()) as opened:
+                    self.assertEqual(client.request('GET',r.API+'/releases/'+str(r.RELEASE)),(200,b'{}'))
+                    self.assertEqual(opened.call_args.args[0].get_method(),'GET')
+            client=r.Client('upload')
+            with patch.object(client.opener,'open',return_value=Response()) as opened:
+                client.request('POST',r.API+'/releases/'+str(r.RELEASE),b'{}')
+                self.assertEqual(opened.call_args.args[0].get_method(),'POST')
+            with self.assertRaises(r.Refused):r.Client('unrecognized')
+        source=Path(r.__file__).read_text()
+        self.assertIn('Client(args.phase), Commands(directory, args.phase)',source)
     def test_real_inert_process_logs_are_separate_per_workflow_phase(self):
         # Actual Python child only, not Go/cosign/component execution.
         for phase in ('plan','rebuild','upload'):

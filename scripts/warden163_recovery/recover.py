@@ -42,7 +42,7 @@ FILES = BINARIES + ('warden-image-sbom.spdx.json', 'checksums.txt')
 MAX_FILE = 128 * 1024 * 1024
 MAX_TOTAL = 512 * 1024 * 1024
 REASONS = frozenset({'authority-unbound', 'authority-hash', 'authority-shape', 'authority-evidence',
-                    'http-status', 'http-shape', 'tag', 'source', 'original-attempt', 'draft',
+                    'http-status', 'http-shape', 'read-only-client', 'tag', 'source', 'original-attempt', 'draft',
                     'published', 'index', 'signature', 'filesystem', 'source-checkout',
                     'command-failed', 'command-unknown', 'build-record', 'asset', 'upload',
                     'publish', 'replay', 'unknown'})
@@ -190,13 +190,19 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, phase='plan'):
+        require(phase in ('plan', 'inspect-partial', 'rebuild', 'upload'), 'replay')
+        self.phase = phase
         self.token = os.environ.get('GH_TOKEN', '')
         require(bool(self.token) and not any(c in self.token for c in '\r\n'), 'http-shape')
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect(),
                        urllib.request.HTTPSHandler(context=ssl.create_default_context()))
 
     def request(self, method, url, raw=None, registry_token=None, limit=8*1024*1024):
+        # Draft visibility needs a write-capable token; non-upload phases still
+        # cannot issue a mutating method or send a request body.
+        require(self.phase == 'upload' or (method == 'GET' and raw is None),
+                'read-only-client')
         require(url.startswith(API + '/') or url.startswith('https://uploads.github.com/repos/' + REPO + '/')
                 or url.startswith(REGISTRY + '/') or url ==
                 'https://ghcr.io/token?service=ghcr.io&scope=repository:' + REPO + ':pull', 'http-shape')
@@ -604,7 +610,7 @@ def main():
         else:
             require(directory.is_dir() and stat.S_IMODE(directory.stat().st_mode) == 0o700
                     and directory.stat().st_uid == os.geteuid(), 'filesystem')
-        client, command = Client(), Commands(directory, args.phase)
+        client, command = Client(args.phase), Commands(directory, args.phase)
         if args.phase == 'plan':
             report['result'] = plan(directory, client, command, args.require_authorization)
         elif args.phase == 'inspect-partial':
