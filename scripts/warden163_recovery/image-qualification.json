@@ -1,0 +1,17 @@
+{
+  "build_date": "2026-11-09T12:51:58+0000",
+  "cosign_capture_sha256": "23626d354c384e896e01c97a21f471c128512583bf98b8d8d757f5b153460e1f",
+  "cosign_known_exit": 0,
+  "index_digest": "sha256:9ac7db4184d922ddaadfa99f9e65a59e88641f08181f6eab83a57c19a9e3234c",
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "raw_graph_manifest_sha256": "f7ae24e31a38bf14ae225923d09ec2070a489c65061874c9f2e9770176989751",
+  "schema": "warden163-partial-image-qualification-v1",
+  "source_constraints": "exact-sha-ref-repository-push",
+  "source_revision": "6fe54f24f78c28225882c2aae779e1020bb8f87e",
+  "tag_object": "e83fd755541be594032279d14ce4c610bb449da7",
+  "user": "10001:10001",
+  "wrong_source_control": "specific-workflow-sha-mismatch"
+}

@@ -1,0 +1,19 @@
+{
+  "attempt": {
+    "draft_id": 439146629,
+    "go_version": "1.27.3",
+    "index_digest": "sha256:9ac7db4184d922ddaadfa99f9e65a59e88641f08181f6eab83a57c19a9e3234c",
+    "original_job": 129169750296,
+    "original_run": 42620110898,
+    "release_build_date": "2026-11-09T12:51:58+0000",
+    "repository": "soulteary/warden",
+    "source": "6fe54f24f78c28225882c2aae779e1020bb8f87e",
+    "syft_version": "v1.51.1",
+    "tag": "v1.6.3",
+    "tag_object": "e83fd755541be594032279d14ce4c610bb449da7",
+    "tree": "d98d9dad3f1b2ca916802301d8175da662246782"
+  },
+  "image_qualification_sha256": "e4c212f42523abff96cd9671c38c9340c3eb946e1aff50ec7a1561eacfd6afd6",
+  "recovery_nonce": "06f5a8827bad6680dd6ff3fcde968925150d21393a7326ca916daad23caa167d",
+  "schema": "warden163-owned-recovery-capsule-v1"
+}
