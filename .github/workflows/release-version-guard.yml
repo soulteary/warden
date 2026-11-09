@@ -8,6 +8,7 @@ on:
       - 'scripts/release_version_guard.py'
       - 'scripts/release_created_id.py'
       - 'scripts/test_release_version_guard.py'
+      - 'scripts/test_release_gh_envelope.py'
       - 'docs/RELEASE_VERSION_GUARD.md'
   workflow_dispatch:
 
@@ -23,4 +24,6 @@ jobs:
           persist-credentials: false
       - name: Offline protocol and publication shell controls
         # PyYAML is part of the hosted Ubuntu tool image; fail if unavailable.
-        run: python3 -I -B scripts/test_release_version_guard.py
+        run: |
+          python3 -I -B scripts/test_release_version_guard.py
+          python3 -I -B scripts/test_release_gh_envelope.py

@@ -27,7 +27,10 @@ URL or credential.
 
 Final release publication uses **POST /releases**, not create-or-update.
 The included HTTP response is consumed through a 1 MiB bounded strict parser.
-Only explicit HTTP **201**, valid JSON content type and an unambiguous bound
+The parser accepts the real `gh api --include` rendering: its status line ends
+in LF while headers and the header/body separator use CRLF. It parses each
+header line without rewriting body bytes; uniform LF/CRLF responses remain
+supported. Only explicit HTTP **201**, valid JSON content type and an unambiguous bound
 draft record authorize its ID. HTTP 200/202/redirect responses are refused even
 when `gh` exits zero and supplies a plausible existing release body. A
 collision fails and cannot fall back to update. Only the newly returned draft
@@ -53,16 +56,22 @@ provides no future deletion/overwrite lock. No such server protection is claimed
 by this change. No release, registry mutation, Docker build or application was
 executed by the local tests.
 
-Run the offline controls with:
+Run the offline protocol controls and the installed-CLI loopback renderer regression with:
 
 ```sh
 python3 -I -B scripts/test_release_version_guard.py
+python3 -I -B scripts/test_release_gh_envelope.py
 ```
 
 They use synthetic HTTP replies and a local inert `gh` process to exercise the
 actual publication Bash. They prove guard decisions, create-collision refusal,
 fixed-ID upload/finalization and failure propagation, not real GitHub/GHCR
-publication. The path-scoped CI job also runs these controls; PyYAML must be
+publication. The second test starts only an owned ephemeral loopback HTTP server
+and invokes the installed `gh` against that fixed local endpoint. It uses an
+empty `GH_CONFIG_DIR`, a synthetic token, no inherited application environment,
+and no real GitHub or registry request. Missing `gh` or a forbidden local bind
+fails rather than skipping the renderer test. It checks actual mixed-line 201
+acceptance and actual CLI exit-zero 200 refusal. The path-scoped CI job also runs these controls; PyYAML must be
 available in its hosted Python environment or the job fails.
 
 Official protocol references:
@@ -70,3 +79,21 @@ Official protocol references:
 - https://docs.github.com/en/rest/releases/releases#create-a-release
 - https://docs.github.com/en/rest/releases/releases#list-releases
 - https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name
+
+## Bounded create-response diagnosis
+
+A refusal prints `release create response refused: <fixed-reason>` and exits
+nonzero. Reasons are limited to response/header budgets, header framing/syntax,
+HTTP status, media type, JSON syntax/duplicates/nonfinite values, record shape,
+record binding or unknown. No body, URL, headers, exception message or token is
+printed. A parser refusal may occur after GitHub created a draft: preserve that
+state and investigate; it is not permission to retry, delete or adopt it.
+
+The formatter seam is defined by upstream GitHub CLI `v2.103.3`
+[`processResponse` and `printHeaders`](https://github.com/cli/cli/blob/v2.103.3/pkg/cmd/api/api.go).
+`fmt.Fprintln` writes the status LF and `printHeaders` writes header CRLF.
+The runner image recorded for the first run,
+[`ubuntu24/20261101.360`](https://github.com/actions/runner-images/blob/ubuntu24/20261101.360/images/ubuntu/Ubuntu2404-Readme.md),
+lists GitHub CLI 2.103.3. Actual local tests use the independently installed CLI
+and do not claim to execute that hosted runner version or replay a retained
+original create response. The original raw response was not captured.
