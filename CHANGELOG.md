@@ -14,6 +14,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Apply `rate_limit.rate` and `rate_limit.window` from the configuration file.
+  They were parsed but the limiter always ran at 60 requests per minute.
+
+### Added
+
+- Add `RATE_LIMIT` and `RATE_LIMIT_WINDOW` environment variables, which override
+  the configuration file. Invalid values stop startup. Defaults are unchanged.
+
 ### Security
 
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is

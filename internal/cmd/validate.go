@@ -319,6 +319,8 @@ func validateEndpointsAndMode(cfg *Config) []string {
 		errs = append(errs, fmt.Sprintf("Invalid SNAPSHOT_MAX_AGE: %v", err))
 	}
 
+	errs = append(errs, validateRateLimit(cfg)...)
+
 	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
 	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
 		errs = append(errs, i18n.TfWithLang(i18n.LangZH, "validation.mode_invalid", cfg.Mode))
@@ -392,6 +394,30 @@ func validateDecryptKey(cfg *Config) []string {
 			}
 		}
 		// When only REMOTE_RSA_PRIVATE_KEY (inline PEM) is set, key is validated at load time
+	}
+	return errs
+}
+
+// validateRateLimit rejects unusable rate-limit settings from either the
+// environment or the configuration file.
+func validateRateLimit(cfg *Config) []string {
+	var errs []string
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT")); raw != "" {
+		if _, err := ParseRateLimit(raw); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid RATE_LIMIT: %v", err))
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_WINDOW")); raw != "" {
+		if _, err := ParseRateLimitWindow(raw); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid RATE_LIMIT_WINDOW: %v", err))
+		}
+	}
+	// Zero means "not set" and resolves to the default, as it does in YAML.
+	if cfg.RateLimit < 0 {
+		errs = append(errs, fmt.Sprintf("Invalid rate limit: %d (must be at least 1)", cfg.RateLimit))
+	}
+	if cfg.RateLimitWindow < 0 || (cfg.RateLimitWindow > 0 && cfg.RateLimitWindow < time.Second) {
+		errs = append(errs, fmt.Sprintf("Invalid rate limit window: %s (must be at least 1s)", cfg.RateLimitWindow))
 	}
 	return errs
 }

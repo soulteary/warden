@@ -5,9 +5,11 @@ package cmd
 import (
 	// Standard library
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	// External packages
 	"github.com/soulteary/cli-kit/configutil"
@@ -61,6 +63,11 @@ type Config struct {
 	TLSKeyFile               string // env WARDEN_TLS_KEY
 	TLSCAFile                string // env WARDEN_TLS_CA (client CA for mTLS)
 	TLSRequireClientCert     bool   // env WARDEN_TLS_REQUIRE_CLIENT_CERT
+
+	// env RATE_LIMIT: requests allowed per window, per client IP
+	RateLimit int
+	// env RATE_LIMIT_WINDOW
+	RateLimitWindow time.Duration
 }
 
 // flagValues holds parsed flag values
@@ -278,6 +285,53 @@ func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet) {
 
 	if keyVal := configutil.ResolveString(fs, "key", "KEY", "", true); keyVal != "" {
 		cfg.RemoteKey = keyVal
+	}
+}
+
+// ParseRateLimit parses RATE_LIMIT: the number of requests one client IP may
+// send per window.
+func ParseRateLimit(raw string) (int, error) {
+	rate, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, fmt.Errorf("must be a positive integer, got %q", raw)
+	}
+	if rate < 1 {
+		return 0, fmt.Errorf("must be at least 1, got %d", rate)
+	}
+	return rate, nil
+}
+
+// ParseRateLimitWindow parses RATE_LIMIT_WINDOW. It accepts a Go duration
+// ("30s", "1m") or a bare number of seconds, like HTTP_TIMEOUT.
+func ParseRateLimitWindow(raw string) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	window, err := time.ParseDuration(raw)
+	if err != nil {
+		seconds, convErr := strconv.Atoi(raw)
+		if convErr != nil {
+			return 0, fmt.Errorf("must be a duration such as 1m or a number of seconds, got %q", raw)
+		}
+		window = time.Duration(seconds) * time.Second
+	}
+	if window < time.Second {
+		return 0, fmt.Errorf("must be at least 1s, got %s", window)
+	}
+	return window, nil
+}
+
+// processRateLimitFromEnv applies RATE_LIMIT and RATE_LIMIT_WINDOW on top of
+// the configuration-file values. Unparsable values are left for ValidateConfig
+// to report, so a typo stops startup and does not fall back to the default.
+func processRateLimitFromEnv(cfg *Config) {
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT")); raw != "" {
+		if rate, err := ParseRateLimit(raw); err == nil {
+			cfg.RateLimit = rate
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_WINDOW")); raw != "" {
+		if window, err := ParseRateLimitWindow(raw); err == nil {
+			cfg.RateLimitWindow = window
+		}
 	}
 }
 
@@ -500,6 +554,8 @@ func getArgsFromFlags() *Config {
 		HTTPTimeout:             define.DEFAULT_TIMEOUT,
 		HTTPMaxIdleConns:        100,
 		HTTPInsecureTLS:         false,
+		RateLimit:               define.DEFAULT_RATE_LIMIT,
+		RateLimitWindow:         define.DEFAULT_RATE_LIMIT_WINDOW,
 	}
 
 	// Create FlagSet to parse command-line arguments
@@ -544,6 +600,7 @@ func getArgsFromFlags() *Config {
 	processIdentityFromEnv(cfg)
 	processDataPolicyFromEnv(cfg)
 	processServiceAuthFromEnv(cfg)
+	processRateLimitFromEnv(cfg)
 	processRedisSnapshotFromEnv(cfg)
 	cfg.SourceSetID = strings.TrimSpace(os.Getenv("SOURCE_SET_ID"))
 	processRedisRecoveryFromEnv(cfg)
@@ -586,7 +643,10 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		TLSKeyFile:               cfg.TLSKeyFile,
 		TLSCAFile:                cfg.TLSCAFile,
 		TLSRequireClientCert:     cfg.TLSRequireClientCert,
+		RateLimit:                cfg.RateLimit,
+		RateLimitWindow:          cfg.RateLimitWindow,
 	}
+	processRateLimitFromEnv(result)
 	processRedisSnapshotFromEnv(result)
 	result.SourceSetID = strings.TrimSpace(os.Getenv("SOURCE_SET_ID"))
 	processRedisRecoveryFromEnv(result)
