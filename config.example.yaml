@@ -1,6 +1,6 @@
 # Schema example: not all parsed keys are wired into the current application.
 # See docs/enUS/CONFIGURATION.md, "YAML schema and application wiring".
-# server timeouts/header limits, redis.db, cache.*, rate_limit.* and HTTP retry
+# server timeouts/header limits, redis.db, cache.* and HTTP retry
 # fields below currently retain application defaults when the binary runs.
 # Refresh scheduling uses task.interval; its runtime minimum is five seconds.
 

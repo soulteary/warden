@@ -240,8 +240,14 @@ func NewApp(cfg *cmd.Config) *App {
 
 	// Initialize rate limiter (using middleware-kit DefaultRateLimiterConfig + overrides)
 	rateLimitCfg := middlewarekit.DefaultRateLimiterConfig()
-	rateLimitCfg.Rate = define.DEFAULT_RATE_LIMIT
-	rateLimitCfg.Window = define.DEFAULT_RATE_LIMIT_WINDOW
+	rateLimitCfg.Rate = cfg.RateLimit
+	rateLimitCfg.Window = cfg.RateLimitWindow
+	if rateLimitCfg.Rate < 1 {
+		rateLimitCfg.Rate = define.DEFAULT_RATE_LIMIT
+	}
+	if rateLimitCfg.Window <= 0 {
+		rateLimitCfg.Window = define.DEFAULT_RATE_LIMIT_WINDOW
+	}
 	rateLimitCfg.MaxVisitors = define.MAX_VISITORS_MAP_SIZE
 	rateLimitCfg.MaxWhitelist = define.MAX_WHITELIST_SIZE
 	rateLimitCfg.CleanupInterval = define.RATE_LIMIT_CLEANUP_INTERVAL

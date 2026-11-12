@@ -14,6 +14,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Apply `rate_limit.rate` and `rate_limit.window` from the configuration file.
+  They were parsed but the limiter always ran at 60 requests per minute.
+
+### Added
+
+- Add `RATE_LIMIT` and `RATE_LIMIT_WINDOW` environment variables, which override
+  the configuration file. Invalid values stop startup. Defaults are unchanged.
+
 ## [1.6.2] - 2026-11-08
 
 ### Changed

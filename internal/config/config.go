@@ -521,6 +521,11 @@ type CmdConfigData struct {
 	TLSKeyFile               string   // WARDEN_TLS_KEY
 	TLSCAFile                string   // WARDEN_TLS_CA
 	TLSRequireClientCert     bool     // WARDEN_TLS_REQUIRE_CLIENT_CERT
+
+	// rate_limit.rate: requests allowed per window, per client IP
+	RateLimit int
+	// rate_limit.window
+	RateLimitWindow time.Duration
 }
 
 // ToCmdConfig converts to cmd.Config format
@@ -593,6 +598,8 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		HTTPTimeout:              int(c.HTTP.Timeout.Seconds()),
 		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:          c.HTTP.InsecureTLS,
+		RateLimit:                c.RateLimit.Rate,
+		RateLimitWindow:          c.RateLimit.Window,
 		APIKey:                   c.App.APIKey,
 		HMACKeys:                 hmacKeys,
 		HMACToleranceSec:         hmacTolerance,

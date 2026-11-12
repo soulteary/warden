@@ -386,13 +386,18 @@ By default, API requests are protected by rate limiting:
 - **Window**: 1 minute
 - **Exceeded**: Returns `429 Too Many Requests`
 
-Rate limiting can be adjusted via configuration file:
+Adjust it in the configuration file, or with the `RATE_LIMIT` and
+`RATE_LIMIT_WINDOW` environment variables, which take precedence:
 
 ```yaml
 rate_limit:
-  rate: 60  # Requests per minute
+  rate: 60  # Requests per window, per client IP
   window: 1m
 ```
+
+The limit is counted per client IP. A gateway such as Stargate reaches Warden
+from a single address, so all of its lookups share one quota; size the limit for
+the caller's total request rate, not for one end user.
 
 ## IP Whitelist
 

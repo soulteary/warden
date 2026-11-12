@@ -13,7 +13,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Server | `server.*` / `PORT` | port, read_timeout, write_timeout, shutdown_timeout, idle_timeout, max_header_bytes |
 | Redis | `redis.*` / `REDIS`, `REDIS_PASSWORD`, `REDIS_PASSWORD_FILE`, `REDIS_ENABLED` | addr, password, password_file, db; Redis enabled default `true` (except ONLY_LOCAL without REDIS) |
 | Cache | `cache.ttl`, `cache.update_interval` | no env overrides; update_interval default 5s |
-| Rate limit | `rate_limit.rate`, `rate_limit.window` | default 60/min, 1m window |
+| Rate limit | `rate_limit.rate`, `rate_limit.window` / `RATE_LIMIT`, `RATE_LIMIT_WINDOW` | per client IP; default 60 requests per 1m window; environment overrides YAML |
 | HTTP client | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
 | Remote | `remote.*` / `CONFIG`, `KEY`, `MERGE_MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
 | Task | `task.interval` / `INTERVAL` / `--interval` | Explicit CLI value overrides the environment, then YAML, then the default |
@@ -31,13 +31,12 @@ The following schema fields are not wired into that application path:
 
 - `server.read_timeout`, `server.write_timeout`, `server.shutdown_timeout`,
   `server.idle_timeout`, `server.max_header_bytes` (only `server.port` is projected).
-- `redis.db`, `cache.ttl`, `cache.update_interval`, `rate_limit.rate`,
-  `rate_limit.window`, `http.max_retries`, `http.retry_delay`.
+- `redis.db`, `cache.ttl`, `cache.update_interval`, `http.max_retries`,
+  `http.retry_delay`.
 
 The tables/examples below include schema fields for reference, not promises that
 changing those fields changes the running service. Current runtime values come
-from application defaults: Redis snapshot/cache TTL is one hour; rate limiting is
-60 requests per minute; the parser-kit loader retry policy uses three retries with a one-second base
+from application defaults: Redis snapshot/cache TTL is one hour; the parser-kit loader retry policy uses three retries with a one-second base
 delay. Refresh scheduling uses `task.interval` / `INTERVAL` / `--interval`, not
 `cache.update_interval`; valid intervals below five seconds are clamped to five
 seconds by the application. SDK CacheTTL is a separate client option.
@@ -352,6 +351,8 @@ export REMOTE_DECRYPT_ENABLED=false   # Optional: decrypt remote response with R
 export REMOTE_RSA_PRIVATE_KEY_FILE=   # Optional: path to RSA private key PEM (or use REMOTE_RSA_PRIVATE_KEY for inline PEM)
 export REMOTE_RSA_PRIVATE_KEY=        # Optional: inline RSA private key PEM (used when REMOTE_RSA_PRIVATE_KEY_FILE is not set)
 export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds)
+export RATE_LIMIT=60                   # Requests allowed per window, per client IP
+export RATE_LIMIT_WINDOW=1m            # Rate limit window (duration or seconds, minimum 1s)
 export HTTP_MAX_IDLE_CONNS=100         # HTTP maximum idle connections
 export HTTP_INSECURE_TLS=false         # Whether to skip TLS certificate verification (true/false or 1/0)
 export API_KEY="your-secret-api-key"   # API Key for authentication (strongly recommended)
