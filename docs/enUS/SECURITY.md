@@ -144,6 +144,11 @@ The limit is counted per client IP. A gateway such as Stargate reaches Warden
 from a single address, so all of its lookups share one quota; size the limit for
 the caller's total request rate, not for one end user.
 
+The limit also applies to `/metrics` and `/log/level`, which share the same
+per-client budget as the data endpoints. Health check endpoints are not rate
+limited. A Prometheus scraper that shares a client address with other callers
+consumes part of that address's quota.
+
 ### IP Whitelist
 
 Supports two types of IP whitelist configuration:

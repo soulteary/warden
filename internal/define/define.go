@@ -44,8 +44,9 @@ const (
 	PATH_V1_HEALTHCHECK = "/v1/healthcheck"
 )
 
-// SkipPathsHealthAndMetrics is the path list to skip for rate limiting and access logging.
-// Reduces log noise and keeps health/metrics probes from consuming rate limit.
+// SkipPathsHealthAndMetrics is the path list to skip for access logging and in the
+// shared rate-limit middleware. It reduces log noise and keeps health probes from
+// consuming the rate limit. /metrics is rate limited by its own route chain.
 var SkipPathsHealthAndMetrics = []string{PATH_HEALTH, PATH_HEALTHCHECK, PATH_METRICS}
 
 // KnownRoutePaths is the complete, authoritative set of paths Warden registers. It is the

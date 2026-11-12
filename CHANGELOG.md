@@ -58,6 +58,10 @@
 - The `example/basic` and `example/advanced` Compose files now require
   `API_KEY` instead of defaulting to a public placeholder, and publish their
   ports on `127.0.0.1` only.
+- Apply the rate limit and the 10 KB request body limit to `/metrics` and
+  `/log/level`. They share the per-client budget of the data endpoints
+  (default 60 requests per minute); a scraper polling faster than the
+  configured limit now receives 429.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
