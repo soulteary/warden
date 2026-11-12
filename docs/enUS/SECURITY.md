@@ -284,6 +284,10 @@ Production configuration requires every HMAC secret to contain at least 32 raw b
 Generate secrets with a cryptographically secure random source and store them in a
 secret manager; do not reuse the illustrative value above.
 
+The signed body is read before the signature can be checked, so that read is
+capped at the request body limit (10 KB) on every route and method. A request
+with complete HMAC headers and a larger body is rejected with 401.
+
 **Go SDK Example**:
 ```go
 client, err := warden.NewClient(warden.DefaultOptions().

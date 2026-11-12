@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/serviceauth"
 )
@@ -161,8 +162,9 @@ func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) ht
 }
 
 // verifyHMAC reads the body, verifies the signature (v2 preferred, v1 accepted when
-// allowed) and returns true if valid. It always restores r.Body for downstream
-// handlers. Secrets are never logged.
+// allowed) and returns true if valid. It restores r.Body for downstream handlers
+// when the body is within maxSignedBodyBytes; a larger or unreadable body fails
+// verification. Secrets are never logged.
 func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool {
 	cfg = cfg.normalized()
 	secret, ok := cfg.Keys[keyID]
@@ -182,7 +184,10 @@ func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool 
 		return false
 	}
 
-	bodyHash := readBodyHash(r)
+	bodyHash, ok := readBodyHash(r)
+	if !ok {
+		return false
+	}
 
 	version := r.Header.Get(headerVersion)
 	nonce := r.Header.Get(headerNonce)
@@ -261,25 +266,38 @@ func equalHMAC(secret, message, sig string) bool {
 	return hmac.Equal([]byte(sig), []byte(expected))
 }
 
+// maxSignedBodyBytes bounds how much request body is buffered to compute the
+// signed body hash. The read happens before the signature is known to be valid,
+// so it must not depend on an outer body-limit middleware being present.
+const maxSignedBodyBytes = define.MAX_REQUEST_BODY_SIZE
+
 // readBodyHash reads and restores r.Body, returning the hex SHA-256 of the body.
 // For an empty body it returns the hash of the empty string, matching the SDK.
-func readBodyHash(r *http.Request) string {
-	if r.Body == nil {
+// It reads at most maxSignedBodyBytes; ok is false when the body is larger or
+// cannot be read, in which case the request must be rejected.
+func readBodyHash(r *http.Request) (bodyHash string, ok bool) {
+	if r.Body == nil || r.Body == http.NoBody {
 		h := sha256.Sum256(nil)
-		return hex.EncodeToString(h[:])
+		return hex.EncodeToString(h[:]), true
 	}
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r.Body); err != nil {
+	if r.ContentLength > maxSignedBodyBytes {
+		logger.FromRequest(r).Warn().Int64("content_length", r.ContentLength).Msg("hmac: request body exceeds limit")
+		return "", false
+	}
+	// Read one byte past the limit so an oversized body is detected without
+	// buffering it.
+	data, err := io.ReadAll(io.LimitReader(r.Body, maxSignedBodyBytes+1))
+	if err != nil {
 		logger.FromRequest(r).Warn().Err(err).Msg("hmac: failed to read body")
-		// Restore an empty body and return the empty hash; signature will simply not match.
-		r.Body = io.NopCloser(bytes.NewReader(nil))
-		h := sha256.Sum256(nil)
-		return hex.EncodeToString(h[:])
+		return "", false
 	}
-	data := buf.Bytes()
+	if len(data) > maxSignedBodyBytes {
+		logger.FromRequest(r).Warn().Msg("hmac: request body exceeds limit")
+		return "", false
+	}
 	r.Body = io.NopCloser(bytes.NewReader(data))
 	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
+	return hex.EncodeToString(h[:]), true
 }
 
 // pathAndQuery returns the request path (r.URL.Path) plus raw query when present.
