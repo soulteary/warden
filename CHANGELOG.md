@@ -71,6 +71,8 @@
   configured limit now receives 429.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
+- The release workflow now refuses a tag whose commit is not an ancestor of
+  `main`.
 
 ## [1.6.2] - 2026-11-08
 
