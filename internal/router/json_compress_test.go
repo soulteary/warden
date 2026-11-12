@@ -35,9 +35,9 @@ func TestJSON_CompressedListIsDecodableByDefaultClient(t *testing.T) {
 
 	resp, err := http.Get(server.URL)
 	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.True(t, resp.Uncompressed, "the response should have been gzip-encoded and decoded by the client")
