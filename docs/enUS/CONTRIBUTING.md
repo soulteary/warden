@@ -36,7 +36,7 @@ When participating in this project, please respect all contributors, accept cons
 
 ### Prerequisites
 
-- Go 1.27.3 or higher
+- Go 1.27.4 or higher
 - Redis (for testing)
 - Git
 

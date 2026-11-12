@@ -12,7 +12,7 @@ on those hosts are not covered by the CI validation policy.
 
 ## Prerequisites
 
-- Go 1.27.3+ (refer to [go.mod](../../go.mod))
+- Go 1.27.4+ (refer to [go.mod](../../go.mod))
 - Redis (for distributed locks and caching)
 - Docker (optional, for containerized deployment)
 

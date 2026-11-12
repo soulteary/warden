@@ -15,7 +15,7 @@ This isolated mock example explicitly uses `ENVIRONMENT=development` and the exa
 ## 📋 Prerequisites
 
 - Docker and Docker Compose
-- Or Go 1.27.3+ and Redis
+- Or Go 1.27.4+ and Redis
 
 ## 🏗️ Architecture Overview
 
