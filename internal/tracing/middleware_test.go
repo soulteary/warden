@@ -410,7 +410,7 @@ func TestMiddleware_SpanURLOmitsQueryString(t *testing.T) {
 
 		foundURL := false
 		for _, attr := range spans[0].Attributes {
-			value := attr.Value.Emit()
+			value := attr.Value.String()
 			assert.NotContains(t, value, "13800138000", "attribute %s", attr.Key)
 			assert.NotContains(t, value, "alice@example.com", "attribute %s", attr.Key)
 			if attr.Key == "http.url" {
