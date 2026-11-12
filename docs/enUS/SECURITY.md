@@ -32,7 +32,7 @@ This document explains Warden's security features, security configuration, and b
 
 **Configuration Example**:
 ```bash
-export API_KEY="your-strong-api-key-here"
+export API_KEY="$(openssl rand -hex 32)"   # generate once and keep it in a secret store
 export ENVIRONMENT=production
 export WARDEN_METRICS_REQUIRE_AUTH=true
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"
@@ -116,6 +116,12 @@ Some API endpoints require API Key authentication:
    ```http
    Authorization: Bearer your-secret-api-key
    ```
+
+**Key strength**: generate the key from a secure random source, for example
+`openssl rand -hex 32`. With `ENVIRONMENT=production`, Warden refuses to start when
+`API_KEY` is one of the placeholder values used in this documentation and the
+examples (such as `your-secret-api-key-here` or `your-api-key-here`), and logs a
+startup warning when the key is shorter than 16 characters.
 
 ### Rate Limiting
 

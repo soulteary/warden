@@ -5,7 +5,10 @@
 
 set -e
 
-API_KEY="${API_KEY:-your-secret-api-key-here}"
+if [ -z "${API_KEY:-}" ]; then
+    echo "请先设置 API_KEY，使其与 .env 中的值一致 (set API_KEY to the value in .env)。" >&2
+    exit 1
+fi
 BASE_URL="${BASE_URL:-http://localhost:${PORT:-8081}}"
 MOCK_API_BASE_URL="${MOCK_API_BASE_URL:-http://localhost:${MOCK_API_PORT:-8080}}"
 

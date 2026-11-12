@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -571,4 +572,41 @@ func TestValidateConfigRejectsInvalidTrustedProxyIPs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "TRUSTED_PROXY_IPS")
 	assert.Contains(t, err.Error(), "proxy.internal")
+}
+
+func TestValidateConfig_ProductionRejectsPlaceholderAPIKey(t *testing.T) {
+	base := func(environment, apiKey string) *Config {
+		return &Config{Port: "8081", TaskInterval: 5, Mode: "ONLY_LOCAL", Environment: environment, APIKey: apiKey}
+	}
+
+	for _, placeholder := range []string{
+		"your-secret-api-key-here", "your-api-key-here", "your-secret-api-key", "your-key",
+		" Your-Secret-API-Key-Here ", "your_api_key_here",
+	} {
+		err := ValidateConfig(base("production", placeholder))
+		require.Error(t, err, "placeholder %q", placeholder)
+		assert.Contains(t, err.Error(), "placeholder")
+		assert.NotContains(t, err.Error(), strings.TrimSpace(placeholder), "the key value must not be echoed")
+
+		require.NoError(t, ValidateConfig(base("development", placeholder)), "placeholders stay usable outside production")
+	}
+
+	require.NoError(t, ValidateConfig(base("production", "k")), "a short key is a warning, not an error")
+	require.NoError(t, ValidateConfig(base("production", "5f2b8c1e9a7d4036b1c8e2f4a6d09b37")))
+}
+
+func TestAPIKeyWarnings(t *testing.T) {
+	cfg := func(environment, apiKey string) *Config {
+		return &Config{Environment: environment, APIKey: apiKey}
+	}
+
+	short := APIKeyWarnings(cfg("production", "short-key-15chr"))
+	require.Len(t, short, 1)
+	assert.Contains(t, short[0], "shorter than 16")
+	assert.NotContains(t, short[0], "short-key-15chr")
+
+	assert.Empty(t, APIKeyWarnings(cfg("production", "exactly-16-chars")))
+	assert.Empty(t, APIKeyWarnings(cfg("production", "")), "HMAC or mTLS only deployments have no API key")
+	assert.Empty(t, APIKeyWarnings(cfg("development", "k")))
+	assert.Empty(t, APIKeyWarnings(cfg("production", "your-key")), "placeholders are rejected by validation instead")
 }

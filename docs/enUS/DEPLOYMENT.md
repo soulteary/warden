@@ -82,6 +82,8 @@ docker run -d \
    # HTTP_INSECURE_TLS=false
    
    # API Key (for API authentication, required in production)
+   # Replace this placeholder, e.g. with the output of: openssl rand -hex 32
+   # ENVIRONMENT=production refuses to start with a documented placeholder value.
    API_KEY=your-api-key-here
    
    # Health Check IP Whitelist (optional, comma-separated)

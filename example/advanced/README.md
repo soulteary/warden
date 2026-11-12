@@ -43,7 +43,9 @@ This example includes the following components:
 ```bash
 cd example/advanced
 cp env.example .env
-# Edit .env file, set your configuration
+# Edit .env file, set your configuration.
+# API_KEY is required: Compose refuses to start without it. env.example ships the
+# public demo key used by the commands below; replace it outside local testing.
 ```
 
 2. **Start All Services**
@@ -125,9 +127,9 @@ API_KEY=your-secret-api-key-here go run . \
 
 ### Test script and host ports
 
-Compose keeps Warden listening on container port 8081. `PORT` selects the published host port; `MOCK_API_PORT` selects the mock's host port. The commands above use the default ports and demo API key. Adjust client URLs and credentials when changing them.
+Compose keeps Warden listening on container port 8081. `PORT` selects the published host port; `MOCK_API_PORT` selects the mock's host port. Both are published on `127.0.0.1` only. The commands above use the default ports and demo API key. Adjust client URLs and credentials when changing them.
 
-`test.sh` reads exported variables, not `.env`. Pass values matching your Compose configuration explicitly:
+`test.sh` reads exported variables, not `.env`, and exits if `API_KEY` is not set. Pass values matching your Compose configuration explicitly:
 
 ```bash
 cd example/advanced # from the project root

@@ -31,6 +31,9 @@
 **快速开始**：
 ```bash
 cd basic
+# 必须设置 API_KEY，否则 Compose 拒绝启动。
+# 这是示例命令使用的公开演示密钥，仅限本机测试，其他场景请替换。
+echo "API_KEY=your-secret-api-key-here" > .env
 # 拉取最新镜像（可选）
 docker-compose pull
 docker-compose up -d
@@ -64,6 +67,8 @@ docker-compose up -d
 ```
 
 [查看详细文档 →](./advanced/README.md)
+
+两个 Compose 文件都要求设置 `API_KEY`，且端口仅发布到 `127.0.0.1`。示例中的演示密钥是公开的：修改端口绑定前请先生成自己的密钥（例如 `openssl rand -hex 32`）。`ENVIRONMENT=production` 会拒绝文档中的占位密钥。
 
 ## 🎯 选择指南
 

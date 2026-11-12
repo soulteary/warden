@@ -484,6 +484,7 @@ When Warden starts, it checks inter-service authentication configuration:
 - Rejects partial TLS configuration: certificate and key must be set together; mTLS also requires a client CA
 - If HMAC is configured, verifies key format is correct
 - In `ENVIRONMENT=production`, refuses to start unless API Key, HMAC, or mTLS authentication is configured
+- In `ENVIRONMENT=production`, refuses to start when `API_KEY` is a documented placeholder value (for example `your-secret-api-key-here`), and logs a warning when it is shorter than 16 characters
 
 ## Detailed Configuration Documentation
 

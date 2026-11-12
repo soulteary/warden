@@ -89,6 +89,8 @@ API_KEY=your-secret-api-key-here
 # WARDEN_IMAGE_TAG=latest
 ```
 
+`API_KEY` is required: Compose refuses to start without it. The value above is the public demo key used by the commands below; generate your own (for example `openssl rand -hex 32`) and use it in the `X-API-Key` header for anything beyond local testing. `ENVIRONMENT=production` rejects the documented placeholder keys. Warden is published on `127.0.0.1:${PORT}` only, so it is reachable from this machine but not from the network.
+
 3. **Start Service**
 
 ```bash

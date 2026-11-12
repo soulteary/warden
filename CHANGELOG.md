@@ -52,6 +52,12 @@
   empty. The default is unchanged: forwarded addresses are then trusted from
   any private or loopback peer. The default and the recommendation are now
   documented.
+- In production, refuse to start when `API_KEY` is one of the placeholder
+  values from the documentation and examples, and log a warning when it is
+  shorter than 16 characters. Other environments are unchanged.
+- The `example/basic` and `example/advanced` Compose files now require
+  `API_KEY` instead of defaulting to a public placeholder, and publish their
+  ports on `127.0.0.1` only.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 

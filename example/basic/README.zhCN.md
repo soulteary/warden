@@ -89,6 +89,8 @@ API_KEY=your-secret-api-key-here
 # WARDEN_IMAGE_TAG=latest
 ```
 
+`API_KEY` 为必填项：未设置时 Compose 拒绝启动。上面的值是下文命令使用的公开演示密钥；本机测试以外的场景请自行生成（例如 `openssl rand -hex 32`），并在 `X-API-Key` 请求头中使用同一密钥。`ENVIRONMENT=production` 会拒绝文档中的占位密钥。Warden 仅发布到 `127.0.0.1:${PORT}`，本机可访问，网络上的其他主机无法访问。
+
 3. **启动服务**
 
 ```bash

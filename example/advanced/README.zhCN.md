@@ -43,7 +43,9 @@
 ```bash
 cd example/advanced
 cp env.example .env
-# 编辑 .env 文件，设置你的配置
+# 编辑 .env 文件，设置你的配置。
+# API_KEY 为必填项：未设置时 Compose 拒绝启动。env.example 提供的是下文命令使用的
+# 公开演示密钥，本机测试以外的场景请替换。
 ```
 
 2. **启动所有服务**
@@ -125,9 +127,9 @@ API_KEY=your-secret-api-key-here go run . \
 
 ### 测试脚本与宿主机端口
 
-Compose 内的 Warden 固定监听 8081；`PORT` 选择发布到宿主机的端口，`MOCK_API_PORT` 选择模拟服务的宿主机端口。上方命令使用默认端口和示例 API Key，修改配置后应同步调整客户端地址及密钥。
+Compose 内的 Warden 固定监听 8081；`PORT` 选择发布到宿主机的端口，`MOCK_API_PORT` 选择模拟服务的宿主机端口，两者都仅发布到 `127.0.0.1`。上方命令使用默认端口和示例 API Key，修改配置后应同步调整客户端地址及密钥。
 
-`test.sh` 读取导出的环境变量，不会读取 `.env`。请显式传入与 Compose 配置一致的值：
+`test.sh` 读取导出的环境变量，不会读取 `.env`；未设置 `API_KEY` 时直接退出。请显式传入与 Compose 配置一致的值：
 
 ```bash
 cd example/advanced # 从项目根目录执行

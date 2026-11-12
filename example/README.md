@@ -31,6 +31,9 @@ For production deployments, it's recommended to use a specific version tag inste
 **Quick Start**:
 ```bash
 cd basic
+# API_KEY is required: Compose refuses to start without it.
+# This is the public demo key used in the example commands; replace it outside local testing.
+echo "API_KEY=your-secret-api-key-here" > .env
 # Pull the latest image (optional)
 docker-compose pull
 docker-compose up -d
@@ -64,6 +67,8 @@ docker-compose up -d
 ```
 
 [View Detailed Documentation →](./advanced/README.md)
+
+Both Compose files require `API_KEY` and publish their ports on `127.0.0.1` only. The demo key in the examples is public: generate your own (for example `openssl rand -hex 32`) before changing the port binding. `ENVIRONMENT=production` rejects the documented placeholder keys.
 
 ## 🎯 Selection Guide
 

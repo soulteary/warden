@@ -972,6 +972,10 @@ func main() {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
 	}
 
+	for _, warning := range cmd.APIKeyWarnings(cfg) {
+		log.Warn().Msg(warning)
+	}
+
 	tracerProvider := initializeTracing(cfg, log)
 
 	// Initialize application
