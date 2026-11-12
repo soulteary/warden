@@ -168,6 +168,9 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 
 - Redis should be configured with password protection
 - Use `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` environment variables
+- A configured `REDIS_PASSWORD_FILE` that is unreadable or empty stops startup instead of connecting without a password
+- Use a dedicated ACL user with `REDIS_USERNAME` rather than the default user
+- Set `REDIS_TLS_ENABLED=true` when Redis is not on a trusted private network; use `REDIS_TLS_CA_FILE` for a private CA. TLS is off by default
 - Restrict Redis network access (only allow application server access)
 - Regularly update Redis to fix known vulnerabilities
 

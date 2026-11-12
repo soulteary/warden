@@ -37,6 +37,8 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	errors = append(errors, validateEndpointsAndMode(cfg)...)
+	errors = append(errors, validateRedisPasswordFile(cfg)...)
+	errors = append(errors, validateRedisTransport(cfg)...)
 
 	// Validate deployment environment (security-policy concern only).
 	environment, envOK := config.ParseEnvironment(cfg.Environment)

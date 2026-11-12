@@ -12,6 +12,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 |----------|------------|--------|
 | Server | `server.*` / `PORT` | port, read_timeout, write_timeout, shutdown_timeout, idle_timeout, max_header_bytes |
 | Redis | `redis.*` / `REDIS`, `REDIS_PASSWORD`, `REDIS_PASSWORD_FILE`, `REDIS_ENABLED` | addr, password, password_file, db; Redis enabled default `true` (except ONLY_LOCAL without REDIS) |
+| Redis transport | — / `REDIS_USERNAME`, `REDIS_TLS_ENABLED`, `REDIS_TLS_CA_FILE`, `REDIS_TLS_SERVER_NAME` | **Env only**. ACL username (default user when empty) and TLS (default off) |
 | Cache | `cache.ttl`, `cache.update_interval` | no env overrides; update_interval default 5s |
 | Rate limit | `rate_limit.rate`, `rate_limit.window` / `RATE_LIMIT`, `RATE_LIMIT_WINDOW` | per client IP; default 60 requests per 1m window; environment overrides YAML |
 | HTTP client | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
@@ -337,6 +338,10 @@ export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis password (optional)
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis password file path (optional; priority: REDIS_PASSWORD > REDIS_PASSWORD_FILE > config)
+export REDIS_USERNAME=                  # Redis ACL username (optional; empty = default user)
+export REDIS_TLS_ENABLED=false          # Connect to Redis over TLS (default: false)
+export REDIS_TLS_CA_FILE=               # CA bundle for the Redis server certificate (optional; system roots when empty)
+export REDIS_TLS_SERVER_NAME=           # Expected certificate name (optional; defaults to the Redis host)
 export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true, supports true/false/1/0)
                                         # Note: In ONLY_LOCAL mode, default is false
                                         #       But if REDIS address is explicitly set, Redis will be enabled automatically
@@ -374,6 +379,8 @@ export WARDEN_TLS_REQUIRE_CLIENT_CERT=true    # Require client certificate (mTLS
 
 **Environment Variable Priority**:
 - Redis password: `REDIS_PASSWORD` > `REDIS_PASSWORD_FILE` > command line argument `--redis-password`
+- When Redis is enabled and `REDIS_PASSWORD` is not set, a configured `REDIS_PASSWORD_FILE` (or `redis.password_file`) that cannot be read or is empty stops startup. Warden does not fall back to an unauthenticated connection or to `--redis-password`
+- `REDIS_TLS_ENABLED` accepts a boolean; any other value stops startup. The server certificate is always verified. `REDIS_TLS_CA_FILE` and `REDIS_TLS_SERVER_NAME` require `REDIS_TLS_ENABLED=true`
 
 **Security Configuration Notes**:
 - `API_KEY`: Used to protect sensitive endpoints (`/`, `/log/level`), strongly recommended for production environments

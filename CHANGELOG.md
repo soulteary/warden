@@ -18,11 +18,17 @@
 
 - Apply `rate_limit.rate` and `rate_limit.window` from the configuration file.
   They were parsed but the limiter always ran at 60 requests per minute.
+- Stop startup when Redis is enabled and `REDIS_PASSWORD_FILE` or
+  `redis.password_file` is configured but unreadable or empty. The error was
+  ignored and Warden connected to Redis without a password.
 
 ### Added
 
 - Add `RATE_LIMIT` and `RATE_LIMIT_WINDOW` environment variables, which override
   the configuration file. Invalid values stop startup. Defaults are unchanged.
+- Add `REDIS_USERNAME` for a Redis ACL user, and `REDIS_TLS_ENABLED`,
+  `REDIS_TLS_CA_FILE` and `REDIS_TLS_SERVER_NAME` for a verified TLS connection
+  to Redis. TLS is off by default and existing configurations are unchanged.
 
 ### Security
 
