@@ -75,7 +75,7 @@ When both methods are used, the configuration file takes precedence:
 
 All HTTP requests automatically create spans with the following attributes:
 - `http.method`: HTTP method
-- `http.url`: Request URL
+- `http.url`: Request path. The query string is not recorded, because `phone`, `mail` and `identifier` parameters carry personal data
 - `http.status_code`: Response status code
 - `http.user_agent`: User agent
 - `http.remote_addr`: Client address

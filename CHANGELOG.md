@@ -30,6 +30,9 @@
   limit. The body was buffered in full before the signature was checked, on
   routes and methods the body-limit middleware does not cover. Larger signed
   requests now return 401.
+- Record the `http.url` trace attribute without the query string. Request
+  spans previously exported `phone`, `mail` and `identifier` query values to
+  the trace backend.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
