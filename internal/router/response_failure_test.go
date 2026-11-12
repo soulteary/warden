@@ -55,7 +55,7 @@ func TestJSONEncodingAndWriteFailures(t *testing.T) {
 func TestLookupValidationAndWriteFailure(t *testing.T) {
 	c := cache.NewSafeUserCache()
 	c.Set([]define.AllowListUser{{Phone: "13800138000", Mail: "member@example.com", UserID: "member", Status: "active"}})
-	handler := GetLookup(c)
+	handler := GetLookup(c, nil)
 	for _, tc := range []struct {
 		method, url string
 		status      int

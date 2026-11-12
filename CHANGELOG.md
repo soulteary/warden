@@ -33,6 +33,12 @@
 - Record the `http.url` trace attribute without the query string. Request
   spans previously exported `phone`, `mail` and `identifier` query values to
   the trace backend.
+- Apply `RESPONSE_FIELDS` to `/v1/lookup`. The lookup response always included
+  the email, phone, name and DingTalk user ID, even when the allowlist excluded
+  them. `user_id`, `status`, `channel_hint` and the `destination` object are
+  still always returned. With an empty allowlist the response is unchanged.
+  Deployments that set `RESPONSE_FIELDS` and use `/v1/lookup` for code delivery
+  must include `mail` and/or `phone`.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 

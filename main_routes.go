@@ -238,7 +238,9 @@ func registerRoutes(app *App) *http.ServeMux {
 								middleware.MetricsMiddleware(
 									rateLimitMiddleware(
 										authMiddleware(
-											router.ProcessWithLogger(app.withSnapshotMetadata(router.GetLookup)),
+											router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+												return router.GetLookup(source, app.responseFields)
+											})),
 										),
 									),
 								),

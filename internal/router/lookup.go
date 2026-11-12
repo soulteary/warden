@@ -38,7 +38,16 @@ type Destination struct {
 // GetLookup returns a handler for GET /v1/lookup?identifier=xxx.
 // identifier is auto-detected: if it contains @ then mail; else try phone then user_id.
 // Returns { user_id, destination: { email?, phone? }, status, channel_hint } for Stargate/Herald.
-func GetLookup(userCache cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+//
+// If responseFields is non-empty it is applied as the same allowlist used by the
+// list and user handlers: "mail" governs destination.email, "phone" governs
+// destination.phone, and "name" and "dingtalk_userid" govern the fields of the
+// same name. user_id, status, channel_hint and the destination object are part of
+// the lookup contract and are always returned. channel_hint is derived from the
+// destination that is actually returned, so it does not reveal a withheld phone.
+func GetLookup(userCache cache.ViewSource, responseFields []string) func(http.ResponseWriter, *http.Request) {
+	allowed := lookupFieldFilter(responseFields)
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, span := tracing.StartSpan(r.Context(), "warden.lookup")
 		defer span.End()
@@ -96,22 +105,28 @@ func GetLookup(userCache cache.ViewSource) func(http.ResponseWriter, *http.Reque
 
 		span.SetAttributes(attribute.Bool("warden.lookup.found", true), attribute.String("warden.user.id", user.UserID))
 
-		channelHint := "email"
-		if strings.TrimSpace(user.Phone) != "" {
-			channelHint = "sms"
+		resp := LookupResponse{
+			UserID: user.UserID,
+			Status: user.Status,
+		}
+		if allowed("mail") {
+			resp.Destination.Email = strings.TrimSpace(user.Mail)
+		}
+		if allowed("phone") {
+			resp.Destination.Phone = strings.TrimSpace(user.Phone)
+		}
+		if allowed("name") {
+			resp.Name = strings.TrimSpace(user.Name)
+		}
+		if allowed("dingtalk_userid") {
+			resp.DingtalkUserID = strings.TrimSpace(user.DingtalkUserID)
 		}
 
-		resp := LookupResponse{
-			UserID:         user.UserID,
-			Status:         user.Status,
-			ChannelHint:    channelHint,
-			Name:           strings.TrimSpace(user.Name),
-			DingtalkUserID: strings.TrimSpace(user.DingtalkUserID),
-			Destination: Destination{
-				Email: strings.TrimSpace(user.Mail),
-				Phone: strings.TrimSpace(user.Phone),
-			},
+		channelHint := "email"
+		if resp.Destination.Phone != "" {
+			channelHint = "sms"
 		}
+		resp.ChannelHint = channelHint
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -134,4 +149,17 @@ func GetLookup(userCache cache.ViewSource) func(http.ResponseWriter, *http.Reque
 		}
 		auditlog.LogUserQuery(r.Context(), user.UserID, sanitized, "identifier", r.RemoteAddr, true, "")
 	}
+}
+
+// lookupFieldFilter reports whether an optional lookup field may be returned.
+// An empty allowlist allows every field, matching UserToMap.
+func lookupFieldFilter(responseFields []string) func(string) bool {
+	if len(responseFields) == 0 {
+		return func(string) bool { return true }
+	}
+	set := make(map[string]bool, len(responseFields))
+	for _, f := range responseFields {
+		set[f] = true
+	}
+	return func(field string) bool { return set[field] }
 }

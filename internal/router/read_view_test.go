@@ -43,7 +43,7 @@ func TestHandlersPinOneReadView(t *testing.T) {
 			var handler func(http.ResponseWriter, *http.Request)
 			switch tc.name {
 			case "lookup_phone_to_id":
-				handler = GetLookup(source)
+				handler = GetLookup(source, nil)
 			case "user":
 				handler = GetUserByIdentifier(source, nil)
 			case "list":

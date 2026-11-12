@@ -380,6 +380,7 @@ export WARDEN_TLS_REQUIRE_CLIENT_CERT=true    # Require client certificate (mTLS
 - `TRUSTED_PROXY_IPS`: Configure trusted reverse proxy IPs to correctly obtain client real IP
 - `HEALTH_CHECK_IP_WHITELIST`: Restrict health check endpoint access IPs (optional, supports CIDR ranges)
 - `IP_WHITELIST`: Global IP whitelist (optional, supports CIDR ranges)
+- `RESPONSE_FIELDS`: Field allowlist for the list, user and lookup responses. Empty returns every field. On `/v1/lookup`, `mail` governs `destination.email`, `phone` governs `destination.phone`, and `name` and `dingtalk_userid` govern the fields of the same name. `user_id`, `status`, `channel_hint` and the `destination` object are always returned because the login gateway depends on them; `channel_hint` is `sms` only when `destination.phone` is returned. `scope` and `role` are not part of the lookup response. A gateway that delivers codes through `/v1/lookup` needs `mail` and/or `phone` in the allowlist
 
 ## Remote Configuration API Requirements
 
