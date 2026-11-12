@@ -1969,3 +1969,11 @@ func TestMetricsRequireAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestIPAllowlistTrustsPrivatePeers(t *testing.T) {
+	assert.True(t, ipAllowlistTrustsPrivatePeers("203.0.113.5", nil))
+	assert.True(t, ipAllowlistTrustsPrivatePeers(" 203.0.113.0/24 ", []string{}))
+	assert.False(t, ipAllowlistTrustsPrivatePeers("203.0.113.5", []string{"10.0.0.1"}))
+	assert.False(t, ipAllowlistTrustsPrivatePeers("", nil))
+	assert.False(t, ipAllowlistTrustsPrivatePeers("  ", nil))
+}

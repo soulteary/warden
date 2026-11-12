@@ -37,7 +37,7 @@ func Middleware(next http.Handler) http.Handler {
 			trace.WithSpanKind(trace.SpanKindServer),
 			trace.WithAttributes(
 				semconv.HTTPMethod(r.Method),
-				semconv.HTTPURL(r.URL.String()),
+				semconv.HTTPURL(spanURL(r)),
 				attribute.String("http.user_agent", r.UserAgent()),
 				attribute.String("http.remote_addr", r.RemoteAddr),
 			),
@@ -65,6 +65,19 @@ func Middleware(next http.Handler) http.Handler {
 		// Inject trace context into response headers
 		propagator.Inject(ctx, propagation.HeaderCarrier(rw.Header()))
 	})
+}
+
+// spanURL returns the request URL for the http.url span attribute without its
+// query string, fragment or user info. Query parameters such as phone, mail and
+// identifier carry personal data and must not be exported to the trace backend.
+func spanURL(r *http.Request) string {
+	u := *r.URL
+	u.RawQuery = ""
+	u.ForceQuery = false
+	u.Fragment = ""
+	u.RawFragment = ""
+	u.User = nil
+	return u.String()
 }
 
 // responseWriter wraps http.ResponseWriter to capture status code and response size

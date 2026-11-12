@@ -18,16 +18,61 @@
 
 - Apply `rate_limit.rate` and `rate_limit.window` from the configuration file.
   They were parsed but the limiter always ran at 60 requests per minute.
+- Stop startup when Redis is enabled and `REDIS_PASSWORD_FILE` or
+  `redis.password_file` is configured but unreadable or empty. The error was
+  ignored and Warden connected to Redis without a password.
 
 ### Added
 
 - Add `RATE_LIMIT` and `RATE_LIMIT_WINDOW` environment variables, which override
   the configuration file. Invalid values stop startup. Defaults are unchanged.
+- Add `REDIS_USERNAME` for a Redis ACL user, and `REDIS_TLS_ENABLED`,
+  `REDIS_TLS_CA_FILE` and `REDIS_TLS_SERVER_NAME` for a verified TLS connection
+  to Redis. TLS is off by default and existing configurations are unchanged.
+
+### Documentation
+
+- Recommend environment variables or `REDIS_PASSWORD_FILE` for secrets in the
+  README and English documentation, and note that `--api-key`, `--key` and
+  `--redis-password` expose the value in the process list. The flags are
+  unchanged.
 
 ### Security
 
+- Cap the request body read during HMAC verification at the 10 KB request body
+  limit. The body was buffered in full before the signature was checked, on
+  routes and methods the body-limit middleware does not cover. Larger signed
+  requests now return 401.
+- Record the `http.url` trace attribute without the query string. Request
+  spans previously exported `phone`, `mail` and `identifier` query values to
+  the trace backend.
+- Apply `RESPONSE_FIELDS` to `/v1/lookup`. The lookup response always included
+  the email, phone, name and DingTalk user ID, even when the allowlist excluded
+  them. `user_id`, `status`, `channel_hint` and the `destination` object are
+  still always returned. With an empty allowlist the response is unchanged.
+  Deployments that set `RESPONSE_FIELDS` and use `/v1/lookup` for code delivery
+  must include `mail` and/or `phone`.
+- Stop startup when a `TRUSTED_PROXY_IPS` entry is not an IP address or CIDR
+  range. Such entries were dropped, which could leave the list empty and trust
+  forwarded addresses from every private peer.
+- Log a startup warning when `IP_WHITELIST` is set and `TRUSTED_PROXY_IPS` is
+  empty. The default is unchanged: forwarded addresses are then trusted from
+  any private or loopback peer. The default and the recommendation are now
+  documented.
+- In production, refuse to start when `API_KEY` is one of the placeholder
+  values from the documentation and examples, and log a warning when it is
+  shorter than 16 characters. Other environments are unchanged.
+- The `example/basic` and `example/advanced` Compose files now require
+  `API_KEY` instead of defaulting to a public placeholder, and publish their
+  ports on `127.0.0.1` only.
+- Apply the rate limit and the 10 KB request body limit to `/metrics` and
+  `/log/level`. They share the per-client budget of the data endpoints
+  (default 60 requests per minute); a scraper polling faster than the
+  configured limit now receives 429.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
+- The release workflow now refuses a tag whose commit is not an ancestor of
+  `main`.
 
 ## [1.6.2] - 2026-11-08
 

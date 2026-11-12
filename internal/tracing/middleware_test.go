@@ -385,3 +385,40 @@ func TestMiddleware_ContextPropagation(t *testing.T) {
 	assert.NotNil(t, capturedSpan)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestMiddleware_SpanURLOmitsQueryString(t *testing.T) {
+	defer tracingtest.Teardown()
+	tp, exporter := tracingtest.Setup(t)
+	require.NotNil(t, tp)
+
+	middleware := Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	for _, target := range []string{
+		"/user?phone=13800138000",
+		"/user?mail=alice@example.com",
+		"/v1/lookup?identifier=alice@example.com",
+	} {
+		exporter.Reset()
+		req := httptest.NewRequest(http.MethodGet, target, http.NoBody)
+		middleware.ServeHTTP(httptest.NewRecorder(), req)
+
+		require.NoError(t, tp.ForceFlush(context.Background()))
+		spans := exporter.GetSpans()
+		require.Len(t, spans, 1)
+
+		foundURL := false
+		for _, attr := range spans[0].Attributes {
+			value := attr.Value.String()
+			assert.NotContains(t, value, "13800138000", "attribute %s", attr.Key)
+			assert.NotContains(t, value, "alice@example.com", "attribute %s", attr.Key)
+			if attr.Key == "http.url" {
+				foundURL = true
+				assert.Equal(t, req.URL.Path, attr.Value.AsString())
+			}
+		}
+		assert.True(t, foundURL, "http.url must still be recorded")
+		assert.Equal(t, req.URL.Path, spans[0].Name)
+	}
+}

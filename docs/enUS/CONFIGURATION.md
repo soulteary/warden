@@ -12,6 +12,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 |----------|------------|--------|
 | Server | `server.*` / `PORT` | port, read_timeout, write_timeout, shutdown_timeout, idle_timeout, max_header_bytes |
 | Redis | `redis.*` / `REDIS`, `REDIS_PASSWORD`, `REDIS_PASSWORD_FILE`, `REDIS_ENABLED` | addr, password, password_file, db; Redis enabled default `true` (except ONLY_LOCAL without REDIS) |
+| Redis transport | — / `REDIS_USERNAME`, `REDIS_TLS_ENABLED`, `REDIS_TLS_CA_FILE`, `REDIS_TLS_SERVER_NAME` | **Env only**. ACL username (default user when empty) and TLS (default off) |
 | Cache | `cache.ttl`, `cache.update_interval` | no env overrides; update_interval default 5s |
 | Rate limit | `rate_limit.rate`, `rate_limit.window` / `RATE_LIMIT`, `RATE_LIMIT_WINDOW` | per client IP; default 60 requests per 1m window; environment overrides YAML |
 | HTTP client | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
@@ -310,22 +311,22 @@ Refer to example file: [config.example.yaml](../../config.example.yaml).
 go run . \
   --port 8081 \                    # Web service port (default: 8081)
   --redis localhost:6379 \         # Redis address (default: localhost:6379)
-  --redis-password "password" \    # Redis password (optional, recommend using environment variables)
+  --redis-password "password" \    # Redis password (optional; visible in the process list, prefer REDIS_PASSWORD or REDIS_PASSWORD_FILE)
   --redis-enabled=true \           # Enable/disable Redis (default: true)
   --config http://example.com/api \ # Remote configuration URL
-  --key "Bearer token" \           # Remote configuration authentication header
+  --key "Bearer token" \           # Remote configuration authentication header (visible in the process list, prefer KEY)
   --interval 5 \                   # Scheduled task interval (seconds, default: 5)
   --mode DEFAULT \                 # Running mode (see description above)
   --http-timeout 5 \               # HTTP request timeout (seconds, default: 5)
   --http-max-idle-conns 100 \     # HTTP maximum idle connections (default: 100)
   --http-insecure-tls \           # Skip TLS certificate verification (development only)
-  --api-key "your-secret-api-key" \ # API Key for authentication (optional, recommend using environment variables)
+  --api-key "your-secret-api-key" \ # API Key for authentication (optional; visible in the process list, prefer API_KEY)
   --config-file config.yaml        # Configuration file path (supports YAML format)
 ```
 
 **Notes**:
 - Configuration file support: You can use the `--config-file` parameter to specify a YAML format configuration file
-- Redis password security: Recommend using environment variables `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` instead of command line arguments
+- Secrets on the command line: values passed with `--api-key`, `--key` and `--redis-password` are visible to other local users in the process list (`ps`, `/proc/<pid>/cmdline`) and may be saved in shell history. Use the environment variables `API_KEY`, `KEY` and `REDIS_PASSWORD`, or `REDIS_PASSWORD_FILE` for the Redis password. The flags remain supported
 - TLS certificate verification: `--http-insecure-tls` is for development environments only, should not be used in production
 
 ## Environment Variables
@@ -337,6 +338,10 @@ export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis password (optional)
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis password file path (optional; priority: REDIS_PASSWORD > REDIS_PASSWORD_FILE > config)
+export REDIS_USERNAME=                  # Redis ACL username (optional; empty = default user)
+export REDIS_TLS_ENABLED=false          # Connect to Redis over TLS (default: false)
+export REDIS_TLS_CA_FILE=               # CA bundle for the Redis server certificate (optional; system roots when empty)
+export REDIS_TLS_SERVER_NAME=           # Expected certificate name (optional; defaults to the Redis host)
 export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true, supports true/false/1/0)
                                         # Note: In ONLY_LOCAL mode, default is false
                                         #       But if REDIS address is explicitly set, Redis will be enabled automatically
@@ -374,12 +379,15 @@ export WARDEN_TLS_REQUIRE_CLIENT_CERT=true    # Require client certificate (mTLS
 
 **Environment Variable Priority**:
 - Redis password: `REDIS_PASSWORD` > `REDIS_PASSWORD_FILE` > command line argument `--redis-password`
+- When Redis is enabled and `REDIS_PASSWORD` is not set, a configured `REDIS_PASSWORD_FILE` (or `redis.password_file`) that cannot be read or is empty stops startup. Warden does not fall back to an unauthenticated connection or to `--redis-password`
+- `REDIS_TLS_ENABLED` accepts a boolean; any other value stops startup. The server certificate is always verified. `REDIS_TLS_CA_FILE` and `REDIS_TLS_SERVER_NAME` require `REDIS_TLS_ENABLED=true`
 
 **Security Configuration Notes**:
 - `API_KEY`: Used to protect sensitive endpoints (`/`, `/log/level`), strongly recommended for production environments
-- `TRUSTED_PROXY_IPS`: Configure trusted reverse proxy IPs to correctly obtain client real IP
+- `TRUSTED_PROXY_IPS`: Comma-separated IP addresses or CIDR ranges of the reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers are trusted. An entry that is neither stops startup. Default (empty): forwarded headers are trusted from every peer with a private or loopback address, so another host or container on the same network can present an allowlisted address to `IP_WHITELIST` or rotate rate-limit buckets. Set it explicitly whenever `IP_WHITELIST` is used; Warden logs a startup warning otherwise. See [SECURITY.md](SECURITY.md#trusted-proxies-and-forwarded-addresses)
 - `HEALTH_CHECK_IP_WHITELIST`: Restrict health check endpoint access IPs (optional, supports CIDR ranges)
 - `IP_WHITELIST`: Global IP whitelist (optional, supports CIDR ranges)
+- `RESPONSE_FIELDS`: Field allowlist for the list, user and lookup responses. Empty returns every field. On `/v1/lookup`, `mail` governs `destination.email`, `phone` governs `destination.phone`, and `name` and `dingtalk_userid` govern the fields of the same name. `user_id`, `status`, `channel_hint` and the `destination` object are always returned because the login gateway depends on them; `channel_hint` is `sms` only when `destination.phone` is returned. `scope` and `role` are not part of the lookup response. A gateway that delivers codes through `/v1/lookup` needs `mail` and/or `phone` in the allowlist
 
 ## Remote Configuration API Requirements
 
@@ -476,6 +484,7 @@ When Warden starts, it checks inter-service authentication configuration:
 - Rejects partial TLS configuration: certificate and key must be set together; mTLS also requires a client CA
 - If HMAC is configured, verifies key format is correct
 - In `ENVIRONMENT=production`, refuses to start unless API Key, HMAC, or mTLS authentication is configured
+- In `ENVIRONMENT=production`, refuses to start when `API_KEY` is a documented placeholder value (for example `your-secret-api-key-here`), and logs a warning when it is shorter than 16 characters
 
 ## Detailed Configuration Documentation
 

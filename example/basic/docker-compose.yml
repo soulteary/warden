@@ -6,13 +6,13 @@ services:
     container_name: warden-basic
     restart: unless-stopped
     ports:
-      - "${PORT:-8081}:8081"
+      - "127.0.0.1:${PORT:-8081}:8081"
     environment:
       - PORT=8081
       - REDIS=warden-redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - MERGE_MODE=ONLY_LOCAL
-      - API_KEY=${API_KEY:-your-secret-api-key-here}
+      - API_KEY=${API_KEY:?set API_KEY in .env before starting Warden}
       - INTERVAL=5
     volumes:
       - ./data.json:/app/data.json:ro

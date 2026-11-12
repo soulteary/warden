@@ -37,6 +37,8 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	errors = append(errors, validateEndpointsAndMode(cfg)...)
+	errors = append(errors, validateRedisPasswordFile(cfg)...)
+	errors = append(errors, validateRedisTransport(cfg)...)
 
 	// Validate deployment environment (security-policy concern only).
 	environment, envOK := config.ParseEnvironment(cfg.Environment)
@@ -200,8 +202,61 @@ func validateProduction(cfg *Config) []string {
 		errs = append(errs, i18n.TWithLang(i18n.LangZH, "validation.prod_auth_required"))
 	}
 	errs = append(errs, validateProductionHMACStrength(cfg.HMACKeys)...)
+	errs = append(errs, validateProductionAPIKey(cfg.APIKey)...)
 
 	return errs
+}
+
+// placeholderAPIKeys are the illustrative API key values used in the README,
+// documentation and example configurations. They are public, so a production
+// deployment that kept one has no effective API key.
+var placeholderAPIKeys = map[string]struct{}{
+	"your-secret-api-key-here": {},
+	"your-secret-api-key":      {},
+	"your-api-key-here":        {},
+	"your-api-key":             {},
+	"your-key":                 {},
+	"your-strong-api-key-here": {},
+	"your-warden-api-key-here": {},
+	"your_api_key_here":        {},
+	"your_api_key":             {},
+	"<set-via-secret-manager>": {},
+}
+
+// minimumRecommendedAPIKeyLength is the length below which a production API
+// key is reported as weak. It is a warning threshold, not a startup requirement.
+const minimumRecommendedAPIKeyLength = 16
+
+func isPlaceholderAPIKey(apiKey string) bool {
+	_, ok := placeholderAPIKeys[strings.ToLower(strings.TrimSpace(apiKey))]
+	return ok
+}
+
+// validateProductionAPIKey rejects a documented placeholder used as the
+// production API key. The key value is never included in the message.
+func validateProductionAPIKey(apiKey string) []string {
+	if isPlaceholderAPIKey(apiKey) {
+		return []string{"production API_KEY is a documented placeholder value; generate a random key (for example: openssl rand -hex 32)"}
+	}
+	return nil
+}
+
+// APIKeyWarnings returns non-fatal findings about the configured API key for
+// the caller to log at startup. It only reports in production, where the key
+// may be the sole credential. The key value is never included.
+func APIKeyWarnings(cfg *Config) []string {
+	environment, ok := config.ParseEnvironment(cfg.Environment)
+	if !ok || !environment.IsProduction() {
+		return nil
+	}
+	apiKey := strings.TrimSpace(cfg.APIKey)
+	if apiKey == "" || isPlaceholderAPIKey(apiKey) {
+		return nil
+	}
+	if len(apiKey) < minimumRecommendedAPIKeyLength {
+		return []string{fmt.Sprintf("API_KEY is shorter than %d characters; use a longer random key (for example: openssl rand -hex 32)", minimumRecommendedAPIKeyLength)}
+	}
+	return nil
 }
 
 const minimumProductionHMACSecretBytes = 32
@@ -320,6 +375,7 @@ func validateEndpointsAndMode(cfg *Config) []string {
 	}
 
 	errs = append(errs, validateRateLimit(cfg)...)
+	errs = append(errs, validateTrustedProxies()...)
 
 	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
 	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
@@ -420,4 +476,14 @@ func validateRateLimit(cfg *Config) []string {
 		errs = append(errs, fmt.Sprintf("Invalid rate limit window: %s (must be at least 1s)", cfg.RateLimitWindow))
 	}
 	return errs
+}
+
+// validateTrustedProxies rejects TRUSTED_PROXY_IPS entries that are not IP
+// addresses or CIDR ranges. They would otherwise be dropped, and a list that
+// ends up empty trusts forwarded headers from every private-address peer.
+func validateTrustedProxies() []string {
+	if err := define.ValidateTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS")); err != nil {
+		return []string{fmt.Sprintf("Invalid TRUSTED_PROXY_IPS: %v", err)}
+	}
+	return nil
 }

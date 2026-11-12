@@ -144,25 +144,48 @@ func TestIPWhitelistMiddleware_WithSpaces(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code, "Should be able to handle IP list with spaces")
 }
 
-// TestIPWhitelistMiddleware_XForwardedFor tests X-Forwarded-For header
+// TestIPWhitelistMiddleware_XForwardedFor pins how forwarded addresses are used
+// for the allowlist decision.
 func TestIPWhitelistMiddleware_XForwardedFor(t *testing.T) {
-	middleware := IPWhitelistMiddleware("192.168.1.1")
+	const allowed = "203.0.113.5"
 
-	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte("OK"))
-		require.NoError(t, err)
-	}))
-
-	req := httptest.NewRequest("GET", "/", http.NoBody)
-	req.RemoteAddr = "10.0.0.1:12345"
-	req.Header.Set("X-Forwarded-For", "192.168.1.1")
-	w := httptest.NewRecorder()
-
-	// Note: According to implementation, may use X-Forwarded-For or RemoteAddr
-	// Here just test that it doesn't panic
-	assert.NotPanics(t, func() {
+	serve := func(t *testing.T, remoteAddr, forwardedFor string) int {
+		t.Helper()
+		handler := IPWhitelistMiddleware(allowed)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		req := httptest.NewRequest("GET", "/", http.NoBody)
+		req.RemoteAddr = remoteAddr
+		if forwardedFor != "" {
+			req.Header.Set("X-Forwarded-For", forwardedFor)
+		}
+		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	t.Run("explicit trusted proxy list", func(t *testing.T) {
+		t.Setenv("TRUSTED_PROXY_IPS", "10.0.0.1")
+
+		assert.Equal(t, http.StatusOK, serve(t, "10.0.0.1:12345", allowed),
+			"the trusted proxy may forward an allowlisted client")
+		assert.Equal(t, http.StatusForbidden, serve(t, "10.0.0.1:12345", "198.51.100.7"),
+			"the trusted proxy forwarding another client is denied")
+		assert.Equal(t, http.StatusForbidden, serve(t, "10.0.0.9:12345", allowed),
+			"a private peer that is not a trusted proxy must not spoof an allowlisted address")
+		assert.Equal(t, http.StatusForbidden, serve(t, "198.51.100.7:12345", allowed),
+			"a public peer must not spoof an allowlisted address")
+		assert.Equal(t, http.StatusForbidden, serve(t, "10.0.0.1:12345", allowed+", 198.51.100.7"),
+			"a value the client prepended to the chain is not the client address")
+	})
+
+	t.Run("default trusts private peers", func(t *testing.T) {
+		// Documented default: with no TRUSTED_PROXY_IPS, forwarded addresses are
+		// accepted from private and loopback peers but never from public ones.
+		t.Setenv("TRUSTED_PROXY_IPS", "")
+
+		assert.Equal(t, http.StatusOK, serve(t, "10.0.0.9:12345", allowed))
+		assert.Equal(t, http.StatusForbidden, serve(t, "198.51.100.7:12345", allowed))
 	})
 }
 

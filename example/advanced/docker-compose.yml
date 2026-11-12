@@ -7,7 +7,7 @@ services:
     container_name: warden-advanced
     restart: unless-stopped
     ports:
-      - "${PORT:-8081}:8081"
+      - "127.0.0.1:${PORT:-8081}:8081"
     environment:
       - PORT=8081
       - ENVIRONMENT=development
@@ -18,7 +18,7 @@ services:
       - KEY=${KEY:-Bearer mock-token}
       - MERGE_MODE=${MERGE_MODE:-DEFAULT}
       - INTERVAL=${INTERVAL:-10}
-      - API_KEY=${API_KEY:-your-secret-api-key-here}
+      - API_KEY=${API_KEY:?set API_KEY in .env before starting Warden}
       - HTTP_TIMEOUT=${HTTP_TIMEOUT:-5}
       - HTTP_MAX_IDLE_CONNS=${HTTP_MAX_IDLE_CONNS:-100}
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -78,7 +78,7 @@ services:
     container_name: warden-mock-api
     restart: unless-stopped
     ports:
-      - "${MOCK_API_PORT:-8080}:8080"
+      - "127.0.0.1:${MOCK_API_PORT:-8080}:8080"
     volumes:
       - ./mock-api/data.json:/app/data.json:ro
     healthcheck:

@@ -155,7 +155,7 @@ export REDIS=192.168.1.100:6379
 - **Type**: String
 - **Default Value**: Empty string
 - **Description**: Redis password (sensitive information, recommended to use environment variable)
-- **Security Note**: ⚠️ Not recommended to pass password via command line arguments
+- **Security Note**: ⚠️ Not recommended to pass password via command line arguments: the value is visible in the process list (`ps`). Use `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE`
 
 **Example**:
 ```bash
@@ -238,6 +238,7 @@ export CONFIG=https://api.example.com/users.json
 - **Type**: String
 - **Default Value**: Empty string
 - **Description**: Authentication key for remote configuration (used for Authorization header)
+- **Security Note**: ⚠️ A value passed with `--key` is visible in the process list (`ps`). Prefer the `KEY` environment variable
 
 **Example**:
 ```bash
@@ -382,7 +383,7 @@ export HTTP_INSECURE_TLS=true
 - **Type**: String
 - **Default Value**: Empty string
 - **Description**: API authentication key (used to protect API endpoints)
-- **Security Note**: ⚠️ Strongly recommended to use environment variable, do not write to configuration file
+- **Security Note**: ⚠️ Strongly recommended to use environment variable, do not write to configuration file. A value passed with `--api-key` is visible in the process list (`ps`)
 
 **Example**:
 ```bash

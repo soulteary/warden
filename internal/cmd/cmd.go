@@ -31,6 +31,10 @@ type Config struct {
 	Redis                    string   // 16 bytes
 	RedisPassword            string   // 16 bytes
 	RedisEnabled             bool     // 1 byte (padding to 8 bytes)
+	RedisUsername            string   // env REDIS_USERNAME: Redis ACL username (empty = default user)
+	RedisTLSEnabled          bool     // env REDIS_TLS_ENABLED: connect to Redis over TLS (default false)
+	RedisTLSCAFile           string   // env REDIS_TLS_CA_FILE: CA bundle for the Redis server certificate
+	RedisTLSServerName       string   // env REDIS_TLS_SERVER_NAME: expected Redis certificate name
 	RemoteConfig             string   // 16 bytes
 	RemoteKey                string   // 16 bytes
 	Mode                     string   // 16 bytes (merge mode; legacy MODE is a deprecated alias)
@@ -209,6 +213,9 @@ func GetArgsWithError() (*Config, error) {
 		overrideWithFlags(legacyCfg)
 		cfg := convertToConfig(legacyCfg)
 		cfg.ConfigFile = configFile
+		if err := validateConfigFileRedisPassword(newCfg, cfg); err != nil {
+			return nil, err
+		}
 		if err := ValidateConfig(cfg); err != nil {
 			return nil, err
 		}
@@ -602,6 +609,7 @@ func getArgsFromFlags() *Config {
 	processServiceAuthFromEnv(cfg)
 	processRateLimitFromEnv(cfg)
 	processRedisSnapshotFromEnv(cfg)
+	processRedisTransportFromEnv(cfg)
 	cfg.SourceSetID = strings.TrimSpace(os.Getenv("SOURCE_SET_ID"))
 	processRedisRecoveryFromEnv(cfg)
 	processSnapshotReadPolicyFromEnv(cfg)
@@ -648,6 +656,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 	}
 	processRateLimitFromEnv(result)
 	processRedisSnapshotFromEnv(result)
+	processRedisTransportFromEnv(result)
 	result.SourceSetID = strings.TrimSpace(os.Getenv("SOURCE_SET_ID"))
 	processRedisRecoveryFromEnv(result)
 	processSnapshotReadPolicyFromEnv(result)

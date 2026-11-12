@@ -6,6 +6,8 @@ package define
 
 import (
 	// Standard library
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -42,8 +44,9 @@ const (
 	PATH_V1_HEALTHCHECK = "/v1/healthcheck"
 )
 
-// SkipPathsHealthAndMetrics is the path list to skip for rate limiting and access logging.
-// Reduces log noise and keeps health/metrics probes from consuming rate limit.
+// SkipPathsHealthAndMetrics is the path list to skip for access logging and in the
+// shared rate-limit middleware. It reduces log noise and keeps health probes from
+// consuming the rate limit. /metrics is rate limited by its own route chain.
 var SkipPathsHealthAndMetrics = []string{PATH_HEALTH, PATH_HEALTHCHECK, PATH_METRICS}
 
 // KnownRoutePaths is the complete, authoritative set of paths Warden registers. It is the
@@ -141,6 +144,22 @@ func ParseTrustedProxyIPs(s string) []string {
 		}
 	}
 	return out
+}
+
+// ValidateTrustedProxyIPs reports the first TRUSTED_PROXY_IPS entry that is neither
+// an IP address nor a CIDR range. middleware-kit skips such entries, which can leave
+// the list empty and restore the default of trusting every private-address peer.
+func ValidateTrustedProxyIPs(s string) error {
+	for _, entry := range ParseTrustedProxyIPs(s) {
+		if net.ParseIP(entry) != nil {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(entry); err == nil {
+			continue
+		}
+		return fmt.Errorf("%q is not an IP address or CIDR range", entry)
+	}
+	return nil
 }
 
 const (

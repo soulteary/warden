@@ -96,13 +96,15 @@ Create a `data.json` file (refer to `data.example.json`):
 
 3. **Run the service**
 ```bash
-# Run directly
-go run . --api-key your-api-key-here
+# Run directly; pass the API key through the environment
+API_KEY=your-api-key-here go run .
 
 # Or build then run
 go build -o warden .
-./warden --api-key your-api-key-here
+API_KEY=your-api-key-here ./warden
 ```
+
+Pass secrets through environment variables (`API_KEY`, `KEY`, `REDIS_PASSWORD`) or a password file (`REDIS_PASSWORD_FILE`). The `--api-key`, `--key` and `--redis-password` flags still work, but a flag value is visible to other local users in the process list (`ps`).
 
 <a name="configuration"></a>
 

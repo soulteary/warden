@@ -972,6 +972,10 @@ func main() {
 			Msg(i18n.TWithLang(i18n.LangZH, "log.config_validation_failed_exit"))
 	}
 
+	for _, warning := range cmd.APIKeyWarnings(cfg) {
+		log.Warn().Msg(warning)
+	}
+
 	tracerProvider := initializeTracing(cfg, log)
 
 	// Initialize application
@@ -1050,13 +1054,37 @@ func main() {
 	app.log.Info().Msg(i18n.TWithLang(i18n.LangZH, "log.goodbye"))
 }
 
+// redisClientConfig maps the Redis address, credentials and optional TLS
+// settings onto the redis-kit client configuration.
+func redisClientConfig(cfg *cmd.Config) (rediskitclient.Config, error) {
+	redisCfg := rediskitclient.DefaultConfig().WithAddr(cfg.Redis)
+	if cfg.RedisUsername != "" {
+		redisCfg = redisCfg.WithUsername(cfg.RedisUsername)
+	}
+	if cfg.RedisPassword != "" {
+		redisCfg = redisCfg.WithPassword(cfg.RedisPassword)
+	}
+	tlsCfg, err := cmd.RedisTLSConfig(cfg)
+	if err != nil {
+		return rediskitclient.Config{}, err
+	}
+	if tlsCfg != nil {
+		redisCfg = redisCfg.WithTLSConfig(tlsCfg)
+	}
+	return redisCfg, nil
+}
+
 func (app *App) initRedisClient(cfg *cmd.Config) {
 	// Handle Redis initialization (optional)
 	if cfg.RedisEnabled {
 		// Initialize Redis client using redis-kit
-		redisCfg := rediskitclient.DefaultConfig().WithAddr(cfg.Redis)
+		redisCfg, err := redisClientConfig(cfg)
+		if err != nil {
+			// ValidateConfig rejects this during normal startup. Never fall back
+			// to a plaintext connection when TLS was requested.
+			app.log.Fatal().Err(err).Msg("Failed to build Redis TLS config")
+		}
 		if cfg.RedisPassword != "" {
-			redisCfg = redisCfg.WithPassword(cfg.RedisPassword)
 			// Security check: if password is passed via command line argument, log warning
 			// Note: cannot directly determine password source here, but can infer from environment variable check
 			if os.Getenv("REDIS_PASSWORD") == "" && os.Getenv("REDIS_PASSWORD_FILE") == "" {
@@ -1064,7 +1092,6 @@ func (app *App) initRedisClient(cfg *cmd.Config) {
 			}
 		}
 
-		var err error
 		app.redisClient, err = newRecoverableRedisClient(&redisCfg)
 		if err != nil {
 			// Keep a lazy backend so already-registered routes and stores can recover.

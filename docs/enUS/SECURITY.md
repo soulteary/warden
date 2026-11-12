@@ -32,7 +32,7 @@ This document explains Warden's security features, security configuration, and b
 
 **Configuration Example**:
 ```bash
-export API_KEY="your-strong-api-key-here"
+export API_KEY="$(openssl rand -hex 32)"   # generate once and keep it in a secret store
 export ENVIRONMENT=production
 export WARDEN_METRICS_REQUIRE_AUTH=true
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"
@@ -49,7 +49,7 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"
 
 **Not Recommended**:
 - ❌ Hardcode passwords in configuration files
-- ❌ Pass passwords via command line arguments (will appear in process list)
+- ❌ Pass secrets via command line arguments: `--api-key`, `--key` and `--redis-password` expose the value in the process list (`ps`). Use `API_KEY`, `KEY`, `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` instead
 - ❌ Commit configuration files containing sensitive information to version control
 
 **Example**:
@@ -117,6 +117,12 @@ Some API endpoints require API Key authentication:
    Authorization: Bearer your-secret-api-key
    ```
 
+**Key strength**: generate the key from a secure random source, for example
+`openssl rand -hex 32`. With `ENVIRONMENT=production`, Warden refuses to start when
+`API_KEY` is one of the placeholder values used in this documentation and the
+examples (such as `your-secret-api-key-here` or `your-api-key-here`), and logs a
+startup warning when the key is shorter than 16 characters.
+
 ### Rate Limiting
 
 By default, API requests are protected by rate limiting:
@@ -138,6 +144,11 @@ The limit is counted per client IP. A gateway such as Stargate reaches Warden
 from a single address, so all of its lookups share one quota; size the limit for
 the caller's total request rate, not for one end user.
 
+The limit also applies to `/metrics` and `/log/level`, which share the same
+per-client budget as the data endpoints. Health check endpoints are not rate
+limited. A Prometheus scraper that shares a client address with other callers
+consumes part of that address's quota.
+
 ### IP Whitelist
 
 Supports two types of IP whitelist configuration:
@@ -156,6 +167,30 @@ export IP_WHITELIST="192.168.1.0/24,10.0.0.0/8"
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 ```
 
+### Trusted Proxies and Forwarded Addresses
+
+`IP_WHITELIST`, rate limiting and access logs use the client address. Warden reads
+`X-Forwarded-For` / `X-Real-IP` only when the directly connected peer is a trusted
+proxy; otherwise it uses the peer address.
+
+- **`TRUSTED_PROXY_IPS` set**: only the listed addresses and CIDR ranges are trusted
+  proxies. Forwarded headers from every other peer are ignored.
+- **`TRUSTED_PROXY_IPS` empty (default)**: every peer with a private or loopback
+  address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, IPv6
+  loopback, link-local and unique-local) is treated as a trusted proxy. Any host
+  or container on the same private network can then send
+  `X-Forwarded-For: <allowlisted address>` to pass `IP_WHITELIST`, or vary the
+  header to obtain a fresh rate-limit bucket per request.
+
+Recommendation: whenever `IP_WHITELIST` is used, or Warden is reachable from other
+workloads on a private network, set `TRUSTED_PROXY_IPS` to the exact addresses of
+your reverse proxies. Warden logs a startup warning when `IP_WHITELIST` is set and
+`TRUSTED_PROXY_IPS` is empty.
+
+Each `TRUSTED_PROXY_IPS` entry must be an IP address or a CIDR range. Any other
+value (a hostname, an address with a port) stops startup, because a dropped entry
+could leave the list empty and restore the default above.
+
 ## Data Security
 
 ### Remote Configuration API Security
@@ -168,6 +203,9 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 
 - Redis should be configured with password protection
 - Use `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` environment variables
+- A configured `REDIS_PASSWORD_FILE` that is unreadable or empty stops startup instead of connecting without a password
+- Use a dedicated ACL user with `REDIS_USERNAME` rather than the default user
+- Set `REDIS_TLS_ENABLED=true` when Redis is not on a trusted private network; use `REDIS_TLS_CA_FILE` for a private CA. TLS is off by default
 - Restrict Redis network access (only allow application server access)
 - Regularly update Redis to fix known vulnerabilities
 
@@ -283,6 +321,10 @@ export WARDEN_HMAC_ALLOW_V1=false          # Default; set true only during a bou
 Production configuration requires every HMAC secret to contain at least 32 raw bytes.
 Generate secrets with a cryptographically secure random source and store them in a
 secret manager; do not reuse the illustrative value above.
+
+The signed body is read before the signature can be checked, so that read is
+capped at the request body limit (10 KB) on every route and method. A request
+with complete HMAC headers and a larger body is rejected with 401.
 
 **Go SDK Example**:
 ```go

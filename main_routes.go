@@ -43,12 +43,16 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux := http.NewServeMux()
 	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
+	if ipAllowlistTrustsPrivatePeers(os.Getenv("IP_WHITELIST"), trustedProxies) {
+		logger.GetLoggerKit().Warn().
+			Msg("IP_WHITELIST is set but TRUSTED_PROXY_IPS is empty: X-Forwarded-For and X-Real-IP are trusted from any peer with a private or loopback address, so such a peer can present an allowlisted address; set TRUSTED_PROXY_IPS to the reverse proxy addresses")
+	}
 
 	i18nMiddleware := middleware.I18nMiddleware()
 	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.environment)
 	securityCfg := middlewarekit.StrictSecurityHeadersConfig()
 	securityHeadersMiddleware := middlewarekit.SecurityHeadersStd(securityCfg)
-	rateLimitMiddleware := middlewarekit.RateLimitStd(middlewarekit.RateLimitConfig{
+	rateLimitCfg := middlewarekit.RateLimitConfig{
 		Limiter:            app.rateLimiter,
 		TrustedProxyConfig: trustedProxyConfig,
 		Logger:             logger.ZerologPtr(),
@@ -56,7 +60,14 @@ func registerRoutes(app *App) *http.ServeMux {
 		OnLimitReached: func(key string) {
 			prommetrics.RecordRateLimitHit(key)
 		},
-	})
+	}
+	rateLimitMiddleware := middlewarekit.RateLimitStd(rateLimitCfg)
+	// /metrics is in the shared skip list, so wrapping it with rateLimitMiddleware
+	// would not limit it. This variant is mounted on /metrics only and shares
+	// the limiter, so a client has one budget across all routes.
+	metricsRateLimitCfg := rateLimitCfg
+	metricsRateLimitCfg.SkipPaths = nil
+	metricsRateLimitMiddleware := middlewarekit.RateLimitStd(metricsRateLimitCfg)
 
 	authBaseCfg := middlewarekit.DefaultAPIKeyConfig()
 	authBaseCfg.APIKey = app.apiKey
@@ -138,43 +149,51 @@ func registerRoutes(app *App) *http.ServeMux {
 			Str("path", define.PATH_METRICS).
 			Msg("metrics endpoint is exposed without authentication; set WARDEN_METRICS_REQUIRE_AUTH=true or restrict it with IP_WHITELIST")
 	}
-	metricsHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(metricsAuth(
-							middleware.MetricsMiddleware(prommetrics.HandlerWithSnapshot(app.snapshotMetricSample)),
-						)),
+	// edgeChain is the outer chain shared by every route: localization, access
+	// log, security headers, error handling, optional tracing and the global IP
+	// allowlist. Building it in one place keeps the routes from drifting apart.
+	edgeChain := func(inner http.Handler) http.Handler {
+		return i18nMiddleware(
+			router.AccessLogMiddleware()(
+				securityHeadersMiddleware(
+					errorHandlerMiddleware(
+						wrapWithTracingIfEnabled(tracingMiddleware,
+							ipAllowlistMiddleware(inner),
+						),
 					),
+				),
+			),
+		)
+	}
+	// dataChain serves an authenticated data handler: compression, body limit,
+	// request metrics, rate limit, then service authentication.
+	dataChain := func(handler http.Handler) http.Handler {
+		return edgeChain(compressMiddleware(
+			bodyLimitMiddleware(
+				middleware.MetricsMiddleware(
+					rateLimitMiddleware(
+						authMiddleware(handler),
+					),
+				),
+			),
+		))
+	}
+
+	metricsHandler := edgeChain(
+		bodyLimitMiddleware(
+			metricsRateLimitMiddleware(
+				metricsAuth(
+					middleware.MetricsMiddleware(prommetrics.HandlerWithSnapshot(app.snapshotMetricSample)),
 				),
 			),
 		),
 	)
 	mux.Handle(define.PATH_METRICS, metricsHandler)
 
-	mainHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(compressMiddleware(
-							bodyLimitMiddleware(
-								middleware.MetricsMiddleware(
-									rateLimitMiddleware(
-										authMiddleware(
-											router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
-												return router.JSON(source, app.responseFields)
-											})),
-										),
-									),
-								),
-							),
-						)),
-					),
-				),
-			),
-		),
+	mainHandler := dataChain(
+		router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+			return router.JSON(source, app.responseFields)
+		})),
 	)
 	// "/{$}" serves only the root document. Binding mainHandler to the bare "/" pattern
 	// would make every unregistered path return the complete allow list.
@@ -184,88 +203,34 @@ func registerRoutes(app *App) *http.ServeMux {
 	// Catch-all for unregistered paths. Kept outside the authentication and compression
 	// chains but inside rate limiting so 404 probing is not free, and inside the metrics
 	// middleware so those requests are still counted (collapsed into the "other" label).
-	notFoundHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(
-							middleware.MetricsMiddleware(
-								rateLimitMiddleware(
-									router.ProcessWithLogger(router.NotFound()),
-								),
-							),
-						),
-					),
-				),
+	notFoundHandler := edgeChain(
+		middleware.MetricsMiddleware(
+			rateLimitMiddleware(
+				router.ProcessWithLogger(router.NotFound()),
 			),
 		),
 	)
 	mux.Handle(define.PATH_ROOT, notFoundHandler)
 
-	userHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(compressMiddleware(
-							bodyLimitMiddleware(
-								middleware.MetricsMiddleware(
-									rateLimitMiddleware(
-										authMiddleware(
-											router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
-												return router.GetUserByIdentifier(source, app.responseFields)
-											})),
-										),
-									),
-								),
-							),
-						)),
-					),
-				),
-			),
-		),
+	userHandler := dataChain(
+		router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+			return router.GetUserByIdentifier(source, app.responseFields)
+		})),
 	)
 	mux.Handle(define.PATH_USER, userHandler)
 
-	lookupHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(compressMiddleware(
-							bodyLimitMiddleware(
-								middleware.MetricsMiddleware(
-									rateLimitMiddleware(
-										authMiddleware(
-											router.ProcessWithLogger(app.withSnapshotMetadata(router.GetLookup)),
-										),
-									),
-								),
-							),
-						)),
-					),
-				),
-			),
-		),
+	lookupHandler := dataChain(
+		router.ProcessWithLogger(app.withSnapshotMetadata(func(source cache.ViewSource) func(http.ResponseWriter, *http.Request) {
+			return router.GetLookup(source, app.responseFields)
+		})),
 	)
 	mux.Handle(define.PATH_V1_LOOKUP, lookupHandler)
 
 	redisCritical := requiresRedisForHMACReplay(app.redisEnabled, app.hmacKeys)
 	healthAggregator := setupHealthChecker(app.redisClient, app.userCache, app.snapshots, app.snapshotMaxAge, app.appMode, app.environment, app.redisEnabled, redisCritical, healthWhitelist, app.snapshotReadEnforce)
-	healthHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(middleware.MetricsMiddleware(
-							middlewarekit.NoCacheHeadersStd()(health.Handler(healthAggregator)),
-						)),
-					),
-				),
-			),
-		),
-	)
+	healthHandler := edgeChain(middleware.MetricsMiddleware(
+		middlewarekit.NoCacheHeadersStd()(health.Handler(healthAggregator)),
+	))
 	healthHandler = pinHealthRead(app.snapshots, app.userCache, healthHandler)
 	mux.Handle(define.PATH_HEALTH, healthHandler)
 	mux.Handle(define.PATH_HEALTHCHECK, healthHandler)
@@ -275,19 +240,17 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux.Handle(define.PATH_V1_HEALTH, healthHandler)
 	mux.Handle(define.PATH_V1_HEALTHCHECK, healthHandler)
 
+	// The log-level endpoint changes process state, so it gets the same body and
+	// rate limits as the data routes (without response compression).
 	lkLog := logger.GetLoggerKit()
-	logLevelHandler := i18nMiddleware(
-		router.AccessLogMiddleware()(
-			securityHeadersMiddleware(
-				errorHandlerMiddleware(
-					wrapWithTracingIfEnabled(tracingMiddleware,
-						ipAllowlistMiddleware(middleware.MetricsMiddleware(
-							authMiddleware(
-								loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
-									Logger: lkLog,
-								}),
-							),
-						)),
+	logLevelHandler := edgeChain(
+		bodyLimitMiddleware(
+			middleware.MetricsMiddleware(
+				rateLimitMiddleware(
+					authMiddleware(
+						loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
+							Logger: lkLog,
+						}),
 					),
 				),
 			),
@@ -296,6 +259,14 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux.Handle(define.PATH_LOG_LEVEL, logLevelHandler)
 
 	return mux
+}
+
+// ipAllowlistTrustsPrivatePeers reports whether IP_WHITELIST is enforced while
+// no trusted proxy is configured. middleware-kit then accepts forwarded client
+// addresses from every private or loopback peer, so the allowlist only holds
+// against peers with public addresses.
+func ipAllowlistTrustsPrivatePeers(ipWhitelist string, trustedProxies []string) bool {
+	return strings.TrimSpace(ipWhitelist) != "" && len(trustedProxies) == 0
 }
 
 // parseBoolLike parses the textual boolean forms accepted for operator-facing toggles.
