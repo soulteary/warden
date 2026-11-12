@@ -21,6 +21,9 @@
 - Stop startup when Redis is enabled and `REDIS_PASSWORD_FILE` or
   `redis.password_file` is configured but unreadable or empty. The error was
   ignored and Warden connected to Redis without a password.
+- Update `middleware-kit/v3` to v3.0.5. List, user and lookup responses of 1 KB
+  or more were sent gzip-compressed without `Content-Encoding: gzip` to clients
+  that accept gzip, which standard HTTP clients could not decode.
 
 ### Added
 
@@ -73,6 +76,11 @@
   now `golang:1.27.4-alpine3.24`.
 - The release workflow now refuses a tag whose commit is not an ancestor of
   `main`.
+
+### Changed
+
+- Update `audit-kit/v2` to v2.1.5 (audit log files are created with mode 0600)
+  and refresh indirect dependencies.
 
 ## [1.6.2] - 2026-11-08
 
