@@ -156,6 +156,30 @@ export IP_WHITELIST="192.168.1.0/24,10.0.0.0/8"
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 ```
 
+### Trusted Proxies and Forwarded Addresses
+
+`IP_WHITELIST`, rate limiting and access logs use the client address. Warden reads
+`X-Forwarded-For` / `X-Real-IP` only when the directly connected peer is a trusted
+proxy; otherwise it uses the peer address.
+
+- **`TRUSTED_PROXY_IPS` set**: only the listed addresses and CIDR ranges are trusted
+  proxies. Forwarded headers from every other peer are ignored.
+- **`TRUSTED_PROXY_IPS` empty (default)**: every peer with a private or loopback
+  address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, IPv6
+  loopback, link-local and unique-local) is treated as a trusted proxy. Any host
+  or container on the same private network can then send
+  `X-Forwarded-For: <allowlisted address>` to pass `IP_WHITELIST`, or vary the
+  header to obtain a fresh rate-limit bucket per request.
+
+Recommendation: whenever `IP_WHITELIST` is used, or Warden is reachable from other
+workloads on a private network, set `TRUSTED_PROXY_IPS` to the exact addresses of
+your reverse proxies. Warden logs a startup warning when `IP_WHITELIST` is set and
+`TRUSTED_PROXY_IPS` is empty.
+
+Each `TRUSTED_PROXY_IPS` entry must be an IP address or a CIDR range. Any other
+value (a hostname, an address with a port) stops startup, because a dropped entry
+could leave the list empty and restore the default above.
+
 ## Data Security
 
 ### Remote Configuration API Security

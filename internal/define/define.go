@@ -6,6 +6,8 @@ package define
 
 import (
 	// Standard library
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -141,6 +143,22 @@ func ParseTrustedProxyIPs(s string) []string {
 		}
 	}
 	return out
+}
+
+// ValidateTrustedProxyIPs reports the first TRUSTED_PROXY_IPS entry that is neither
+// an IP address nor a CIDR range. middleware-kit skips such entries, which can leave
+// the list empty and restore the default of trusting every private-address peer.
+func ValidateTrustedProxyIPs(s string) error {
+	for _, entry := range ParseTrustedProxyIPs(s) {
+		if net.ParseIP(entry) != nil {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(entry); err == nil {
+			continue
+		}
+		return fmt.Errorf("%q is not an IP address or CIDR range", entry)
+	}
+	return nil
 }
 
 const (

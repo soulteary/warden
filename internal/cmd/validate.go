@@ -322,6 +322,7 @@ func validateEndpointsAndMode(cfg *Config) []string {
 	}
 
 	errs = append(errs, validateRateLimit(cfg)...)
+	errs = append(errs, validateTrustedProxies()...)
 
 	// Validate merge mode using the dedicated MergeMode type (data-loading concern only).
 	if mode, ok := config.ParseMergeMode(cfg.Mode); !ok || !mode.Validate() {
@@ -422,4 +423,14 @@ func validateRateLimit(cfg *Config) []string {
 		errs = append(errs, fmt.Sprintf("Invalid rate limit window: %s (must be at least 1s)", cfg.RateLimitWindow))
 	}
 	return errs
+}
+
+// validateTrustedProxies rejects TRUSTED_PROXY_IPS entries that are not IP
+// addresses or CIDR ranges. They would otherwise be dropped, and a list that
+// ends up empty trusts forwarded headers from every private-address peer.
+func validateTrustedProxies() []string {
+	if err := define.ValidateTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS")); err != nil {
+		return []string{fmt.Sprintf("Invalid TRUSTED_PROXY_IPS: %v", err)}
+	}
+	return nil
 }

@@ -43,6 +43,10 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux := http.NewServeMux()
 	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
 	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
+	if ipAllowlistTrustsPrivatePeers(os.Getenv("IP_WHITELIST"), trustedProxies) {
+		logger.GetLoggerKit().Warn().
+			Msg("IP_WHITELIST is set but TRUSTED_PROXY_IPS is empty: X-Forwarded-For and X-Real-IP are trusted from any peer with a private or loopback address, so such a peer can present an allowlisted address; set TRUSTED_PROXY_IPS to the reverse proxy addresses")
+	}
 
 	i18nMiddleware := middleware.I18nMiddleware()
 	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.environment)
@@ -298,6 +302,14 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux.Handle(define.PATH_LOG_LEVEL, logLevelHandler)
 
 	return mux
+}
+
+// ipAllowlistTrustsPrivatePeers reports whether IP_WHITELIST is enforced while
+// no trusted proxy is configured. middleware-kit then accepts forwarded client
+// addresses from every private or loopback peer, so the allowlist only holds
+// against peers with public addresses.
+func ipAllowlistTrustsPrivatePeers(ipWhitelist string, trustedProxies []string) bool {
+	return strings.TrimSpace(ipWhitelist) != "" && len(trustedProxies) == 0
 }
 
 // parseBoolLike parses the textual boolean forms accepted for operator-facing toggles.

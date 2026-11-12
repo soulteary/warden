@@ -557,3 +557,18 @@ func TestValidateConfig_HMACV1CompatibilityFlag(t *testing.T) {
 		assert.Contains(t, err.Error(), "Invalid WARDEN_HMAC_ALLOW_V1")
 	})
 }
+
+func TestValidateConfigRejectsInvalidTrustedProxyIPs(t *testing.T) {
+	cfg := &Config{Port: "8081", TaskInterval: 5, Mode: "ONLY_LOCAL", Environment: "development"}
+
+	for _, valid := range []string{"", "10.0.0.1, 172.16.0.0/12"} {
+		t.Setenv("TRUSTED_PROXY_IPS", valid)
+		require.NoError(t, ValidateConfig(cfg), "TRUSTED_PROXY_IPS=%q", valid)
+	}
+
+	t.Setenv("TRUSTED_PROXY_IPS", "10.0.0.1,proxy.internal")
+	err := ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TRUSTED_PROXY_IPS")
+	assert.Contains(t, err.Error(), "proxy.internal")
+}

@@ -108,3 +108,16 @@ func TestNormalizeMethodLabel(t *testing.T) {
 	assert.LessOrEqual(t, len(distinct), len(KnownHTTPMethods)+1,
 		"method 标签取值必须限制在标准方法 + %q 之内", LABEL_OTHER)
 }
+
+func TestValidateTrustedProxyIPs(t *testing.T) {
+	for _, valid := range []string{"", " , ", "10.0.0.1", "10.0.0.1, 172.16.0.0/12", "2001:db8::1,fd00::/8"} {
+		if err := ValidateTrustedProxyIPs(valid); err != nil {
+			t.Errorf("ValidateTrustedProxyIPs(%q) = %v, want nil", valid, err)
+		}
+	}
+	for _, invalid := range []string{"proxy.internal", "10.0.0.1,10.0.0", "10.0.0.0/33", "10.0.0.1;10.0.0.2", "10.0.0.1:8080"} {
+		if err := ValidateTrustedProxyIPs(invalid); err == nil {
+			t.Errorf("ValidateTrustedProxyIPs(%q) = nil, want an error", invalid)
+		}
+	}
+}

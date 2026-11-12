@@ -45,6 +45,13 @@
   still always returned. With an empty allowlist the response is unchanged.
   Deployments that set `RESPONSE_FIELDS` and use `/v1/lookup` for code delivery
   must include `mail` and/or `phone`.
+- Stop startup when a `TRUSTED_PROXY_IPS` entry is not an IP address or CIDR
+  range. Such entries were dropped, which could leave the list empty and trust
+  forwarded addresses from every private peer.
+- Log a startup warning when `IP_WHITELIST` is set and `TRUSTED_PROXY_IPS` is
+  empty. The default is unchanged: forwarded addresses are then trusted from
+  any private or loopback peer. The default and the recommendation are now
+  documented.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
