@@ -8,7 +8,7 @@ Dieses Dokument erklärt, wie der Warden-Dienst bereitgestellt wird – per Dock
 
 ## Voraussetzungen
 
-- Go 1.27.3+ (siehe [go.mod](../../go.mod))
+- Go 1.27.4+ (siehe [go.mod](../../go.mod))
 - Redis (für verteilte Locks und Caching)
 - Docker (optional, für die Bereitstellung im Container)
 

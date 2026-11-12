@@ -24,6 +24,11 @@
 - Add `RATE_LIMIT` and `RATE_LIMIT_WINDOW` environment variables, which override
   the configuration file. Invalid values stop startup. Defaults are unchanged.
 
+### Security
+
+- Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
+  now `golang:1.27.4-alpine3.24`.
+
 ## [1.6.2] - 2026-11-08
 
 ### Changed
