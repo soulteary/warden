@@ -28,7 +28,7 @@ Some API endpoints require API Key authentication. You can provide authenticatio
    Authorization: Bearer your-secret-api-key
    ```
 
-The API Key can be configured via the `API_KEY` environment variable or the `--api-key` command line argument.
+The API Key can be configured via the `API_KEY` environment variable or the `--api-key` command line argument. Prefer the environment variable: a flag value is visible in the process list.
 
 ## Routing Contract
 

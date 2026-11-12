@@ -49,7 +49,7 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"
 
 **Not Recommended**:
 - ❌ Hardcode passwords in configuration files
-- ❌ Pass passwords via command line arguments (will appear in process list)
+- ❌ Pass secrets via command line arguments: `--api-key`, `--key` and `--redis-password` expose the value in the process list (`ps`). Use `API_KEY`, `KEY`, `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` instead
 - ❌ Commit configuration files containing sensitive information to version control
 
 **Example**:

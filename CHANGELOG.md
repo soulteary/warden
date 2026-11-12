@@ -30,6 +30,13 @@
   `REDIS_TLS_CA_FILE` and `REDIS_TLS_SERVER_NAME` for a verified TLS connection
   to Redis. TLS is off by default and existing configurations are unchanged.
 
+### Documentation
+
+- Recommend environment variables or `REDIS_PASSWORD_FILE` for secrets in the
+  README and English documentation, and note that `--api-key`, `--key` and
+  `--redis-password` expose the value in the process list. The flags are
+  unchanged.
+
 ### Security
 
 - Cap the request body read during HMAC verification at the 10 KB request body

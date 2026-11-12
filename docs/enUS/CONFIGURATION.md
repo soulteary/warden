@@ -311,22 +311,22 @@ Refer to example file: [config.example.yaml](../../config.example.yaml).
 go run . \
   --port 8081 \                    # Web service port (default: 8081)
   --redis localhost:6379 \         # Redis address (default: localhost:6379)
-  --redis-password "password" \    # Redis password (optional, recommend using environment variables)
+  --redis-password "password" \    # Redis password (optional; visible in the process list, prefer REDIS_PASSWORD or REDIS_PASSWORD_FILE)
   --redis-enabled=true \           # Enable/disable Redis (default: true)
   --config http://example.com/api \ # Remote configuration URL
-  --key "Bearer token" \           # Remote configuration authentication header
+  --key "Bearer token" \           # Remote configuration authentication header (visible in the process list, prefer KEY)
   --interval 5 \                   # Scheduled task interval (seconds, default: 5)
   --mode DEFAULT \                 # Running mode (see description above)
   --http-timeout 5 \               # HTTP request timeout (seconds, default: 5)
   --http-max-idle-conns 100 \     # HTTP maximum idle connections (default: 100)
   --http-insecure-tls \           # Skip TLS certificate verification (development only)
-  --api-key "your-secret-api-key" \ # API Key for authentication (optional, recommend using environment variables)
+  --api-key "your-secret-api-key" \ # API Key for authentication (optional; visible in the process list, prefer API_KEY)
   --config-file config.yaml        # Configuration file path (supports YAML format)
 ```
 
 **Notes**:
 - Configuration file support: You can use the `--config-file` parameter to specify a YAML format configuration file
-- Redis password security: Recommend using environment variables `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` instead of command line arguments
+- Secrets on the command line: values passed with `--api-key`, `--key` and `--redis-password` are visible to other local users in the process list (`ps`, `/proc/<pid>/cmdline`) and may be saved in shell history. Use the environment variables `API_KEY`, `KEY` and `REDIS_PASSWORD`, or `REDIS_PASSWORD_FILE` for the Redis password. The flags remain supported
 - TLS certificate verification: `--http-insecure-tls` is for development environments only, should not be used in production
 
 ## Environment Variables
