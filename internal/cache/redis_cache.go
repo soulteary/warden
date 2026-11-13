@@ -30,7 +30,8 @@ const (
 
 // RedisUserCache provides Redis-based user cache using cache-kit
 type RedisUserCache struct {
-	cache *rediscache.Cache[define.AllowListUser]
+	cache  *rediscache.Cache[define.AllowListUser]
+	client *redis.Client
 }
 
 // NewRedisUserCache creates a new Redis user cache
@@ -42,7 +43,8 @@ func NewRedisUserCache(client *redis.Client) *RedisUserCache {
 		WithVersionKeySuffix(":version")
 
 	return &RedisUserCache{
-		cache: rediscache.NewWithKey[define.AllowListUser](client, REDIS_CACHE_KEY, config),
+		cache:  rediscache.NewWithKey[define.AllowListUser](client, REDIS_CACHE_KEY, config),
+		client: client,
 	}
 }
 
