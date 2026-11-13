@@ -14,6 +14,25 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Send production error responses with `Content-Type: application/json`. The
+  production error handler replaces every error body with a JSON object, but
+  responses written with `http.Error` (401, 413, 429 and others) kept the
+  `text/plain` content type. Other environments are unchanged.
+- Refuse to start when `RESPONSE_FIELDS` or `app.response_fields` contains a
+  name that selects no field, such as `email` or `Mail`. Names are matched
+  exactly, so such an entry removed the intended field from every response
+  without notice. The accepted names are `phone`, `mail`, `user_id`, `status`,
+  `scope`, `role`, `name` and `dingtalk_userid`.
+
+### Security
+
+- Log a warning when a `user_id` equals the phone or mail of a different user.
+  Uniqueness is enforced per field, so such data loads, but `/v1/lookup` tries
+  phone or mail before `user_id` and resolves the shared value to the other
+  user. The data is still accepted.
+
 ### Documentation
 
 - Correct the v1.7.0 notes. An oversized request with HMAC headers receives

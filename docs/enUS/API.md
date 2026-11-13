@@ -360,11 +360,12 @@ request declares a `Content-Length` above 10 KB. The body is the plain text
 Returned when requests exceed the rate limit. The body is the plain text
 `Too Many Requests`. No `Retry-After` header is sent.
 
-401, 413 and 429 are sent with `Content-Type: text/plain; charset=utf-8`. In
-production the body of these responses is replaced by a JSON object with a
-generic message, for example `{"error":"Too many requests, please try again later"}`;
-the content type stays `text/plain`, so parse the body explicitly when the
-message is needed.
+Outside production, 401, 413 and 429 are sent with
+`Content-Type: text/plain; charset=utf-8`. In production the body of every
+error response is replaced by a JSON object with a generic message, for example
+`{"error":"Too many requests, please try again later"}`, and is sent with
+`Content-Type: application/json`. Up to v1.7.0 the production body was already
+JSON but was labelled `text/plain`.
 
 ### 500 Internal Server Error
 

@@ -1015,11 +1015,14 @@ components:
       description: >-
         服务认证失败。也包括带 HMAC 请求头、请求体超过 10 KB，且所在路由或方法不受请求体限制覆盖的请求
         （带请求体的 GET/HEAD/OPTIONS，或没有 Content-Length 的分块请求）。
-        非生产环境响应体为纯文本；生产环境响应体为 JSON 对象 {"error": "..."}，Content-Type 仍为 text/plain。
+        非生产环境响应体为纯文本；生产环境响应体为 JSON 对象 {"error": "..."}，Content-Type 为 application/json。
       content:
         text/plain:
           schema: {type: string}
           example: "Unauthorized\n"
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     PayloadTooLarge:
       description: >-
         POST/PUT/PATCH/DELETE 请求声明的 Content-Length 超过 10 KB，在认证之前返回。
@@ -1028,6 +1031,9 @@ components:
         text/plain:
           schema: {type: string}
           example: "Request Entity Too Large\n"
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     TooManyRequests:
       description: >-
         超过限流配置（默认每个客户端 IP 每分钟 60 次，可用 RATE_LIMIT 与 RATE_LIMIT_WINDOW 调整）。
@@ -1037,6 +1043,9 @@ components:
         text/plain:
           schema: {type: string}
           example: "Too Many Requests\n"
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     SnapshotUnavailable:
       description: Enforced data reads have unknown, expired, future or otherwise unusable source evidence. Production defaults to enforce; this refusal is distinct from user-not-found. JSON success payloads are unchanged.
       headers:

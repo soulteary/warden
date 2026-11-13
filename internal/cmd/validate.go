@@ -468,6 +468,7 @@ func validateRateLimit(cfg *Config) []string {
 			errs = append(errs, fmt.Sprintf("Invalid RATE_LIMIT_WINDOW: %v", err))
 		}
 	}
+	errs = append(errs, responseFieldErrors(cfg.ResponseFields)...)
 	// Zero means "not set" and resolves to the default, as it does in YAML.
 	if cfg.RateLimit < 0 {
 		errs = append(errs, fmt.Sprintf("Invalid rate limit: %d (must be at least 1)", cfg.RateLimit))
@@ -486,4 +487,30 @@ func validateTrustedProxies() []string {
 		return []string{fmt.Sprintf("Invalid TRUSTED_PROXY_IPS: %v", err)}
 	}
 	return nil
+}
+
+// knownResponseFields are the names RESPONSE_FIELDS can select. They match the
+// keys of the list and user responses and the fields /v1/lookup filters.
+var knownResponseFields = map[string]struct{}{
+	"phone":           {},
+	"mail":            {},
+	"user_id":         {},
+	"status":          {},
+	"scope":           {},
+	"role":            {},
+	"name":            {},
+	"dingtalk_userid": {},
+}
+
+// responseFieldErrors rejects allowlist entries that select nothing. Names are
+// matched exactly, so a typo such as "email" or "Mail" would otherwise remove
+// the field from every response without any notice.
+func responseFieldErrors(fields []string) []string {
+	var errs []string
+	for _, field := range fields {
+		if _, ok := knownResponseFields[field]; !ok {
+			errs = append(errs, fmt.Sprintf("Invalid RESPONSE_FIELDS entry %q (want phone, mail, user_id, status, scope, role, name or dingtalk_userid)", field))
+		}
+	}
+	return errs
 }
