@@ -281,6 +281,12 @@ func (app *App) reportIdentityDiagnostics() {
 		Str("empty_ruleset_policy", app.emptyRulesetPolicy.String()).
 		Int("conflicts", res.ConflictCount).
 		Int("missing_user_id", res.MissingIDCount)
+	if res.CrossFieldCount > 0 {
+		// Such sets pass per-field uniqueness, but /v1/lookup tries phone or
+		// mail before user_id, so the shared value never resolves by user_id.
+		app.log.Warn().Int("records", res.CrossFieldCount).
+			Msg("Some user_id values equal the phone or mail of a different user: /v1/lookup resolves such a value to the phone or mail owner. Make identifiers unique across fields.")
+	}
 	if res.ConflictCount > 0 || res.MissingIDCount > 0 {
 		ev.Msg(i18n.TWithLang(i18n.LangZH, "log.identity_diagnostic_risk"))
 		return

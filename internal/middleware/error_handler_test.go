@@ -254,3 +254,32 @@ func TestSafeError_WithError(t *testing.T) {
 	// In development mode, if there is an error, Message should be error.Error()
 	assert.NotEmpty(t, resp.Message, "Development environment should return error message")
 }
+
+// A production error body is always rewritten to JSON, so its headers must say
+// so even when the handler declared plain text, as http.Error does.
+func TestErrorHandlerMiddleware_ProductionContentType(t *testing.T) {
+	handler := ErrorHandlerMiddleware("production")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "18")
+		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+	}))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+	assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+	assert.Empty(t, rec.Header().Get("Content-Length"))
+	var resp ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.NotEmpty(t, resp.Error)
+}
+
+func TestErrorHandlerMiddleware_DevelopmentKeepsHandlerContentType(t *testing.T) {
+	handler := ErrorHandlerMiddleware("development")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+	}))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+
+	assert.Equal(t, "text/plain; charset=utf-8", rec.Header().Get("Content-Type"))
+	assert.Equal(t, "Too Many Requests\n", rec.Body.String())
+}

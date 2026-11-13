@@ -59,6 +59,14 @@ type errorResponseWriter struct {
 // WriteHeader captures status code
 func (rw *errorResponseWriter) WriteHeader(code int) {
 	rw.statusCode = code
+	if code >= 400 && rw.isProduction {
+		// Write replaces every production error body with a JSON object, so the
+		// headers must describe that body and not the one the handler intended
+		// (http.Error declares text/plain).
+		h := rw.Header()
+		h.Set("Content-Type", "application/json")
+		h.Del("Content-Length")
+	}
 	rw.ResponseWriter.WriteHeader(code)
 }
 

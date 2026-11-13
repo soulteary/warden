@@ -610,3 +610,22 @@ func TestAPIKeyWarnings(t *testing.T) {
 	assert.Empty(t, APIKeyWarnings(cfg("development", "k")))
 	assert.Empty(t, APIKeyWarnings(cfg("production", "your-key")), "placeholders are rejected by validation instead")
 }
+
+func TestValidateConfigRejectsUnknownResponseFields(t *testing.T) {
+	base := func() *Config {
+		return &Config{Port: "8081", Redis: "localhost:6379", TaskInterval: 5, Mode: "DEFAULT"}
+	}
+	cfg := base()
+	cfg.ResponseFields = []string{"phone", "mail", "user_id", "status", "scope", "role", "name", "dingtalk_userid"}
+	assert.NoError(t, ValidateConfig(cfg))
+
+	for _, field := range []string{"email", "Mail", "userid", "destination"} {
+		cfg = base()
+		cfg.ResponseFields = []string{"user_id", field}
+		err := ValidateConfig(cfg)
+		if assert.Error(t, err, field) {
+			assert.Contains(t, err.Error(), "RESPONSE_FIELDS")
+			assert.Contains(t, err.Error(), field)
+		}
+	}
+}

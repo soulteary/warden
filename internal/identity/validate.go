@@ -67,6 +67,11 @@ type Result struct {
 	// ConflictCount / MissingIDCount are populated in read-only (report) mode.
 	ConflictCount  int
 	MissingIDCount int
+	// CrossFieldCount is the number of records whose user_id equals the phone
+	// or mail of a different record. Uniqueness is enforced per field, so such
+	// sets load, but an identifier lookup that tries phone or mail before
+	// user_id resolves the shared value to the other record.
+	CrossFieldCount int
 }
 
 // Options controls validation behavior.
@@ -133,8 +138,24 @@ func validateAndIndexUsers(users []define.AllowListUser, opts Options, orderUser
 		}
 	}
 
+	res.CrossFieldCount = crossFieldCount(userIDIdx, phoneIdx, mailIdx)
 	res.Users = orderUsers(normalized)
 	return res, nil
+}
+
+// crossFieldCount counts user IDs that are also another record's phone or mail.
+func crossFieldCount(userIDIdx, phoneIdx, mailIdx map[string]int) int {
+	count := 0
+	for uid, owner := range userIDIdx {
+		if other, ok := phoneIdx[uid]; ok && other != owner {
+			count++
+			continue
+		}
+		if other, ok := mailIdx[strings.ToLower(uid)]; ok && other != owner {
+			count++
+		}
+	}
+	return count
 }
 
 // handleConflict either accumulates (ReportOnly) or returns a typed ConflictError.

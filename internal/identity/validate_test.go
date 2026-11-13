@@ -144,3 +144,29 @@ func TestValidateAndIndexUsers_ReportOnly(t *testing.T) {
 		t.Fatalf("expected conflicts counted, got 0")
 	}
 }
+
+func TestValidateAndIndexUsers_CrossFieldCount(t *testing.T) {
+	define.SetUserIDStrategy(define.UserIDStrategyLegacy)
+	define.SetRequireExplicitUserID(false)
+
+	for _, tc := range []struct {
+		name  string
+		users []define.AllowListUser
+		want  int
+	}{
+		{"distinct identifiers", []define.AllowListUser{u("13800000001", "a@example.com", "alice"), u("13800000002", "b@example.com", "bob")}, 0},
+		{"user_id equals own phone", []define.AllowListUser{u("13800000001", "a@example.com", "13800000001")}, 0},
+		{"user_id equals another phone", []define.AllowListUser{u("13800000001", "a@example.com", "alice"), u("13800000002", "b@example.com", "13800000001")}, 1},
+		{"user_id equals another mail", []define.AllowListUser{u("13800000001", "a@example.com", "alice"), u("13800000002", "b@example.com", "A@Example.com")}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := ValidateAndIndexUsers(tc.users, Options{})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if res.CrossFieldCount != tc.want {
+				t.Fatalf("CrossFieldCount = %d, want %d", res.CrossFieldCount, tc.want)
+			}
+		})
+	}
+}
