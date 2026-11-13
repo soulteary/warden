@@ -140,7 +140,7 @@ func registerRoutes(app *App) *http.ServeMux {
 	if _, recognized := parseBoolLike(metricsAuthRaw); metricsAuthRaw != "" && !recognized {
 		logger.GetLoggerKit().Warn().
 			Str("value", metricsAuthRaw).
-			Msg("unrecognized WARDEN_METRICS_REQUIRE_AUTH (accepted: true/1/yes/on or false/0/no/off); falling back to the ENVIRONMENT default")
+			Msg("unrecognized WARDEN_METRICS_REQUIRE_AUTH (accepted: " + define.BooleanSpellings + "); falling back to the ENVIRONMENT default")
 	}
 	metricsAuth := limitedOptionalAuthMiddleware
 	if metricsRequireAuth(metricsAuthRaw, app.environment) {
@@ -273,14 +273,7 @@ func trustsPrivatePeers(trustedProxyIPs string) bool {
 // ok reports whether raw was recognized at all, so callers can distinguish "explicitly
 // false" from "typo, fall back to the default".
 func parseBoolLike(raw string) (value, ok bool) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "true", "1", "yes", "on":
-		return true, true
-	case "false", "0", "no", "off":
-		return false, true
-	default:
-		return false, false
-	}
+	return define.ParseBool(raw)
 }
 
 // metricsRequireAuth decides whether /metrics requires authentication. An explicit

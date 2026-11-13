@@ -334,6 +334,8 @@ go run . \
 
 Supports configuration via environment variables, with lower priority than command line arguments. For the full option table (including validation rules), see [zhCN CONFIGURATION](../zhCN/CONFIGURATION.md).
 
+**Boolean values**: every boolean variable (`REDIS_ENABLED`, `REDIS_TLS_ENABLED`, `HTTP_INSECURE_TLS`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_ENCRYPTION_REQUIRED`, `REQUIRE_EXPLICIT_USER_ID`, `WARDEN_TLS_REQUIRE_CLIENT_CERT`, `WARDEN_HMAC_ALLOW_V1`, `WARDEN_METRICS_REQUIRE_AUTH`, `OTLP_ENABLED`) accepts `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off` and `t`/`f`, in any letter case. Any other non-empty value stops startup with a message that names the variable.
+
 ```bash
 export PORT=8081
 export REDIS=localhost:6379
@@ -343,7 +345,7 @@ export REDIS_USERNAME=                  # Redis ACL username (optional; empty = 
 export REDIS_TLS_ENABLED=false          # Connect to Redis over TLS (default: false)
 export REDIS_TLS_CA_FILE=               # CA bundle for the Redis server certificate (optional; system roots when empty)
 export REDIS_TLS_SERVER_NAME=           # Expected certificate name (optional; defaults to the Redis host)
-export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true, supports true/false/1/0)
+export REDIS_ENABLED=true               # Enable/disable Redis (optional, default: true)
                                         # Note: In ONLY_LOCAL mode, default is false
                                         #       But if REDIS address is explicitly set, Redis will be enabled automatically
 export CONFIG=http://example.com/api
@@ -364,7 +366,7 @@ export HTTP_MAX_IDLE_CONNS=100         # HTTP maximum idle connections
 export HTTP_INSECURE_TLS=false         # Whether to skip TLS certificate verification (true/false or 1/0)
 export API_KEY="your-secret-api-key"   # API Key for authentication (strongly recommended)
 export CONFIG_FILE=config.yaml         # Optional YAML file for main and tracing settings; --config-file takes precedence
-export OTLP_ENABLED=false              # Enable OpenTelemetry (true/false or 1/0)
+export OTLP_ENABLED=false              # Enable OpenTelemetry
 export OTLP_ENDPOINT=http://localhost:4318  # OTLP endpoint (required when OTLP_ENABLED is true)
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # Trusted proxy IP list (comma-separated), or "none" to trust no peer
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # Health check endpoint IP whitelist (optional)

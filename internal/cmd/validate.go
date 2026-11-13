@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +52,7 @@ func ValidateConfig(cfg *Config) error {
 		errors = append(errors, i18n.TfWithLang(i18n.LangZH, "validation.empty_ruleset_policy_invalid", cfg.EmptyRulesetPolicy))
 	}
 
+	errors = append(errors, validateBooleanEnv()...)
 	errors = append(errors, validateHMACConfig(cfg)...)
 	errors = append(errors, validateServicePolicies(cfg)...)
 	if err := remote.ValidatePrivateOrigins(); err != nil {
@@ -133,11 +133,25 @@ func ParseHMACAllowV1(raw string) (bool, error) {
 		return false, nil
 	}
 
-	allow, err := strconv.ParseBool(raw)
-	if err != nil {
-		return false, fmt.Errorf("expected a boolean: %w", err)
+	allow, ok := define.ParseBool(raw)
+	if !ok {
+		return false, fmt.Errorf("expected a boolean (%s)", define.BooleanSpellings)
 	}
 	return allow, nil
+}
+
+// validateBooleanEnv rejects boolean environment variables holding text that is
+// not a boolean. WARDEN_HMAC_ALLOW_V1 and REDIS_TLS_ENABLED are reported by
+// their own checks, which name the setting in the same way.
+func validateBooleanEnv() []string {
+	var errs []string
+	for _, message := range define.ValidateBooleanEnv() {
+		if strings.HasPrefix(message, "Invalid WARDEN_HMAC_ALLOW_V1 ") || strings.HasPrefix(message, "Invalid REDIS_TLS_ENABLED ") {
+			continue
+		}
+		errs = append(errs, message)
+	}
+	return errs
 }
 
 // validateTLSConfig rejects partial TLS and mTLS configuration before the server
