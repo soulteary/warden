@@ -273,7 +273,7 @@ rate_limit:
 
 http:
   timeout: 5s
-  max_idle_conns: 100
+  max_idle_conns: 20
   insecure_tls: false  # Development only
   max_retries: 3
   retry_delay: 1s
@@ -319,7 +319,7 @@ go run . \
   --interval 5 \                   # Scheduled task interval (seconds, default: 5)
   --mode DEFAULT \                 # Running mode (see description above)
   --http-timeout 5 \               # HTTP request timeout (seconds, default: 5)
-  --http-max-idle-conns 100 \     # HTTP maximum idle connections (default: 100)
+  --http-max-idle-conns 20 \      # Idle-connection pool of the remote-source client (default: 20)
   --http-insecure-tls \           # Skip TLS certificate verification (development only)
   --api-key "your-secret-api-key" \ # API Key for authentication (optional; visible in the process list, prefer API_KEY)
   --config-file config.yaml        # Configuration file path (supports YAML format)
@@ -360,7 +360,7 @@ export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds)
 export RATE_LIMIT=60                   # Requests per window, per client IP, that did not authenticate
 export RATE_LIMIT_AUTHENTICATED=600    # Requests per window, per credential (API key, HMAC key ID or client certificate)
 export RATE_LIMIT_WINDOW=1m            # Rate limit window (duration or seconds, minimum 1s)
-export HTTP_MAX_IDLE_CONNS=100         # HTTP maximum idle connections
+export HTTP_MAX_IDLE_CONNS=20          # Idle-connection pool of the remote-source client (default: 20)
 export HTTP_INSECURE_TLS=false         # Whether to skip TLS certificate verification (true/false or 1/0)
 export API_KEY="your-secret-api-key"   # API Key for authentication (strongly recommended)
 export CONFIG_FILE=config.yaml         # Optional YAML file for main and tracing settings; --config-file takes precedence

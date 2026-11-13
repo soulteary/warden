@@ -47,7 +47,7 @@ SDK 的 CacheTTL 是另一项独立客户端选项。
 | 限流 | 速率 | `rate_limit.rate` | — | `60`（次/分钟） |
 | 限流 | 窗口 | `rate_limit.window` | — | `1m` |
 | HTTP 客户端 | 超时 | `http.timeout` | `HTTP_TIMEOUT` | `5s` |
-| HTTP 客户端 | 最大空闲连接 | `http.max_idle_conns` | `HTTP_MAX_IDLE_CONNS` | `100` |
+| HTTP 客户端 | 最大空闲连接 | `http.max_idle_conns` | `HTTP_MAX_IDLE_CONNS` | `20` |
 | HTTP 客户端 | 跳过 TLS 验证 | `http.insecure_tls` | `HTTP_INSECURE_TLS` | `false` |
 | HTTP 客户端 | 最大重试 | `http.max_retries` | — | `3` |
 | HTTP 客户端 | 重试延迟 | `http.retry_delay` | — | `1s` |
@@ -366,7 +366,7 @@ rate_limit:
 
 http:
   timeout: 5s
-  max_idle_conns: 100
+  max_idle_conns: 20
   insecure_tls: false  # 仅用于开发环境
   max_retries: 3
   retry_delay: 1s
@@ -410,7 +410,7 @@ go run . \
   --interval 5 \                   # 定时任务间隔（秒，默认: 5）
   --mode DEFAULT \                 # 运行模式（见上方说明）
   --http-timeout 5 \               # HTTP 请求超时时间（秒，默认: 5）
-  --http-max-idle-conns 100 \     # HTTP 最大空闲连接数 (默认: 100)
+  --http-max-idle-conns 20 \      # 远程数据源客户端的空闲连接池大小 (默认: 20)
   --http-insecure-tls \           # 跳过 TLS 证书验证（仅用于开发环境）
   --api-key "your-secret-api-key" \ # API Key 用于认证（可选，建议使用环境变量）
   --data-file ./data.json \        # 本地用户数据文件路径（默认: ./data.json）
@@ -445,7 +445,7 @@ export REMOTE_DECRYPT_ENABLED=false   # 可选：是否对远程响应做 RSA �
 export REMOTE_RSA_PRIVATE_KEY_FILE=   # 可选：RSA 私钥 PEM 文件路径（与 REMOTE_RSA_PRIVATE_KEY 二选一，文件优先）
 export REMOTE_RSA_PRIVATE_KEY=        # 可选：RSA 私钥 PEM 内联（多行需保留换行；未设置 FILE 时使用）
 export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 duration，如 30s、1m30s）
-export HTTP_MAX_IDLE_CONNS=100         # HTTP 最大空闲连接数
+export HTTP_MAX_IDLE_CONNS=20          # 远程数据源客户端的空闲连接池大小（默认: 20）
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
 export API_KEY="your-secret-api-key"   # API Key 用于认证（强烈建议设置）
 export CONFIG_FILE=config.yaml         # 主配置和追踪配置的 YAML 路径（可选；--config-file 优先）
