@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/router"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ func responseMetadataApp(t *testing.T) *App {
 	users.ApplyPrepared(prepared)
 	snapshots := newSnapshotStore()
 	snapshots.Store(snap)
-	limiter := middlewarekit.NewRateLimiter(middlewarekit.DefaultRateLimiterConfig())
+	limiter := middleware.NewRateLimits(0, 0, 0)
 	t.Cleanup(limiter.Stop)
 	return &App{userCache: users, snapshots: snapshots, snapshotMaxAge: 2 * time.Minute, appMode: "DEFAULT", environment: "development", apiKey: "key", rateLimiter: limiter, log: logger.GetLoggerKit()}
 }

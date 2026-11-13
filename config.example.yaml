@@ -26,7 +26,8 @@ cache:
   update_interval: 5s
 
 rate_limit:
-  rate: 60  # 每分钟请求数
+  rate: 60  # 每个窗口内，每个客户端 IP 的未认证或认证失败请求数
+  authenticated_rate: 600  # 每个窗口内，每个凭证的已认证请求数
   window: 1m
 
 http:

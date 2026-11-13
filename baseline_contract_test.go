@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,7 +36,7 @@ func TestBaselineSnapshotReadContract(t *testing.T) {
 			}
 			snapshots := newSnapshotStore()
 			snapshots.Store(&Snapshot{Users: users.Get(), Count: users.Len(), Source: "remote", Version: cache.HashUserList(users.Get()), LoadedAt: tc.loadedAt})
-			limiter := middlewarekit.NewRateLimiter(middlewarekit.DefaultRateLimiterConfig())
+			limiter := middleware.NewRateLimits(0, 0, 0)
 			t.Cleanup(limiter.Stop)
 			app := &App{userCache: users, snapshots: snapshots, snapshotMaxAge: time.Minute, appMode: "ONLY_REMOTE", environment: "development", apiKey: "contract-key", rateLimiter: limiter, log: logger.GetLoggerKit()}
 			mux := registerRoutes(app)

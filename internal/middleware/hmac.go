@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"io"
 	"net/http"
@@ -126,6 +127,23 @@ func writeUnauthorized(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
 }
 
+// Principal identifiers attached to authenticated requests. None of them is a
+// secret: an HMAC key ID is sent in clear in X-Key-Id, a certificate is public,
+// and the API key principal is a constant because only one key is configured.
+// The rate limiter adds the client address to that constant.
+const (
+	principalAPIKey     = "api-key"
+	principalHMACPrefix = "hmac:"
+	principalMTLSPrefix = "mtls:"
+)
+
+// mtlsPrincipal identifies a client certificate by the SHA-256 of its DER
+// encoding. The subject is not used: two certificates may share it.
+func mtlsPrincipal(cert *x509.Certificate) string {
+	sum := sha256.Sum256(cert.Raw)
+	return principalMTLSPrefix + hex.EncodeToString(sum[:])
+}
+
 // ServiceAuthChain selects authentication per request. Without ServicePolicies,
 // a TLS peer certificate accepted by the configured server TLS policy bypasses
 // header authentication. Otherwise complete HMAC headers with configured keys
@@ -133,16 +151,23 @@ func writeUnauthorized(w http.ResponseWriter, _ *http.Request) {
 // outside that complete HMAC branch reach apiKeyMiddleware. Legacy v1 requires
 // AllowV1. With ServicePolicies enabled, only authenticated HMAC v2 key IDs and
 // their allowed actions are accepted; API keys and mTLS do not bypass policy.
+//
+// An accepted request reaches next carrying its principal (PrincipalFromContext):
+// the HMAC key ID, the client certificate fingerprint, or a constant for the
+// API key.
 func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	c := hmacCfg.normalized()
 	return func(next http.Handler) http.Handler {
+		apiKeyNext := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, WithPrincipal(r, principalAPIKey))
+		})
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if c.ServicePolicies != nil {
 				servePolicyAuthenticated(c, next, w, r)
 				return
 			}
 			if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
-				next.ServeHTTP(w, r)
+				next.ServeHTTP(w, WithPrincipal(r, mtlsPrincipal(r.TLS.PeerCertificates[0])))
 				return
 			}
 			sig := r.Header.Get(headerSignature)
@@ -150,13 +175,13 @@ func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) ht
 			keyID := r.Header.Get(headerKeyID)
 			if sig != "" && tsStr != "" && keyID != "" && len(c.Keys) > 0 {
 				if verifyHMAC(c, r, sig, tsStr, keyID) {
-					next.ServeHTTP(w, r)
+					next.ServeHTTP(w, WithPrincipal(r, principalHMACPrefix+keyID))
 					return
 				}
 				writeUnauthorized(w, r)
 				return
 			}
-			apiKeyMiddleware(next).ServeHTTP(w, r)
+			apiKeyMiddleware(apiKeyNext).ServeHTTP(w, r)
 		})
 	}
 }

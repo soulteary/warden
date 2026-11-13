@@ -14,6 +14,41 @@
 
 ## [Unreleased]
 
+### Added
+
+- `TRUSTED_PROXY_IPS=none` (case-insensitive, the only entry): no peer is
+  trusted, `X-Forwarded-For` and `X-Real-IP` are ignored and the client address
+  is always the TCP peer. `none` combined with other entries stops startup.
+- `RATE_LIMIT_AUTHENTICATED` and `rate_limit.authenticated_rate` (default 600):
+  requests per `RATE_LIMIT_WINDOW` for one credential. The environment variable
+  overrides the configuration file; a value below 1 or a non-integer stops
+  startup.
+- `Retry-After` on every 429 response: the seconds, rounded up, until the
+  limiter accepts another request.
+
+### Changed
+
+- Rate limiting is split by authentication result. Authenticated requests are
+  counted per credential (an HMAC key ID, an mTLS client certificate, or the
+  API key together with the client address) against
+  `RATE_LIMIT_AUTHENTICATED` and no longer consume the per-IP budget. Requests that fail authentication, anonymous `/metrics`
+  requests and unknown paths are still counted per client IP against
+  `RATE_LIMIT`, and an address without budget still receives 429 before its
+  credential is evaluated, valid or not.
+  Upgrade effect: a gateway behind one address is now limited to 600 requests
+  per minute per credential, not 60 per address. Callers of the shared
+  `API_KEY` get 600 per minute per client address, where each address had 60.
+  An HMAC key ID or a client certificate has one budget across all the
+  addresses that use it.
+- The `warden_rate_limit_hits_total` metric reports the new limit under
+  `scope="credential"`; `scope="ip"` keeps its meaning.
+- Warn at startup in every environment when `TRUSTED_PROXY_IPS` is empty. The
+  warning states that forwarded addresses are trusted from any private or
+  loopback peer. It replaces the warning that was logged only when
+  `IP_WHITELIST` was set. The behaviour with an empty value is unchanged in
+  this release; a later release will stop trusting forwarded headers when the
+  variable is empty. Set it to the proxy addresses or to `none` now.
+
 ### Fixed
 
 - Send production error responses with `Content-Type: application/json`. The
@@ -28,6 +63,12 @@
 
 ### Security
 
+- With `ENVIRONMENT=production`, refuse to start when `IP_WHITELIST` is set
+  and `TRUSTED_PROXY_IPS` is empty. A peer with a private or loopback address
+  could present an allowlisted address in `X-Forwarded-For`. Upgrade effect:
+  such deployments must set `TRUSTED_PROXY_IPS` to the reverse proxy addresses,
+  or to `none`. `HEALTH_CHECK_IP_WHITELIST` is not part of this rule: it is
+  compared with the TCP peer and never used forwarded headers.
 - Log a warning when a `user_id` equals the phone or mail of a different user.
   Uniqueness is enforced per field, so such data loads, but `/v1/lookup` tries
   phone or mail before `user_id` and resolves the shared value to the other

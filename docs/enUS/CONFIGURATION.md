@@ -14,7 +14,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Redis | `redis.*` / `REDIS`, `REDIS_PASSWORD`, `REDIS_PASSWORD_FILE`, `REDIS_ENABLED` | addr, password, password_file, db; Redis enabled default `true` (except ONLY_LOCAL without REDIS) |
 | Redis transport | — / `REDIS_USERNAME`, `REDIS_TLS_ENABLED`, `REDIS_TLS_CA_FILE`, `REDIS_TLS_SERVER_NAME` | **Env only**. ACL username (default user when empty) and TLS (default off) |
 | Cache | `cache.ttl`, `cache.update_interval` | no env overrides; update_interval default 5s |
-| Rate limit | `rate_limit.rate`, `rate_limit.window` / `RATE_LIMIT`, `RATE_LIMIT_WINDOW` | per client IP; default 60 requests per 1m window; environment overrides YAML |
+| Rate limit | `rate_limit.rate`, `rate_limit.authenticated_rate`, `rate_limit.window` / `RATE_LIMIT`, `RATE_LIMIT_AUTHENTICATED`, `RATE_LIMIT_WINDOW` | `rate`: per client IP for requests that did not authenticate, default 60; `authenticated_rate`: per credential, default 600; both per 1m window; environment overrides YAML |
 | HTTP client | `http.*` / `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS`, `HTTP_INSECURE_TLS` | timeout, max_idle_conns, insecure_tls, max_retries, retry_delay |
 | Remote | `remote.*` / `CONFIG`, `KEY`, `MERGE_MODE`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_RSA_PRIVATE_KEY_FILE`, `REMOTE_RSA_PRIVATE_KEY` | url, key, mode, decrypt_enabled, rsa_private_key_file |
 | Task | `task.interval` / `INTERVAL` / `--interval` | Explicit CLI value overrides the environment, then YAML, then the default |
@@ -267,7 +267,8 @@ cache:
   update_interval: 5s
 
 rate_limit:
-  rate: 60  # Requests per minute
+  rate: 60                 # Requests per window, per client IP, that did not authenticate
+  authenticated_rate: 600  # Requests per window, per credential
   window: 1m
 
 http:
@@ -356,7 +357,8 @@ export REMOTE_DECRYPT_ENABLED=false   # Optional: decrypt remote response with R
 export REMOTE_RSA_PRIVATE_KEY_FILE=   # Optional: path to RSA private key PEM (or use REMOTE_RSA_PRIVATE_KEY for inline PEM)
 export REMOTE_RSA_PRIVATE_KEY=        # Optional: inline RSA private key PEM (used when REMOTE_RSA_PRIVATE_KEY_FILE is not set)
 export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds)
-export RATE_LIMIT=60                   # Requests allowed per window, per client IP
+export RATE_LIMIT=60                   # Requests per window, per client IP, that did not authenticate
+export RATE_LIMIT_AUTHENTICATED=600    # Requests per window, per credential (API key, HMAC key ID or client certificate)
 export RATE_LIMIT_WINDOW=1m            # Rate limit window (duration or seconds, minimum 1s)
 export HTTP_MAX_IDLE_CONNS=100         # HTTP maximum idle connections
 export HTTP_INSECURE_TLS=false         # Whether to skip TLS certificate verification (true/false or 1/0)
@@ -364,7 +366,7 @@ export API_KEY="your-secret-api-key"   # API Key for authentication (strongly re
 export CONFIG_FILE=config.yaml         # Optional YAML file for main and tracing settings; --config-file takes precedence
 export OTLP_ENABLED=false              # Enable OpenTelemetry (true/false or 1/0)
 export OTLP_ENDPOINT=http://localhost:4318  # OTLP endpoint (required when OTLP_ENABLED is true)
-export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # Trusted proxy IP list (comma-separated)
+export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # Trusted proxy IP list (comma-separated), or "none" to trust no peer
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # Health check endpoint IP whitelist (optional)
 export IP_WHITELIST="192.168.1.0/24"  # Global IP whitelist (optional)
 export LOG_LEVEL="info"                # Log level (optional, default: info, options: trace, debug, info, warn, error, fatal, panic)
@@ -384,8 +386,9 @@ export WARDEN_TLS_REQUIRE_CLIENT_CERT=true    # Require client certificate (mTLS
 
 **Security Configuration Notes**:
 - `API_KEY`: Used to protect sensitive endpoints (`/`, `/log/level`), strongly recommended for production environments
-- `TRUSTED_PROXY_IPS`: Comma-separated IP addresses or CIDR ranges of the reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers are trusted. An entry that is neither stops startup. Default (empty): forwarded headers are trusted from every peer with a private or loopback address, so another host or container on the same network can present an allowlisted address to `IP_WHITELIST` or rotate rate-limit buckets. Set it explicitly whenever `IP_WHITELIST` is used; Warden logs a startup warning otherwise. See [SECURITY.md](SECURITY.md#trusted-proxies-and-forwarded-addresses)
-- `HEALTH_CHECK_IP_WHITELIST`: Restrict health check endpoint access IPs (optional, supports CIDR ranges)
+- `TRUSTED_PROXY_IPS`: Comma-separated IP addresses or CIDR ranges of the reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers are trusted. An entry that is neither stops startup. The single value `none` (case-insensitive) trusts no peer: forwarded headers are ignored and the client address is the TCP peer; `none` combined with other entries stops startup. Default (empty): forwarded headers are trusted from every peer with a private or loopback address, so another host or container on the same network can present an allowlisted address to `IP_WHITELIST` or obtain a new per-IP rate-limit budget per request. While it is empty Warden logs a startup warning, and with `ENVIRONMENT=production` and `IP_WHITELIST` set it refuses to start. A later release will stop trusting forwarded headers when it is empty. See [SECURITY.md](SECURITY.md#trusted-proxies-and-forwarded-addresses)
+- `HEALTH_CHECK_IP_WHITELIST`: Restrict health check endpoint access IPs (optional, supports CIDR ranges). It is compared with the TCP peer address; forwarded headers and `TRUSTED_PROXY_IPS` do not apply
+- `RATE_LIMIT`, `RATE_LIMIT_AUTHENTICATED`, `RATE_LIMIT_WINDOW`: `RATE_LIMIT` bounds, per client IP, the requests that fail authentication or need none; `RATE_LIMIT_AUTHENTICATED` bounds each credential. Both must be integers of at least 1; any other value stops startup. See [SECURITY.md](SECURITY.md#rate-limiting)
 - `IP_WHITELIST`: Global IP whitelist (optional, supports CIDR ranges)
 - `RESPONSE_FIELDS`: Field allowlist for the list, user and lookup responses. Empty returns every field. On `/v1/lookup`, `mail` governs `destination.email`, `phone` governs `destination.phone`, and `name` and `dingtalk_userid` govern the fields of the same name. `user_id`, `status`, `channel_hint` and the `destination` object are always returned because the login gateway depends on them; `channel_hint` is `sms` only when `destination.phone` is returned. `scope` and `role` are not part of the lookup response. A gateway that delivers codes through `/v1/lookup` needs `mail` and/or `phone` in the allowlist, and `dingtalk_userid` for DingTalk delivery. Names are matched exactly and are case-sensitive. The accepted names are `phone`, `mail`, `user_id`, `status`, `scope`, `role`, `name` and `dingtalk_userid`; any other entry, such as `email` or `Mail`, stops startup
 

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -160,7 +162,35 @@ func TestRecordBackgroundTask(t *testing.T) {
 }
 
 func TestRecordRateLimitHit(t *testing.T) {
+	value := func(c prometheus.Counter) float64 {
+		metric := &dto.Metric{}
+		require.NoError(t, c.Write(metric))
+		return metric.GetCounter().GetValue()
+	}
+	hits := func(scope string) float64 {
+		return value(RateLimit.Hits.WithLabelValues(scope))
+	}
+	ipBefore, credentialBefore, legacyBefore := hits("ip"), hits("credential"), value(RateLimitHits)
+
+	RecordRateLimitHit("ip")
+	RecordRateLimitHit("credential")
+	// Anything else, such as a client address, must not become a label value.
 	RecordRateLimitHit("127.0.0.1")
+
+	if got := hits("ip") - ipBefore; got != 2 {
+		t.Errorf("ip scope increased by %v, want 2", got)
+	}
+	if got := hits("credential") - credentialBefore; got != 1 {
+		t.Errorf("credential scope increased by %v, want 1", got)
+	}
+	if got := value(RateLimitHits) - legacyBefore; got != 3 {
+		t.Errorf("legacy counter increased by %v, want 3", got)
+	}
+	series := make(chan prometheus.Metric, 8)
+	RateLimit.Hits.Collect(series)
+	if got := len(series); got != 2 {
+		t.Errorf("rate limit hit series = %d, want 2 (ip, credential)", got)
+	}
 }
 
 // TestRecordHTTPRequest_NormalizesLabels ensures the exported helper cannot be used to

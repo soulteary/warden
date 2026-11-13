@@ -357,8 +357,11 @@ request declares a `Content-Length` above 10 KB. The body is the plain text
 
 ### 429 Too Many Requests
 
-Returned when requests exceed the rate limit. The body is the plain text
-`Too Many Requests`. No `Retry-After` header is sent.
+Returned when requests exceed the per-credential or the per-client-IP rate
+limit (see [Rate Limiting](#rate-limiting)). The body is the plain text
+`Too Many Requests`. The `Retry-After` header carries the number of seconds,
+rounded up, until the limiter accepts another request. Releases up to v1.7.0
+sent no `Retry-After` header.
 
 Outside production, 401, 413 and 429 are sent with
 `Content-Type: text/plain; charset=utf-8`. In production the body of every
@@ -382,29 +385,53 @@ In production mode, detailed error information is hidden to prevent information 
 
 ## Rate Limiting
 
-By default, API requests are protected by rate limiting:
+Requests are counted against one of two limits, which share one window:
 
-- **Limit**: 60 requests per minute
-- **Window**: 1 minute
-- **Exceeded**: Returns `429 Too Many Requests`
+| Request | Counted per | Default | Setting |
+|---------|-------------|---------|---------|
+| Authenticated | credential | 600 per minute | `RATE_LIMIT_AUTHENTICATED` / `rate_limit.authenticated_rate` |
+| Failed authentication (401, 403), anonymous `/metrics`, unknown paths | client IP | 60 per minute | `RATE_LIMIT` / `rate_limit.rate` |
 
-Adjust it in the configuration file, or with the `RATE_LIMIT` and
-`RATE_LIMIT_WINDOW` environment variables, which take precedence:
+- **Window**: 1 minute (`RATE_LIMIT_WINDOW` / `rate_limit.window`), sliding
+- **Exceeded**: Returns `429 Too Many Requests` with a `Retry-After` header
+
+Environment variables take precedence over the configuration file; an invalid
+value stops startup:
 
 ```yaml
 rate_limit:
-  rate: 60  # Requests per window, per client IP
+  rate: 60                 # Requests per window, per client IP, that did not authenticate
+  authenticated_rate: 600  # Requests per window, per credential
   window: 1m
 ```
 
-The limit is counted per client IP. A gateway such as Stargate reaches Warden
-from a single address, so all of its lookups share one quota; size the limit for
-the caller's total request rate, not for one end user.
+A credential is one HMAC key ID, one mTLS client certificate (identified by its
+SHA-256 fingerprint), or the API key together with the client address. The
+budget of an HMAC key ID or a certificate is shared by every address that uses
+it. The API key is one shared secret that identifies no caller, so each client
+address that uses it has its own budget. A budget covers every route,
+including `/metrics` and `/log/level`.
+Authenticated requests do not consume the per-IP budget, so a gateway such as
+Stargate that reaches Warden from a single address is limited by
+`RATE_LIMIT_AUTHENTICATED` only; size that value for the total request rate of
+the credential. Give callers separate HMAC keys or client certificates to
+limit them independently of their address.
 
-The limit also applies to `/metrics` and `/log/level`, which share the same
-per-client budget as the data endpoints. Health check endpoints are not rate
-limited. A Prometheus scraper that shares a client address with other callers
-consumes part of that address's quota.
+The per-IP budget bounds credential guessing. Each request takes one unit of
+its address's budget before authentication and gets it back only when
+authentication succeeds, so at most `RATE_LIMIT` requests per window per
+address can fail or be in flight. An address with no budget left receives 429
+before its credential is evaluated. This includes requests with a valid
+credential: answering them would reveal which guesses are valid. A client that
+keeps failing authentication therefore blocks other callers behind the same
+address until the window moves on.
+
+Health check endpoints are not rate limited. `/metrics` is counted per
+credential when it requires authentication and per client IP when it allows
+anonymous access.
+
+The client address is the TCP peer unless the peer is a trusted proxy; see
+[SECURITY.md](SECURITY.md#trusted-proxies-and-forwarded-addresses).
 
 ## IP Whitelist
 

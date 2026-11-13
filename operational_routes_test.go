@@ -5,30 +5,21 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/soulteary/warden/internal/define"
 )
 
-// operationalRoutesApp returns an app whose rate limiter allows rate requests
-// per client in the test's lifetime.
+// operationalRoutesApp returns an app that allows rate requests per window to
+// each client IP and to each credential.
 func operationalRoutesApp(t *testing.T, rate int) *App {
 	t.Helper()
-	app := responseMetadataApp(t)
-	cfg := middlewarekit.DefaultRateLimiterConfig()
-	cfg.Rate = rate
-	cfg.Window = time.Minute
-	limiter := middlewarekit.NewRateLimiter(cfg)
-	t.Cleanup(limiter.Stop)
-	app.rateLimiter = limiter
-	return app
+	return rateLimitedApp(t, rate, rate)
 }
 
 func TestOperationalRoutesAreRateLimited(t *testing.T) {
-	t.Setenv("WARDEN_METRICS_REQUIRE_AUTH", "")
+	t.Setenv("WARDEN_METRICS_REQUIRE_AUTH", "true")
 	for _, path := range []string{define.PATH_METRICS, define.PATH_LOG_LEVEL} {
 		t.Run(path, func(t *testing.T) {
 			mux := registerRoutes(operationalRoutesApp(t, 2))
@@ -42,13 +33,13 @@ func TestOperationalRoutesAreRateLimited(t *testing.T) {
 			}
 			require.Equal(t, http.StatusOK, request())
 			require.Equal(t, http.StatusOK, request())
-			require.Equal(t, http.StatusTooManyRequests, request(), "%s must share the per-client rate limit", path)
+			require.Equal(t, http.StatusTooManyRequests, request(), "%s must share the per-credential rate limit", path)
 		})
 	}
 }
 
 func TestOperationalRoutesShareTheDataRateLimitBudget(t *testing.T) {
-	t.Setenv("WARDEN_METRICS_REQUIRE_AUTH", "")
+	t.Setenv("WARDEN_METRICS_REQUIRE_AUTH", "true")
 	mux := registerRoutes(operationalRoutesApp(t, 2))
 	request := func(path string) int {
 		req := httptest.NewRequest(http.MethodGet, path, http.NoBody)

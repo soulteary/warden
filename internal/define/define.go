@@ -133,6 +133,10 @@ func NormalizeEndpointLabel(path string) string {
 	return LABEL_OTHER
 }
 
+// TRUSTED_PROXY_NONE is the TRUSTED_PROXY_IPS value that trusts no peer: forwarded
+// headers are ignored and the client address is always the TCP peer.
+const TRUSTED_PROXY_NONE = "none"
+
 // ParseTrustedProxyIPs parses comma-separated string (e.g. TRUSTED_PROXY_IPS env), trims each element, drops empty.
 // Used by main and ip_whitelist so env parsing is explicit and consistent.
 func ParseTrustedProxyIPs(s string) []string {
@@ -146,11 +150,26 @@ func ParseTrustedProxyIPs(s string) []string {
 	return out
 }
 
+// TrustedProxyDisabled reports whether the TRUSTED_PROXY_IPS value is the single
+// entry "none" (case-insensitive).
+func TrustedProxyDisabled(s string) bool {
+	entries := ParseTrustedProxyIPs(s)
+	return len(entries) == 1 && strings.EqualFold(entries[0], TRUSTED_PROXY_NONE)
+}
+
 // ValidateTrustedProxyIPs reports the first TRUSTED_PROXY_IPS entry that is neither
 // an IP address nor a CIDR range. middleware-kit skips such entries, which can leave
 // the list empty and restore the default of trusting every private-address peer.
+// The single entry "none" is valid; combined with other entries it is rejected,
+// because the two requests contradict each other.
 func ValidateTrustedProxyIPs(s string) error {
+	if TrustedProxyDisabled(s) {
+		return nil
+	}
 	for _, entry := range ParseTrustedProxyIPs(s) {
+		if strings.EqualFold(entry, TRUSTED_PROXY_NONE) {
+			return fmt.Errorf("%q must be the only entry", TRUSTED_PROXY_NONE)
+		}
 		if net.ParseIP(entry) != nil {
 			continue
 		}
@@ -204,8 +223,10 @@ const (
 	// REDIS_CONNECTION_TIMEOUT Redis connection timeout
 	REDIS_CONNECTION_TIMEOUT = 5 * time.Second
 
-	// DEFAULT_RATE_LIMIT default rate limit: requests per minute
+	// DEFAULT_RATE_LIMIT default rate limit per client IP: requests per window
 	DEFAULT_RATE_LIMIT = 60
+	// DEFAULT_RATE_LIMIT_AUTHENTICATED default rate limit per authenticated credential: requests per window
+	DEFAULT_RATE_LIMIT_AUTHENTICATED = 600
 	// DEFAULT_RATE_LIMIT_WINDOW default rate limit time window
 	DEFAULT_RATE_LIMIT_WINDOW = 1 * time.Minute
 	// MAX_VISITORS_MAP_SIZE maximum visitors map size, prevents memory leaks

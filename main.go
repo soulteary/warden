@@ -25,9 +25,6 @@ import (
 	rediskitclient "github.com/soulteary/redis-kit/client"
 	rediskitlock "github.com/soulteary/redis-kit/lock"
 
-	// Middleware kit
-	middlewarekit "github.com/soulteary/middleware-kit/v3"
-
 	// Internal packages
 	otlp "github.com/soulteary/tracing-kit/v2/otlp"
 	version "github.com/soulteary/version-kit/v4"
@@ -39,6 +36,7 @@ import (
 	"github.com/soulteary/warden/internal/identity"
 	"github.com/soulteary/warden/internal/loader"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 	"github.com/soulteary/warden/internal/prommetrics"
 	"github.com/soulteary/warden/internal/remote"
 	"github.com/soulteary/warden/pkg/gocron"
@@ -57,7 +55,7 @@ type App struct {
 	redisSnapshotRecovery string
 	snapshotNow           func() time.Time
 	redisRefreshLocker    gocron.Locker
-	rateLimiter           *middlewarekit.RateLimiter
+	rateLimiter           *middleware.RateLimits
 	rulesLoader           *loader.RulesLoader
 	snapshots             *snapshotStore
 	publishToRedis        func(users []define.AllowListUser) error
@@ -238,20 +236,10 @@ func NewApp(cfg *cmd.Config) *App {
 		app.taskInterval = uint64(define.DEFAULT_TASK_INTERVAL)
 	}
 
-	// Initialize rate limiter (using middleware-kit DefaultRateLimiterConfig + overrides)
-	rateLimitCfg := middlewarekit.DefaultRateLimiterConfig()
-	rateLimitCfg.Rate = cfg.RateLimit
-	rateLimitCfg.Window = cfg.RateLimitWindow
-	if rateLimitCfg.Rate < 1 {
-		rateLimitCfg.Rate = define.DEFAULT_RATE_LIMIT
-	}
-	if rateLimitCfg.Window <= 0 {
-		rateLimitCfg.Window = define.DEFAULT_RATE_LIMIT_WINDOW
-	}
-	rateLimitCfg.MaxVisitors = define.MAX_VISITORS_MAP_SIZE
-	rateLimitCfg.MaxWhitelist = define.MAX_WHITELIST_SIZE
-	rateLimitCfg.CleanupInterval = define.RATE_LIMIT_CLEANUP_INTERVAL
-	app.rateLimiter = middlewarekit.NewRateLimiter(rateLimitCfg)
+	// Initialize the rate limiters: per client IP for requests that do not
+	// authenticate, per credential for those that do. Unset values resolve to
+	// the defaults.
+	app.rateLimiter = middleware.NewRateLimits(cfg.RateLimit, cfg.RateLimitAuthenticated, cfg.RateLimitWindow)
 
 	return app
 }
@@ -923,11 +911,9 @@ func buildTLSConfig(certFile, keyFile, caFile string, requireClientCert bool) (*
 }
 
 // shutdownServer gracefully shuts down the server
-func shutdownServer(srv *http.Server, rateLimiter *middlewarekit.RateLimiter, log *loggerkit.Logger) {
-	// Stop rate limiter
-	if rateLimiter != nil {
-		rateLimiter.Stop()
-	}
+func shutdownServer(srv *http.Server, rateLimiter *middleware.RateLimits, log *loggerkit.Logger) {
+	// Stop the rate limiter cleanup goroutines (Stop accepts nil).
+	rateLimiter.Stop()
 
 	// Gracefully shutdown HTTP server
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), define.SHUTDOWN_TIMEOUT)

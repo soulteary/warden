@@ -1036,9 +1036,15 @@ components:
             $ref: '#/components/schemas/Error'
     TooManyRequests:
       description: >-
-        超过限流配置（默认每个客户端 IP 每分钟 60 次，可用 RATE_LIMIT 与 RATE_LIMIT_WINDOW 调整）。
-        数据接口、/metrics 与 /log/level 共用同一客户端配额；健康检查接口不限流。
-        不返回 Retry-After。响应体格式与 401 相同。
+        超过限流配置。已通过认证的请求按凭证计数（默认每个凭证每分钟 600 次，RATE_LIMIT_AUTHENTICATED；HMAC 密钥 ID 与客户端证书各自计数，共享的 API Key 按客户端地址分别计数）；
+        认证失败的请求、允许匿名访问的 /metrics 以及未注册路径按客户端 IP 计数（默认每个 IP 每分钟 60 次，RATE_LIMIT）。
+        两者共用 RATE_LIMIT_WINDOW。某个 IP 的配额用尽后，来自该 IP 的请求在认证之前即被拒绝。
+        数据接口、/metrics 与 /log/level 共用同一凭证配额；健康检查接口不限流。
+        响应体格式与 401 相同。
+      headers:
+        Retry-After:
+          description: 距离限流器再次接受请求的秒数（向上取整）。
+          schema: {type: integer, minimum: 1}
       content:
         text/plain:
           schema: {type: string}

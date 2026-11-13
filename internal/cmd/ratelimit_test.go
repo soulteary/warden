@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -60,47 +61,66 @@ func TestParseRateLimitWindow(t *testing.T) {
 }
 
 func TestRateLimitEnvOverridesConfigFile(t *testing.T) {
-	fromFile := &config.CmdConfigData{RateLimit: 120, RateLimitWindow: 2 * time.Minute}
+	fromFile := &config.CmdConfigData{RateLimit: 120, RateLimitAuthenticated: 1200, RateLimitWindow: 2 * time.Minute}
 
 	t.Run("file values are kept without env", func(t *testing.T) {
 		t.Setenv("RATE_LIMIT", "")
+		t.Setenv("RATE_LIMIT_AUTHENTICATED", "")
 		t.Setenv("RATE_LIMIT_WINDOW", "")
 		cfg := convertToConfig(fromFile)
-		if cfg.RateLimit != 120 || cfg.RateLimitWindow != 2*time.Minute {
-			t.Fatalf("got %d per %s, want 120 per 2m0s", cfg.RateLimit, cfg.RateLimitWindow)
+		if cfg.RateLimit != 120 || cfg.RateLimitAuthenticated != 1200 || cfg.RateLimitWindow != 2*time.Minute {
+			t.Fatalf("got %d and %d per %s, want 120 and 1200 per 2m0s", cfg.RateLimit, cfg.RateLimitAuthenticated, cfg.RateLimitWindow)
 		}
 	})
 
 	t.Run("env wins over file", func(t *testing.T) {
 		t.Setenv("RATE_LIMIT", "900")
+		t.Setenv("RATE_LIMIT_AUTHENTICATED", " 9000 ")
 		t.Setenv("RATE_LIMIT_WINDOW", "30s")
 		cfg := convertToConfig(fromFile)
-		if cfg.RateLimit != 900 || cfg.RateLimitWindow != 30*time.Second {
-			t.Fatalf("got %d per %s, want 900 per 30s", cfg.RateLimit, cfg.RateLimitWindow)
+		if cfg.RateLimit != 900 || cfg.RateLimitAuthenticated != 9000 || cfg.RateLimitWindow != 30*time.Second {
+			t.Fatalf("got %d and %d per %s, want 900 and 9000 per 30s", cfg.RateLimit, cfg.RateLimitAuthenticated, cfg.RateLimitWindow)
 		}
 	})
 
 	t.Run("invalid env is reported, not ignored", func(t *testing.T) {
 		t.Setenv("RATE_LIMIT", "lots")
+		t.Setenv("RATE_LIMIT_AUTHENTICATED", "0")
 		t.Setenv("RATE_LIMIT_WINDOW", "1x")
 		cfg := convertToConfig(fromFile)
-		if cfg.RateLimit != 120 || cfg.RateLimitWindow != 2*time.Minute {
-			t.Fatalf("invalid env changed the values: %d per %s", cfg.RateLimit, cfg.RateLimitWindow)
+		if cfg.RateLimit != 120 || cfg.RateLimitAuthenticated != 1200 || cfg.RateLimitWindow != 2*time.Minute {
+			t.Fatalf("invalid env changed the values: %d and %d per %s", cfg.RateLimit, cfg.RateLimitAuthenticated, cfg.RateLimitWindow)
 		}
-		if errs := validateRateLimit(cfg); len(errs) != 2 {
-			t.Fatalf("validateRateLimit returned %d errors, want 2: %v", len(errs), errs)
+		if errs := validateRateLimit(cfg); len(errs) != 3 {
+			t.Fatalf("validateRateLimit returned %d errors, want 3: %v", len(errs), errs)
 		}
 	})
 }
 
+func TestValidateConfigRejectsInvalidRateLimitAuthenticated(t *testing.T) {
+	cfg := &Config{Port: "8081", TaskInterval: 5, Mode: "ONLY_LOCAL", Environment: "development"}
+	t.Setenv("RATE_LIMIT_AUTHENTICATED", "600")
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("valid value rejected: %v", err)
+	}
+	for _, raw := range []string{"0", "-1", "600/min", "many"} {
+		t.Setenv("RATE_LIMIT_AUTHENTICATED", raw)
+		err := ValidateConfig(cfg)
+		if err == nil || !strings.Contains(err.Error(), "Invalid RATE_LIMIT_AUTHENTICATED") {
+			t.Errorf("RATE_LIMIT_AUTHENTICATED=%q: got %v, want a startup error naming the variable", raw, err)
+		}
+	}
+}
+
 func TestValidateRateLimitConfigValues(t *testing.T) {
 	t.Setenv("RATE_LIMIT", "")
+	t.Setenv("RATE_LIMIT_AUTHENTICATED", "")
 	t.Setenv("RATE_LIMIT_WINDOW", "")
 
 	valid := []Config{
 		{}, // zero resolves to the defaults
 		{RateLimit: define.DEFAULT_RATE_LIMIT, RateLimitWindow: define.DEFAULT_RATE_LIMIT_WINDOW},
-		{RateLimit: 1, RateLimitWindow: time.Second},
+		{RateLimit: 1, RateLimitAuthenticated: 1, RateLimitWindow: time.Second},
 	}
 	for i := range valid {
 		if errs := validateRateLimit(&valid[i]); len(errs) != 0 {
@@ -110,6 +130,7 @@ func TestValidateRateLimitConfigValues(t *testing.T) {
 
 	invalid := []Config{
 		{RateLimit: -1},
+		{RateLimitAuthenticated: -1},
 		{RateLimitWindow: -time.Second},
 		{RateLimitWindow: 100 * time.Millisecond},
 	}

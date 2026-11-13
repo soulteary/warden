@@ -110,14 +110,23 @@ func TestNormalizeMethodLabel(t *testing.T) {
 }
 
 func TestValidateTrustedProxyIPs(t *testing.T) {
-	for _, valid := range []string{"", " , ", "10.0.0.1", "10.0.0.1, 172.16.0.0/12", "2001:db8::1,fd00::/8"} {
+	for _, valid := range []string{"", " , ", "10.0.0.1", "10.0.0.1, 172.16.0.0/12", "2001:db8::1,fd00::/8", "none", " NONE ", "None,"} {
 		if err := ValidateTrustedProxyIPs(valid); err != nil {
 			t.Errorf("ValidateTrustedProxyIPs(%q) = %v, want nil", valid, err)
 		}
 	}
-	for _, invalid := range []string{"proxy.internal", "10.0.0.1,10.0.0", "10.0.0.0/33", "10.0.0.1;10.0.0.2", "10.0.0.1:8080"} {
+	for _, invalid := range []string{"proxy.internal", "10.0.0.1,10.0.0", "10.0.0.0/33", "10.0.0.1;10.0.0.2", "10.0.0.1:8080", "none,10.0.0.1", "10.0.0.1, None", "none,none", "nobody"} {
 		if err := ValidateTrustedProxyIPs(invalid); err == nil {
 			t.Errorf("ValidateTrustedProxyIPs(%q) = nil, want an error", invalid)
 		}
+	}
+}
+
+func TestTrustedProxyDisabled(t *testing.T) {
+	for _, raw := range []string{"none", "NONE", " None ", ",none,"} {
+		assert.True(t, TrustedProxyDisabled(raw), raw)
+	}
+	for _, raw := range []string{"", " ", "10.0.0.1", "none,10.0.0.1", "none,none", "nobody"} {
+		assert.False(t, TrustedProxyDisabled(raw), raw)
 	}
 }

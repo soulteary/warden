@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	health "github.com/soulteary/health-kit/v4"
-	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/cmd"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 )
 
 type stubRefreshLocker struct {
@@ -454,11 +454,7 @@ func TestStartServer(t *testing.T) {
 // TestShutdownServer tests server shutdown
 func TestShutdownServer(t *testing.T) {
 	t.Helper()
-	// Create a simple rate limiter (using middleware-kit DefaultRateLimiterConfig + overrides)
-	cfg := middlewarekit.DefaultRateLimiterConfig()
-	cfg.Rate = 100
-	cfg.Window = time.Second
-	rateLimiter := middlewarekit.NewRateLimiter(cfg)
+	rateLimiter := middleware.NewRateLimits(100, 100, time.Second)
 
 	// Create a test server
 	srv := &http.Server{
@@ -1346,10 +1342,7 @@ func TestShutdownServer_WithNilRateLimiter(t *testing.T) {
 
 // TestShutdownServer_ShutdownError tests error handling during server shutdown
 func TestShutdownServer_ShutdownError(t *testing.T) {
-	cfg := middlewarekit.DefaultRateLimiterConfig()
-	cfg.Rate = 100
-	cfg.Window = time.Second
-	rateLimiter := middlewarekit.NewRateLimiter(cfg)
+	rateLimiter := middleware.NewRateLimits(100, 100, time.Second)
 
 	// Create an already closed server
 	srv := &http.Server{
@@ -1970,10 +1963,10 @@ func TestMetricsRequireAuth(t *testing.T) {
 	}
 }
 
-func TestIPAllowlistTrustsPrivatePeers(t *testing.T) {
-	assert.True(t, ipAllowlistTrustsPrivatePeers("203.0.113.5", nil))
-	assert.True(t, ipAllowlistTrustsPrivatePeers(" 203.0.113.0/24 ", []string{}))
-	assert.False(t, ipAllowlistTrustsPrivatePeers("203.0.113.5", []string{"10.0.0.1"}))
-	assert.False(t, ipAllowlistTrustsPrivatePeers("", nil))
-	assert.False(t, ipAllowlistTrustsPrivatePeers("  ", nil))
+func TestTrustsPrivatePeers(t *testing.T) {
+	assert.True(t, trustsPrivatePeers(""))
+	assert.True(t, trustsPrivatePeers(" , "))
+	assert.False(t, trustsPrivatePeers("10.0.0.1"))
+	assert.False(t, trustsPrivatePeers("none"))
+	assert.False(t, trustsPrivatePeers(" NONE "))
 }

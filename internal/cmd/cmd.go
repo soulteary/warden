@@ -70,6 +70,8 @@ type Config struct {
 
 	// env RATE_LIMIT: requests allowed per window, per client IP
 	RateLimit int
+	// env RATE_LIMIT_AUTHENTICATED: requests allowed per window, per credential
+	RateLimitAuthenticated int
 	// env RATE_LIMIT_WINDOW
 	RateLimitWindow time.Duration
 }
@@ -295,8 +297,8 @@ func processRemoteConfigFromFlags(cfg *Config, fs *flag.FlagSet) {
 	}
 }
 
-// ParseRateLimit parses RATE_LIMIT: the number of requests one client IP may
-// send per window.
+// ParseRateLimit parses RATE_LIMIT and RATE_LIMIT_AUTHENTICATED: the number of
+// requests one client IP, or one credential, may send per window.
 func ParseRateLimit(raw string) (int, error) {
 	rate, err := strconv.Atoi(strings.TrimSpace(raw))
 	if err != nil {
@@ -326,13 +328,18 @@ func ParseRateLimitWindow(raw string) (time.Duration, error) {
 	return window, nil
 }
 
-// processRateLimitFromEnv applies RATE_LIMIT and RATE_LIMIT_WINDOW on top of
-// the configuration-file values. Unparsable values are left for ValidateConfig
+// processRateLimitFromEnv applies RATE_LIMIT, RATE_LIMIT_AUTHENTICATED and
+// RATE_LIMIT_WINDOW on top of the configuration-file values. Unparsable values are left for ValidateConfig
 // to report, so a typo stops startup and does not fall back to the default.
 func processRateLimitFromEnv(cfg *Config) {
 	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT")); raw != "" {
 		if rate, err := ParseRateLimit(raw); err == nil {
 			cfg.RateLimit = rate
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_AUTHENTICATED")); raw != "" {
+		if rate, err := ParseRateLimit(raw); err == nil {
+			cfg.RateLimitAuthenticated = rate
 		}
 	}
 	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_WINDOW")); raw != "" {
@@ -562,6 +569,7 @@ func getArgsFromFlags() *Config {
 		HTTPMaxIdleConns:        100,
 		HTTPInsecureTLS:         false,
 		RateLimit:               define.DEFAULT_RATE_LIMIT,
+		RateLimitAuthenticated:  define.DEFAULT_RATE_LIMIT_AUTHENTICATED,
 		RateLimitWindow:         define.DEFAULT_RATE_LIMIT_WINDOW,
 	}
 
@@ -652,6 +660,7 @@ func convertToConfig(cfg *config.CmdConfigData) *Config {
 		TLSCAFile:                cfg.TLSCAFile,
 		TLSRequireClientCert:     cfg.TLSRequireClientCert,
 		RateLimit:                cfg.RateLimit,
+		RateLimitAuthenticated:   cfg.RateLimitAuthenticated,
 		RateLimitWindow:          cfg.RateLimitWindow,
 	}
 	processRateLimitFromEnv(result)
