@@ -554,7 +554,7 @@ func getArgsFromFlags() *Config {
 		Port:                    strconv.Itoa(define.DEFAULT_PORT),
 		Redis:                   define.DEFAULT_REDIS,
 		RedisEnabled:            true, // Default to enable Redis (backward compatibility)
-		RemoteConfig:            define.DEFAULT_REMOTE_CONFIG,
+		RemoteConfig:            "",   // no remote source unless one is configured
 		RemoteKey:               define.DEFAULT_REMOTE_KEY,
 		TaskInterval:            define.DEFAULT_TASK_INTERVAL,
 		Mode:                    define.DEFAULT_MODE,
@@ -581,7 +581,7 @@ func getArgsFromFlags() *Config {
 		port:             define.DEFAULT_PORT,
 		redis:            define.DEFAULT_REDIS,
 		redisEnabled:     true,
-		config:           define.DEFAULT_REMOTE_CONFIG,
+		config:           "",
 		key:              define.DEFAULT_REMOTE_KEY,
 		mode:             define.DEFAULT_MODE,
 		dataFile:         define.DEFAULT_DATA_FILE,

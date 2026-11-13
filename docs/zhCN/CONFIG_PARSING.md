@@ -217,7 +217,7 @@ export REDIS_ENABLED=false
 - **环境变量**: `CONFIG`
 - **配置文件**: `remote.url`
 - **类型**: URL 字符串
-- **默认值**: `http://localhost:8080/data.json`
+- **默认值**: 空（没有远程数据源）
 - **说明**: 远程数据源 URL
 
 **示例**:

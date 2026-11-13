@@ -367,6 +367,13 @@ func validateEndpointsAndMode(cfg *Config) []string {
 		}
 	}
 
+	// A mode that must read the remote source cannot run without one. Without
+	// this check the service would start and fail every load.
+	if mode, ok := config.ParseMergeMode(cfg.Mode); ok && strings.TrimSpace(cfg.RemoteConfig) == "" &&
+		(mode == config.MergeOnlyRemote || mode == config.MergeRemoteFirst) {
+		errs = append(errs, fmt.Sprintf("MERGE_MODE=%s requires a remote source: set CONFIG (or --config, remote.url) to its URL, or choose a mode that does not depend on a remote source", mode))
+	}
+
 	// Validate task interval
 	if cfg.TaskInterval < 1 {
 		errs = append(errs, i18n.TfWithLang(i18n.LangZH, "validation.task_interval_invalid", cfg.TaskInterval))

@@ -51,7 +51,7 @@ SDK 的 CacheTTL 是另一项独立客户端选项。
 | HTTP 客户端 | 跳过 TLS 验证 | `http.insecure_tls` | `HTTP_INSECURE_TLS` | `false` |
 | HTTP 客户端 | 最大重试 | `http.max_retries` | — | `3` |
 | HTTP 客户端 | 重试延迟 | `http.retry_delay` | — | `1s` |
-| 远程 | URL | `remote.url` | `CONFIG` | `http://localhost:8080/data.json` |
+| 远程 | URL | `remote.url` | `CONFIG` | 空（没有远程数据源） |
 | 远程 | 认证 Key | `remote.key` | `KEY` | 空 |
 | 远程 | 模式 | `remote.mode` / `app.mode` | `MERGE_MODE` | `DEFAULT` |
 | 远程 | 解密启用 | `remote.decrypt_enabled` | `REMOTE_DECRYPT_ENABLED` | `false` |
@@ -113,6 +113,8 @@ SDK 的 CacheTTL 是另一项独立客户端选项。
 | `LOCAL_FIRST` | 本地优先，本地数据不存在时使用远程数据补充 | 本地配置为主，远程为辅 |
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | 远程优先，允许远程失败时回退到本地 | 高可用场景 |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | 本地优先，允许远程失败时回退到本地 | 混合模式 |
+
+**没有远程数据源**：`CONFIG` / `remote.url` 没有默认值。留空时没有远程数据源：`DEFAULT`、`LOCAL_FIRST` 以及两个 `*_ALLOW_REMOTE_FAILED` 模式只加载本地数据，不发起远程请求，也不会被报告为降级；生产环境针对远程数据源的规则（HTTPS、加密）不适用。`ONLY_REMOTE` 与 `REMOTE_FIRST` 在没有远程数据源时拒绝启动。
 
 ### 快照新鲜度与远程失败
 
@@ -372,7 +374,7 @@ http:
   retry_delay: 1s
 
 remote:
-  url: "http://localhost:8080/data.json"
+  url: ""  # 远程数据源 URL；留空表示没有远程数据源
   key: ""
   mode: "DEFAULT"
   decrypt_enabled: false       # 远程响应 RSA 解密
