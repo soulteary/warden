@@ -20,6 +20,7 @@ import (
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 )
 
 // GetUserByIdentifier queries a single user by identifier.
@@ -110,7 +111,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 
 			// Audit log: user query failed (identifier sanitized to avoid PII in audit storage)
 			identifier, identifierType := auditIdentifier(phone, mail, userID)
-			auditlog.LogUserQuery(r.Context(), "", sanitizeIdentifierForAudit(identifier, identifierType), identifierType, r.RemoteAddr, false, "user_not_found")
+			auditlog.LogUserQuery(r.Context(), "", sanitizeIdentifierForAudit(identifier, identifierType), identifierType, middleware.ClientIP(r), false, "user_not_found")
 
 			WriteJSONError(w, http.StatusNotFound, i18n.T(r, "http.user_not_found"))
 			return
@@ -146,7 +147,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 
 		// Audit log: user query success (identifier sanitized to avoid PII in audit storage)
 		identifier, identifierType := auditIdentifier(phone, mail, userID)
-		auditlog.LogUserQuery(r.Context(), user.UserID, sanitizeIdentifierForAudit(identifier, identifierType), identifierType, r.RemoteAddr, true, "")
+		auditlog.LogUserQuery(r.Context(), user.UserID, sanitizeIdentifierForAudit(identifier, identifierType), identifierType, middleware.ClientIP(r), true, "")
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 )
 
 // LookupResponse is the response body for GET /v1/lookup (Stargate/Herald integration).
@@ -98,7 +99,7 @@ func GetLookup(userCache cache.ViewSource, responseFields []string) func(http.Re
 			} else {
 				sanitized = logger.SanitizePhone(identifier)
 			}
-			auditlog.LogUserQuery(r.Context(), "", sanitized, "identifier", r.RemoteAddr, false, "user_not_found")
+			auditlog.LogUserQuery(r.Context(), "", sanitized, "identifier", middleware.ClientIP(r), false, "user_not_found")
 			WriteJSONError(w, http.StatusNotFound, i18n.T(r, "http.user_not_found"))
 			return
 		}
@@ -147,7 +148,7 @@ func GetLookup(userCache cache.ViewSource, responseFields []string) func(http.Re
 		} else {
 			sanitized = logger.SanitizePhone(identifier)
 		}
-		auditlog.LogUserQuery(r.Context(), user.UserID, sanitized, "identifier", r.RemoteAddr, true, "")
+		auditlog.LogUserQuery(r.Context(), user.UserID, sanitized, "identifier", middleware.ClientIP(r), true, "")
 	}
 }
 

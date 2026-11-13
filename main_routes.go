@@ -249,9 +249,9 @@ func registerRoutes(app *App) *http.ServeMux {
 		bodyLimitMiddleware(
 			middleware.MetricsMiddleware(
 				limitedAuthMiddleware(
-					loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
+					middleware.AuditLogLevel(lkLog, loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
 						Logger: lkLog,
-					}),
+					})),
 				),
 			),
 		),

@@ -332,6 +332,9 @@ paths:
         动态调整服务的日志级别。
         
         支持的级别：trace, debug, info, warn, error, fatal, panic
+
+        每次请求（无论成功或被拒绝）都会作为审计记录（`"audit": true`）写入应用日志，
+        包含已认证的调用方、客户端地址以及修改前后的级别。
       operationId: setLogLevel
       requestBody:
         required: true

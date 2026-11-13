@@ -8,42 +8,58 @@ import (
 	"sync"
 
 	audit "github.com/soulteary/audit-kit/v2"
+	loggerkit "github.com/soulteary/logger-kit/v3"
 )
 
 var (
+	mu         sync.RWMutex
 	logger     *audit.Logger
 	loggerInit sync.Once
 )
 
-// Init initializes the audit logger with the given storage and config
+// Init initializes the audit logger with the given storage and config.
+//
+// With a nil storage the records are written to the structured application log
+// (see logStorage), so an audit trail exists without any further setup. A
+// storage passed here receives the records through the asynchronous writer.
 func Init(storage audit.Storage, cfg *audit.Config) {
 	loggerInit.Do(func() {
 		if cfg == nil {
 			cfg = audit.DefaultConfig()
 		}
 
+		var l *audit.Logger
 		if storage == nil {
-			// Use no-op storage if none provided
-			storage = audit.NewNoopStorage()
+			// Written synchronously: a log line needs no queue, and a queue
+			// could drop records under load.
+			l = audit.NewLogger(logStorage{}, cfg)
+		} else {
+			l = audit.NewLoggerWithWriter(storage, cfg)
 		}
 
-		logger = audit.NewLoggerWithWriter(storage, cfg)
+		mu.Lock()
+		logger = l
+		mu.Unlock()
 	})
 }
 
-// GetLogger returns the audit logger instance
+// GetLogger returns the audit logger instance, initializing it with the
+// application-log sink when Init has not been called.
 func GetLogger() *audit.Logger {
-	if logger == nil {
-		// Initialize with no-op storage if not initialized
-		Init(nil, nil)
-	}
+	Init(nil, nil)
+	return current()
+}
+
+func current() *audit.Logger {
+	mu.RLock()
+	defer mu.RUnlock()
 	return logger
 }
 
 // Stop stops the audit logger
 func Stop() error {
-	if logger != nil {
-		return logger.Stop()
+	if l := current(); l != nil {
+		return l.Stop()
 	}
 	return nil
 }
@@ -62,6 +78,7 @@ func LogUserQuery(ctx context.Context, userID, identifier, identifierType, ip st
 
 	l.LogAccess(ctx, audit.EventCustom, userID, "user_query", result,
 		audit.WithRecordIP(ip),
+		audit.WithRecordRequestID(loggerkit.RequestIDFromContext(ctx)),
 		audit.WithRecordReason(reason),
 		audit.WithRecordMetadata("identifier", identifier),
 		audit.WithRecordMetadata("identifier_type", identifierType),
@@ -120,6 +137,29 @@ func LogConfigChange(ctx context.Context, configKey, oldValue, newValue, ip, use
 		WithMetadata("config_key", configKey)
 
 	l.Log(ctx, record)
+}
+
+// LogLevelChange records a request to change the log level through the
+// log-level endpoint. principal is the authenticated caller (an HMAC key ID, a
+// client certificate fingerprint or the API key constant); it is not a secret.
+// A refused or invalid request is recorded as a failure with unchanged levels.
+func LogLevelChange(ctx context.Context, principal, oldLevel, newLevel, ip, userAgent string, success bool) {
+	result := audit.ResultSuccess
+	if !success {
+		result = audit.ResultFailure
+	}
+
+	record := audit.NewRecord(audit.EventCustom, result).
+		WithIP(ip).
+		WithUserAgent(userAgent).
+		WithResource("config:log_level").
+		WithMetadata("config_key", "log_level").
+		WithMetadata("old_value", oldLevel).
+		WithMetadata("new_value", newLevel).
+		WithMetadata("principal", principal)
+	record.RequestID = loggerkit.RequestIDFromContext(ctx)
+
+	GetLogger().Log(ctx, record)
 }
 
 // LogAccessDenied records an access denied event
