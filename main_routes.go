@@ -357,7 +357,7 @@ func setupHealthChecker(redisClient *redis.Client, userCache *cache.SafeUserCach
 		aggregator.AddChecker(health.NewDisabledChecker("redis").
 			WithMessage("Redis is disabled"))
 	case redisClient != nil:
-		aggregator.AddChecker(redisprobe.New(redisClient))
+		aggregator.AddChecker(newCachedChecker(redisprobe.New(redisClient), redisProbeCacheTTL))
 	default:
 		aggregator.AddChecker(health.NewCustomChecker("redis", func(_ context.Context) error {
 			return errors.New("client not initialized")
