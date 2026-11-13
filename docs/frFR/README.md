@@ -225,5 +225,5 @@ Les améliorations de la documentation sont les bienvenues :
 
 ## Release and ownership contracts
 
-- [Release notes and upgrade requirements](../releases/v1.6.2.md)
+- [Release notes and upgrade requirements](../releases/v1.7.0.md)
 - [Scope ownership and retained memory](../enUS/SCOPE_OWNERSHIP.md)

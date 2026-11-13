@@ -21,7 +21,7 @@ info:
     本文档列出的路径即服务注册的全部路径。任何未列出的路径（例如 `/foo`、`/user/`）返回
     `404` 和 `{"error": "..."}`，不会返回用户数据。此前根路径 `/` 曾作为子树通配，任意
     未匹配路径都会返回完整允许列表，该行为已移除。
-  version: 1.6.2
+  version: 1.7.0
   contact:
     name: Warden Project
     url: https://github.com/soulteary/warden
