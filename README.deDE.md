@@ -47,7 +47,8 @@ cat > data.json <<EOF
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "status": "active"
     }
 ]
 EOF
@@ -77,7 +78,8 @@ Erstellen Sie eine `data.json`-Datei (siehe `data.example.json`):
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "status": "active"
     }
 ]
 ```

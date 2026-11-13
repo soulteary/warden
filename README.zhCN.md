@@ -51,7 +51,8 @@ cat > data.json <<EOF
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "status": "active"
     }
 ]
 EOF
@@ -63,6 +64,22 @@ docker run -d \
   -e API_KEY=your-api-key-here \
   ghcr.io/soulteary/warden:latest
 ```
+
+只有 `status` 为 `"active"` 的记录才会被放行。未填写 `status` 的记录会按 `"inactive"` 加载并被拒绝。
+
+上面的命令运行在默认的 `development` 环境中，适合试用。实际部署请设置 `ENVIRONMENT=production` 并使用随机生成的密钥；文档中的占位密钥在生产环境下会被拒绝：
+
+```bash
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e ENVIRONMENT=production \
+  -e MERGE_MODE=ONLY_LOCAL \
+  -e API_KEY="$(openssl rand -hex 32)" \
+  ghcr.io/soulteary/warden:latest
+```
+
+`development` 放宽了哪些检查，见[部署环境](#environment)。
 
 > 💡 **提示**: 查看 [示例目录](example/README.zhCN.md) 获取完整的 Docker Compose 配置示例。
 
@@ -85,7 +102,8 @@ go mod download
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "status": "active"
     }
 ]
 ```
@@ -109,12 +127,28 @@ Warden 支持通过命令行参数、环境变量和配置文件进行配置。�
 | 配置项 | 环境变量 | 说明 | 必需 |
 |--------|---------|------|------|
 | 端口 | `PORT` | HTTP 服务器端口（默认：8081） | 否 |
-| API 密钥 | `API_KEY` | API 认证密钥（生产环境推荐） | 推荐 |
+| 部署环境 | `ENVIRONMENT` | `development`（默认）、`test` 或 `production`。`production` 会启用下文所述的安全检查 | 实际部署请设为 `production` |
+| API 密钥 | `API_KEY` | API 认证密钥。未配置任何凭证时，所有数据接口返回 401 | 是（已配置 HMAC 或 mTLS 时除外） |
 | Redis | `REDIS` | Redis 地址，用于缓存和分布式锁（如：`localhost:6379`） | 可选 |
 | 数据文件 | `DATA_FILE` | 本地数据文件路径（默认：`./data.json`，支持 `--data-file`） | 是* |
 | 远程配置 | `CONFIG` | 用于获取数据的远程 API URL | 可选 |
 
 \* 如果不使用远程 API，则必需
+
+<a name="environment"></a>
+
+### 部署环境
+
+`ENVIRONMENT` 决定安全策略，与数据合并模式（`MERGE_MODE`）相互独立。默认值为 `development`，此时 Warden：
+
+- `/metrics` 无需认证即可访问；
+- `/health` 响应包含各检查项的详情，错误响应包含原始错误信息；
+- 未配置任何凭证也能启动（数据接口此时返回 401），并接受文档中的占位密钥以及短于 32 字节的 HMAC 密钥；
+- 接受使用明文 HTTP、未加密或设置了 `HTTP_INSECURE_TLS=true` 的远程数据源；
+- 接受未配置 `TRUSTED_PROXY_IPS` 的 `IP_WHITELIST`；
+- 无论最近一次成功加载数据源距今多久都会返回数据（`SNAPSHOT_READ_POLICY` 默认为 `observe`）。
+
+设置 `ENVIRONMENT=production` 后，上述各项要么在启动时被拒绝，要么切换为严格行为：必须配置凭证，`/metrics` 需要认证，错误与健康检查响应不含详情，远程数据源必须使用 HTTPS 与 v2 加密信封，`SNAPSHOT_READ_POLICY` 默认为 `enforce`。根目录的 `docker-compose.yml` 默认设置 `ENVIRONMENT=production`。详见[安全文档](docs/zhCN/SECURITY.md)。
 
 完整配置选项请参考 [配置文档](docs/zhCN/CONFIGURATION.md)。
 

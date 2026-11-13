@@ -17,7 +17,8 @@
     },
     {
         "phone": "13700137000",
-        "mail": "guest@example.com"
+        "mail": "guest@example.com",
+        "status": "active"
     }
 ]
 
