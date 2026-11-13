@@ -176,6 +176,9 @@ func NewApp(cfg *cmd.Config) *App {
 		prommetrics.RecordDeprecation("encryption_legacy")
 	}
 	app.initHMACKeys(cfg)
+	for _, warning := range cmd.MissingCredentialWarnings(cfg) {
+		app.log.Warn().Msg(warning)
+	}
 
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))

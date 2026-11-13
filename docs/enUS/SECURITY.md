@@ -101,6 +101,8 @@ Some API endpoints require API Key authentication:
 - `GET /log/level` - Get log level
 - `POST /log/level` - Set log level
 
+These endpoints never run without a credential. Production refuses to start when none of `API_KEY`, `WARDEN_HMAC_KEYS` and mTLS is configured. The other environments start and answer 401 to every request on these endpoints, and log a warning at startup that says so.
+
 **Endpoints Not Requiring Authentication** (must be protected by other means in production):
 - `GET /health` - Health check (**must** configure `HEALTH_CHECK_IP_WHITELIST` or network isolation)
 - `GET /healthcheck` - Health check (same as above)
