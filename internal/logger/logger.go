@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog"
 	loggerkit "github.com/soulteary/logger-kit/v3"
 	secure "github.com/soulteary/secure-kit/v2"
+	version "github.com/soulteary/version-kit/v4"
 )
 
 // log is the global logger-kit instance
@@ -25,14 +26,20 @@ var zerologPtr *zerolog.Logger
 
 func init() {
 	// Initialize logger using logger-kit
-	log = loggerkit.New(loggerkit.Config{
+	log = loggerkit.New(defaultConfig())
+	zerologInstance = log.Zerolog()
+	zerologPtr = &zerologInstance
+}
+
+// defaultConfig is the configuration of the process logger. The version field
+// of every log line is the build version, the value `warden --version` prints.
+func defaultConfig() loggerkit.Config {
+	return loggerkit.Config{
 		Level:          loggerkit.ParseLevelFromEnv("LOG_LEVEL", loggerkit.InfoLevel),
 		Format:         loggerkit.FormatJSON,
 		ServiceName:    "warden",
-		ServiceVersion: "0.7.0",
-	})
-	zerologInstance = log.Zerolog()
-	zerologPtr = &zerologInstance
+		ServiceVersion: version.Version,
+	}
 }
 
 // GetLogger returns zerolog.Logger for backward compatibility with code that

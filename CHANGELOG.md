@@ -54,6 +54,9 @@
 
 ### Fixed
 
+- Log the build version in the `version` field of every log line. The logger
+  was created with the fixed value `0.7.0`, so releases up to v1.7.0 logged
+  `"version":"0.7.0"` while `warden --version` printed the real version.
 - Send production error responses with `Content-Type: application/json`. The
   production error handler replaces every error body with a JSON object, but
   responses written with `http.Error` (401, 413, 429 and others) kept the
