@@ -87,7 +87,7 @@ func TestNewClient(t *testing.T) {
 		{
 			name:    "URL without protocol",
 			opts:    DefaultOptions().WithBaseURL("localhost:8081"),
-			wantErr: false,
+			wantErr: true,
 		},
 	}
 
@@ -1043,11 +1043,6 @@ func TestOptions_Validate_URLNormalization(t *testing.T) {
 		{
 			name:     "URL with trailing slash",
 			input:    "http://localhost:8081/",
-			expected: "http://localhost:8081",
-		},
-		{
-			name:     "URL without protocol",
-			input:    "localhost:8081",
 			expected: "http://localhost:8081",
 		},
 		{

@@ -122,6 +122,10 @@ func NewClient(opts *Options) (*Client, error) {
 		go client.listenForCacheInvalidation(ctx)
 	}
 
+	if base, err := url.Parse(opts.BaseURL); err == nil && opts.sendsAPIKeyInClear(base) {
+		client.logger.Warn("Warden SDK: the API key is sent over plain HTTP to " + base.Host + "; use an https URL or HMAC signing")
+	}
+
 	client.logger.Debugf("Warden SDK client created: URL=%s, APIKey=%v, Retry=%v, Transport=%v",
 		opts.BaseURL, opts.APIKey != "", retry.MaxRetries > 0, opts.Transport != nil)
 
