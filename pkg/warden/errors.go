@@ -3,6 +3,7 @@ package warden
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // ErrRedirect indicates a rejected service redirect. SDK credentials are bound
@@ -27,6 +28,11 @@ type Error struct {
 	Code    string // Error code
 	Message string // Error message
 	Err     error  // Original error (if any)
+
+	// RetryAfter is how long the server asked the caller to wait before the
+	// next request. It is set on ErrCodeRateLimited errors when the response
+	// carried a Retry-After header, and zero otherwise.
+	RetryAfter time.Duration
 }
 
 func (e *Error) Error() string {
@@ -49,6 +55,9 @@ const (
 	ErrCodeNotFound        = "NOT_FOUND"
 	ErrCodeServerError     = "SERVER_ERROR"
 	ErrCodeSourceFreshness = "SOURCE_FRESHNESS"
+	// ErrCodeRateLimited is returned for HTTP 429. The SDK does not retry it;
+	// Error.RetryAfter says when the server will accept another request.
+	ErrCodeRateLimited = "RATE_LIMITED"
 )
 
 // NewError creates a new SDK error.
