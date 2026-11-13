@@ -24,7 +24,8 @@ Go 模块现声明 Go 1.27.4。
   此前这类条目会被丢弃。
 - `ENVIRONMENT=production` 且 `API_KEY` 为文档或示例中的占位值。请生成随机密钥，
   例如 `openssl rand -hex 32`。短于 16 个字符的密钥会记录警告。
-- `RATE_LIMIT`、`RATE_LIMIT_WINDOW` 或 `REDIS_TLS_ENABLED` 的值无效。
+- `RATE_LIMIT`、`RATE_LIMIT_WINDOW` 或 `REDIS_TLS_ENABLED` 的值无效，或配置文件中
+  `rate_limit.rate` 为负数、`rate_limit.window` 小于 1 秒。
 
 以下请求处理行为发生变化：
 
@@ -32,10 +33,21 @@ Go 模块现声明 Go 1.27.4。
   但限流始终按每分钟 60 次执行；文件中设置了其他值的部署会看到新值生效。
 - `/metrics` 和 `/log/level` 纳入限流及 10 KB 请求体限制，并与数据接口共用同一
   客户端配额。抓取频率高于限流配置的采集器会收到 429。健康检查接口不限流。
-- 带 HMAC 请求头且请求体超过 10 KB 的请求，在所有路由和方法上返回 401。
+- 带 HMAC 请求头且请求体超过 10 KB 的请求会在验签之前被拒绝。`Content-Length`
+  超限的 `POST`、`PUT`、`PATCH`、`DELETE` 请求由请求体限制中间件返回 413，与此前
+  一致；带请求体的 `GET`、`HEAD`、`OPTIONS` 请求，以及没有 `Content-Length` 的分块
+  请求返回 401，此前它们的请求体会被完整读入。
 - `RESPONSE_FIELDS` 现在作用于 `/v1/lookup`。`user_id`、`status`、`channel_hint`
   和 `destination` 对象始终返回。设置了 `RESPONSE_FIELDS` 并通过 `/v1/lookup`
   投递验证码的部署，必须包含 `mail` 和/或 `phone`。白名单为空时响应不变。
+  `mail` 控制 `destination.email`，`phone` 控制 `destination.phone`，`name` 和
+  `dingtalk_userid` 控制同名字段；通过钉钉投递验证码的部署还必须包含
+  `dingtalk_userid`，文档中的示例值 `phone,mail,user_id,status,name` 不含该字段。
+  字段名按原样精确匹配并区分大小写，`email`、`Mail` 这类未知名称不会报错，对应
+  字段会被省略。
+- 被限流的请求返回 429，响应体为纯文本 `Too Many Requests`，不带 `Retry-After`。
+  生产环境下响应体是 JSON 对象 `{"error":"..."}`，但 `Content-Type` 仍为
+  `text/plain`。
 - 链路追踪属性 `http.url` 不再包含查询字符串。
 - 1 KB 及以上的列表、用户和 lookup 响应在压缩时会带上 `Content-Encoding: gzip`。
 - 新建的审计日志文件权限为 0600，新建的日志目录为 0700；已有文件和目录保持原
