@@ -2,7 +2,9 @@ package warden
 
 import (
 	"crypto/tls"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -53,6 +55,10 @@ type Options struct {
 	HMACSecret string
 	// Clock overrides the time source used for signature timestamps and enabled source freshness (testing).
 	Clock Clock
+	// RequireHTTPS refuses a plain-HTTP BaseURL when an API key would be sent
+	// to a host other than the local machine. Without it such a configuration
+	// is accepted and reported once through Logger at warn level.
+	RequireHTTPS bool
 	// TLSConfig, when set, is applied to the HTTP transport (e.g. client certs, root
 	// CAs). It takes precedence over Transport's own TLSClientConfig.
 	TLSConfig *tls.Config
@@ -90,9 +96,8 @@ func (o *Options) Validate() error {
 	// Normalize BaseURL
 	o.BaseURL = strings.TrimSuffix(o.BaseURL, "/")
 
-	// Add protocol prefix if missing
-	if !strings.HasPrefix(o.BaseURL, "http://") && !strings.HasPrefix(o.BaseURL, "https://") {
-		o.BaseURL = "http://" + o.BaseURL
+	if err := o.validateBaseURL(); err != nil {
+		return err
 	}
 
 	// Validate timeout
@@ -118,8 +123,8 @@ func (o *Options) Validate() error {
 }
 
 // WithBaseURL sets the base URL for the Warden service.
-func (o *Options) WithBaseURL(url string) *Options {
-	o.BaseURL = url
+func (o *Options) WithBaseURL(baseURL string) *Options {
+	o.BaseURL = baseURL
 	return o
 }
 
@@ -138,6 +143,13 @@ func (o *Options) WithTimeout(timeout time.Duration) *Options {
 // WithCacheTTL sets the cache TTL.
 func (o *Options) WithCacheTTL(ttl time.Duration) *Options {
 	o.CacheTTL = ttl
+	return o
+}
+
+// WithRequireHTTPS makes NewClient refuse a configuration that would send the
+// API key over plain HTTP to a host other than the local machine.
+func (o *Options) WithRequireHTTPS(require bool) *Options {
+	o.RequireHTTPS = require
 	return o
 }
 
@@ -253,4 +265,39 @@ func (o *Options) validateRetry() error {
 	}
 
 	return nil
+}
+
+// validateBaseURL requires an absolute http or https URL. A value without a
+// scheme used to be given "http://", which chose cleartext without the caller
+// asking for it.
+//
+// With RequireHTTPS, a plain-HTTP URL to a host other than the local machine
+// is refused when an API key is configured: that key is sent in a request
+// header and would cross the network in clear. HMAC secrets and client
+// certificates are never transmitted, so they are not affected.
+func (o *Options) validateBaseURL() error {
+	parsed, err := url.Parse(o.BaseURL)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return NewError(ErrCodeInvalidConfig, "BaseURL must be an absolute URL that starts with http:// or https://", nil)
+	}
+	if o.RequireHTTPS && o.sendsAPIKeyInClear(parsed) {
+		return NewError(ErrCodeInvalidConfig, "BaseURL must use https when an API key is configured and RequireHTTPS is set", nil)
+	}
+	return nil
+}
+
+// sendsAPIKeyInClear reports whether requests would carry the API key over
+// plain HTTP to a host other than the local machine.
+func (o *Options) sendsAPIKeyInClear(base *url.URL) bool {
+	if base.Scheme != "http" || o.APIKey == "" || o.HMACSecret != "" {
+		return false
+	}
+	host := base.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return false
+	}
+	return true
 }

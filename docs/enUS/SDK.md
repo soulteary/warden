@@ -226,8 +226,9 @@ invalidationCh <- struct{}{}
 
 The `Options` struct is used to configure the client:
 
-- `BaseURL`: Warden service address (required)
-- `APIKey`: API Key (optional)
+- `BaseURL`: Warden service address (required). It must be an absolute URL that starts with `http://` or `https://`; a value without a scheme is rejected
+- `APIKey`: API Key (optional). It is sent in a request header, so use an `https://` URL unless Warden runs on the same machine
+- `RequireHTTPS`: when true, `NewClient` refuses a plain-HTTP `BaseURL` to a host other than the local machine if an API key would be sent to it. When false (the default) that configuration is accepted and reported once through `Logger` at warn level. HMAC signing does not transmit a secret and is not affected
 - `Timeout`: HTTP request timeout (default 10 seconds)
 - `CacheTTL`: Cache TTL (default 5 minutes)
 - `Logger`: Logger interface (optional, defaults to NoOpLogger)

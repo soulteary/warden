@@ -16,6 +16,9 @@
 
 ### Added
 
+- SDK: `Options.RequireHTTPS` (`WithRequireHTTPS`). When set, `NewClient`
+  refuses a plain-HTTP `BaseURL` to a host other than the local machine if an
+  API key would be sent to it. It is off by default.
 - `TRUSTED_PROXY_IPS=none` (case-insensitive, the only entry): no peer is
   trusted, `X-Forwarded-For` and `X-Real-IP` are ignored and the client address
   is always the TCP peer. `none` combined with other entries stops startup.
@@ -63,6 +66,14 @@
 
 ### Security
 
+- SDK: reject a `BaseURL` without a scheme. Such a value was given `http://`,
+  which selected cleartext without the caller asking for it. `BaseURL` must
+  now start with `http://` or `https://`; a client configured with a bare
+  `host:port` fails in `NewClient` until the scheme is added.
+- SDK: log a warning when the API key would be sent over plain HTTP to a host
+  other than the local machine. The configuration is still accepted unless
+  `RequireHTTPS` is set. The warning goes to the configured `Logger`, which
+  discards it by default.
 - With `ENVIRONMENT=production`, refuse to start when `IP_WHITELIST` is set
   and `TRUSTED_PROXY_IPS` is empty. A peer with a private or loopback address
   could present an allowlisted address in `X-Forwarded-For`. Upgrade effect:
