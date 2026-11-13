@@ -16,6 +16,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/identity"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -103,7 +104,7 @@ func GetLookup(userCache cache.ViewSource, responseFields []string) func(http.Re
 			return
 		}
 
-		span.SetAttributes(attribute.Bool("warden.lookup.found", true), attribute.String("warden.user.id", user.UserID))
+		span.SetAttributes(attribute.Bool("warden.lookup.found", true), userIDAttribute("warden.user.id", user.UserID))
 
 		resp := LookupResponse{
 			UserID: user.UserID,
@@ -138,7 +139,7 @@ func GetLookup(userCache cache.ViewSource, responseFields []string) func(http.Re
 		}
 
 		logger.FromRequest(r).Info().
-			Str("user_id", user.UserID).
+			Str("user_id", identity.MaskUserID(user.UserID)).
 			Str("channel_hint", channelHint).
 			Msg(i18n.T(r, "log.user_query_success"))
 		var sanitized string

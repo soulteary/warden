@@ -25,7 +25,7 @@ func sanitizeEmail(email string) string {
 	return secure.MaskString(email, 2)
 }
 
-// sanitizeURL sanitizes URL by masking sensitive query parameters (phone, mail, email)
+// sanitizeURL sanitizes URL by masking sensitive query parameters (phone, mail, email, user_id)
 // Parameter names are matched case-insensitively
 func sanitizeURL(u *url.URL) string {
 	if u == nil {
@@ -37,7 +37,7 @@ func sanitizeURL(u *url.URL) string {
 	query := u.Query()
 
 	// Sanitize sensitive query parameters (case-insensitive matching)
-	sensitiveParams := []string{"phone", "mail", "email"}
+	sensitiveParams := []string{"phone", "mail", "email", "user_id"}
 	for key, values := range query {
 		keyLower := strings.ToLower(key)
 		for _, param := range sensitiveParams {
