@@ -8,8 +8,10 @@ import (
 	"os"
 	"testing"
 
+	"encoding/json"
 	"github.com/rs/zerolog"
 	loggerkit "github.com/soulteary/logger-kit/v3"
+	version "github.com/soulteary/version-kit/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -530,4 +532,28 @@ func TestSanitizeURLString(t *testing.T) {
 func TestSanitizeURL_NilURL(t *testing.T) {
 	result := SanitizeURL(nil)
 	assert.Equal(t, "", result, "nil URL应该返回空字符串")
+}
+
+// The version field of every log line must be the build version, the value
+// `warden --version` reports. It used to be a fixed "0.7.0".
+func TestLogLinesCarryTheBuildVersion(t *testing.T) {
+	previous := version.Version
+	t.Cleanup(func() { version.Version = previous })
+	version.Version = "9.8.7-test"
+
+	var out bytes.Buffer
+	cfg := defaultConfig()
+	cfg.Output = &out
+	loggerkit.New(cfg).Info().Msg("probe")
+
+	var line map[string]any
+	if err := json.Unmarshal(out.Bytes(), &line); err != nil {
+		t.Fatalf("log line is not JSON: %v (%q)", err, out.String())
+	}
+	if line["version"] != "9.8.7-test" {
+		t.Fatalf("version field = %v, want the build version", line["version"])
+	}
+	if line["service"] != "warden" {
+		t.Fatalf("service field = %v, want warden", line["service"])
+	}
 }
