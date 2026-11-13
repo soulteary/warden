@@ -14,6 +14,8 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-13
+
 ### Fixed
 
 - Apply `rate_limit.rate` and `rate_limit.window` from the configuration file.
@@ -21,9 +23,15 @@
 - Stop startup when Redis is enabled and `REDIS_PASSWORD_FILE` or
   `redis.password_file` is configured but unreadable or empty. The error was
   ignored and Warden connected to Redis without a password.
-- Update `middleware-kit/v3` to v3.0.5. List, user and lookup responses of 1 KB
-  or more were sent gzip-compressed without `Content-Encoding: gzip` to clients
-  that accept gzip, which standard HTTP clients could not decode.
+- Update `middleware-kit/v3` from v3.0.4 to v3.0.6. List, user and lookup
+  responses of 1 KB or more were sent gzip-compressed without
+  `Content-Encoding: gzip` to clients that accept gzip, which standard HTTP
+  clients could not decode. The rate limiter also evicts entries again when its
+  client table is full; it previously re-sorted the full table for every new
+  client address without freeing an entry.
+- The release workflow accepts the response format the GitHub CLI prints when
+  the Release is created. The v1.6.3 run stopped at that step after pushing
+  the image; its Release was completed by a separate recovery workflow.
 
 ### Added
 
@@ -79,8 +87,44 @@
 
 ### Changed
 
-- Update `audit-kit/v2` to v2.1.5 (audit log files are created with mode 0600)
-  and refresh indirect dependencies.
+- Update `audit-kit/v2` from v2.1.4 to v2.1.6. New audit log files are created
+  with mode 0600 and new log directories with mode 0700. Existing files and
+  directories keep their mode; a process that reads the audit log under
+  another account needs access granted explicitly.
+- Update the other shared kits to their current releases: `cache-kit/v2`
+  v2.1.2, `cli-kit` v1.9.4, `health-kit/v4` v4.0.7, `http-kit/v2` v2.1.1,
+  `i18n-kit/v4` v4.0.6, `logger-kit/v3` v3.0.6, `metrics-kit/v3` v3.0.6,
+  `parser-kit/v3` v3.0.4, `redis-kit` v1.8.2, `secure-kit/v2` v2.1.5,
+  `tracing-kit/v2` v2.0.4 and `version-kit/v4` v4.0.5. These releases require
+  Go 1.27.4 and keep their module paths and public APIs.
+- The health, i18n, logger, metrics, middleware and version kits now select
+  Fiber v3.7.0 (previously v3.6.1) for their Fiber adapters. Warden serves HTTP
+  with `net/http` and does not compile Fiber packages; only the version in the
+  module graph changes.
+- Refresh indirect dependencies, including `prometheus/common` v0.74.0,
+  `spf13/pflag` v1.1.0 and `golang.org/x/sys` v0.50.0.
+- The Go module now declares `go 1.27.4`. SDK consumers need Go 1.27.4 or
+  later to build against this release.
+
+See [release notes](docs/releases/v1.7.0.md) for upgrade checks and rollback.
+
+## [1.6.3] - 2026-11-09
+
+This entry was added with v1.7.0. v1.6.3 was tagged without a changelog entry.
+
+### Added
+
+- Add `warden --version`, which prints one JSON record with the linker version,
+  commit and build date and exits before normal startup. See
+  [version command](docs/VERSION_COMMAND.md).
+
+### Changed
+
+- The release workflow refuses to publish a version whose GitHub Release or
+  exact-version container image already exists, and creates the Release with a
+  create-only request. Binaries and images of a release use the full source
+  revision and one build timestamp. See
+  [fresh version publication](docs/RELEASE_VERSION_GUARD.md).
 
 ## [1.6.2] - 2026-11-08
 

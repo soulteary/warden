@@ -7,7 +7,7 @@
 
 Badges show published report snapshots; current Linux CI enforces at least 95% coverage. See [report provenance](.github/GO-REPORTS.md).
 
-Current release: **v1.6.2** — [upgrade and rollback notes](docs/releases/v1.6.2.md).
+Current release: **v1.7.0** — [upgrade and rollback notes](docs/releases/v1.7.0.md).
 
 > 🌐 **Language / 语言**: [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
