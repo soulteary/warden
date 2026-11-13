@@ -29,7 +29,6 @@ warden/
 │   ├── cmd/               # Command line and config parsing
 │   ├── config/            # YAML config file loading
 │   ├── define/            # Constants and data structures
-│   ├── di/                # Dependency injection (server, handlers, health)
 │   ├── errors/            # Error types and i18n
 │   ├── i18n/              # Internationalization
 │   ├── loader/            # Data loader (parser-kit, multi-source)

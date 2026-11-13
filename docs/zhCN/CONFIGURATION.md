@@ -21,7 +21,7 @@ YAML 字段能被解析，不代表当前二进制会使用它。主启动流程
 SDK 的 CacheTTL 是另一项独立客户端选项。
 
 接线依据见 `internal/config/config.go` 的 `ToCmdConfig`、`main.go` 的 `NewApp`、
-`internal/di/di.go`、`internal/cache/redis_cache.go` 和 `internal/loader/loader.go`。
+`internal/cache/redis_cache.go` 和 `internal/loader/loader.go`。
 启用这些未接线字段需要独立的行为变更，不能随文档纠错一并修改。
 
 
