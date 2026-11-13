@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 
+	// Third-party libraries
+	"github.com/rs/zerolog"
+
 	// Internal packages
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/i18n"
@@ -82,7 +85,7 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 				Error: getGenericErrorMessage(rw.request, rw.statusCode),
 			}
 			// Record detailed error to log
-			logger.FromRequest(rw.request).Error().
+			rw.hiddenDetailEvent().
 				Int("status_code", rw.statusCode).
 				Str("original_error", errResp.Error).
 				Str("original_message", errResp.Message).
@@ -95,7 +98,7 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 			}
 		} else {
 			// If not JSON format, also record original response
-			logger.FromRequest(rw.request).Error().
+			rw.hiddenDetailEvent().
 				Int("status_code", rw.statusCode).
 				Str("original_response", string(b)).
 				Msg(i18n.T(rw.request, "error.error_response_hidden"))
@@ -110,6 +113,19 @@ func (rw *errorResponseWriter) Write(b []byte) (int, error) {
 	}
 
 	return rw.ResponseWriter.Write(b)
+}
+
+// hiddenDetailEvent starts the log line that keeps the response detail the
+// client no longer sees. A 5xx is a server fault and is logged as an error. A
+// 4xx is the caller's doing -- an unknown user, a missing credential, an
+// exhausted rate limit -- and part of normal operation, so it is logged at
+// Info: at Error it would drown real faults and trip error-rate alerts.
+func (rw *errorResponseWriter) hiddenDetailEvent() *zerolog.Event {
+	log := logger.FromRequest(rw.request)
+	if rw.statusCode >= http.StatusInternalServerError {
+		return log.Error()
+	}
+	return log.Info()
 }
 
 // getGenericErrorMessage returns generic error message based on status code (supports internationalization)
