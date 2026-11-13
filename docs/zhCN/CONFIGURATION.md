@@ -469,7 +469,7 @@ export WARDEN_TLS_REQUIRE_CLIENT_CERT=true        # 是否强制要求客户端�
 
 **安全配置说明**：
 - `API_KEY`: 用于保护敏感端点（`/`、`/log/level`），强烈建议在生产环境设置
-- `TRUSTED_PROXY_IPS`: 配置信任的反向代理 IP，用于正确获取客户端真实 IP
+- `TRUSTED_PROXY_IPS`: 配置信任的反向代理 IP，用于正确获取客户端真实 IP；设为 `none`（唯一取值）表示不信任任何对端，忽略转发头并使用 TCP 对端地址
 - `HEALTH_CHECK_IP_WHITELIST`: 限制健康检查端点的访问 IP（可选，支持 CIDR 网段）
 - `IP_WHITELIST`: 全局 IP 白名单（可选，支持 CIDR 网段）
 
