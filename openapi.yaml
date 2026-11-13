@@ -86,6 +86,10 @@ paths:
             maximum: 1000
             default: 100
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功返回用户列表
           headers:
@@ -189,6 +193,10 @@ paths:
             maximum: 1000
             default: 100
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功返回用户列表（与 GET / 相同）
           headers:
@@ -304,6 +312,10 @@ paths:
       description: 查询当前服务的日志级别
       operationId: getLogLevel
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功返回日志级别
           content:
@@ -330,6 +342,12 @@ paths:
             example:
               level: "debug"
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '200':
           description: 日志级别更新成功
           content:
@@ -398,6 +416,10 @@ paths:
             type: string
             example: "a1b2c3d4e5f6g7h8"
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功返回用户信息
           headers:
@@ -471,6 +493,10 @@ paths:
             maximum: 1000
             default: 100
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功
           headers:
@@ -524,6 +550,10 @@ paths:
           schema:
             type: string
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功
           headers:
@@ -561,6 +591,12 @@ paths:
         根据单一 identifier 查询用户，返回 user_id、destination（email/phone）、status、channel_hint，
         便于 Stargate 选择 Herald 的 sms/email 通道。
         identifier 自动识别：含 @ 按邮箱查，否则先按手机再按 user_id。
+
+        RESPONSE_FIELDS 非空时作用于本接口：mail 控制 destination.email，phone 控制 destination.phone，
+        name 与 dingtalk_userid 控制同名字段；字段名区分大小写。user_id、status、channel_hint 与
+        destination 对象始终返回，仅当返回 destination.phone 时 channel_hint 为 sms。
+        通过本接口投递验证码的网关需要在 RESPONSE_FIELDS 中包含 mail 和/或 phone，
+        使用钉钉投递时还需包含 dingtalk_userid。RESPONSE_FIELDS 为空时返回全部字段。
       operationId: getLookup
       parameters:
         - $ref: '#/components/parameters/SnapshotMetadata'
@@ -571,6 +607,10 @@ paths:
             type: string
           description: 手机号、邮箱或 user_id
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功
           headers:
@@ -663,6 +703,8 @@ paths:
         因此标签基数有上界，不会被请求内容撑大。
       operationId: getMetrics
       responses:
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '200':
           description: 成功返回指标数据
           content:
@@ -803,10 +845,10 @@ components:
           properties:
             email:
               type: string
-              description: 邮箱（可选）
+              description: 邮箱（可选；RESPONSE_FIELDS 非空且不含 mail 时省略）
             phone:
               type: string
-              description: 手机号（可选）
+              description: 手机号（可选；RESPONSE_FIELDS 非空且不含 phone 时省略）
         status:
           type: string
           description: 用户状态
@@ -816,7 +858,10 @@ components:
           description: OTP 推荐通道
         name:
           type: string
-          description: 用户显示名称（可选，数据源有则返回）
+          description: 用户显示名称（可选，数据源有则返回；RESPONSE_FIELDS 非空且不含 name 时省略）
+        dingtalk_userid:
+          type: string
+          description: 钉钉用户 ID，用于工作通知投递（可选；RESPONSE_FIELDS 非空且不含 dingtalk_userid 时省略）
 
     PaginatedUsers:
       type: object
@@ -966,6 +1011,32 @@ components:
           example: "Invalid pagination parameters"
 
   responses:
+    Unauthorized:
+      description: >-
+        服务认证失败。也包括带 HMAC 请求头、请求体超过 10 KB，且所在路由或方法不受请求体限制覆盖的请求
+        （带请求体的 GET/HEAD/OPTIONS，或没有 Content-Length 的分块请求）。
+        非生产环境响应体为纯文本；生产环境响应体为 JSON 对象 {"error": "..."}，Content-Type 仍为 text/plain。
+      content:
+        text/plain:
+          schema: {type: string}
+          example: "Unauthorized\n"
+    PayloadTooLarge:
+      description: >-
+        POST/PUT/PATCH/DELETE 请求声明的 Content-Length 超过 10 KB，在认证之前返回。
+        响应体格式与 401 相同。
+      content:
+        text/plain:
+          schema: {type: string}
+          example: "Request Entity Too Large\n"
+    TooManyRequests:
+      description: >-
+        超过限流配置（默认每个客户端 IP 每分钟 60 次，可用 RATE_LIMIT 与 RATE_LIMIT_WINDOW 调整）。
+        数据接口、/metrics 与 /log/level 共用同一客户端配额；健康检查接口不限流。
+        不返回 Retry-After。响应体格式与 401 相同。
+      content:
+        text/plain:
+          schema: {type: string}
+          example: "Too Many Requests\n"
     SnapshotUnavailable:
       description: Enforced data reads have unknown, expired, future or otherwise unusable source evidence. Production defaults to enforce; this refusal is distinct from user-not-found. JSON success payloads are unchanged.
       headers:

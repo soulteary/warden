@@ -345,25 +345,26 @@ All API endpoints may return the following error responses:
 
 ### 401 Unauthorized
 
-Returned when API Key authentication fails:
+Returned when service authentication fails, including a request with HMAC
+headers whose body exceeds 10 KB on a route or method the body limit does not
+cover. The body is the plain text `Unauthorized`.
 
-```json
-{
-    "error": "Unauthorized",
-    "message": "Invalid or missing API key"
-}
-```
+### 413 Request Entity Too Large
+
+Returned before authentication when a `POST`, `PUT`, `PATCH` or `DELETE`
+request declares a `Content-Length` above 10 KB. The body is the plain text
+`Request Entity Too Large`.
 
 ### 429 Too Many Requests
 
-Returned when requests exceed rate limit:
+Returned when requests exceed the rate limit. The body is the plain text
+`Too Many Requests`. No `Retry-After` header is sent.
 
-```json
-{
-    "error": "Too Many Requests",
-    "message": "Rate limit exceeded"
-}
-```
+401, 413 and 429 are sent with `Content-Type: text/plain; charset=utf-8`. In
+production the body of these responses is replaced by a JSON object with a
+generic message, for example `{"error":"Too many requests, please try again later"}`;
+the content type stays `text/plain`, so parse the body explicitly when the
+message is needed.
 
 ### 500 Internal Server Error
 

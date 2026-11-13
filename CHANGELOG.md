@@ -14,6 +14,19 @@
 
 ## [Unreleased]
 
+### Documentation
+
+- Correct the v1.7.0 notes. An oversized request with HMAC headers receives
+  413 when its `Content-Length` exceeds the limit on a method the body-limit
+  middleware covers, and 401 otherwise; the notes said 401 in every case.
+  `RESPONSE_FIELDS` also governs `name` and `dingtalk_userid` on `/v1/lookup`;
+  the upgrade checks named only `mail` and `phone`.
+- Describe the 401, 413 and 429 responses as they are sent: plain text outside
+  production, and a JSON object under a `text/plain` content type in
+  production. The API reference showed a JSON body with a `message` field.
+- `openapi.yaml`: add the 401, 413 and 429 responses, the `dingtalk_userid`
+  lookup field and the effect of `RESPONSE_FIELDS` on `/v1/lookup`.
+
 ## [1.7.0] - 2026-11-13
 
 ### Fixed
@@ -52,8 +65,10 @@
 
 - Cap the request body read during HMAC verification at the 10 KB request body
   limit. The body was buffered in full before the signature was checked, on
-  routes and methods the body-limit middleware does not cover. Larger signed
-  requests now return 401.
+  routes and methods the body-limit middleware does not cover (`GET`, `HEAD`
+  and `OPTIONS` requests with a body, and requests without a `Content-Length`).
+  Those requests now return 401. Other oversized requests still receive 413
+  from the body-limit middleware before authentication.
 - Record the `http.url` trace attribute without the query string. Request
   spans previously exported `phone`, `mail` and `identifier` query values to
   the trace backend.
@@ -62,7 +77,9 @@
   them. `user_id`, `status`, `channel_hint` and the `destination` object are
   still always returned. With an empty allowlist the response is unchanged.
   Deployments that set `RESPONSE_FIELDS` and use `/v1/lookup` for code delivery
-  must include `mail` and/or `phone`.
+  must include `mail` and/or `phone`, and `dingtalk_userid` when codes are
+  delivered through DingTalk. Field names are case-sensitive and unknown names
+  are not reported.
 - Stop startup when a `TRUSTED_PROXY_IPS` entry is not an IP address or CIDR
   range. Such entries were dropped, which could leave the list empty and trust
   forwarded addresses from every private peer.
