@@ -1095,6 +1095,10 @@ func (app *App) initRedisClient(cfg *cmd.Config) {
 			app.redisStartupFailed = true
 		} else {
 			app.log.Info().Str("redis", cfg.Redis).Msg(i18n.TWithLang(i18n.LangZH, "log.redis_connected"))
+			app.warnIfRedisIsShared()
+		}
+		for _, warning := range cmd.RedisTrustWarnings(cfg) {
+			app.log.Warn().Msg(warning)
 		}
 		if app.redisClient != nil {
 			// Initialize Redis cache
