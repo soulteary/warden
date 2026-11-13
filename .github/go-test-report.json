@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 887,
-    "passed": 882,
+    "total": 911,
+    "passed": 906,
     "failed": 0,
     "skipped": 5
   },
   "coverage": {
-    "covered_statements": 4637,
-    "total_statements": 4857,
+    "covered_statements": 4810,
+    "total_statements": 5038,
     "percentage": 95.47,
     "threshold": 95
   },
@@ -16,9 +16,9 @@
     {
       "name": ".",
       "status": "pass",
-      "tests": 170,
+      "tests": 177,
       "failed": 0,
-      "coverage": 89.96
+      "coverage": 90.05
     },
     {
       "name": "internal/auditlog",
@@ -37,9 +37,9 @@
     {
       "name": "internal/cmd",
       "status": "pass",
-      "tests": 78,
+      "tests": 88,
       "failed": 0,
-      "coverage": 97.71
+      "coverage": 97.5
     },
     {
       "name": "internal/config",
@@ -51,9 +51,9 @@
     {
       "name": "internal/define",
       "status": "pass",
-      "tests": 15,
+      "tests": 16,
       "failed": 0,
-      "coverage": 96.67
+      "coverage": 97.01
     },
     {
       "name": "internal/di",
@@ -100,9 +100,9 @@
     {
       "name": "internal/middleware",
       "status": "pass",
-      "tests": 71,
+      "tests": 74,
       "failed": 0,
-      "coverage": 97.13
+      "coverage": 96.39
     },
     {
       "name": "internal/prommetrics",
@@ -121,9 +121,9 @@
     {
       "name": "internal/router",
       "status": "pass",
-      "tests": 61,
+      "tests": 63,
       "failed": 0,
-      "coverage": 96
+      "coverage": 96.25
     },
     {
       "name": "internal/serviceauth",
@@ -135,9 +135,9 @@
     {
       "name": "internal/tracing",
       "status": "pass",
-      "tests": 13,
+      "tests": 14,
       "failed": 0,
-      "coverage": 95
+      "coverage": 96.3
     },
     {
       "name": "internal/validator",

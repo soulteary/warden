@@ -4,8 +4,8 @@
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 234 |
-| Issues | 1 |
+| Files | 242 |
+| Issues | 2 |
 
 ## Checks
 
@@ -24,6 +24,8 @@
 
 - `version_command_test.go`
   - Line 61: cyclomatic complexity 20 for function TestVersionCommandBinaryEarlyExit
+- `main.go`
+  - Line 104: cyclomatic complexity 17 for function NewApp
 
 ---
 
