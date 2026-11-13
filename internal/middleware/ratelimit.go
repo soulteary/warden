@@ -84,10 +84,22 @@ func NewRateLimiter(rate int, window time.Duration, maxKeys int) *RateLimiter {
 	return l
 }
 
+// Reservation identifies one request recorded by Reserve, so that Release can
+// return that request and no other.
+type Reservation struct {
+	at time.Duration
+}
+
 // Allow records a request for key when the window has room for it. Otherwise
 // it records nothing and returns the time until the oldest recorded request
 // leaves the window.
 func (l *RateLimiter) Allow(key string) (allowed bool, retryAfter time.Duration) {
+	_, allowed, retryAfter = l.Reserve(key)
+	return allowed, retryAfter
+}
+
+// Reserve is Allow that also returns a handle for Release.
+func (l *RateLimiter) Reserve(key string) (reservation Reservation, allowed bool, retryAfter time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -103,15 +115,20 @@ func (l *RateLimiter) Allow(key string) (allowed bool, retryAfter time.Duration)
 	e.lastSeen = at
 	e.prune(at - l.window)
 	if len(e.stamps) >= l.rate {
-		return false, e.stamps[0] + l.window - at
+		return Reservation{}, false, e.stamps[0] + l.window - at
 	}
 	e.stamps = append(e.stamps, at)
-	return true, 0
+	return Reservation{at: at}, true, 0
 }
 
-// Release returns the most recent request recorded for key, so a request that
-// was admitted provisionally does not count against the key.
-func (l *RateLimiter) Release(key string) {
+// Release returns the request recorded by the given reservation, so a request
+// that was admitted provisionally does not count against the key. It removes
+// that request's own record: requests complete in a different order than they
+// were admitted, and removing the newest record instead could erase a later
+// request that must stay counted. A reservation that has already left the
+// window is ignored. Call Release at most once per reservation: two requests
+// admitted at the same instant have equal records.
+func (l *RateLimiter) Release(key string, reservation Reservation) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -119,8 +136,12 @@ func (l *RateLimiter) Release(key string) {
 	if !ok {
 		return
 	}
-	if n := len(e.stamps); n > 0 {
-		e.stamps = e.stamps[:n-1]
+	// Records are ordered, and a release usually targets a recent one.
+	for i := len(e.stamps) - 1; i >= 0 && e.stamps[i] >= reservation.at; i-- {
+		if e.stamps[i] == reservation.at {
+			e.stamps = append(e.stamps[:i], e.stamps[i+1:]...)
+			break
+		}
 	}
 	if len(e.stamps) == 0 {
 		delete(l.entries, key)
@@ -255,7 +276,8 @@ func RateLimitAuthenticated(cfg RateLimitConfig, auth func(http.Handler) http.Ha
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := middlewarekit.GetClientIP(r, cfg.TrustedProxyConfig)
-			if ok, retryAfter := cfg.Limits.IP.Allow(clientIP); !ok {
+			reservation, ok, retryAfter := cfg.Limits.IP.Reserve(clientIP)
+			if !ok {
 				cfg.reject(w, r, RateLimitScopeIP, clientIP, retryAfter)
 				return
 			}
@@ -265,7 +287,7 @@ func RateLimitAuthenticated(cfg RateLimitConfig, auth func(http.Handler) http.Ha
 					next.ServeHTTP(w, r)
 					return
 				}
-				cfg.Limits.IP.Release(clientIP)
+				cfg.Limits.IP.Release(clientIP, reservation)
 				// The API key is one shared secret and identifies no caller,
 				// so its budget is kept per client address. A single budget
 				// for every caller of the key would let one caller exhaust it

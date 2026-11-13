@@ -75,27 +75,56 @@ func TestRateLimiterSlidingWindow(t *testing.T) {
 }
 
 func TestRateLimiterRelease(t *testing.T) {
-	l, _ := newTestLimiter(t, 2, 10)
+	l, clock := newTestLimiter(t, 2, 10)
 
 	// Released requests do not count, however many there are.
 	for i := 0; i < 10; i++ {
-		ok, _ := l.Allow("a")
+		reservation, ok, _ := l.Reserve("a")
 		require.True(t, ok)
-		l.Release("a")
+		l.Release("a", reservation)
 	}
 	require.Empty(t, l.entries, "a key with nothing recorded is not kept")
 
 	ok, _ := l.Allow("a")
 	require.True(t, ok)
-	ok, _ = l.Allow("a")
+	clock.Advance(time.Second)
+	reservation, ok, _ := l.Reserve("a")
 	require.True(t, ok)
-	l.Release("a")
+	l.Release("a", reservation)
+	// The earlier request, recorded at another instant, is untouched.
+	require.Len(t, l.entries["a"].stamps, 1)
 	ok, _ = l.Allow("a")
 	require.True(t, ok)
 	ok, _ = l.Allow("a")
 	require.False(t, ok)
 
-	l.Release("unknown")
+	l.Release("unknown", reservation)
+}
+
+// Requests finish in a different order than they were admitted. Releasing an
+// earlier request must not erase a later one that stays counted.
+func TestRateLimiterReleaseRemovesItsOwnRequest(t *testing.T) {
+	l, clock := newTestLimiter(t, 2, 10)
+
+	// t=0: a request that will authenticate is admitted.
+	slow, ok, _ := l.Reserve("a")
+	require.True(t, ok)
+	// t=5s: another request fails authentication and stays counted.
+	clock.Advance(5 * time.Second)
+	ok, _ = l.Allow("a")
+	require.True(t, ok)
+	// t=10s: the first request completes and returns its unit.
+	clock.Advance(5 * time.Second)
+	l.Release("a", slow)
+
+	// The failure from t=5s is still in the window at t=61s, so only one more
+	// request fits.
+	clock.Advance(51 * time.Second)
+	ok, _ = l.Allow("a")
+	require.True(t, ok)
+	ok, retryAfter := l.Allow("a")
+	require.False(t, ok)
+	require.Equal(t, 4*time.Second, retryAfter)
 }
 
 func TestRateLimiterBoundsTrackedKeys(t *testing.T) {
@@ -185,8 +214,8 @@ func TestRateLimiterConcurrentUse(t *testing.T) {
 					allowed++
 					mu.Unlock()
 				}
-				l.Allow("other-" + strconv.Itoa(g*100+i))
-				l.Release("other-" + strconv.Itoa(g*100+i))
+				reservation, _, _ := l.Reserve("other-" + strconv.Itoa(g*100+i))
+				l.Release("other-"+strconv.Itoa(g*100+i), reservation)
 			}
 		}(g)
 	}
