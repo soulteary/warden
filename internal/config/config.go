@@ -61,8 +61,12 @@ type CacheConfig struct {
 
 // RateLimitConfig rate limit configuration
 type RateLimitConfig struct {
-	Rate   int           `yaml:"rate"`
-	Window time.Duration `yaml:"window"`
+	// Rate is the number of requests per window for one client IP. It applies to
+	// requests that do not authenticate.
+	Rate int `yaml:"rate"`
+	// AuthenticatedRate is the number of requests per window for one credential.
+	AuthenticatedRate int           `yaml:"authenticated_rate"`
+	Window            time.Duration `yaml:"window"`
 }
 
 // HTTPConfig HTTP client configuration
@@ -210,6 +214,9 @@ func applyCacheDefaults(cfg *Config) {
 func applyRateLimitDefaults(cfg *Config) {
 	if cfg.RateLimit.Rate == 0 {
 		cfg.RateLimit.Rate = define.DEFAULT_RATE_LIMIT
+	}
+	if cfg.RateLimit.AuthenticatedRate == 0 {
+		cfg.RateLimit.AuthenticatedRate = define.DEFAULT_RATE_LIMIT_AUTHENTICATED
 	}
 	if cfg.RateLimit.Window == 0 {
 		cfg.RateLimit.Window = define.DEFAULT_RATE_LIMIT_WINDOW
@@ -524,6 +531,8 @@ type CmdConfigData struct {
 
 	// rate_limit.rate: requests allowed per window, per client IP
 	RateLimit int
+	// rate_limit.authenticated_rate: requests allowed per window, per credential
+	RateLimitAuthenticated int
 	// rate_limit.window
 	RateLimitWindow time.Duration
 }
@@ -599,6 +608,7 @@ func (c *Config) ToCmdConfig() *CmdConfigData {
 		HTTPMaxIdleConns:         c.HTTP.MaxIdleConns,
 		HTTPInsecureTLS:          c.HTTP.InsecureTLS,
 		RateLimit:                c.RateLimit.Rate,
+		RateLimitAuthenticated:   c.RateLimit.AuthenticatedRate,
 		RateLimitWindow:          c.RateLimit.Window,
 		APIKey:                   c.App.APIKey,
 		HMACKeys:                 hmacKeys,

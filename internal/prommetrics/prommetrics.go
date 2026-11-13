@@ -202,14 +202,16 @@ func RecordBackgroundTask(duration time.Duration, success bool) {
 	}
 }
 
-// RecordRateLimitHit records a rate limit hit. The ip argument is accepted for
-// backward-compatible call sites but intentionally NOT used as a metric label to
-// avoid high-cardinality/PII time series.
-func RecordRateLimitHit(ip string) {
-	_ = ip
+// RecordRateLimitHit records a refused request. scope is "ip" for the
+// per-client-address limit and "credential" for the per-credential limit; any
+// other value is counted as "ip" so the label set stays fixed. Client addresses
+// and credential identifiers are never used as label values.
+func RecordRateLimitHit(scope string) {
+	if scope != "credential" {
+		scope = "ip"
+	}
 	RateLimitHits.Inc()
-	// Also record in the new metrics with a fixed low-cardinality "ip" scope label.
-	RateLimit.RecordHit("ip")
+	RateLimit.RecordHit(scope)
 }
 
 // RecordDeprecation increments the deprecation counter for a stable feature code.

@@ -14,10 +14,10 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
-	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
+	"github.com/soulteary/warden/internal/middleware"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +31,7 @@ func authBoundaryApp(t *testing.T, enabled bool, client *redis.Client) *App {
 	users.ApplyPrepared(prepared)
 	store := newSnapshotStore()
 	store.Store(snap)
-	limiter := middlewarekit.NewRateLimiter(middlewarekit.DefaultRateLimiterConfig())
+	limiter := middleware.NewRateLimits(0, 0, 0)
 	t.Cleanup(limiter.Stop)
 	return &App{userCache: users, snapshots: store, redisEnabled: enabled, redisClient: client, hmacKeys: map[string]string{"boundary": "test-secret"}, hmacToleranceSec: 60, snapshotMaxAge: time.Minute, appMode: "DEFAULT", environment: "development", apiKey: "api-key", rateLimiter: limiter, log: logger.GetLoggerKit()}
 }

@@ -41,33 +41,31 @@ const rootExactPattern = define.PATH_ROOT + "{$}"
 // the server Handler.
 func registerRoutes(app *App) *http.ServeMux {
 	mux := http.NewServeMux()
-	trustedProxies := define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS"))
-	trustedProxyConfig := middlewarekit.NewTrustedProxyConfig(trustedProxies)
-	if ipAllowlistTrustsPrivatePeers(os.Getenv("IP_WHITELIST"), trustedProxies) {
+	trustedProxyRaw := os.Getenv("TRUSTED_PROXY_IPS")
+	trustedProxyConfig := middleware.NewTrustedProxyConfig(trustedProxyRaw)
+	if trustsPrivatePeers(trustedProxyRaw) {
 		logger.GetLoggerKit().Warn().
-			Msg("IP_WHITELIST is set but TRUSTED_PROXY_IPS is empty: X-Forwarded-For and X-Real-IP are trusted from any peer with a private or loopback address, so such a peer can present an allowlisted address; set TRUSTED_PROXY_IPS to the reverse proxy addresses")
+			Msg("TRUSTED_PROXY_IPS is empty: X-Forwarded-For and X-Real-IP are trusted from any peer with a private or loopback address, so such a peer can choose the client address used by IP_WHITELIST and by per-client rate limiting; set TRUSTED_PROXY_IPS to the reverse proxy addresses, or to \"none\" to ignore forwarded headers")
 	}
 
 	i18nMiddleware := middleware.I18nMiddleware()
 	errorHandlerMiddleware := middleware.ErrorHandlerMiddleware(app.environment)
 	securityCfg := middlewarekit.StrictSecurityHeadersConfig()
 	securityHeadersMiddleware := middlewarekit.SecurityHeadersStd(securityCfg)
-	rateLimitCfg := middlewarekit.RateLimitConfig{
-		Limiter:            app.rateLimiter,
+	// Two budgets, each shared across all routes: requests that do not
+	// authenticate are counted per client IP, authenticated requests per
+	// credential. Health routes are not wrapped by either.
+	rateLimitCfg := middleware.RateLimitConfig{
+		Limits:             app.rateLimiter,
 		TrustedProxyConfig: trustedProxyConfig,
-		Logger:             logger.ZerologPtr(),
-		SkipPaths:          define.SkipPathsHealthAndMetrics,
-		OnLimitReached: func(key string) {
-			prommetrics.RecordRateLimitHit(key)
-		},
+		OnLimited:          prommetrics.RecordRateLimitHit,
 	}
-	rateLimitMiddleware := middlewarekit.RateLimitStd(rateLimitCfg)
-	// /metrics is in the shared skip list, so wrapping it with rateLimitMiddleware
-	// would not limit it. This variant is mounted on /metrics only and shares
-	// the limiter, so a client has one budget across all routes.
-	metricsRateLimitCfg := rateLimitCfg
-	metricsRateLimitCfg.SkipPaths = nil
-	metricsRateLimitMiddleware := middlewarekit.RateLimitStd(metricsRateLimitCfg)
+	if rateLimitCfg.Limits == nil {
+		// An App built without limiters (direct router construction) gets the defaults.
+		rateLimitCfg.Limits = middleware.NewRateLimits(0, 0, 0)
+		app.rateLimiter = rateLimitCfg.Limits
+	}
+	ipRateLimitMiddleware := middleware.RateLimitByIP(rateLimitCfg)
 
 	authBaseCfg := middlewarekit.DefaultAPIKeyConfig()
 	authBaseCfg.APIKey = app.apiKey
@@ -100,6 +98,9 @@ func registerRoutes(app *App) *http.ServeMux {
 		hmacCfg.ReplayGuard = middleware.NewRedisReplayGuard(app.redisClient)
 	}
 	authMiddleware := middleware.ServiceAuthChain(hmacCfg, apiKeyMiddleware)
+	// The per-IP check runs before authentication and the per-credential check
+	// after it, so the limiter wraps the authentication middleware.
+	limitedAuthMiddleware := middleware.RateLimitAuthenticated(rateLimitCfg, authMiddleware)
 	// Anonymous-scrape config. The API key is deliberately cleared: middleware-kit only
 	// honours AllowEmptyKey when no key is configured, so copying app.apiKey here would
 	// silently demand it and contradict the documented anonymous default. The logger is
@@ -109,7 +110,12 @@ func registerRoutes(app *App) *http.ServeMux {
 	optionalAuthCfg.APIKey = ""
 	optionalAuthCfg.AllowEmptyKey = true
 	optionalAuthCfg.Logger = nil
+	// Anonymous scrapes carry no credential to count against, so they are
+	// limited per client IP.
 	optionalAuthMiddleware := middlewarekit.APIKeyAuthStd(optionalAuthCfg)
+	limitedOptionalAuthMiddleware := func(next http.Handler) http.Handler {
+		return ipRateLimitMiddleware(optionalAuthMiddleware(next))
+	}
 
 	compressMiddleware := middlewarekit.CompressStd(middlewarekit.DefaultCompressConfig())
 	bodyLimitCfg := middlewarekit.DefaultBodyLimitConfig()
@@ -136,9 +142,9 @@ func registerRoutes(app *App) *http.ServeMux {
 			Str("value", metricsAuthRaw).
 			Msg("unrecognized WARDEN_METRICS_REQUIRE_AUTH (accepted: true/1/yes/on or false/0/no/off); falling back to the ENVIRONMENT default")
 	}
-	metricsAuth := optionalAuthMiddleware
+	metricsAuth := limitedOptionalAuthMiddleware
 	if metricsRequireAuth(metricsAuthRaw, app.environment) {
-		metricsAuth = authMiddleware
+		metricsAuth = limitedAuthMiddleware
 		// Prometheus cannot produce an HMAC signature or a client certificate, so a
 		// deployment authenticated only by HMAC/mTLS has no credential to scrape with.
 		logger.GetLoggerKit().Info().
@@ -166,14 +172,12 @@ func registerRoutes(app *App) *http.ServeMux {
 		)
 	}
 	// dataChain serves an authenticated data handler: compression, body limit,
-	// request metrics, rate limit, then service authentication.
+	// request metrics, then rate-limited service authentication.
 	dataChain := func(handler http.Handler) http.Handler {
 		return edgeChain(compressMiddleware(
 			bodyLimitMiddleware(
 				middleware.MetricsMiddleware(
-					rateLimitMiddleware(
-						authMiddleware(handler),
-					),
+					limitedAuthMiddleware(handler),
 				),
 			),
 		))
@@ -181,10 +185,8 @@ func registerRoutes(app *App) *http.ServeMux {
 
 	metricsHandler := edgeChain(
 		bodyLimitMiddleware(
-			metricsRateLimitMiddleware(
-				metricsAuth(
-					middleware.MetricsMiddleware(prommetrics.HandlerWithSnapshot(app.snapshotMetricSample)),
-				),
+			metricsAuth(
+				middleware.MetricsMiddleware(prommetrics.HandlerWithSnapshot(app.snapshotMetricSample)),
 			),
 		),
 	)
@@ -201,11 +203,11 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux.Handle(define.PATH_DATA_JSON, mainHandler) // 与 GET / 行为一致，便于作为 data.json API 消费
 
 	// Catch-all for unregistered paths. Kept outside the authentication and compression
-	// chains but inside rate limiting so 404 probing is not free, and inside the metrics
+	// chains but inside per-IP rate limiting so 404 probing is not free, and inside the metrics
 	// middleware so those requests are still counted (collapsed into the "other" label).
 	notFoundHandler := edgeChain(
 		middleware.MetricsMiddleware(
-			rateLimitMiddleware(
+			ipRateLimitMiddleware(
 				router.ProcessWithLogger(router.NotFound()),
 			),
 		),
@@ -246,12 +248,10 @@ func registerRoutes(app *App) *http.ServeMux {
 	logLevelHandler := edgeChain(
 		bodyLimitMiddleware(
 			middleware.MetricsMiddleware(
-				rateLimitMiddleware(
-					authMiddleware(
-						loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
-							Logger: lkLog,
-						}),
-					),
+				limitedAuthMiddleware(
+					loggerkit.LevelHandler(loggerkit.LevelHandlerConfig{
+						Logger: lkLog,
+					}),
 				),
 			),
 		),
@@ -261,12 +261,12 @@ func registerRoutes(app *App) *http.ServeMux {
 	return mux
 }
 
-// ipAllowlistTrustsPrivatePeers reports whether IP_WHITELIST is enforced while
-// no trusted proxy is configured. middleware-kit then accepts forwarded client
-// addresses from every private or loopback peer, so the allowlist only holds
-// against peers with public addresses.
-func ipAllowlistTrustsPrivatePeers(ipWhitelist string, trustedProxies []string) bool {
-	return strings.TrimSpace(ipWhitelist) != "" && len(trustedProxies) == 0
+// trustsPrivatePeers reports whether a TRUSTED_PROXY_IPS value leaves the
+// middleware-kit default in place: with no entry, forwarded client addresses
+// are accepted from every private or loopback peer. Both a proxy list and
+// "none" replace that default.
+func trustsPrivatePeers(trustedProxyIPs string) bool {
+	return len(define.ParseTrustedProxyIPs(trustedProxyIPs)) == 0
 }
 
 // parseBoolLike parses the textual boolean forms accepted for operator-facing toggles.

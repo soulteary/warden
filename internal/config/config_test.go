@@ -38,6 +38,26 @@ app:
 	assert.Equal(t, "test-key", cfg.App.APIKey)
 }
 
+func TestLoadFromFile_RateLimitAuthenticatedRate(t *testing.T) {
+	load := func(yamlContent string) *CmdConfigData {
+		configFile := filepath.Join(t.TempDir(), "config.yaml")
+		require.NoError(t, os.WriteFile(configFile, []byte(yamlContent), 0o600))
+		cfg, err := LoadFromFile(configFile)
+		require.NoError(t, err)
+		return cfg.ToCmdConfig()
+	}
+
+	set := load("rate_limit:\n  rate: 30\n  authenticated_rate: 1200\n  window: 2m\n")
+	assert.Equal(t, 30, set.RateLimit)
+	assert.Equal(t, 1200, set.RateLimitAuthenticated)
+	assert.Equal(t, 2*time.Minute, set.RateLimitWindow)
+
+	// An absent key resolves to the default and leaves the per-IP rate alone.
+	unset := load("rate_limit:\n  rate: 30\n")
+	assert.Equal(t, 30, unset.RateLimit)
+	assert.Equal(t, 600, unset.RateLimitAuthenticated)
+}
+
 // TestLoadFromFile_EmptyFile tests empty configuration file (should use default values)
 func TestLoadFromFile_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()

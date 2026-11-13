@@ -39,5 +39,5 @@ func servePolicyAuthenticated(cfg HMACConfig, next http.Handler, w http.Response
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
-	next.ServeHTTP(w, r)
+	next.ServeHTTP(w, WithPrincipal(r, principalHMACPrefix+key))
 }

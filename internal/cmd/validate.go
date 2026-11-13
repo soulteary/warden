@@ -203,6 +203,7 @@ func validateProduction(cfg *Config) []string {
 	}
 	errs = append(errs, validateProductionHMACStrength(cfg.HMACKeys)...)
 	errs = append(errs, validateProductionAPIKey(cfg.APIKey)...)
+	errs = append(errs, validateProductionProxyTrust(os.Getenv("IP_WHITELIST"), os.Getenv("TRUSTED_PROXY_IPS"))...)
 
 	return errs
 }
@@ -463,6 +464,11 @@ func validateRateLimit(cfg *Config) []string {
 			errs = append(errs, fmt.Sprintf("Invalid RATE_LIMIT: %v", err))
 		}
 	}
+	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_AUTHENTICATED")); raw != "" {
+		if _, err := ParseRateLimit(raw); err != nil {
+			errs = append(errs, fmt.Sprintf("Invalid RATE_LIMIT_AUTHENTICATED: %v", err))
+		}
+	}
 	if raw := strings.TrimSpace(os.Getenv("RATE_LIMIT_WINDOW")); raw != "" {
 		if _, err := ParseRateLimitWindow(raw); err != nil {
 			errs = append(errs, fmt.Sprintf("Invalid RATE_LIMIT_WINDOW: %v", err))
@@ -472,6 +478,9 @@ func validateRateLimit(cfg *Config) []string {
 	// Zero means "not set" and resolves to the default, as it does in YAML.
 	if cfg.RateLimit < 0 {
 		errs = append(errs, fmt.Sprintf("Invalid rate limit: %d (must be at least 1)", cfg.RateLimit))
+	}
+	if cfg.RateLimitAuthenticated < 0 {
+		errs = append(errs, fmt.Sprintf("Invalid authenticated rate limit: %d (must be at least 1)", cfg.RateLimitAuthenticated))
 	}
 	if cfg.RateLimitWindow < 0 || (cfg.RateLimitWindow > 0 && cfg.RateLimitWindow < time.Second) {
 		errs = append(errs, fmt.Sprintf("Invalid rate limit window: %s (must be at least 1s)", cfg.RateLimitWindow))
@@ -487,6 +496,18 @@ func validateTrustedProxies() []string {
 		return []string{fmt.Sprintf("Invalid TRUSTED_PROXY_IPS: %v", err)}
 	}
 	return nil
+}
+
+// validateProductionProxyTrust refuses an IP_WHITELIST whose client address
+// can be chosen by the caller. With TRUSTED_PROXY_IPS empty, forwarded headers
+// are accepted from every private or loopback peer, so such a peer can present
+// an allowlisted address. HEALTH_CHECK_IP_WHITELIST is not covered: the health
+// handler compares it with the TCP peer and never reads forwarded headers.
+func validateProductionProxyTrust(ipWhitelist, trustedProxies string) []string {
+	if strings.TrimSpace(ipWhitelist) == "" || len(define.ParseTrustedProxyIPs(trustedProxies)) > 0 {
+		return nil
+	}
+	return []string{"production IP_WHITELIST requires TRUSTED_PROXY_IPS: list the reverse proxy addresses, or set TRUSTED_PROXY_IPS=none to ignore forwarded headers and use the TCP peer address"}
 }
 
 // knownResponseFields are the names RESPONSE_FIELDS can select. They match the

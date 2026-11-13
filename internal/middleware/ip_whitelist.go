@@ -8,7 +8,6 @@ import (
 
 	middlewarekit "github.com/soulteary/middleware-kit/v3"
 
-	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/logger"
 )
 
@@ -29,7 +28,7 @@ func IPWhitelistMiddleware(whitelist string) func(http.Handler) http.Handler {
 	if whitelist == "" {
 		whitelist = os.Getenv("IP_WHITELIST")
 	}
-	trustedCfg := middlewarekit.NewTrustedProxyConfig(define.ParseTrustedProxyIPs(os.Getenv("TRUSTED_PROXY_IPS")))
+	trustedCfg := NewTrustedProxyConfig(os.Getenv("TRUSTED_PROXY_IPS"))
 	return middlewarekit.IPAllowlistMiddlewareFromConfig(middlewarekit.IPAllowlistConfig{
 		Allowlist:          whitelist,
 		TrustedProxyConfig: trustedCfg,

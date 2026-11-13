@@ -468,9 +468,9 @@ export IP_WHITELIST=192.168.1.0/24,10.0.0.0/8
 #### TRUSTED_PROXY_IPS
 
 - **Environment Variable**: `TRUSTED_PROXY_IPS`
-- **Type**: String (comma-separated IP addresses)
-- **Default Value**: Empty string
-- **Description**: Trusted reverse proxy IP list, used to correctly obtain client real IP (from `X-Forwarded-For` and other headers)
+- **Type**: String (comma-separated IP addresses or CIDR ranges, or the single value `none`)
+- **Default Value**: Empty string (forwarded headers are trusted from every private or loopback peer)
+- **Description**: Trusted reverse proxy IP list, used to correctly obtain client real IP (from `X-Forwarded-For` and other headers). `none` trusts no peer and always uses the TCP peer address
 
 **Example**:
 ```bash

@@ -562,7 +562,7 @@ func TestValidateConfig_HMACV1CompatibilityFlag(t *testing.T) {
 func TestValidateConfigRejectsInvalidTrustedProxyIPs(t *testing.T) {
 	cfg := &Config{Port: "8081", TaskInterval: 5, Mode: "ONLY_LOCAL", Environment: "development"}
 
-	for _, valid := range []string{"", "10.0.0.1, 172.16.0.0/12"} {
+	for _, valid := range []string{"", "10.0.0.1, 172.16.0.0/12", "none", " None "} {
 		t.Setenv("TRUSTED_PROXY_IPS", valid)
 		require.NoError(t, ValidateConfig(cfg), "TRUSTED_PROXY_IPS=%q", valid)
 	}
@@ -572,6 +572,43 @@ func TestValidateConfigRejectsInvalidTrustedProxyIPs(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "TRUSTED_PROXY_IPS")
 	assert.Contains(t, err.Error(), "proxy.internal")
+
+	t.Setenv("TRUSTED_PROXY_IPS", "none,10.0.0.1")
+	err = ValidateConfig(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TRUSTED_PROXY_IPS")
+	assert.Contains(t, err.Error(), "must be the only entry")
+}
+
+func TestValidateConfig_ProductionIPWhitelistRequiresProxyTrustDecision(t *testing.T) {
+	apiKey := strings.Repeat("k", 32)
+	cfg := func(environment string) *Config {
+		return &Config{Port: "8081", TaskInterval: 5, Mode: "ONLY_LOCAL", Environment: environment, APIKey: apiKey}
+	}
+	t.Setenv("HEALTH_CHECK_IP_WHITELIST", "")
+
+	t.Setenv("IP_WHITELIST", "203.0.113.0/24")
+	t.Setenv("TRUSTED_PROXY_IPS", "")
+	err := ValidateConfig(cfg("production"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "IP_WHITELIST requires TRUSTED_PROXY_IPS")
+	assert.Contains(t, err.Error(), "TRUSTED_PROXY_IPS=none")
+	require.NoError(t, ValidateConfig(cfg("development")), "other environments only warn")
+
+	for _, decided := range []string{"10.0.0.1", "none"} {
+		t.Setenv("TRUSTED_PROXY_IPS", decided)
+		require.NoError(t, ValidateConfig(cfg("production")), "TRUSTED_PROXY_IPS=%q", decided)
+	}
+
+	// Without IP_WHITELIST an empty TRUSTED_PROXY_IPS still starts.
+	t.Setenv("IP_WHITELIST", " ")
+	t.Setenv("TRUSTED_PROXY_IPS", "")
+	require.NoError(t, ValidateConfig(cfg("production")))
+
+	// HEALTH_CHECK_IP_WHITELIST is matched against the TCP peer and does not
+	// depend on TRUSTED_PROXY_IPS.
+	t.Setenv("HEALTH_CHECK_IP_WHITELIST", "10.0.0.0/8")
+	require.NoError(t, ValidateConfig(cfg("production")))
 }
 
 func TestValidateConfig_ProductionRejectsPlaceholderAPIKey(t *testing.T) {
