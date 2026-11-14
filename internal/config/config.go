@@ -344,7 +344,7 @@ func overrideFromEnv(cfg *Config) {
 
 	// Tracing
 	if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" {
-		cfg.Tracing.Enabled = strings.EqualFold(otlpEnabled, "true") || otlpEnabled == "1"
+		cfg.Tracing.Enabled = define.EnvBool("OTLP_ENABLED", false)
 	}
 	if otlpEndpoint := os.Getenv("OTLP_ENDPOINT"); otlpEndpoint != "" {
 		cfg.Tracing.Endpoint = otlpEndpoint
@@ -662,7 +662,7 @@ func overrideHTTPFromEnv(cfg *Config) {
 		}
 	}
 	if insecureTLS := os.Getenv("HTTP_INSECURE_TLS"); insecureTLS != "" {
-		cfg.HTTP.InsecureTLS = strings.EqualFold(insecureTLS, "true") || insecureTLS == "1"
+		cfg.HTTP.InsecureTLS = define.EnvBool("HTTP_INSECURE_TLS", false)
 	}
 }
 
@@ -678,7 +678,7 @@ func overrideAppFromEnv(cfg *Config) {
 		cfg.App.DataDir = dataDir
 	}
 	if v := os.Getenv("REMOTE_DECRYPT_ENABLED"); v != "" {
-		cfg.Remote.DecryptEnabled = strings.EqualFold(v, "true") || v == "1"
+		cfg.Remote.DecryptEnabled = define.EnvBool("REMOTE_DECRYPT_ENABLED", false)
 	}
 	if v := os.Getenv("REMOTE_RSA_PRIVATE_KEY_FILE"); v != "" {
 		cfg.Remote.RSAPrivateKeyFile = v
@@ -689,8 +689,5 @@ func overrideAppFromEnv(cfg *Config) {
 }
 
 func envBool(name string, fallback bool) bool {
-	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
-		return strings.EqualFold(value, "true") || value == "1"
-	}
-	return fallback
+	return define.EnvBool(name, fallback)
 }

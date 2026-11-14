@@ -428,12 +428,14 @@ go run . \
 
 支持通过环境变量配置，优先级低于命令行参数：
 
+**布尔值**：所有布尔型变量（`REDIS_ENABLED`、`REDIS_TLS_ENABLED`、`HTTP_INSECURE_TLS`、`REMOTE_DECRYPT_ENABLED`、`REMOTE_ENCRYPTION_REQUIRED`、`REQUIRE_EXPLICIT_USER_ID`、`WARDEN_TLS_REQUIRE_CLIENT_CERT`、`WARDEN_HMAC_ALLOW_V1`、`WARDEN_METRICS_REQUIRE_AUTH`、`OTLP_ENABLED`）接受 `true`/`false`、`1`/`0`、`yes`/`no`、`on`/`off` 与 `t`/`f`，不区分大小写。其他非空取值会使启动失败，并在错误信息中指出变量名。
+
 ```bash
 export PORT=8081
 export REDIS=localhost:6379
 export REDIS_PASSWORD="password"        # Redis 密码（可选）
 export REDIS_PASSWORD_FILE="/path/to/password/file"  # Redis 密码文件路径（可选；整体优先级：REDIS_PASSWORD > REDIS_PASSWORD_FILE > 配置文件）
-export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认: true，支持 true/false/1/0）
+export REDIS_ENABLED=true               # 启用/禁用 Redis（可选，默认: true）
                                         # 注意: 在 ONLY_LOCAL 模式下，默认值为 false
                                         #       但如果显式设置了 REDIS 地址，则会自动启用 Redis
 export CONFIG=http://example.com/api
@@ -451,7 +453,7 @@ export HTTP_MAX_IDLE_CONNS=20          # 远程数据源客户端的空闲连接
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
 export API_KEY="your-secret-api-key"   # API Key 用于认证（强烈建议设置）
 export CONFIG_FILE=config.yaml         # 主配置和追踪配置的 YAML 路径（可选；--config-file 优先）
-export OTLP_ENABLED=false              # 是否启用 OpenTelemetry（true/false 或 1/0）
+export OTLP_ENABLED=false              # 是否启用 OpenTelemetry
 export OTLP_ENDPOINT=http://localhost:4318  # OTLP 端点，OTLP_ENABLED 为 true 时必填
 export TRUSTED_PROXY_IPS="10.0.0.1,172.16.0.1"  # 信任的代理 IP 列表（逗号分隔）
 export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,10.0.0.0/8"  # 健康检查端点 IP 白名单（可选）

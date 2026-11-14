@@ -261,8 +261,8 @@ func processRedisFromFlags(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) 
 	if flagVals != nil && flagutil.HasFlag(fs, "redis-enabled") {
 		cfg.RedisEnabled = flagVals.redisEnabled
 	} else if redisEnabledEnv := env.GetTrimmed("REDIS_ENABLED", ""); redisEnabledEnv != "" {
-		// Supports true/false/1/0
-		cfg.RedisEnabled = strings.EqualFold(redisEnabledEnv, "true") || redisEnabledEnv == "1"
+		// Accepts the spellings of define.ParseBool; anything else stops startup.
+		cfg.RedisEnabled = define.EnvBool("REDIS_ENABLED", false)
 	} else {
 		// Default behavior:
 		// - If Redis address is explicitly set, enable Redis (user intent to use Redis)
@@ -434,7 +434,11 @@ func processHTTPFromFlags(cfg *Config, fs *flag.FlagSet, flagVals *flagValues) {
 	cfg.HTTPMaxIdleConns = configutil.ResolveInt(fs, "http-max-idle-conns", "HTTP_MAX_IDLE_CONNS", cfg.HTTPMaxIdleConns, false)
 
 	// Use configutil for http-insecure-tls
-	cfg.HTTPInsecureTLS = configutil.ResolveBool(fs, "http-insecure-tls", "HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
+	if flagutil.HasFlag(fs, "http-insecure-tls") {
+		cfg.HTTPInsecureTLS = flagutil.GetBool(fs, "http-insecure-tls", cfg.HTTPInsecureTLS)
+	} else {
+		cfg.HTTPInsecureTLS = define.EnvBool("HTTP_INSECURE_TLS", cfg.HTTPInsecureTLS)
+	}
 }
 
 // processAPIKeyFromFlags processes API Key configuration
@@ -481,7 +485,7 @@ func processResponseFieldsFromEnv(cfg *Config) {
 // REMOTE_ENCRYPTION_REQUIRED and REMOTE_ENCRYPTION_FORMAT from env.
 func processRemoteDecryptFromEnv(cfg *Config) {
 	if v := env.GetTrimmed("REMOTE_DECRYPT_ENABLED", ""); v != "" {
-		cfg.RemoteDecryptEnabled = strings.EqualFold(v, "true") || v == "1"
+		cfg.RemoteDecryptEnabled = define.EnvBool("REMOTE_DECRYPT_ENABLED", false)
 	}
 	if v := env.GetTrimmed("REMOTE_RSA_PRIVATE_KEY_FILE", ""); v != "" {
 		cfg.RemoteRSAPrivateKeyFile = v
@@ -490,7 +494,7 @@ func processRemoteDecryptFromEnv(cfg *Config) {
 		cfg.RemoteRSAPrivateKey = v
 	}
 	if v := env.GetTrimmed("REMOTE_ENCRYPTION_REQUIRED", ""); v != "" {
-		cfg.RemoteEncryptionRequired = strings.EqualFold(v, "true") || v == "1"
+		cfg.RemoteEncryptionRequired = define.EnvBool("REMOTE_ENCRYPTION_REQUIRED", false)
 	}
 	if v := env.GetTrimmed("REMOTE_ENCRYPTION_FORMAT", ""); v != "" {
 		cfg.RemoteEncryptionFormat = strings.ToLower(v)
@@ -505,7 +509,7 @@ func processIdentityFromEnv(cfg *Config) {
 		cfg.UserIDStrategy = strings.ToLower(v)
 	}
 	if v := env.GetTrimmed("REQUIRE_EXPLICIT_USER_ID", ""); v != "" {
-		cfg.RequireExplicitUserID = strings.EqualFold(v, "true") || v == "1"
+		cfg.RequireExplicitUserID = define.EnvBool("REQUIRE_EXPLICIT_USER_ID", false)
 	}
 }
 
@@ -544,7 +548,7 @@ func processServiceAuthFromEnv(cfg *Config) {
 		cfg.TLSCAFile = v
 	}
 	if v := env.GetTrimmed("WARDEN_TLS_REQUIRE_CLIENT_CERT", ""); v != "" {
-		cfg.TLSRequireClientCert = strings.EqualFold(v, "true") || v == "1"
+		cfg.TLSRequireClientCert = define.EnvBool("WARDEN_TLS_REQUIRE_CLIENT_CERT", false)
 	}
 }
 

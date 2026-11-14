@@ -1165,7 +1165,7 @@ func initializeTracing(cfg *cmd.Config, log *loggerkit.Logger) interface{ Shutdo
 			tracerProvider = tp
 			log.Info().Msg("OpenTelemetry tracing initialized")
 		}
-	} else if otlpEnabled := os.Getenv("OTLP_ENABLED"); otlpEnabled != "" && (otlpEnabled == "true" || otlpEnabled == "1") {
+	} else if define.EnvBool("OTLP_ENABLED", false) {
 		otlpEndpoint := os.Getenv("OTLP_ENDPOINT")
 		if otlpEndpoint != "" {
 			tp, err := otlp.InitTracer(

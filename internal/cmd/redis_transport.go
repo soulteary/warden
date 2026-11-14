@@ -5,12 +5,12 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/soulteary/cli-kit/flagutil"
 
 	"github.com/soulteary/warden/internal/config"
+	"github.com/soulteary/warden/internal/define"
 )
 
 // processRedisTransportFromEnv reads the environment-only Redis ACL username and
@@ -31,9 +31,9 @@ func ParseRedisTLSEnabled(raw string) (bool, error) {
 	if raw == "" {
 		return false, nil
 	}
-	enabled, err := strconv.ParseBool(raw)
-	if err != nil {
-		return false, fmt.Errorf("expected a boolean: %w", err)
+	enabled, ok := define.ParseBool(raw)
+	if !ok {
+		return false, fmt.Errorf("expected a boolean (%s)", define.BooleanSpellings)
 	}
 	return enabled, nil
 }
