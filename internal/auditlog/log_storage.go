@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/rs/zerolog"
 	audit "github.com/soulteary/audit-kit/v2"
 	loggerkit "github.com/soulteary/logger-kit/v3"
 
@@ -17,6 +18,9 @@ import (
 //
 // Each record is one Info line carrying "audit": true, which lets a log
 // pipeline route audit records separately from ordinary application messages.
+// The line is written whatever the level of the application log is: an audit
+// trail that LOG_LEVEL=warn or a request to /log/level can switch off does not
+// record the request that switched it off.
 // The user ID is masked like everywhere else in the application log; the
 // identifier in the metadata is already masked by the caller.
 type logStorage struct{}
@@ -44,7 +48,10 @@ func (logStorage) Write(_ context.Context, record *audit.Record) error {
 	if record == nil {
 		return nil
 	}
-	event := sink().Info().
+	// A copy of the sink's logger with its own level, so the record does not
+	// depend on the level the application log is filtered at.
+	log := sink().Zerolog().Level(zerolog.InfoLevel)
+	event := log.Info().
 		Bool("audit", true).
 		Str("event_type", string(record.EventType)).
 		Str("result", string(record.Result)).
