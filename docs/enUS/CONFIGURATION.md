@@ -43,7 +43,7 @@ delay. Refresh scheduling uses `task.interval` / `INTERVAL` / `--interval`, not
 seconds by the application. SDK CacheTTL is a separate client option.
 
 See `internal/config/config.go: ToCmdConfig`, `main.go: NewApp`,
-`internal/di/di.go`, `internal/cache/redis_cache.go`, and
+`internal/cache/redis_cache.go`, and
 `internal/loader/loader.go`. Wiring additional fields requires a separate behavior
 change, not a documentation correction.
 
