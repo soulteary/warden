@@ -78,7 +78,7 @@ docker run -d \
    
    # HTTP Client Configuration (optional)
    # HTTP_TIMEOUT=5
-   # HTTP_MAX_IDLE_CONNS=100
+   # HTTP_MAX_IDLE_CONNS=20
    # HTTP_INSECURE_TLS=false
    
    # API Key (for API authentication, required in production)

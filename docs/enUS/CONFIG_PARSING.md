@@ -337,8 +337,8 @@ export HTTP_TIMEOUT=1m30s    # Duration format
 - **Environment Variable**: `HTTP_MAX_IDLE_CONNS`
 - **Configuration File**: `http.max_idle_conns`
 - **Type**: Integer
-- **Default Value**: `100`
-- **Description**: HTTP client maximum idle connections
+- **Default Value**: `20`
+- **Description**: Size of the idle-connection pool of the HTTP client that fetches the remote source. At most two idle connections are kept per host
 
 **Example**:
 ```bash

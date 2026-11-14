@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/soulteary/warden/internal/define"
 )
 
 var errRedirect = errors.New("remote redirects are disabled")
@@ -27,6 +29,32 @@ type contextDialer interface {
 // NewHTTPClient restricts rule-source connections to validated addresses. It
 // ignores environment proxies, which could resolve the target outside this policy.
 func NewHTTPClient(timeout time.Duration, insecureTLS bool) (*http.Client, error) {
+	return NewHTTPClientWithOptions(ClientOptions{Timeout: timeout, InsecureTLS: insecureTLS})
+}
+
+// ClientOptions configures the restricted rule-source client.
+type ClientOptions struct {
+	// Timeout bounds one request, including reading the body. Zero means no bound.
+	Timeout time.Duration
+	// InsecureTLS skips certificate verification (development only).
+	InsecureTLS bool
+	// MaxIdleConns is the size of the idle-connection pool. A value below one
+	// selects define.DEFAULT_MAX_IDLE_CONNS.
+	MaxIdleConns int
+}
+
+// maxIdleConnsPerHost is the idle-connection limit per host. The client talks
+// to one rule source, so a small number is enough.
+const maxIdleConnsPerHost = 2
+
+// NewHTTPClientWithOptions is NewHTTPClient with every setting of the client.
+// The client keeps idle connections, so build it once and reuse it.
+func NewHTTPClientWithOptions(opts ClientOptions) (*http.Client, error) {
+	timeout, insecureTLS := opts.Timeout, opts.InsecureTLS
+	maxIdleConns := opts.MaxIdleConns
+	if maxIdleConns < 1 {
+		maxIdleConns = define.DEFAULT_MAX_IDLE_CONNS
+	}
 	origins, err := privateOrigins(os.Getenv("REMOTE_PRIVATE_ORIGINS"))
 	if err != nil {
 		return nil, err
@@ -38,8 +66,8 @@ func NewHTTPClient(timeout time.Duration, insecureTLS bool) (*http.Client, error
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,
 		IdleConnTimeout:       30 * time.Second,
-		MaxIdleConns:          20,
-		MaxIdleConnsPerHost:   2,
+		MaxIdleConns:          maxIdleConns,
+		MaxIdleConnsPerHost:   min(maxIdleConnsPerHost, maxIdleConns),
 	}
 	return &http.Client{Timeout: timeout, Transport: &originTransport{inner: transport, private: origins}, CheckRedirect: rejectRedirect}, nil
 }

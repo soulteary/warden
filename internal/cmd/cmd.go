@@ -566,7 +566,7 @@ func getArgsFromFlags() *Config {
 		RemoteRSAPrivateKey:     "",
 		RemoteEncryptionFormat:  "auto",
 		HTTPTimeout:             define.DEFAULT_TIMEOUT,
-		HTTPMaxIdleConns:        100,
+		HTTPMaxIdleConns:        define.DEFAULT_MAX_IDLE_CONNS,
 		HTTPInsecureTLS:         false,
 		RateLimit:               define.DEFAULT_RATE_LIMIT,
 		RateLimitAuthenticated:  define.DEFAULT_RATE_LIMIT_AUTHENTICATED,
@@ -587,7 +587,7 @@ func getArgsFromFlags() *Config {
 		dataFile:         define.DEFAULT_DATA_FILE,
 		interval:         define.DEFAULT_TASK_INTERVAL,
 		httpTimeout:      define.DEFAULT_TIMEOUT,
-		httpMaxIdleConns: 100,
+		httpMaxIdleConns: define.DEFAULT_MAX_IDLE_CONNS,
 		httpInsecureTLS:  false,
 	}
 	flagVals := registerFlags(fs, defaults)

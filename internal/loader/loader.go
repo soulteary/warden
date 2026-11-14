@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	otelprop "github.com/soulteary/http-kit/v2/otelprop"
@@ -77,6 +78,15 @@ type RemoteOptions struct {
 	// InsecureSkipVerify disables TLS verification for remote sources.
 	InsecureSkipVerify bool
 	RequireHTTPS       bool
+
+	// MaxIdleConns is the idle-connection pool size of the client this
+	// package builds (HTTP_MAX_IDLE_CONNS). Zero selects the default.
+	MaxIdleConns int
+}
+
+// clientOptions maps the remote settings onto the restricted client.
+func (o RemoteOptions) clientOptions() remote.ClientOptions {
+	return remote.ClientOptions{Timeout: o.Timeout, InsecureTLS: o.InsecureSkipVerify, MaxIdleConns: o.MaxIdleConns}
 }
 
 // BuildRemoteOptions builds the remote source settings from warden config.
@@ -97,6 +107,7 @@ func BuildRemoteOptions(cfg *cmd.Config) RemoteOptions {
 		RequireHTTPS:       environment.IsProduction(),
 		Timeout:            time.Duration(cfg.HTTPTimeout) * time.Second,
 		InsecureSkipVerify: cfg.HTTPInsecureTLS,
+		MaxIdleConns:       cfg.HTTPMaxIdleConns,
 	}
 }
 
@@ -168,7 +179,7 @@ func newRemoteFetcher(rawURL, auth string, remoteOpts RemoteOptions) parserkit.F
 	client := remoteOpts.HTTPClient
 	if client == nil {
 		var err error
-		client, err = remote.NewHTTPClient(remoteOpts.Timeout, remoteOpts.InsecureSkipVerify)
+		client, err = newRestrictedClient(remoteOpts.clientOptions())
 		if err != nil {
 			return errFetcher{err: err}
 		}
@@ -205,6 +216,10 @@ func newRemoteFetcher(rawURL, auth string, remoteOpts RemoteOptions) parserkit.F
 	}
 	return nonEmptyFetcher{inner: f}
 }
+
+// newRestrictedClient builds the restricted rule-source client. It is a
+// variable so tests can observe how often a client is built.
+var newRestrictedClient = remote.NewHTTPClientWithOptions
 
 // listJSONFiles returns sorted *.json paths under dir (non-recursive).
 func listJSONFiles(dir string) ([]string, error) {
@@ -295,6 +310,43 @@ type RulesLoader struct {
 	remoteRSAPrivateKeyPEM string // inline PEM when file not set
 	remoteEncRequired      bool   // fail closed on plaintext when true
 	remoteEncFormat        remote.EncryptionFormat
+
+	// client is the restricted HTTP client shared by every refresh, built on
+	// first use. Building one per refresh discarded its idle connections, so
+	// each refresh paid for a new TCP and TLS handshake.
+	clientMu sync.Mutex
+	client   *http.Client
+}
+
+// remoteClient returns the HTTP client for the remote source: the one supplied
+// by the embedding caller, or the restricted client built once for this
+// loader. A build error is returned and not cached, so the next refresh
+// reports it again.
+func (r *RulesLoader) remoteClient() (*http.Client, error) {
+	if r.remoteOpts.HTTPClient != nil {
+		return r.remoteOpts.HTTPClient, nil
+	}
+	r.clientMu.Lock()
+	defer r.clientMu.Unlock()
+	if r.client == nil {
+		client, err := newRestrictedClient(r.remoteOpts.clientOptions())
+		if err != nil {
+			return nil, err
+		}
+		r.client = client
+	}
+	return r.client, nil
+}
+
+// remoteOptions returns the remote settings with the shared client filled in.
+// When the client cannot be built the options are returned without one, and
+// the fetcher built from them reports the error.
+func (r *RulesLoader) remoteOptions() RemoteOptions {
+	opts := r.remoteOpts
+	if client, err := r.remoteClient(); err == nil {
+		opts.HTTPClient = client
+	}
+	return opts
 }
 
 // NewRulesLoader creates a RulesLoader using cfg and appMode.
@@ -492,7 +544,7 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 	evidence.attempts[id].SourceOrdinal = descriptor.Ordinal
 	evidence.attempts[id].ManifestRevision = manifest.Revision
 	remoteUsers, rerr := remote.FetchDecryptedUsersWithOptions(ctx, &remote.FetchOptions{
-		HTTPClient:         r.remoteOpts.HTTPClient,
+		HTTPClient:         r.decryptClient(),
 		RequireHTTPS:       r.remoteOpts.RequireHTTPS,
 		URL:                configURL,
 		AuthHeader:         auth,
@@ -552,6 +604,24 @@ func (r *RulesLoader) loadDecryptPath(ctx context.Context, rulesFile, dataDir, c
 	}
 	merged := mergeObserved(ctx, remoteUsers, fileUsers, mode, remoteBatch, selectedBatch(ctx))
 	return LoadResult{Users: merged, Source: SourceMerged, Version: cache.HashUserList(merged), LoadedAt: now}
+}
+
+// decryptClient returns the client for the encrypted-remote path. That path
+// has its own timeout (r.httpTimeout), so a client built by this loader is
+// copied with that timeout; the copy shares the transport and its idle
+// connections. A caller-supplied client is used unchanged, and nil lets the
+// fetch build a client and report the error when the shared one cannot be built.
+func (r *RulesLoader) decryptClient() *http.Client {
+	if r.remoteOpts.HTTPClient != nil {
+		return r.remoteOpts.HTTPClient
+	}
+	shared, err := r.remoteClient()
+	if err != nil {
+		return nil
+	}
+	client := *shared
+	client.Timeout = r.httpTimeout
+	return &client
 }
 
 // loadLocalOnly loads rules from local sources only (no remote), used as a fallback.

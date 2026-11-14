@@ -77,7 +77,7 @@ docker run -d \
    
    # HTTP 客户端配置（可选）
    # HTTP_TIMEOUT=5
-   # HTTP_MAX_IDLE_CONNS=100
+   # HTTP_MAX_IDLE_CONNS=20
    # HTTP_INSECURE_TLS=false
    
    # API Key（用于 API 认证，生产环境必须设置）

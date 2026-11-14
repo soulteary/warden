@@ -70,7 +70,11 @@ func (f *identifiedFetcher) Fetch(ctx context.Context, maxBytes int64) ([]byte, 
 }
 func (r *RulesLoader) buildObservedSources(ctx context.Context, file, dir, url, auth, mode string) []parserkit.Source {
 	discovery := "not_requested"
-	sources := buildSources(file, dir, url, auth, mode, r.remoteOpts, &discovery)
+	remoteOpts := r.remoteOpts
+	if url != "" {
+		remoteOpts = r.remoteOptions()
+	}
+	sources := buildSources(file, dir, url, auth, mode, remoteOpts, &discovery)
 	e := evidenceFrom(ctx)
 	if e == nil {
 		return sources

@@ -32,7 +32,7 @@ rate_limit:
 
 http:
   timeout: 5s
-  max_idle_conns: 100
+  max_idle_conns: 20  # 远程数据源客户端的空闲连接池大小
   insecure_tls: false  # 仅用于开发环境
   max_retries: 3
   retry_delay: 1s

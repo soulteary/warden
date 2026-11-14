@@ -238,8 +238,11 @@ const (
 	// MAX_WHITELIST_SIZE maximum whitelist size
 	MAX_WHITELIST_SIZE = 1000
 
-	// DEFAULT_MAX_IDLE_CONNS default maximum idle connections
-	DEFAULT_MAX_IDLE_CONNS = 100
+	// DEFAULT_MAX_IDLE_CONNS is the default size of the idle-connection pool of
+	// the remote-source HTTP client (HTTP_MAX_IDLE_CONNS). It is the value the
+	// client has always used; the setting was documented with a default of 100
+	// but was not applied.
+	DEFAULT_MAX_IDLE_CONNS = 20
 	// DEFAULT_MAX_IDLE_CONNS_PER_HOST default maximum idle connections per host
 	DEFAULT_MAX_IDLE_CONNS_PER_HOST = 10
 	// DEFAULT_IDLE_CONN_TIMEOUT default idle connection timeout
