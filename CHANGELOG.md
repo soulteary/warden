@@ -123,6 +123,14 @@
   rule set after an all-rejected refresh no longer replaces a Redis snapshot
   published from a later source load. A user removed in the newer snapshot
   could be served again by a replica that started from the older one.
+- Enforced reads accept a v2 snapshot whose source time is up to five seconds
+  ahead of the local clock, the same allowance the snapshot store applies. A
+  reader whose clock ran behind the writer's answered 503 until its clock
+  caught up.
+- A v2 Redis snapshot key that expired, was evicted or was flushed is published
+  again by the lease holder on its next cycle. It stayed absent while the
+  source kept rejecting the load, so a restarting replica had nothing to
+  restore. A conflicting revision is still left untouched.
 
 ### Security
 
