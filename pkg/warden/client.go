@@ -380,9 +380,14 @@ func (c *Client) CheckUserInListWithError(ctx context.Context, phone, mail strin
 }
 
 // findUser looks a user up and reports "not found" as a result, not an error.
+// A user response without a status field is an error: the answer to "is this
+// user active" is not in it.
 func (c *Client) findUser(ctx context.Context, phone, mail string) (user *AllowListUser, found bool, err error) {
-	user, err = c.GetUserByIdentifier(ctx, phone, mail, "")
+	user, hasStatus, err := c.getUser(ctx, phone, mail, "")
 	if err == nil {
+		if !hasStatus {
+			return nil, false, NewError(ErrCodeInvalidResponse, missingStatusMessage, nil)
+		}
 		return user, true, nil
 	}
 	var sdkErr *Error
@@ -453,9 +458,25 @@ func (c *Client) Lookup(ctx context.Context, identifier string) (*LookupResult, 
 	return &result, nil
 }
 
+// missingStatusMessage describes a user response that carries no status field.
+// A Warden server always returns the field unless its RESPONSE_FIELDS
+// allowlist leaves it out.
+const missingStatusMessage = "the user response carries no status field: the server's RESPONSE_FIELDS must include status for this check"
+
 // GetUserByIdentifier fetches a single user by phone, mail, or user_id.
 // Only one identifier should be provided.
+//
+// The server returns only the fields its RESPONSE_FIELDS allowlist names. A
+// field that is left out is empty in the result; without status, IsActive
+// reports false.
 func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID string) (*AllowListUser, error) {
+	user, _, err := c.getUser(ctx, phone, mail, userID)
+	return user, err
+}
+
+// getUser is GetUserByIdentifier that also reports whether the response
+// carried a status field.
+func (c *Client) getUser(ctx context.Context, phone, mail, userID string) (result *AllowListUser, hasStatus bool, err error) {
 	identifierCount := 0
 	for _, value := range []string{phone, mail, userID} {
 		if value != "" {
@@ -464,10 +485,10 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	}
 
 	if identifierCount == 0 {
-		return nil, NewError(ErrCodeInvalidConfig, "at least one identifier (phone, mail, or user_id) must be provided", nil)
+		return nil, false, NewError(ErrCodeInvalidConfig, "at least one identifier (phone, mail, or user_id) must be provided", nil)
 	}
 	if identifierCount > 1 {
-		return nil, NewError(ErrCodeInvalidConfig, "only one identifier (phone, mail, or user_id) should be provided", nil)
+		return nil, false, NewError(ErrCodeInvalidConfig, "only one identifier (phone, mail, or user_id) should be provided", nil)
 	}
 
 	reqURL := c.userRequestURL(phone, mail, userID)
@@ -479,7 +500,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
-		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
+		return nil, false, NewError(ErrCodeRequestFailed, "failed to create request", err)
 	}
 
 	// Add authentication headers if configured
@@ -489,7 +510,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	resp, err := c.doRequestWithRetry(ctx, req)
 	if err != nil {
 		c.logger.Errorf("Failed to fetch user from Warden API: code=%s", logErrorCode(err))
-		return nil, err
+		return nil, false, err
 	}
 	defer func() {
 		if resp != nil && resp.Body != nil {
@@ -500,22 +521,33 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 	// Check status code
 	deadline, responseErr := c.checkDataResponse(resp)
 	if responseErr != nil {
-		return nil, responseErr
+		return nil, false, responseErr
 	}
 
-	// Parse response
-	var user AllowListUser
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
+	// Parse response. Status is decoded through a pointer so that a response
+	// without the field can be told from one with an empty value.
+	var decoded struct {
+		Status *string `json:"status"`
+		AllowListUser
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
+		return nil, false, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
+	}
+	user := decoded.AllowListUser
+	hasStatus = decoded.Status != nil
+	if hasStatus {
+		user.Status = *decoded.Status
+	} else {
+		c.logger.Warn("Warden user response carries no status field (the server's RESPONSE_FIELDS omits it); the user is treated as not active")
 	}
 
 	if err := c.checkSourceDeadline(deadline); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", sanitizeString(user.UserID), sanitizePhone(user.Phone), sanitizeEmail(user.Mail))
 
-	return &user, nil
+	return &user, hasStatus, nil
 }
 
 // ClearCache clears the internal cache.

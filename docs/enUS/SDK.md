@@ -281,7 +281,7 @@ Returns `*AllowListUser` and error. If user does not exist, returns `ErrCodeNotF
 
 - `(true, nil)`: the user is on the list and active
 - `(false, nil)`: the user is not on the list, or is not active
-- `(false, err)`: Warden could not be reached or refused to answer — a transport failure, `ErrCodeUnauthorized`, `ErrCodeRateLimited` or `ErrCodeServerError`; also `ErrCodeInvalidConfig` when both `phone` and `mail` are empty
+- `(false, err)`: Warden could not be reached or refused to answer — a transport failure, `ErrCodeUnauthorized`, `ErrCodeRateLimited` or `ErrCodeServerError`; also `ErrCodeInvalidConfig` when both `phone` and `mail` are empty, and `ErrCodeInvalidResponse` when the user response carries no `status` field, which happens when the server's `RESPONSE_FIELDS` leaves `status` out
 
 The lookup order and normalization are those of `CheckUserInList` below.
 
@@ -306,6 +306,7 @@ Returns `true` if the user exists (matched by phone or email), `false` otherwise
 - Input is automatically normalized: `phone` is trimmed, `mail` is trimmed and converted to lowercase
 - This method uses `GetUserByIdentifier` for lookup, more efficient than iterating through user list
 - Only users with status "active" will return `true`
+- The status comes from the `/user` response. A server whose `RESPONSE_FIELDS` leaves `status` out returns none, and every user is then reported as `false`; the client logs a warning that names the cause
 
 #### `ClearCache()`
 

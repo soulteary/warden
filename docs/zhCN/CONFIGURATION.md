@@ -333,6 +333,7 @@ app:
 - 环境变量：`export RESPONSE_FIELDS=phone,mail,user_id,status,scope,role,name`
 - YAML：`app.response_fields: ["phone","mail","user_id","status","scope","role","name"]`
 - Stargate 所需字段建议包含：`user_id`、`mail`/`phone`、`status`、`scope`、`role`。
+- 白名单不含 `status` 时配置仍被接受，但启动时会输出一条警告：此时 `/user` 与列表响应不带状态，依据状态判断的客户端会把所有用户视为非 active。Go SDK 的 `CheckUserInList` 对所有用户返回 `false`，`CheckUserInListWithError` 返回 `INVALID_RESPONSE` 错误。请在白名单中包含 `status`，或通过始终返回状态的 `/v1/lookup` 判断。
 
 ### 远程响应 RSA 解密
 
