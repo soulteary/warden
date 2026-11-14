@@ -599,7 +599,9 @@ enforce 模式的就绪规则见下文。
 记录恢复时间，并保持 degraded，原因标记为 `redis_follow_recovery`。恢复 helper
 不发布或续期共享数据；全记录拒绝分支成功采用候选后，本轮也跳过续期。
 快照指标用有限枚举操作 `follow_read` 区分跟进结果。键缺失、无效或 Redis 不可用时
-保留本地数据，不从旧内存重建键。首次 bootstrap 的原有行为保持不变。
+保留本地数据，恢复 helper 不重建缺失的键。其后本周期的发布步骤照常执行：全记录
+拒绝后保留旧集合的写入者在键缺失时会发布该集合（见
+[Redis 快照诊断](REDIS_SNAPSHOT_DIAGNOSTICS.md)）。首次 bootstrap 的原有行为保持不变。
 
 这是可用性策略，与 SNAPSHOT_READ_POLICY 独立；需要过期停止读取时，仍须单独启用
 enforce。较新的来源成功时间表示较晚接受的校验证据，不是全局业务版本顺序，也不

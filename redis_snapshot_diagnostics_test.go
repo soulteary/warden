@@ -6,7 +6,6 @@ import (
 	"time"
 
 	dto "github.com/prometheus/client_model/go"
-	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/config"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/prommetrics"
@@ -42,8 +41,11 @@ func TestSnapshotDiagnosticsSeparatePublishRenewAndSkippedWrites(t *testing.T) {
 	require.Equal(t, published.PublishedAt, app.snapshots.Load().PublishedAt)
 	mr.Del("warden:{migration-test}:snapshot:v2")
 	before = snapshotOutcomeCount(t, "v2", "renew", "missing")
-	require.ErrorIs(t, app.publishRedisSnapshots(app.userCache.Get()), cache.ErrSnapshotConflict)
+	republished := snapshotOutcomeCount(t, "v2", "publish", "published")
+	require.NoError(t, app.publishRedisSnapshots(app.userCache.Get()))
 	require.Equal(t, before+1, snapshotOutcomeCount(t, "v2", "renew", "missing"))
+	require.Equal(t, republished+1, snapshotOutcomeCount(t, "v2", "publish", "published"), "a missing value is published again")
+	require.True(t, mr.Exists("warden:{migration-test}:snapshot:v2"))
 	release()
 }
 
