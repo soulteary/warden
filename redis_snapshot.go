@@ -145,6 +145,10 @@ func (app *App) publishRedisSnapshots(users []define.AllowListUser) error {
 		app.recordSnapshotResult("renew", result)
 		return err
 	}
+	if app.retainedSnapshotSuperseded(ctx, snap) {
+		app.recordSnapshotResult("publish", "superseded")
+		return nil
+	}
 	published, err := app.snapshotLease.Publish(ctx, &cache.SnapshotEnvelope{
 		Users: snap.view.Get(), EffectiveVersion: snap.EffectiveVersion,
 		InputVersion: snap.Version, InputCount: snap.Count, Origin: string(snap.Origin), SourceSucceededAt: snap.SourceSucceededAt,
@@ -156,6 +160,23 @@ func (app *App) publishRedisSnapshots(users []define.AllowListUser) error {
 	app.recordSnapshotResult("publish", "published")
 	app.snapshots.recordPublication(snap, published.PublishedAt, published.Revision)
 	return nil
+}
+
+// retainedSnapshotSuperseded reports whether Redis already holds a publication
+// from a source load at least as recent as a snapshot this replica kept after
+// a rejected refresh. Such a snapshot may predate what another replica has
+// published since, and publishing it would move the shared copy backwards.
+// A snapshot stored by the current refresh has no recorded failure and is
+// always published. The caller holds the writer lease, so no other replica
+// publishes between this read and the write. A stored value that cannot be
+// read is not evidence of a newer publication; if Redis itself is failing, the
+// publish that follows reports it.
+func (app *App) retainedSnapshotSuperseded(ctx context.Context, snap *Snapshot) bool {
+	if state := app.snapshots.capture(); state == nil || state.snapshot != snap || state.failures == 0 {
+		return false
+	}
+	stored, err := app.redisSnapshots.Read(ctx)
+	return err == nil && stored != nil && !stored.SourceSucceededAt.Before(snap.SourceSucceededAt)
 }
 
 // Publication metadata joins the same generation without erasing concurrent diagnostics.
