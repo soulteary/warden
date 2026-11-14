@@ -228,6 +228,8 @@ X-API-Key: your-secret-api-key
 
 检查 Redis、数据缓存、快照来源与快照新鲜度。
 
+健康的 Redis 探测结果会复用 3 秒，因此该时间窗内的健康检查请求不会各自向 Redis 发送命令；Redis 故障最多可能延迟 3 秒才体现。失败的探测结果不会复用：Redis 不可用期间每个请求都会重新探测。
+
 **请求**
 ```http
 GET /health

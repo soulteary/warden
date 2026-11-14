@@ -188,6 +188,8 @@ If you choose to integrate with other services (such as Stargate), you can call 
 
 Check Redis, data cache, snapshot provenance, and snapshot freshness.
 
+A healthy Redis probe result is reused for 3 seconds, so health requests within that window do not each send a command to Redis; a Redis failure can therefore take up to 3 seconds to appear. A failed probe is not reused: while Redis is down every request probes again.
+
 **Request**
 ```http
 GET /health
