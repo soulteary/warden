@@ -47,6 +47,8 @@ func TestMemoryReplayGuardDefaultTTL(t *testing.T) {
 	require.False(t, replaySeen(t, guard, "gateway:nonce", 0))
 	now = now.Add(59 * time.Second)
 	require.True(t, replaySeen(t, guard, "gateway:nonce", -time.Second))
-	now = now.Add(2 * time.Minute)
-	require.False(t, replaySeen(t, guard, "gateway:nonce", 0))
+	// One minute after the first use, not later: a longer fallback would still
+	// hold the nonce here.
+	now = now.Add(time.Second)
+	require.False(t, replaySeen(t, guard, "gateway:nonce", 0), "the nonce is forgotten after one minute")
 }
