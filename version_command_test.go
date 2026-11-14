@@ -63,7 +63,12 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 	if err != nil {
 		t.Fatal("Go tool required to verify the real linker metadata path")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	// Both limits only bound a hang. What the test checks is what the program
+	// writes and how it exits, so the limits are sized for a loaded machine: the
+	// first start of a freshly linked binary alone has been seen to take longer
+	// than five seconds there.
+	const buildLimit, runLimit = 10 * time.Minute, 2 * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), buildLimit)
 	defer cancel()
 	binary := filepath.Join(t.TempDir(), "warden-version-test")
 	// These are explicit synthetic linker values, never release identity claims.
@@ -77,6 +82,9 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 		}
 	}
 	if output, buildErr := build.CombinedOutput(); buildErr != nil {
+		if ctx.Err() != nil {
+			t.Fatalf("build version fixture: not finished within %s\n%s", buildLimit, output)
+		}
 		t.Fatalf("build version fixture: %v\n%s", buildErr, output)
 	}
 	// No inherited application configuration or secrets. If startup is reached,
@@ -84,7 +92,7 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 	env := []string{"CONFIG_FILE=" + filepath.Join(t.TempDir(), "absent.json"), "REDIS_ENABLED=true", "REDIS_ADDR=127.0.0.1:1"}
 	run := func(args []string, stdout io.Writer) (string, error) {
 		t.Helper()
-		probe, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		probe, stop := context.WithTimeout(context.Background(), runLimit)
 		defer stop()
 		// #nosec G204 -- binary was built above in this test's owned t.TempDir; arguments are fixed test cases.
 		cmd := exec.CommandContext(probe, binary, args...)
@@ -93,6 +101,11 @@ func TestVersionCommandBinaryEarlyExit(t *testing.T) {
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		returnErr := cmd.Run()
+		if probe.Err() != nil {
+			// A process killed at the limit is a hang; say so instead of
+			// reporting the bare "signal: killed".
+			t.Fatalf("%q did not exit within %s: %v stderr=%q", args, runLimit, returnErr, stderr.String())
+		}
 		return stderr.String(), returnErr
 	}
 	var output bytes.Buffer
