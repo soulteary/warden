@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"math"
 	"os"
 	"testing"
 	"time"
@@ -76,7 +77,9 @@ func TestNumericEnvIsApplied(t *testing.T) {
 func TestHTTPTimeoutIsBoundedFromEverySource(t *testing.T) {
 	clearNumericEnv(t)
 	base := Config{Port: "8081", TaskInterval: 5, Mode: "DEFAULT", Environment: "development"}
-	for _, seconds := range []int{-1, MaxHTTPTimeoutSeconds + 1, 1 << 40} {
+	// math.MaxInt fits an int on every target. On 64-bit targets it is also a
+	// number of seconds that overflows a time.Duration when converted.
+	for _, seconds := range []int{-1, MaxHTTPTimeoutSeconds + 1, math.MaxInt} {
 		cfg := base
 		cfg.HTTPTimeout = seconds
 		require.ErrorContains(t, ValidateConfig(&cfg), "Invalid HTTP timeout", "%d", seconds)
