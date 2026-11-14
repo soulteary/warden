@@ -434,6 +434,8 @@ go run . \
 
 **布尔值**：所有布尔型变量（`REDIS_ENABLED`、`REDIS_TLS_ENABLED`、`HTTP_INSECURE_TLS`、`REMOTE_DECRYPT_ENABLED`、`REMOTE_ENCRYPTION_REQUIRED`、`REQUIRE_EXPLICIT_USER_ID`、`WARDEN_TLS_REQUIRE_CLIENT_CERT`、`WARDEN_HMAC_ALLOW_V1`、`WARDEN_METRICS_REQUIRE_AUTH`、`OTLP_ENABLED`）接受 `true`/`false`、`1`/`0`、`yes`/`no`、`on`/`off` 与 `t`/`f`，不区分大小写。其他非空取值会使启动失败，并在错误信息中指出变量名。
 
+**数值**：`PORT`（1 到 65535）、`INTERVAL`（秒，至少为 1）、`HTTP_MAX_IDLE_CONNS`（不小于 0；0 表示使用默认值）与 `WARDEN_HMAC_TIMESTAMP_TOLERANCE`（秒，至少为 1）必须是整数。`HTTP_TIMEOUT` 可以是整数秒或 `30s`、`1m30s` 这样的 duration，范围为 1 秒到 1 小时；`--http-timeout` 与 `http.timeout` 适用同一上限。不符合上述规则的取值会使启动失败，并在错误信息中指出变量名。空值视为未设置。
+
 ```bash
 export PORT=8081
 export REDIS=localhost:6379
@@ -452,7 +454,7 @@ export RESPONSE_FIELDS=               # 可选：API 响应字段白名单，逗
 export REMOTE_DECRYPT_ENABLED=false   # 可选：是否对远程响应做 RSA 解密
 export REMOTE_RSA_PRIVATE_KEY_FILE=   # 可选：RSA 私钥 PEM 文件路径（与 REMOTE_RSA_PRIVATE_KEY 二选一，文件优先）
 export REMOTE_RSA_PRIVATE_KEY=        # 可选：RSA 私钥 PEM 内联（多行需保留换行；未设置 FILE 时使用）
-export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 duration，如 30s、1m30s）
+export HTTP_TIMEOUT=5                  # HTTP 请求超时（支持整数秒或 duration，如 30s、1m30s；范围 1s 到 1h）
 export HTTP_MAX_IDLE_CONNS=20          # 远程数据源客户端的空闲连接池大小（默认: 20）
 export HTTP_INSECURE_TLS=false         # 是否跳过 TLS 证书验证（true/false 或 1/0）
 export API_KEY="your-secret-api-key"   # API Key 用于认证（强烈建议设置）
