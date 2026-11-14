@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	loggerkit "github.com/soulteary/logger-kit/v3"
 	tracing "github.com/soulteary/tracing-kit/v2"
 	"github.com/soulteary/tracing-kit/v2/tracingtest"
 	"github.com/stretchr/testify/require"
@@ -55,6 +57,12 @@ func TestInitializeTracingSelectsItsConfiguration(t *testing.T) {
 			configFile:  func(t *testing.T) string { return writeTracingConfig(t, "  enabled: true\n") },
 			otlpEnabled: "true", otlpEnv: endpoint,
 			started: true,
+		},
+		{
+			// The endpoint is not taken from anywhere else: with the environment
+			// silent, a file that names none starts nothing.
+			name:       "configuration file without an endpoint and a silent environment",
+			configFile: func(t *testing.T) string { return writeTracingConfig(t, "  enabled: true\n") },
 		},
 		{
 			name: "configuration file disables tracing and the environment is silent",
@@ -108,8 +116,15 @@ func TestInitializeTracingSurvivesAFailedSetup(t *testing.T) {
 			t.Setenv("OTLP_ENABLED", "true")
 			t.Setenv("OTLP_ENDPOINT", endpoint)
 		}
-		require.Nil(t, initializeTracing(cfg, logger.GetLoggerKit()), "via file: %v", viaFile)
+		var out bytes.Buffer
+		log := loggerkit.New(loggerkit.Config{Level: loggerkit.InfoLevel, Format: loggerkit.FormatJSON, Output: &out})
+		require.Nil(t, initializeTracing(cfg, log), "via file: %v", viaFile)
 		require.False(t, tracing.IsEnabled())
+		lines := logLines(t, &out)
+		require.Len(t, lines, 1, "via file: %v: %s", viaFile, out.String())
+		require.Equal(t, "warn", lines[0]["level"])
+		require.Equal(t, "Failed to initialize OpenTelemetry tracing", lines[0]["message"])
+		require.NotEmpty(t, lines[0]["error"], "the cause is logged")
 	}
 }
 
