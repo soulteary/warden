@@ -28,6 +28,12 @@
   startup.
 - `Retry-After` on every 429 response: the seconds, rounded up, until the
   limiter accepts another request.
+- SDK: `CheckUserInListWithError`, `Lookup`, and the error code `RATE_LIMITED`
+  with `Error.RetryAfter`. `NewClient` no longer modifies the caller's
+  transport.
+- Startup warning outside production when no service credential is configured.
+- Startup warnings for a refresh interval below five seconds and for
+  configuration-file keys that are parsed but not applied.
 
 ### Changed
 
@@ -51,6 +57,19 @@
   `IP_WHITELIST` was set. The behaviour with an empty value is unchanged in
   this release; a later release will stop trusting forwarded headers when the
   variable is empty. Set it to the proxy addresses or to `none` now.
+- `CONFIG` no longer defaults to `http://localhost:8080/data.json`.
+  `ONLY_REMOTE` and `REMOTE_FIRST` refuse to start without a remote.
+- All boolean environment variables accept the same spellings; any other
+  non-empty value stops startup and names the variable. A value that was
+  silently read as false before, such as `yes` or `on`, is now read as true.
+- In production the "details hidden" log line is written at `info` for 4xx
+  responses and stays at `error` for 5xx.
+- The production startup warning for an empty `TRUSTED_PROXY_IPS` states that
+  credential guessing from private-network peers is not throttled.
+- A refresh that finds Redis already holding the current rule set renews its
+  TTL instead of rewriting the list.
+- The root Compose file no longer mounts `/etc/timezone`, which is absent on
+  macOS and several Linux distributions, and its healthcheck follows `PORT`.
 
 ### Fixed
 
@@ -66,6 +85,13 @@
   exactly, so such an entry removed the intended field from every response
   without notice. The accepted names are `phone`, `mail`, `user_id`, `status`,
   `scope`, `role`, `name` and `dingtalk_userid`.
+- Write audit records to the application log. User queries and every
+  `POST`/`PUT` to `/log/level` produce a JSON line with `"audit": true`; the
+  records were previously discarded.
+- Give a background refresh the configured `HTTP_TIMEOUT` plus retry backoff
+  instead of a fixed 10 seconds.
+- Reuse one HTTP client for the remote source and apply `HTTP_MAX_IDLE_CONNS`
+  to it; the effective default is 20.
 
 ### Security
 
@@ -87,6 +113,12 @@
   Uniqueness is enforced per field, so such data loads, but `/v1/lookup` tries
   phone or mail before `user_id` and resolves the shared value to the other
   user. The data is still accepted.
+- Reuse a healthy Redis probe result for 3 seconds in the health endpoints, so
+  repeated requests no longer each reach Redis.
+- Mask `user_id` in the application log and in trace attributes.
+- Document that the Redis instance is a trust root that must not be shared, and
+  warn at startup when it holds foreign keys or, in production, has no
+  password.
 
 ### Documentation
 
