@@ -26,7 +26,7 @@
 **必须配置项**：
 - **必须**设置 `ENVIRONMENT=production` 启用生产安全策略。
 - **必须**至少配置一种服务鉴权方式：`API_KEY`、HMAC v2 或 mTLS。
-- **必须**配置 `TRUSTED_PROXY_IPS` 以正确获取客户端 IP
+- **必须**将 `TRUSTED_PROXY_IPS` 配置为反向代理地址；Warden 前面没有反向代理时配置为 `none`（忽略 `X-Forwarded-For` 与 `X-Real-IP`，使用 TCP 对端地址）。该变量为空时，私有或回环地址的对端可以通过 `X-Forwarded-For` 自行指定客户端地址，而认证失败的限流按客户端地址计数，因此这类对端每伪造一个地址就获得新的配额，来自内网的凭证猜测不受限流约束；此时 Warden 会在启动时输出警告。同时设置了 `IP_WHITELIST` 而该变量为空时，生产环境拒绝启动
 - **必须**使用 `HEALTH_CHECK_IP_WHITELIST` 限制健康检查访问（或通过网络/反向代理限制 `/health`、`/healthcheck`）
 - **必须**限制 `/metrics`。`ENVIRONMENT=production` 下默认即要求认证，请保持该默认值（或在反向代理/网络层限制该路径），**不要**在生产环境设置 `WARDEN_METRICS_REQUIRE_AUTH=false`。
 

@@ -26,7 +26,7 @@ This document explains Warden's security features, security configuration, and b
 **Required Configuration**:
 - **Must** set `ENVIRONMENT=production` to enable production hardening.
 - **Must** configure at least one service authentication mechanism: `API_KEY`, HMAC v2, or mTLS.
-- **Must** set `TRUSTED_PROXY_IPS` to the reverse proxy addresses, or to `none` when no reverse proxy is in front of Warden. With `IP_WHITELIST` set and `TRUSTED_PROXY_IPS` empty, Warden refuses to start in production
+- **Must** set `TRUSTED_PROXY_IPS` to the reverse proxy addresses, or to `none` when no reverse proxy is in front of Warden. With `IP_WHITELIST` set and `TRUSTED_PROXY_IPS` empty, Warden refuses to start in production. Without `IP_WHITELIST` it starts and logs a warning: while the variable is empty, a peer on a private or loopback address chooses its own client address through `X-Forwarded-For`, and the limit on failed authentication is counted per client address, so such a peer gets a new budget with every forged address and credential guessing from inside the network is not throttled. `none` makes Warden ignore `X-Forwarded-For` and `X-Real-IP` and use the TCP peer address
 - **Must** use `HEALTH_CHECK_IP_WHITELIST` to restrict health check access (or restrict `/health`, `/healthcheck` via network/reverse proxy)
 - **Must** restrict `/metrics`. With `ENVIRONMENT=production` authentication is required by default; keep it that way (or restrict the path at the reverse proxy/network layer) and do **not** set `WARDEN_METRICS_REQUIRE_AUTH=false` in production.
 

@@ -44,8 +44,7 @@ func registerRoutes(app *App) *http.ServeMux {
 	trustedProxyRaw := os.Getenv("TRUSTED_PROXY_IPS")
 	trustedProxyConfig := middleware.NewTrustedProxyConfig(trustedProxyRaw)
 	if trustsPrivatePeers(trustedProxyRaw) {
-		logger.GetLoggerKit().Warn().
-			Msg("TRUSTED_PROXY_IPS is empty: X-Forwarded-For and X-Real-IP are trusted from any peer with a private or loopback address, so such a peer can choose the client address used by IP_WHITELIST and by per-client rate limiting; set TRUSTED_PROXY_IPS to the reverse proxy addresses, or to \"none\" to ignore forwarded headers")
+		logger.GetLoggerKit().Warn().Msg(trustedProxyWarning(app.environment))
 	}
 
 	i18nMiddleware := middleware.I18nMiddleware()
@@ -259,6 +258,23 @@ func registerRoutes(app *App) *http.ServeMux {
 	mux.Handle(define.PATH_LOG_LEVEL, logLevelHandler)
 
 	return mux
+}
+
+// trustedProxyWarningText is logged in every environment when
+// TRUSTED_PROXY_IPS is empty.
+const trustedProxyWarningText = "TRUSTED_PROXY_IPS is empty: X-Forwarded-For and X-Real-IP are trusted from any peer with a private or loopback address, so such a peer can choose the client address used by IP_WHITELIST and by per-client rate limiting; set TRUSTED_PROXY_IPS to the reverse proxy addresses, or to \"none\" to ignore forwarded headers"
+
+// trustedProxyProductionText spells out what the caller-chosen address means
+// for the limiter that protects authentication.
+const trustedProxyProductionText = " In production this leaves credential guessing from inside the network unthrottled: the limit on failed authentication is counted per client address, and a peer on a private or loopback address gets a new budget for every X-Forwarded-For value it sends."
+
+// trustedProxyWarning returns the warning for an empty TRUSTED_PROXY_IPS. In
+// production it adds the consequence for the failed-authentication limit.
+func trustedProxyWarning(environment string) string {
+	if env, _ := config.ParseEnvironment(environment); env.IsProduction() {
+		return trustedProxyWarningText + trustedProxyProductionText
+	}
+	return trustedProxyWarningText
 }
 
 // trustsPrivatePeers reports whether a TRUSTED_PROXY_IPS value leaves the
