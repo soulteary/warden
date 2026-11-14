@@ -39,10 +39,9 @@ func UserToMap(u *define.AllowListUser, fields []string) map[string]interface{} 
 }
 
 // UsersToMaps converts a slice of AllowListUser to slice of maps with optional field whitelist.
+// An empty input yields an empty, non-nil slice, so the list is encoded as
+// "[]" like the unfiltered response and not as "null".
 func UsersToMaps(users []define.AllowListUser, fields []string) []map[string]interface{} {
-	if len(users) == 0 {
-		return nil
-	}
 	out := make([]map[string]interface{}, len(users))
 	for i := range users {
 		out[i] = UserToMap(&users[i], fields)

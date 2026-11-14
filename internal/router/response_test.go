@@ -55,9 +55,11 @@ func TestUserToMap_NoDingtalk(t *testing.T) {
 
 func TestUsersToMaps_Empty(t *testing.T) {
 	out := UsersToMaps(nil, nil)
-	assert.Nil(t, out)
+	assert.NotNil(t, out)
+	assert.Empty(t, out)
 	out2 := UsersToMaps([]define.AllowListUser{}, []string{"phone"})
-	assert.Nil(t, out2)
+	assert.NotNil(t, out2)
+	assert.Empty(t, out2)
 }
 
 func TestUsersToMaps_WithFields(t *testing.T) {

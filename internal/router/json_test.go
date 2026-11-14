@@ -148,6 +148,22 @@ func TestJSON_WithResponseFields(t *testing.T) {
 	assert.NotContains(t, result[0], "user_id")
 }
 
+// An empty rule set is an empty JSON array whether or not RESPONSE_FIELDS is
+// set; the filtered responses used to encode it as null.
+func TestJSON_EmptyListWithResponseFieldsIsAnArray(t *testing.T) {
+	handler := JSON(cache.NewSafeUserCache(), []string{"phone", "mail"})
+
+	w := httptest.NewRecorder()
+	handler(w, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.JSONEq(t, `[]`, w.Body.String())
+
+	w = httptest.NewRecorder()
+	handler(w, httptest.NewRequest(http.MethodGet, "/?page=1", http.NoBody))
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.JSONEq(t, `{"data":[],"pagination":{"page":1,"page_size":100,"total":0,"total_pages":0}}`, w.Body.String())
+}
+
 func TestJSON_ContentType(t *testing.T) {
 	// Test Content-Type header
 	testData := []define.AllowListUser{
