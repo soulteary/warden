@@ -70,5 +70,10 @@ func (c *RedisUserCache) GetVersion() (int64, error) {
 
 // Clear clears cache
 func (c *RedisUserCache) Clear() error {
-	return c.cache.Clear(context.Background())
+	if err := c.cache.Clear(context.Background()); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), REDIS_OPERATION_TIMEOUT)
+	defer cancel()
+	return c.client.Del(ctx, REDIS_CACHE_SOURCE_KEY).Err()
 }

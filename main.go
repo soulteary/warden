@@ -605,12 +605,7 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 		return fmt.Errorf("redis cache unavailable")
 	}
 
-	// When Redis already holds exactly this rule set, renewing its TTL is
-	// enough. Any failure of the check falls through to the full write.
-	if renewed, err := app.redisUserCache.RenewIfUnchanged(users); err == nil && renewed {
-		return nil
-	}
-
+	sourceTime, retained := app.publicationEvidence()
 	var lastErr error
 	for attempt := 0; attempt < define.REDIS_RETRY_MAX_RETRIES; attempt++ {
 		if attempt > 0 {
@@ -620,22 +615,37 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 				Msg(i18n.TWithLang(i18n.LangZH, "log.retry_redis_cache"))
 		}
 
-		if err := app.redisUserCache.Set(users); err != nil {
+		outcome, err := app.redisUserCache.Publish(users, sourceTime, retained)
+		if err != nil {
 			lastErr = err
-			if attempt < define.REDIS_RETRY_MAX_RETRIES-1 {
-				continue
-			}
-		} else {
-			if cacheVersion, err := app.redisUserCache.GetVersion(); err == nil {
+			continue
+		}
+		switch outcome {
+		case cache.RuleSetKept:
+			app.log.Info().Msg("Redis holds a rule set from a source load at least as recent as the retained one; the retained set was not written")
+		case cache.RuleSetWritten:
+			if cacheVersion, versionErr := app.redisUserCache.GetVersion(); versionErr == nil {
 				app.log.Debug().
 					Int64("version", cacheVersion).
 					Msg(i18n.TWithLang(i18n.LangZH, "log.redis_cache_updated"))
 			}
-			return nil
 		}
+		return nil
 	}
 
 	return fmt.Errorf("failed to update Redis cache (retried %d times): %w", define.REDIS_RETRY_MAX_RETRIES, lastErr)
+}
+
+// publicationEvidence returns when the current rule set was loaded from the
+// sources and whether it is a set this replica kept after a rejected refresh.
+// A snapshot stored by a successful refresh has no recorded failure. A set
+// restored from the shared cache has no source time of its own.
+func (app *App) publicationEvidence() (sourceTime time.Time, retained bool) {
+	if app.snapshots == nil {
+		return time.Time{}, false
+	}
+	state := app.snapshots.capture()
+	return state.snapshot.SourceSucceededAt, state.failures > 0
 }
 
 // acquireRedisRefreshWriter elects at most one replica to update the shared

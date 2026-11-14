@@ -180,6 +180,26 @@ obvious, and immediately noticed.
   refresh failure. If a set has both identity conflicts and per-record format
   errors, the identity-integrity failure takes precedence and is not classified as
   `all_records_rejected`.
+- **The set a replica keeps is not new information for Redis.** In
+  `REDIS_SNAPSHOT_MODE=legacy` and `shadow` the writer for a cycle that kept its
+  set renews the TTL of the shared array when Redis holds exactly that set, so it
+  does not expire while the source stays unusable, and writes the set when the key
+  is missing. When Redis holds a different set, the writer compares source-load
+  times: the companion key `warden:users:cache:source` records the digest of the
+  stored array and the time of the source load it came from, and is written in one
+  transaction with the array. A stored set with the same or a later time is left
+  as it is (logged at `INFO`) and its TTL is not renewed by a replica that does not
+  hold it; an earlier one is replaced. A replica that loaded an older set before a
+  user was removed therefore cannot write that set back over the newer one. The
+  array itself is unchanged and replicas of earlier releases read it as before.
+  Such a replica writes the array without the companion key; the stored set then
+  has no known source time and a kept set is written over it, as earlier releases
+  do, so the protection is complete only once every replica records the time. A
+  set restored from Redis at startup has no source time of its own and never
+  replaces a different set that has one. A successful load is always written.
+  Replica clocks need to agree, as for `v2`; `v2` snapshots carry the source time
+  inside the stored value instead (see
+  [Redis snapshot protocol](REDIS_SNAPSHOT_PROTOCOL.md)).
 
 #### Observability
 
