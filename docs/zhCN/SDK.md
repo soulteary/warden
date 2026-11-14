@@ -304,7 +304,7 @@ invalidationCh <- struct{}{}
 - 输入会自动规范化：`phone` 会去除首尾空格，`mail` 会去除首尾空格并转换为小写
 - 此方法使用 `GetUserByIdentifier` 进行查找，性能优于遍历用户列表
 - 只有状态为 "active" 的用户才会返回 `true`
-- 状态取自 `/user` 响应。服务端 `RESPONSE_FIELDS` 未包含 `status` 时响应不带状态，此时所有用户都返回 `false`；客户端会输出一条说明原因的警告日志
+- 状态取自 `/user` 响应。服务端 `RESPONSE_FIELDS` 未包含 `status` 时响应不带状态，此时所有用户都返回 `false`；每个客户端只输出一次说明原因的警告日志，之后的同类响应记录在 debug 级别
 
 #### `ClearCache()`
 
