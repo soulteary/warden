@@ -275,6 +275,20 @@ Returns `*AllowListUser` and error. If user does not exist, returns `ErrCodeNotF
 
 **Note:** This method does not use cache, each call fetches the latest data from the API.
 
+#### `CheckUserInListWithError(ctx context.Context, phone, mail string) (bool, error)`
+
+`CheckUserInList` with the reason when no answer is available. Use it when the caller must tell "this user is denied" from "Warden could not be asked".
+
+- `(true, nil)`: the user is on the list and active
+- `(false, nil)`: the user is not on the list, or is not active
+- `(false, err)`: Warden could not be reached or refused to answer — a transport failure, `ErrCodeUnauthorized`, `ErrCodeRateLimited` or `ErrCodeServerError`; also `ErrCodeInvalidConfig` when both `phone` and `mail` are empty
+
+The lookup order and normalization are those of `CheckUserInList` below.
+
+#### `Lookup(ctx context.Context, identifier string) (*LookupResult, error)`
+
+Resolves one identifier through `GET /v1/lookup`. An identifier containing `@` is matched as a mail address; any other value is tried as a phone number and then as a user ID. The result carries `UserID`, `Status`, `Destination.Email`, `Destination.Phone`, `ChannelHint`, `Name` and `DingtalkUserID`; `IsActive()` reports whether the status is `active`. An unknown identifier returns `ErrCodeNotFound`. The result is not cached.
+
 #### `CheckUserInList(ctx context.Context, phone, mail string) bool`
 
 Checks if a user is in the allow list.
@@ -371,6 +385,7 @@ if err != nil {
 - `ErrCodeUnauthorized`: Unauthorized
 - `ErrCodeNotFound`: Not found
 - `ErrCodeServerError`: Server error
+- `ErrCodeRateLimited`: Warden answered 429. `Error.RetryAfter` holds the wait the `Retry-After` header asked for (zero when absent). The SDK does not retry a 429
 
 ## Best Practices
 

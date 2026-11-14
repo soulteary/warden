@@ -273,6 +273,20 @@ invalidationCh <- struct{}{}
 
 **注意：** 此方法不使用缓存，每次调用都会从 API 获取最新数据。
 
+#### `CheckUserInListWithError(ctx context.Context, phone, mail string) (bool, error)`
+
+`CheckUserInList` 的带错误版本。当调用方需要区分“该用户被拒绝”与“无法询问 Warden”时使用。
+
+- `(true, nil)`：用户在名单中且状态为 active
+- `(false, nil)`：用户不在名单中，或状态不是 active
+- `(false, err)`：无法访问 Warden 或 Warden 拒绝应答——传输失败、`ErrCodeUnauthorized`、`ErrCodeRateLimited` 或 `ErrCodeServerError`；`phone` 与 `mail` 均为空时返回 `ErrCodeInvalidConfig`
+
+查找顺序与输入规范化与下文的 `CheckUserInList` 相同。
+
+#### `Lookup(ctx context.Context, identifier string) (*LookupResult, error)`
+
+通过 `GET /v1/lookup` 解析一个标识符。包含 `@` 的标识符按邮箱匹配；其他取值先按手机号、再按 user_id 匹配。结果包含 `UserID`、`Status`、`Destination.Email`、`Destination.Phone`、`ChannelHint`、`Name` 与 `DingtalkUserID`；`IsActive()` 表示状态是否为 `active`。标识符不存在时返回 `ErrCodeNotFound`。结果不会被缓存。
+
 #### `CheckUserInList(ctx context.Context, phone, mail string) bool`
 
 检查用户是否在允许列表中。
@@ -369,6 +383,7 @@ if err != nil {
 - `ErrCodeUnauthorized`: 未授权
 - `ErrCodeNotFound`: 未找到
 - `ErrCodeServerError`: 服务器错误
+- `ErrCodeRateLimited`: Warden 返回 429。`Error.RetryAfter` 为 `Retry-After` 响应头要求的等待时间（没有该响应头时为零）。SDK 不会重试 429
 
 ## 最佳实践
 

@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -65,9 +66,11 @@ func NewClient(opts *Options) (*Client, error) {
 	// Apply a custom TLS config (client certs / root CAs) when provided. We attach it
 	// to a transport so it reaches the underlying http.Client.
 	if opts.TLSConfig != nil {
-		tr := opts.Transport
-		if tr == nil {
-			tr = &http.Transport{}
+		// Work on a copy: the caller's transport may be shared with other
+		// clients, which must not inherit this client's TLS configuration.
+		tr := &http.Transport{}
+		if opts.Transport != nil {
+			tr = opts.Transport.Clone()
 		}
 		tr.TLSClientConfig = opts.TLSConfig
 		clientOpts.Transport = tr
@@ -339,6 +342,117 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 	return true
 }
 
+// CheckUserInListWithError is CheckUserInList that reports why the answer is
+// not available. It returns (true, nil) for an active user, (false, nil) for a
+// user that is not on the list or not active, and (false, err) when Warden
+// could not be asked or refused to answer: a transport failure, a rejected
+// credential (ErrCodeUnauthorized), a rate limit (ErrCodeRateLimited) or a
+// server error. A caller can then tell "denied" from "unknown" and decide how
+// to treat an outage, where CheckUserInList reports false for both.
+//
+// The lookup order is the one CheckUserInList uses: phone first; when the
+// phone is not found and a mail is given, the mail. A user found by phone
+// that is not active is denied without consulting the mail.
+func (c *Client) CheckUserInListWithError(ctx context.Context, phone, mail string) (bool, error) {
+	phone = strings.TrimSpace(phone)
+	mail = strings.TrimSpace(strings.ToLower(mail))
+	if phone == "" && mail == "" {
+		return false, NewError(ErrCodeInvalidConfig, "at least one of phone or mail must be provided", nil)
+	}
+
+	if phone != "" {
+		user, found, err := c.findUser(ctx, phone, "")
+		if err != nil {
+			return false, err
+		}
+		if found {
+			return user.IsActive(), nil
+		}
+		if mail == "" {
+			return false, nil
+		}
+	}
+	user, found, err := c.findUser(ctx, "", mail)
+	if err != nil || !found {
+		return false, err
+	}
+	return user.IsActive(), nil
+}
+
+// findUser looks a user up and reports "not found" as a result, not an error.
+func (c *Client) findUser(ctx context.Context, phone, mail string) (user *AllowListUser, found bool, err error) {
+	user, err = c.GetUserByIdentifier(ctx, phone, mail, "")
+	if err == nil {
+		return user, true, nil
+	}
+	var sdkErr *Error
+	if errors.As(err, &sdkErr) && sdkErr.Code == ErrCodeNotFound {
+		return nil, false, nil
+	}
+	return nil, false, err
+}
+
+// LookupDestination holds the addresses a one-time code can be sent to.
+type LookupDestination struct {
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
+}
+
+// LookupResult is the response of GET /v1/lookup.
+type LookupResult struct {
+	UserID         string            `json:"user_id"`
+	Destination    LookupDestination `json:"destination"`
+	Status         string            `json:"status"`
+	ChannelHint    string            `json:"channel_hint,omitempty"`
+	Name           string            `json:"name,omitempty"`
+	DingtalkUserID string            `json:"dingtalk_userid,omitempty"`
+}
+
+// IsActive returns true if the user status is "active".
+func (r *LookupResult) IsActive() bool {
+	return r.Status == "active"
+}
+
+// Lookup resolves one identifier through GET /v1/lookup. The server treats an
+// identifier containing "@" as a mail address; any other value is tried as a
+// phone number and then as a user ID. An unknown identifier yields an error
+// with ErrCodeNotFound. The result is not cached.
+func (c *Client) Lookup(ctx context.Context, identifier string) (*LookupResult, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return nil, NewError(ErrCodeInvalidConfig, "identifier must be provided", nil)
+	}
+	reqURL := strings.TrimSuffix(c.baseURL, "/") + "/v1/lookup?" + url.Values{"identifier": {identifier}}.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, http.NoBody)
+	if err != nil {
+		return nil, NewError(ErrCodeRequestFailed, "failed to create request", err)
+	}
+	c.addAuthHeaders(req)
+
+	resp, err := c.doRequestWithRetry(ctx, req)
+	if err != nil {
+		c.logger.Errorf("Failed to look up user from Warden API: code=%s", logErrorCode(err))
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close() //nolint:errcheck // Ignoring error in defer is safe
+	}()
+
+	deadline, responseErr := c.checkDataResponse(resp)
+	if responseErr != nil {
+		return nil, responseErr
+	}
+	var result LookupResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, NewError(ErrCodeInvalidResponse, "failed to decode response", err)
+	}
+	if err := c.checkSourceDeadline(deadline); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // GetUserByIdentifier fetches a single user by phone, mail, or user_id.
 // Only one identifier should be provided.
 func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID string) (*AllowListUser, error) {
@@ -608,7 +722,11 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
-		return NewError(ErrCodeUnauthorized, "unauthorized: invalid API key", nil)
+		return NewError(ErrCodeUnauthorized, c.unauthorizedMessage(), nil)
+	case http.StatusTooManyRequests:
+		rateLimited := NewError(ErrCodeRateLimited, "rate limited by Warden", nil)
+		rateLimited.RetryAfter = parseRetryAfter(resp.Header.Get("Retry-After"), time.Now())
+		return rateLimited
 	case http.StatusNotFound:
 		return NewError(ErrCodeNotFound, "not found", nil)
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable:
@@ -616,6 +734,38 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 	default:
 		return NewError(ErrCodeRequestFailed, fmt.Sprintf("warden API returned status %d: %s", resp.StatusCode, string(body)), nil)
 	}
+}
+
+// unauthorizedMessage describes a 401 in terms of the credential this client
+// sent, so a rejected HMAC signature is not reported as a wrong API key.
+func (c *Client) unauthorizedMessage() string {
+	switch {
+	case c.signer != nil:
+		return "unauthorized: the HMAC signature was rejected (check the key ID, the secret and the clock)"
+	case c.apiKey != "":
+		return "unauthorized: invalid API key"
+	default:
+		return "unauthorized: the request carried no API key or HMAC signature"
+	}
+}
+
+// parseRetryAfter reads a Retry-After header: a number of seconds or an HTTP
+// date. An absent, malformed or past value yields zero.
+func parseRetryAfter(value string, now time.Time) time.Duration {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(value); err == nil {
+		if seconds < 0 {
+			return 0
+		}
+		return time.Duration(seconds) * time.Second
+	}
+	if at, err := http.ParseTime(value); err == nil && at.After(now) {
+		return at.Sub(now)
+	}
+	return 0
 }
 
 func (c *Client) signRequest(req *http.Request) error {
