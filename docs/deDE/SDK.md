@@ -181,6 +181,8 @@ Das SDK signiert Key-ID, Zeitstempel, Nonce, Pfad/Query, Methode und den Hash de
 Key-ID und Geheimnis müssen beide konfiguriert sein; ein unvollständiges Paar liefert
 `ErrCodeInvalidConfig`, statt eine unsignierte Anfrage zu senden.
 
+Mit `WithHMACAudience("warden.internal:8081")` zusätzlich zu `WithHMAC` signiert das SDK die Signaturversion v3, die an den Namen gebunden ist, den die Zielinstanz in `WARDEN_HMAC_AUDIENCES` führt; Einzelheiten stehen in der [englischen Fassung](../enUS/SDK.md).
+
 ### Konfiguration von Wiederholungsversuchen
 
 ```go

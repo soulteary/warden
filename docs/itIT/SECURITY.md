@@ -273,6 +273,8 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Tolleranza del timestamp (secondi), predefinita 60
 export WARDEN_HMAC_ALLOW_V1=false          # Valore predefinito; impostare true solo durante una migrazione legacy di durata limitata
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # Opzionale; nomi di questa istanza accettati nelle firme v3
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # Valore predefinito; impostare true per accettare solo firme v3
 ```
 
 La configurazione di produzione richiede che ogni segreto HMAC contenga almeno 32 byte grezzi.

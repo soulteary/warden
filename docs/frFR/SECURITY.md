@@ -273,6 +273,8 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Tolérance d'horodatage (secondes), 60 par défaut
 export WARDEN_HMAC_ALLOW_V1=false          # Valeur par défaut ; à passer à true uniquement pendant une migration héritée limitée dans le temps
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # Optionnel ; noms de cette instance acceptés dans les signatures v3
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # Valeur par défaut ; passer à true pour n'accepter que les signatures v3
 ```
 
 La configuration de production exige que chaque secret HMAC comporte au moins 32 octets bruts.

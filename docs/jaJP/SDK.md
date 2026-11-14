@@ -181,6 +181,8 @@ SDK はキー ID、タイムスタンプ、ノンス、パス／クエリ、メ�
 キー ID とシークレットは両方とも設定する必要があります。片方だけの場合は署名なしのリクエストを送らず、
 `ErrCodeInvalidConfig` を返します。
 
+`WithHMAC` に加えて `WithHMACAudience("warden.internal:8081")` を指定すると、SDK は接続先インスタンスが `WARDEN_HMAC_AUDIENCES` に列挙している名前に紐づく署名バージョン v3 で署名します。詳細は[英語版](../enUS/SDK.md)を参照してください。
+
 ### リトライの設定
 
 ```go

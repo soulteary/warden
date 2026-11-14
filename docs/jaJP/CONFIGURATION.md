@@ -19,7 +19,7 @@
 | タスク | `task.interval` / `INTERVAL` / `--interval` | 明示的な `--interval` > `INTERVAL` > YAML `task.interval` > 既定値。設定ファイル使用時も同じ |
 | アプリ | `app.*` / `API_KEY`、`DATA_FILE`、`DATA_DIR`、`RESPONSE_FIELDS` | mode、api_key、data_file、data_dir、response_fields |
 | トレーシング | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file also supplies tracing; OTLP environment values override YAML. |
-| サービス間認証 | — / `WARDEN_HMAC_KEYS`、`WARDEN_HMAC_TIMESTAMP_TOLERANCE`、`WARDEN_TLS_*` | **環境変数のみ**（YAML キーなし） |
+| サービス間認証 | — / `WARDEN_HMAC_KEYS`、`WARDEN_HMAC_AUDIENCES`、`WARDEN_HMAC_REQUIRE_AUDIENCE`、`WARDEN_HMAC_TIMESTAMP_TOLERANCE`、`WARDEN_TLS_*` | **環境変数のみ**（YAML キーなし） |
 | ヘルス | — / `SNAPSHOT_MAX_AGE` | 許容されるスナップショットの最大経過時間。Go の duration 形式、既定値は `max(30s, タスク間隔 × 3)` |
 
 > 一部の YAML フィールドは解析されますが、現在のアプリケーションでは使用されません。[schema と実行時の接続](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring)を参照してください。
@@ -252,6 +252,8 @@ export IP_WHITELIST="192.168.1.0/24"  # グローバル IP 許可リスト（任
 export LOG_LEVEL="info"                # ログレベル（任意。既定値: info。選択肢: trace, debug, info, warn, error, fatal, panic）
 export WARDEN_HMAC_KEYS='{"key-id":"0123456789abcdef0123456789abcdef"}'  # 本番環境のシークレットは 32 バイト以上が必要
 export WARDEN_HMAC_ALLOW_V1=false                # 既定値: false。期間を限定した v1 移行時のみ true に設定
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 任意: v3（audience に紐づく）署名で受け入れる、このインスタンスの名前（カンマ区切り）。未設定の場合 v3 は拒否されます
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false        # 既定値: false。true にすると v3 署名のみを受け入れ、WARDEN_HMAC_AUDIENCES の設定が必須になります
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # HMAC タイムスタンプの許容誤差（秒）
 export WARDEN_TLS_CERT=/path/to/warden.crt    # サービス間認証: サーバー TLS 証明書（KEY と併せて TLS を有効化）
 export WARDEN_TLS_KEY=/path/to/warden.key     # サーバー TLS 秘密鍵

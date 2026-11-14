@@ -273,6 +273,8 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # 타임스탬프 허용 오차(초). 기본값 60
 export WARDEN_HMAC_ALLOW_V1=false          # 기본값. 기간이 정해진 레거시 마이그레이션 중에만 true로 설정
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 선택 사항. v3 서명에서 허용할 이 인스턴스의 이름
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # 기본값. v3 서명만 허용하려면 true로 설정
 ```
 
 운영 환경 설정에서는 각 HMAC 비밀 값이 최소 32바이트의 원시 바이트를 포함해야 합니다.

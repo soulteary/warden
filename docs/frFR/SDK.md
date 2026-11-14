@@ -181,6 +181,8 @@ Le SDK signe l'identifiant de clé, l'horodatage, le nonce, le chemin/la requêt
 L'identifiant de clé et le secret doivent tous deux être configurés ; une paire incomplète renvoie
 `ErrCodeInvalidConfig` au lieu d'envoyer une requête non signée.
 
+Avec `WithHMACAudience("warden.internal:8081")` en plus de `WithHMAC`, le SDK signe la version de signature v3, liée au nom que l'instance cible déclare dans `WARDEN_HMAC_AUDIENCES` ; les détails figurent dans la [version anglaise](../enUS/SDK.md).
+
 ### Configuration des nouvelles tentatives
 
 ```go

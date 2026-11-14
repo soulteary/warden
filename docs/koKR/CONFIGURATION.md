@@ -19,7 +19,7 @@
 | 작업 | `task.interval` / `INTERVAL` / `--interval` | 명시적 `--interval` > `INTERVAL` > YAML `task.interval` > 기본값. 설정 파일 사용 시에도 동일 |
 | 애플리케이션 | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
 | 추적 | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file also supplies tracing; OTLP environment values override YAML. |
-| 서비스 간 인증 | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **환경 변수 전용**(YAML 키 없음) |
+| 서비스 간 인증 | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_AUDIENCES`, `WARDEN_HMAC_REQUIRE_AUDIENCE`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **환경 변수 전용**(YAML 키 없음) |
 | 상태 | — / `SNAPSHOT_MAX_AGE` | 허용되는 스냅샷 최대 경과 시간. Go duration 형식, 기본값 `max(30s, 작업 간격 × 3)` |
 
 > 일부 YAML 필드는 파싱되지만 현재 애플리케이션에서는 사용되지 않습니다. [스키마와 런타임 연결](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring)을 참고하세요.
@@ -250,6 +250,8 @@ export IP_WHITELIST="192.168.1.0/24"  # 전역 IP 허용 목록(선택)
 export LOG_LEVEL="info"                # 로그 수준(선택. 기본값: info. 옵션: trace, debug, info, warn, error, fatal, panic)
 export WARDEN_HMAC_KEYS='{"key-id":"0123456789abcdef0123456789abcdef"}'  # 운영 환경 비밀 값은 최소 32바이트여야 합니다
 export WARDEN_HMAC_ALLOW_V1=false                # 기본값: false. 기간이 정해진 v1 마이그레이션 중에만 true로 설정
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 선택 사항: v3(audience에 바인딩된) 서명에서 허용할 이 인스턴스의 이름(쉼표로 구분). 설정하지 않으면 v3는 거부됩니다
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false        # 기본값: false. true로 설정하면 v3 서명만 허용하며 WARDEN_HMAC_AUDIENCES 설정이 필요합니다
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # HMAC 타임스탬프 허용 오차(초)
 export WARDEN_TLS_CERT=/path/to/warden.crt    # 서비스 간 인증: 서버 TLS 인증서(KEY와 함께 설정하면 TLS 활성화)
 export WARDEN_TLS_KEY=/path/to/warden.key     # 서버 TLS 개인 키

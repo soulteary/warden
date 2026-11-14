@@ -214,6 +214,8 @@ The `Options` struct is used to configure the client:
 
 - `BaseURL`: Warden service address (required)
 - `APIKey`: API Key (optional)
+- `HMACKeyID`, `HMACSecret`: HMAC request signing, set together with `WithHMAC` (optional)
+- `HMACAudience`: name of the Warden instance every signature is bound to, set with `WithHMACAudience` (optional, requires `WithHMAC`)
 - `Timeout`: HTTP request timeout (default 10 seconds)
 - `CacheTTL`: Cache TTL (default 5 minutes)
 - `Logger`: Logger interface (optional, defaults to NoOpLogger)
@@ -436,6 +438,29 @@ A simultaneously configured API key is omitted from both `X-API-Key` and
 `Authorization`. API-key-only clients continue to send both headers. This avoids
 exposing an additional reusable credential on signed requests; it does not change
 server authentication policies or TLS client certificate configuration.
+
+### Binding HMAC signatures to one instance
+
+`WithHMAC(keyID, secret)` signs requests with the v2 form. Add
+`WithHMACAudience(name)` to sign the v3 form, which includes the name of the
+receiving instance:
+
+```go
+opts := warden.DefaultOptions().
+    WithBaseURL("https://warden.internal:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET")).
+    WithHMACAudience("warden.internal:8081")
+```
+
+A request captured on its way to this instance is then not valid at another
+instance that shares the key. The name must be one the server lists in
+`WARDEN_HMAC_AUDIENCES`; a server that does not list it answers `401`
+(`ErrCodeUnauthorized`), so configure the server first. The name is trimmed and
+lower-cased; it is signed, not sent. `WithHMACAudience` without `WithHMAC`, or
+with a name that is not 1 to 255 printable ASCII characters without spaces or
+commas, returns `ErrCodeInvalidConfig`. Without the option the SDK signs v2 as
+before. The server side, including `WARDEN_HMAC_REQUIRE_AUDIENCE`, is described
+in the [security documentation](../../docs/enUS/SECURITY.md).
 
 ### SDK diagnostic logging
 

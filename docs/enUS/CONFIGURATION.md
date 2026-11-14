@@ -20,7 +20,7 @@ For a **full option table** (YAML paths, env vars, defaults, validation rules), 
 | Task | `task.interval` / `INTERVAL` / `--interval` | Explicit CLI value overrides the environment, then YAML, then the default |
 | App | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
 | Tracing | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file supplies tracing settings; `OTLP_ENABLED` and `OTLP_ENDPOINT` override them |
-| Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
+| Service auth | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_AUDIENCES`, `WARDEN_HMAC_REQUIRE_AUDIENCE`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Env only** (no YAML keys) |
 | Health | — / `SNAPSHOT_MAX_AGE` | Maximum accepted snapshot age; Go duration, default `max(30s, 3 × task interval)` |
 | Data policy | — / `EMPTY_RULESET_POLICY` | What a refresh does when every loaded record is rejected; `consistency-first` (default) or `availability-first`, see [Empty ruleset policy](#empty-ruleset-policy) |
 
