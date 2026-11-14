@@ -996,6 +996,9 @@ func main() {
 	for _, warning := range cmd.APIKeyWarnings(cfg) {
 		log.Warn().Msg(warning)
 	}
+	for _, warning := range cmd.UnappliedSettingWarnings(cfg) {
+		log.Warn().Msg(warning)
+	}
 
 	tracerProvider := initializeTracing(cfg, log)
 

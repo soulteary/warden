@@ -11,14 +11,17 @@ YAML 字段能被解析，不代表当前二进制会使用它。主启动流程
 
 - `server.read_timeout`、`server.write_timeout`、`server.shutdown_timeout`、
   `server.idle_timeout`、`server.max_header_bytes`（服务端仅传递 `server.port`）。
-- `redis.db`、`cache.ttl`、`cache.update_interval`、`rate_limit.rate`、
-  `rate_limit.window`、`http.max_retries`、`http.retry_delay`。
+- `redis.db`、`cache.ttl`、`cache.update_interval`、`http.max_retries`、
+  `http.retry_delay`。
 
 下方表格和示例包含 schema 字段作为参考，不能据此认为修改它们会改变服务运行值。
-当前 Redis 快照/缓存 TTL 固定为一小时，限流为每分钟 60 次，parser-kit 加载器重试策略使用三次重试及
+当前 Redis 快照/缓存 TTL 固定为一小时，parser-kit 加载器重试策略使用三次重试及
 一秒基础延迟。刷新调度使用 `task.interval` / `INTERVAL` / `--interval`，
 不使用 `cache.update_interval`；合法但小于五秒的间隔会在应用层提升到五秒。
 SDK 的 CacheTTL 是另一项独立客户端选项。
+
+如果所选配置文件设置了上面列出的任一字段，Warden 会在启动时输出一条警告并列出这些字段；
+刷新间隔小于五秒时同样会输出警告。
 
 接线依据见 `internal/config/config.go` 的 `ToCmdConfig`、`main.go` 的 `NewApp`、
 `internal/cache/redis_cache.go` 和 `internal/loader/loader.go`。

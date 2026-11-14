@@ -42,6 +42,10 @@ delay. Refresh scheduling uses `task.interval` / `INTERVAL` / `--interval`, not
 `cache.update_interval`; valid intervals below five seconds are clamped to five
 seconds by the application. SDK CacheTTL is a separate client option.
 
+When the selected configuration file sets any of the fields listed above, Warden
+logs one warning at startup that names them. It also logs a warning when the
+refresh interval is below five seconds.
+
 See `internal/config/config.go: ToCmdConfig`, `main.go: NewApp`,
 `internal/cache/redis_cache.go`, and
 `internal/loader/loader.go`. Wiring additional fields requires a separate behavior

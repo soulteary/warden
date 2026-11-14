@@ -1,7 +1,8 @@
 # Schema example: not all parsed keys are wired into the current application.
 # See docs/enUS/CONFIGURATION.md, "YAML schema and application wiring".
-# server timeouts/header limits, redis.db, cache.* and HTTP retry
-# fields below currently retain application defaults when the binary runs.
+# The keys marked "NOT APPLIED" below are parsed and then ignored: the service
+# keeps its built-in value, and logs a startup warning that names every such key
+# found in the file. Remove them from a real configuration.
 # Refresh scheduling uses task.interval; its runtime minimum is five seconds.
 
 # 应用配置示例文件
@@ -9,21 +10,21 @@
 
 server:
   port: "8081"
-  read_timeout: 5s
-  write_timeout: 5s
-  shutdown_timeout: 5s
-  max_header_bytes: 1048576  # 1MB
-  idle_timeout: 120s
+  read_timeout: 5s  # NOT APPLIED
+  write_timeout: 5s  # NOT APPLIED
+  shutdown_timeout: 5s  # NOT APPLIED
+  max_header_bytes: 1048576  # 1MB; NOT APPLIED
+  idle_timeout: 120s  # NOT APPLIED
 
 redis:
   addr: "localhost:6379"
   password: ""  # 建议使用环境变量 REDIS_PASSWORD 或 REDIS_PASSWORD_FILE
   password_file: ""  # 密码文件路径（同 YAML 内与 password 二选一时优先；整体优先级：REDIS_PASSWORD 环境变量 > REDIS_PASSWORD_FILE/本项 > password）
-  db: 0
+  db: 0  # NOT APPLIED
 
 cache:
-  ttl: 3600s
-  update_interval: 5s
+  ttl: 3600s  # NOT APPLIED
+  update_interval: 5s  # NOT APPLIED
 
 rate_limit:
   rate: 60  # 每个窗口内，每个客户端 IP 的未认证或认证失败请求数
@@ -34,8 +35,8 @@ http:
   timeout: 5s
   max_idle_conns: 20  # 远程数据源客户端的空闲连接池大小
   insecure_tls: false  # 仅用于开发环境
-  max_retries: 3
-  retry_delay: 1s
+  max_retries: 3  # NOT APPLIED
+  retry_delay: 1s  # NOT APPLIED
 
 remote:
   url: ""  # 远程数据源 URL；留空表示没有远程数据源（DEFAULT 等容错模式仅使用本地数据，ONLY_REMOTE / REMOTE_FIRST 必须填写）
