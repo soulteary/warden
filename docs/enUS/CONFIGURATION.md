@@ -89,6 +89,21 @@ In multi-replica deployments every replica refreshes its process-local cache and
 snapshot. A distributed Redis lock elects only the writer of the shared Redis
 cache, so non-writers still advance their own snapshot freshness.
 
+The writer lock is taken before the sources are loaded and released when the
+refresh ends. It is not renewed while the load runs, so its lifetime covers the
+longest load plus the write that follows: one minute while `HTTP_TIMEOUT` is 23
+seconds or less, and `HTTP_TIMEOUT` plus 37 seconds above that (one hour and 37
+seconds at the maximum of `1h`). A replica that stops during a refresh leaves
+the lock in Redis until it expires. That includes a crash and a shutdown that
+arrives while a load is running, because shutdown does not wait for the load.
+Until the lock expires the other replicas keep refreshing and serving their own
+in-memory data but skip the write to the shared Redis cache, so a replica that
+starts in that time is seeded with data that is older by up to the lock
+lifetime. Keep `HTTP_TIMEOUT` no larger than the remote source needs. To end the
+wait by hand, delete the lock key: `warden:rules:refresh` in the `legacy` and
+`shadow` snapshot modes, and `warden:{<REDIS_SNAPSHOT_NAMESPACE>}:snapshot:v2:lease`
+in `shadow` and `v2`.
+
 ### Empty ruleset policy
 
 Warden filters records in two layers. **Identity validation** (duplicate
