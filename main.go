@@ -89,7 +89,26 @@ type App struct {
 }
 
 const redisRefreshLockKey = "warden:rules:refresh"
+
+// redisRefreshLockTTL is the shortest lifetime of the Redis writer lock, and
+// its lifetime with the default HTTP timeout.
 const redisRefreshLockTTL = time.Minute
+
+// redisPublishAllowance is the part of the writer lock's lifetime reserved for
+// the write that follows a load: the check for an unchanged rule set and
+// define.REDIS_RETRY_MAX_RETRIES attempts, each bounded by
+// cache.REDIS_OPERATION_TIMEOUT, with the delays between them.
+const redisPublishAllowance = 30 * time.Second
+
+// refreshLockTTL is the lifetime of the Redis writer lock. The lock is taken
+// before the sources are loaded and must still be held when the result is
+// written, so it lasts for the longest load -- the first load, which has the
+// larger deadline -- plus the write. A lock shorter than the load would expire
+// under a slow writer and let a second replica write first.
+func refreshLockTTL(httpTimeout time.Duration) time.Duration {
+	longestLoad := max(define.DEFAULT_LOAD_DATA_TIMEOUT, refreshDeadline(httpTimeout))
+	return max(redisRefreshLockTTL, longestLoad+redisPublishAllowance)
+}
 
 // taskIntervalU64 converts task interval to uint64, clamping negative values to 0 to avoid overflow.
 func taskIntervalU64(sec int) uint64 {
@@ -614,8 +633,9 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 }
 
 // acquireRedisRefreshWriter elects at most one replica to update the shared
-// Redis cache for a refresh cycle. The lock is acquired before loading sources,
-// so an older slow load cannot write after a newer load from another replica.
+// Redis cache for a refresh cycle. The lock is acquired before loading sources
+// and lasts longer than a load may run (refreshLockTTL), so an older slow load
+// cannot write after a newer load from another replica.
 // Every replica still loads and applies the result to its process-local state.
 func (app *App) acquireRedisRefreshWriter() (writer bool, release func()) {
 	if app.redisStartupFailed {
@@ -1144,7 +1164,7 @@ func (app *App) initRedisClient(cfg *cmd.Config) {
 			// Shared-cache writes must fail closed when Redis is unavailable; the
 			// hybrid locker is intentionally not used because its local fallback
 			// cannot coordinate writers across replicas.
-			app.redisRefreshLocker = rediskitlock.NewRedisLockerWithLockTime(app.redisClient, redisRefreshLockTTL)
+			app.redisRefreshLocker = rediskitlock.NewRedisLockerWithLockTime(app.redisClient, refreshLockTTL(app.httpTimeout))
 		}
 	} else {
 		// Redis is explicitly disabled
