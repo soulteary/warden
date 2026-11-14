@@ -74,6 +74,7 @@ type App struct {
 	responseFields        []string
 	taskInterval          uint64
 	snapshotMaxAge        time.Duration
+	httpTimeout           time.Duration
 	snapshotReadEnforce   bool
 	redisEnabled          bool
 	redisStartupFailed    bool
@@ -117,6 +118,7 @@ func NewApp(cfg *cmd.Config) *App {
 		dataDir:               cfg.DataDir,
 		responseFields:        cfg.ResponseFields,
 		taskInterval:          taskIntervalU64(cfg.TaskInterval),
+		httpTimeout:           time.Duration(cfg.HTTPTimeout) * time.Second,
 		snapshotMaxAge:        snapshotMaxAge,
 		snapshotReadEnforce:   readPolicy == "enforce",
 		redisSnapshotRecovery: recoveryPolicy,
@@ -427,7 +429,9 @@ func (app *App) keepSharedRuleSetAfterAllRejected(loadedCount int) {
 // ONLY_LOCAL follows the same guard explicitly because it intentionally skips the normal
 // Redis-first bootstrap path.
 func (app *App) loadInitialData(rulesFile, dataDir string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), define.DEFAULT_LOAD_DATA_TIMEOUT)
+	// The first load gets at least the historical 30 seconds, and more when the
+	// configured HTTP timeout needs it.
+	ctx, cancel := context.WithTimeout(context.Background(), max(define.DEFAULT_LOAD_DATA_TIMEOUT, refreshDeadline(app.httpTimeout)))
 	defer cancel()
 
 	app.log.Debug().Str("appMode", app.appMode).Msg(i18n.TWithLang(i18n.LangZH, "log.check_mode"))
@@ -730,7 +734,7 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 	if app.rulesLoader == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(define.DEFAULT_TIMEOUT*2)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), refreshDeadline(app.httpTimeout))
 	defer cancel()
 	var res loader.LoadResult
 	if strings.ToUpper(strings.TrimSpace(app.appMode)) == "ONLY_LOCAL" {
@@ -853,6 +857,28 @@ func (app *App) backgroundTask(rulesFile, dataDir string) {
 		Int("applied_count", len(applied)).
 		Float64("duration", duration).
 		Msg(i18n.TWithLang(i18n.LangZH, "log.background_update"))
+}
+
+// minimumRefreshDeadline is the deadline every refresh had before it was
+// derived from the HTTP timeout. A refresh never gets less.
+const minimumRefreshDeadline = 2 * define.DEFAULT_TIMEOUT * time.Second
+
+// refreshDeadline bounds one load of all sources. It is the configured HTTP
+// timeout, which bounds the remote request together with its retries, plus the
+// longest the retry policy can spend waiting between attempts, which leaves
+// room for the local sources and for a retry that starts late. A fixed
+// deadline shorter than HTTP_TIMEOUT cancelled every refresh of a remote that
+// is slow but within the configured timeout.
+func refreshDeadline(httpTimeout time.Duration) time.Duration {
+	if httpTimeout <= 0 {
+		httpTimeout = define.DEFAULT_TIMEOUT * time.Second
+	}
+	backoff, delay := time.Duration(0), define.HTTP_RETRY_DELAY
+	for retry := 0; retry < define.HTTP_RETRY_MAX_RETRIES; retry++ {
+		backoff += delay
+		delay *= 2
+	}
+	return max(minimumRefreshDeadline, httpTimeout+backoff)
 }
 
 // startServer builds the HTTP server. When tlsCertFile and tlsKeyFile are set, TLS (and
