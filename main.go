@@ -181,6 +181,9 @@ func NewApp(cfg *cmd.Config) *App {
 	for _, warning := range cmd.MissingCredentialWarnings(cfg) {
 		app.log.Warn().Msg(warning)
 	}
+	for _, warning := range cmd.ResponseFieldWarnings(cfg) {
+		app.log.Warn().Msg(warning)
+	}
 
 	if cfg.HTTPInsecureTLS {
 		app.log.Warn().Msg(i18n.TWithLang(i18n.LangZH, "log.http_tls_disabled"))
