@@ -234,7 +234,7 @@ The `Options` struct is used to configure the client:
 - `Logger`: Logger interface (optional, defaults to NoOpLogger)
 - `Transport`: Custom HTTP transport (optional)
 - `HMACKeyID` / `HMACSecret`: HMAC v2 signing pair (both or neither)
-- `TLSConfig`: TLS/mTLS client configuration (optional)
+- `TLSConfig`: TLS/mTLS client configuration (optional). It is applied to a copy of `Transport`, or, when no transport is given, to a copy of the standard library's default transport, so the proxy settings from the environment and the default connection timeouts stay in effect
 - `Retry`: Retry configuration (optional, defaults to no retry)
 - `CacheInvalidationChannel`: Channel for event-driven cache invalidation (optional)
 

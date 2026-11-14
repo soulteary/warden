@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -68,7 +69,10 @@ func NewClient(opts *Options) (*Client, error) {
 	if opts.TLSConfig != nil {
 		// Work on a copy: the caller's transport may be shared with other
 		// clients, which must not inherit this client's TLS configuration.
-		tr := &http.Transport{}
+		// Without a caller transport the copy is taken from the standard
+		// library's defaults, so the TLS configuration does not cost the
+		// client its proxy settings and connection timeouts.
+		tr := defaultTransport()
 		if opts.Transport != nil {
 			tr = opts.Transport.Clone()
 		}
@@ -133,6 +137,26 @@ func NewClient(opts *Options) (*Client, error) {
 		opts.BaseURL, opts.APIKey != "", retry.MaxRetries > 0, opts.Transport != nil)
 
 	return client, nil
+}
+
+// defaultTransport returns a transport with the standard library's defaults:
+// the proxy from the environment, dial and TLS handshake timeouts, an idle
+// connection timeout and HTTP/2. A zero-value http.Transport has none of
+// them. http.DefaultTransport can be replaced by the application, with a
+// tracing wrapper for example; the same defaults are then built here.
+func defaultTransport() *http.Transport {
+	if transport, ok := http.DefaultTransport.(*http.Transport); ok {
+		return transport.Clone()
+	}
+	return &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: time.Second,
+	}
 }
 
 // listenForCacheInvalidation listens for cache invalidation signals on the configured channel.
