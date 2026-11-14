@@ -306,7 +306,7 @@ Returns `true` if the user exists (matched by phone or email), `false` otherwise
 - Input is automatically normalized: `phone` is trimmed, `mail` is trimmed and converted to lowercase
 - This method uses `GetUserByIdentifier` for lookup, more efficient than iterating through user list
 - Only users with status "active" will return `true`
-- The status comes from the `/user` response. A server whose `RESPONSE_FIELDS` leaves `status` out returns none, and every user is then reported as `false`; the client logs a warning that names the cause
+- The status comes from the `/user` response. A server whose `RESPONSE_FIELDS` leaves `status` out returns none, and every user is then reported as `false`; the client logs a warning that names the cause, once per client; later responses of this kind are logged at debug level
 
 #### `ClearCache()`
 
