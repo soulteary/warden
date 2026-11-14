@@ -75,7 +75,7 @@
   "log.create_data_file": "%sファイルを作成してください（参照：%s）",
   "log.only_local_load_failed": "ONLY_LOCALモードでローカルファイルの読み込みに失敗しました。空のデータを使用します",
   "log.loaded_from_redis": "Redisキャッシュからデータを読み込みました",
-  "log.loaded_from_remote_api": "リモートAPIからデータを読み込みました",
+  "log.loaded_from_sources": "設定されたデータソースからデータを読み込みました",
   "log.data_file_not_found_no_remote": "データファイルが存在せず、リモートデータアドレスが設定されていません",
   "log.tip_actions": "ヒント：次のいずれかの操作を実行してください：",
   "log.create_data_file_or_config": "1. %sファイルを作成する（参照：%s）",

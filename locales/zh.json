@@ -75,7 +75,7 @@
   "log.create_data_file": "   请创建 %s 文件（可参考 %s）",
   "log.only_local_load_failed": "ONLY_LOCAL 模式下本地文件加载失败，使用空数据",
   "log.loaded_from_redis": "从 Redis 缓存加载数据 ✓",
-  "log.loaded_from_remote_api": "从远程 API 加载数据 ✓",
+  "log.loaded_from_sources": "从已配置的数据源加载数据 ✓",
   "log.data_file_not_found_no_remote": "⚠️  数据文件不存在且未配置远程数据地址",
   "log.tip_actions": "💡 提示：请执行以下操作之一：",
   "log.create_data_file_or_config": "   1. 创建 %s 文件（可参考 %s）",

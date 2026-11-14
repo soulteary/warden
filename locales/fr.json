@@ -75,7 +75,7 @@
   "log.create_data_file": "Veuillez créer le fichier %s (référence : %s)",
   "log.only_local_load_failed": "Échec du chargement du fichier local en mode ONLY_LOCAL, utilisation de données vides",
   "log.loaded_from_redis": "Données chargées depuis le cache Redis",
-  "log.loaded_from_remote_api": "Données chargées depuis l'API distante",
+  "log.loaded_from_sources": "Données chargées depuis les sources configurées",
   "log.data_file_not_found_no_remote": "Le fichier de données n'existe pas et l'adresse de données distante n'est pas configurée",
   "log.tip_actions": "Astuce : veuillez effectuer l'une des actions suivantes :",
   "log.create_data_file_or_config": "1. Créer le fichier %s (référence : %s)",

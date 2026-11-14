@@ -459,7 +459,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 			Int("count", len(users)).
 			Str("source", string(res.Source)).
 			Bool("degraded", res.Degraded).
-			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_remote_api"))
+			Msg(i18n.TWithLang(i18n.LangZH, "log.loaded_from_sources"))
 		prepared, identityErr := app.prepareUsers(users)
 		if identityErr != nil {
 			// Identity failures take precedence over the all-rejected policy. The helper
