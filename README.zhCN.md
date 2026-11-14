@@ -61,9 +61,12 @@ EOF
 docker run -d \
   -p 8081:8081 \
   -v $(pwd)/data.json:/app/data.json:ro \
+  -e REDIS_ENABLED=false \
   -e API_KEY=your-api-key-here \
   ghcr.io/soulteary/warden:latest
 ```
+
+Redis 默认启用，默认地址为 `localhost:6379`。`REDIS_ENABLED=false` 让这个单实例在没有 Redis 的情况下运行。如果不设置该变量且 Redis 不可达，Warden 仍会提供数据，但 `/health` 会报告 `degraded`，日志中会反复出现 Redis 连接错误。需要使用 Redis 时，请改为把 `REDIS` 设置为它的地址。
 
 只有 `status` 为 `"active"` 的记录才会被放行。未填写 `status` 的记录会按 `"inactive"` 加载并被拒绝。
 
@@ -111,12 +114,14 @@ go mod download
 3. **运行服务**
 ```bash
 # 直接运行
-go run . --api-key your-api-key-here
+REDIS_ENABLED=false go run . --api-key your-api-key-here
 
 # 或先构建再运行
 go build -o warden .
-./warden --api-key your-api-key-here
+REDIS_ENABLED=false ./warden --api-key your-api-key-here
 ```
+
+`REDIS_ENABLED=false` 用于在没有 Redis 的情况下运行（同方式一）；如果 `localhost:6379` 上有 Redis，可以去掉该变量，或把 `REDIS` 设置为 Redis 的地址。
 
 <a name="配置说明"></a>
 
@@ -129,7 +134,7 @@ Warden 支持通过命令行参数、环境变量和配置文件进行配置。�
 | 端口 | `PORT` | HTTP 服务器端口（默认：8081） | 否 |
 | 部署环境 | `ENVIRONMENT` | `development`（默认）、`test` 或 `production`。`production` 会启用下文所述的安全检查 | 实际部署请设为 `production` |
 | API 密钥 | `API_KEY` | API 认证密钥。未配置任何凭证时，所有数据接口返回 401 | 是（已配置 HMAC 或 mTLS 时除外） |
-| Redis | `REDIS` | Redis 地址，用于缓存和分布式锁（如：`localhost:6379`） | 可选 |
+| Redis | `REDIS` | Redis 地址，用于缓存和分布式锁（默认：`localhost:6379`）。默认启用；设置 `REDIS_ENABLED=false` 可在没有 Redis 的情况下运行 | 可选 |
 | 数据文件 | `DATA_FILE` | 本地数据文件路径（默认：`./data.json`，支持 `--data-file`） | 是* |
 | 远程配置 | `CONFIG` | 用于获取数据的远程 API URL | 可选 |
 

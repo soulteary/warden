@@ -65,9 +65,12 @@ EOF
 docker run -d \
   -p 8081:8081 \
   -v $(pwd)/data.json:/app/data.json:ro \
+  -e REDIS_ENABLED=false \
   -e API_KEY=your-api-key-here \
   ghcr.io/soulteary/warden:latest
 ```
+
+Redis is enabled by default and expected at `localhost:6379`. `REDIS_ENABLED=false` runs this single instance without it. If the variable is left out and no Redis is reachable, Warden still serves the data, but `/health` reports `degraded` and the log repeats Redis connection errors. To use Redis, set `REDIS` to its address instead.
 
 A record is allowed only when its `status` is `"active"`. A record without `status` is loaded as `"inactive"` and is denied.
 
@@ -115,12 +118,14 @@ Create a `data.json` file (refer to `data.example.json`):
 3. **Run the service**
 ```bash
 # Run directly; pass the API key through the environment
-API_KEY=your-api-key-here go run .
+REDIS_ENABLED=false API_KEY=your-api-key-here go run .
 
 # Or build then run
 go build -o warden .
-API_KEY=your-api-key-here ./warden
+REDIS_ENABLED=false API_KEY=your-api-key-here ./warden
 ```
+
+`REDIS_ENABLED=false` is for running without Redis, as in Option 1; leave it out when a Redis server listens on `localhost:6379`, or set `REDIS` to its address.
 
 Pass secrets through environment variables (`API_KEY`, `KEY`, `REDIS_PASSWORD`) or a password file (`REDIS_PASSWORD_FILE`). The `--api-key`, `--key` and `--redis-password` flags still work, but a flag value is visible to other local users in the process list (`ps`).
 
@@ -135,7 +140,7 @@ Warden supports configuration via command line arguments, environment variables,
 | Port | `PORT` | HTTP server port (default: 8081) | No |
 | Environment | `ENVIRONMENT` | `development` (default), `test` or `production`. `production` turns on the security checks described below | Set to `production` for real deployments |
 | API Key | `API_KEY` | API authentication key. Without a credential every data route answers 401 | Yes, unless HMAC or mTLS is configured |
-| Redis | `REDIS` | Redis address for caching and distributed locks (e.g., `localhost:6379`) | Optional |
+| Redis | `REDIS` | Redis address for caching and distributed locks (default: `localhost:6379`). Enabled by default; set `REDIS_ENABLED=false` to run without it | Optional |
 | Data File | `DATA_FILE` | Local data file path (default: `./data.json`) | Yes* |
 | Remote Config | `CONFIG` | Remote API URL for data fetching | Optional |
 

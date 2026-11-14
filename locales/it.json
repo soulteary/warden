@@ -75,7 +75,7 @@
   "log.create_data_file": "Creare il file %s (riferimento: %s)",
   "log.only_local_load_failed": "Caricamento file locale fallito in modalità ONLY_LOCAL, utilizzo di dati vuoti",
   "log.loaded_from_redis": "Dati caricati dalla cache Redis",
-  "log.loaded_from_remote_api": "Dati caricati dall'API remota",
+  "log.loaded_from_sources": "Dati caricati dalle sorgenti configurate",
   "log.data_file_not_found_no_remote": "Il file di dati non esiste e l'indirizzo dati remoto non è configurato",
   "log.tip_actions": "Suggerimento: eseguire una delle seguenti azioni:",
   "log.create_data_file_or_config": "1. Creare il file %s (riferimento: %s)",

@@ -75,7 +75,7 @@
   "log.create_data_file": "Bitte erstellen Sie die Datei %s (Referenz: %s)",
   "log.only_local_load_failed": "Laden der lokalen Datei im ONLY_LOCAL-Modus fehlgeschlagen, Verwendung leerer Daten",
   "log.loaded_from_redis": "Daten aus Redis-Cache geladen",
-  "log.loaded_from_remote_api": "Daten aus Remote-API geladen",
+  "log.loaded_from_sources": "Daten aus den konfigurierten Quellen geladen",
   "log.data_file_not_found_no_remote": "Datendatei existiert nicht und Remote-Datenadresse nicht konfiguriert",
   "log.tip_actions": "Hinweis: Bitte führen Sie eine der folgenden Aktionen aus:",
   "log.create_data_file_or_config": "1. Erstellen Sie die Datei %s (Referenz: %s)",

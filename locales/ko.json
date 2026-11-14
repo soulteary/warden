@@ -75,7 +75,7 @@
   "log.create_data_file": "%s 파일을 만드세요 (참조: %s)",
   "log.only_local_load_failed": "ONLY_LOCAL 모드에서 로컬 파일 로드 실패, 빈 데이터 사용",
   "log.loaded_from_redis": "Redis 캐시에서 데이터 로드됨",
-  "log.loaded_from_remote_api": "원격 API에서 데이터 로드됨",
+  "log.loaded_from_sources": "구성된 데이터 소스에서 데이터 로드됨",
   "log.data_file_not_found_no_remote": "데이터 파일이 존재하지 않으며 원격 데이터 주소가 구성되지 않았습니다",
   "log.tip_actions": "팁: 다음 작업 중 하나를 수행하세요:",
   "log.create_data_file_or_config": "1. %s 파일 만들기 (참조: %s)",

@@ -75,7 +75,7 @@
   "log.create_data_file": "Please create %s file (refer to %s)",
   "log.only_local_load_failed": "Local file load failed in ONLY_LOCAL mode, using empty data",
   "log.loaded_from_redis": "Loaded data from Redis cache",
-  "log.loaded_from_remote_api": "Loaded data from remote API",
+  "log.loaded_from_sources": "Loaded data from the configured sources",
   "log.data_file_not_found_no_remote": "Data file does not exist and remote data address not configured",
   "log.tip_actions": "Tip: Please perform one of the following actions:",
   "log.create_data_file_or_config": "1. Create %s file (refer to %s)",
