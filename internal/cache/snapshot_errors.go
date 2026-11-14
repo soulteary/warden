@@ -15,6 +15,16 @@ var (
 	ErrSnapshotMissing   = fmt.Errorf("%w: snapshot missing", ErrSnapshotConflict)
 )
 
+// SnapshotRenewalFoundNoPublication reports whether a renewal failed because
+// the snapshot key holds nothing a replica could have published and another
+// could restore: the key is missing (script result 3), its value is over
+// define.MAX_ENVELOPE_JSON_SIZE (result 4), or its value is not a JSON object
+// or array (result 5). A value that decodes and carries a different revision
+// (result 2) is not in this set; it may be another writer's publication.
+func SnapshotRenewalFoundNoPublication(err error) bool {
+	return errors.Is(err, ErrSnapshotConflict) && (errors.Is(err, ErrSnapshotMissing) || errors.Is(err, ErrSnapshotInvalid))
+}
+
 // SnapshotFailureReason is a bounded diagnostic code, never an error message.
 func SnapshotFailureReason(err error) string {
 	switch {

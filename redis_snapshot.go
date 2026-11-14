@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"strings"
 	"time"
 
@@ -144,16 +143,18 @@ func (app *App) publishRedisSnapshots(users []define.AllowListUser) error {
 			result = cache.SnapshotFailureReason(err)
 		}
 		app.recordSnapshotResult("renew", result)
-		// A key that is gone (expired, evicted, flushed) holds nothing another
-		// replica could have published, so the writer stores its snapshot again
-		// below; otherwise Redis stays empty for as long as the source keeps this
-		// replica on its retained set, and a restarting replica has nothing to
-		// restore. Any other failure returns: a different revision is a newer
+		// A key that is gone (expired, evicted, flushed), or whose value is over
+		// the size limit or is not JSON, holds nothing another replica could
+		// have published or could restore, so the writer stores its snapshot
+		// again below; otherwise Redis stays without a usable snapshot for as
+		// long as the source keeps this replica on its retained set, and a
+		// restarting replica has nothing to restore. Any other failure returns:
+		// a value that decodes and carries a different revision may be a newer
 		// publication by another writer and stays untouched.
-		if !errors.Is(err, cache.ErrSnapshotMissing) {
+		if !cache.SnapshotRenewalFoundNoPublication(err) {
 			return err
 		}
-		app.log.Warn().Msg("Versioned Redis snapshot is missing; publishing the current snapshot again")
+		app.log.Warn().Str("result", result).Msg("Versioned Redis snapshot is missing or unusable; publishing the current snapshot again")
 	}
 	if app.retainedSnapshotSuperseded(ctx, snap) {
 		app.recordSnapshotResult("publish", "superseded")

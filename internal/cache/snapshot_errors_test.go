@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -77,4 +78,20 @@ func TestSnapshotRenewFailureReasons(t *testing.T) {
 	}
 	require.NoError(t, lease.Release(ctx))
 	require.Equal(t, "lease_lost", SnapshotFailureReason(lease.Renew(ctx, valid.Revision)))
+}
+
+func TestSnapshotRenewalFoundNoPublication(t *testing.T) {
+	for _, err := range []error{
+		ErrSnapshotMissing,
+		fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotTooLarge),
+		fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotInvalid),
+	} {
+		require.True(t, SnapshotRenewalFoundNoPublication(err), err.Error())
+	}
+	for _, err := range []error{
+		nil, ErrSnapshotConflict, ErrSnapshotLeaseLost, ErrSnapshotInvalid, ErrSnapshotTooLarge,
+		ErrSnapshotSchema, errors.New("renew versioned snapshot: connection refused"),
+	} {
+		require.False(t, SnapshotRenewalFoundNoPublication(err), "%v", err)
+	}
 }
