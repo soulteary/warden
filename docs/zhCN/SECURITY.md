@@ -161,6 +161,8 @@ export HEALTH_CHECK_IP_WHITELIST="127.0.0.1,::1,10.0.0.0/8"
 
 ### Redis 安全
 
+- **Redis 实例属于信任边界，不得与其他服务共用。** 除 `ONLY_LOCAL` 外的所有模式，启动时都会在读取任何数据源之前先采用 Redis 中缓存的规则集。默认的 `REDIS_SNAPSHOT_MODE=legacy` 下，该缓存位于固定键 `warden:users:cache`（以及 `warden:users:cache:version`），没有命名空间、不带认证，且 `redis.db` 不生效，始终使用 0 号库。任何能写入该键的一方——同一实例上的其他服务、数据集不同的另一套 Warden——都能决定允许名单的内容，直到下一次刷新成功为止；数据源持续失败时则一直有效。该键还会以明文保存完整用户列表一小时
+- 当 Redis 库中存在非 Warden 写入的键时，Warden 会在启动时输出警告；生产环境下 Redis 未设置密码时同样会输出警告。前一项检查只抽样读取部分键，没有警告并不能证明实例是专用的
 - Redis 应配置密码保护
 - 使用 `REDIS_PASSWORD` 或 `REDIS_PASSWORD_FILE` 环境变量
 - 限制 Redis 的网络访问（仅允许应用服务器访问）

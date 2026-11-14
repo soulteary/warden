@@ -237,6 +237,8 @@ the default above.
 
 ### Redis Security
 
+- **The Redis instance is part of the trust boundary and must not be shared with other services.** In every mode except `ONLY_LOCAL`, startup adopts the rule set cached in Redis before it reads any source. In the default `REDIS_SNAPSHOT_MODE=legacy` that cache lives under the fixed key `warden:users:cache` (with `warden:users:cache:version`), has no namespace and is not authenticated, and `redis.db` is not applied, so database 0 is always used. Anything that can write that key — another service on the same instance, a second Warden deployment with a different data set — decides who is on the allow list until the next successful refresh, and for as long as the sources keep failing. The key also holds the complete user list in plain text for one hour
+- Warden logs a warning at startup when the Redis database holds keys it did not write, and in production when Redis is used without a password. The first check reads a sample of the keyspace, so its silence does not prove the instance is dedicated
 - Redis should be configured with password protection
 - Use `REDIS_PASSWORD` or `REDIS_PASSWORD_FILE` environment variables
 - A configured `REDIS_PASSWORD_FILE` that is unreadable or empty stops startup instead of connecting without a password
