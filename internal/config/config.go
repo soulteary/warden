@@ -241,9 +241,7 @@ func applyHTTPDefaults(cfg *Config) {
 
 // applyRemoteDefaults applies remote configuration default values
 func applyRemoteDefaults(cfg *Config) {
-	if cfg.Remote.URL == "" {
-		cfg.Remote.URL = define.DEFAULT_REMOTE_CONFIG
-	}
+	// Remote.URL has no default: an empty value means no remote source.
 	if cfg.Remote.Key == "" {
 		cfg.Remote.Key = define.DEFAULT_REMOTE_KEY
 	}

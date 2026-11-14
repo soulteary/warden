@@ -217,7 +217,7 @@ export REDIS_ENABLED=false
 - **Environment Variable**: `CONFIG`
 - **Configuration File**: `remote.url`
 - **Type**: URL string
-- **Default Value**: `http://localhost:8080/data.json`
+- **Default Value**: empty (no remote source)
 - **Description**: Remote data source URL
 
 **Example**:

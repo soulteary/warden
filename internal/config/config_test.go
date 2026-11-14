@@ -436,7 +436,7 @@ func TestApplyDefaults_AllSections(t *testing.T) {
 	assert.NotZero(t, cfg.Cache.UpdateInterval)
 	assert.NotZero(t, cfg.RateLimit.Rate)
 	assert.NotZero(t, cfg.HTTP.Timeout)
-	assert.NotEmpty(t, cfg.Remote.URL)
+	assert.Empty(t, cfg.Remote.URL, "no remote source unless one is configured")
 	assert.NotZero(t, cfg.Task.Interval)
 	assert.NotEmpty(t, cfg.App.Mode)
 }

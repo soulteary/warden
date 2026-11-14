@@ -62,6 +62,8 @@ The system supports 7 data merging modes, selected with `MERGE_MODE` (`MODE` is 
 | `REMOTE_FIRST_ALLOW_REMOTE_FAILED` | Remote-first, allow fallback to local when remote fails | High availability scenarios |
 | `LOCAL_FIRST_ALLOW_REMOTE_FAILED` | Local-first, allow fallback to remote when local fails | Hybrid mode |
 
+**No remote source**: `CONFIG` / `remote.url` has no default. When it is empty there is no remote source: `DEFAULT`, `LOCAL_FIRST` and the two `*_ALLOW_REMOTE_FAILED` modes load only the local data, make no remote request and are not reported as degraded, and the production rules for remote sources (HTTPS, encryption) do not apply. `ONLY_REMOTE` and `REMOTE_FIRST` refuse to start without a remote source.
+
 ### Snapshot freshness and remote failures
 
 `REMOTE_FIRST` and `ONLY_REMOTE` are strict modes. If a scheduled remote refresh
@@ -279,7 +281,7 @@ http:
   retry_delay: 1s
 
 remote:
-  url: "http://localhost:8080/data.json"
+  url: ""  # Remote source URL; empty means no remote source
   key: ""
   mode: "DEFAULT"
   decrypt_enabled: false       # RSA decrypt remote response (use with rsa_private_key_file or REMOTE_RSA_PRIVATE_KEY)

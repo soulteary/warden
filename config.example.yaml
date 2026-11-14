@@ -38,7 +38,7 @@ http:
   retry_delay: 1s
 
 remote:
-  url: "http://localhost:8080/data.json"
+  url: ""  # 远程数据源 URL；留空表示没有远程数据源（DEFAULT 等容错模式仅使用本地数据，ONLY_REMOTE / REMOTE_FIRST 必须填写）
   key: ""
   mode: "DEFAULT"              # 已弃用：仅作为 MERGE_MODE 别名；生产判断改用 ENVIRONMENT（见 docs/migration-config.md）
   decrypt_enabled: false       # 是否对远程响应做解密（需配合 rsa_private_key_file 或环境变量 REMOTE_RSA_PRIVATE_KEY_FILE / REMOTE_RSA_PRIVATE_KEY）
