@@ -301,7 +301,7 @@ X-API-Key: your-secret-api-key
 
 **Note**: 
 - This endpoint requires API Key authentication
-- All log level modification operations are recorded in security audit logs
+- Every `POST`/`PUT` request, accepted or refused, is written to the application log as an audit record (`"audit": true`) with the authenticated principal, the client address and the level before and after
 
 ### Prometheus Metrics
 

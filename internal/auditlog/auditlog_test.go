@@ -73,3 +73,26 @@ func TestGetLoggerWithoutInit(t *testing.T) {
 	l := GetLogger()
 	assert.NotNil(t, l)
 }
+
+// GetLogger is called from request goroutines; the first calls race to
+// initialize the logger and must all observe the same instance.
+func TestGetLoggerConcurrentFirstUse(t *testing.T) {
+	logger = nil
+	loggerInit = sync.Once{}
+
+	const callers = 16
+	got := make([]*audit.Logger, callers)
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			got[i] = GetLogger()
+		}(i)
+	}
+	wg.Wait()
+	for i := range got {
+		assert.NotNil(t, got[i])
+		assert.Same(t, got[0], got[i])
+	}
+}

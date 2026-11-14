@@ -281,6 +281,8 @@ func RateLimitAuthenticated(cfg RateLimitConfig, auth func(http.Handler) http.Ha
 				cfg.reject(w, r, RateLimitScopeIP, clientIP, retryAfter)
 				return
 			}
+			// Handlers record this address in the audit trail.
+			r = WithClientIP(r, clientIP)
 			auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				principal := PrincipalFromContext(r.Context())
 				if principal == "" {
