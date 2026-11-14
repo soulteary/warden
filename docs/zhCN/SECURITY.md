@@ -101,6 +101,8 @@ app:
 - `GET /log/level` - 获取日志级别
 - `POST /log/level` - 设置日志级别
 
+这些端点不会在没有凭证的情况下开放。未配置 `API_KEY`、`WARDEN_HMAC_KEYS` 或 mTLS 时，生产环境拒绝启动；其他环境可以启动，但这些端点对所有请求返回 401，并在启动时输出一条警告说明原因。
+
 **不需要认证的端点**（生产环境必须通过其他手段保护）:
 - `GET /health` - 健康检查（**必须**配置 `HEALTH_CHECK_IP_WHITELIST` 或网络隔离）
 - `GET /healthcheck` - 健康检查（同上）
