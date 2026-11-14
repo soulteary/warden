@@ -37,6 +37,16 @@ that decodes and carries a different revision, another writer may have
 published since and the stored value is left untouched. Clock synchronization and trusted Redis writers remain deployment
 requirements; this format is not a signed upstream revision protocol.
 
+The renewal reads the stored revision from the beginning of the value. Every
+envelope begins with `schema_version`, `dataset`, `policy` and `revision`, in
+that order and without whitespace, followed by `users`. The script compares
+that beginning with the one expected for its own dataset and policy, so it
+does not decode the user list inside Redis, and nothing inside a user record
+can take part in the comparison. A value with any other beginning is decoded
+in full and classified as described above. The order of these leading members
+is part of the stored format: a writer that changed it would still be renewed
+correctly, but every renewal would decode the whole value again.
+
 Protocol tests use miniredis with real Lua execution, including lease expiry,
 replacement owners, stale renewal, empty lists, malformed envelopes and restart
 recovery. Application migration and legacy compatibility are separate changes.
