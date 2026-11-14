@@ -29,9 +29,11 @@ func serviceAction(r *http.Request) string {
 	return ""
 }
 
-func servePolicyAuthenticated(cfg HMACConfig, next http.Handler, w http.ResponseWriter, r *http.Request) {
+func servePolicyAuthenticated(cfg *HMACConfig, next http.Handler, w http.ResponseWriter, r *http.Request) {
 	sig, ts, key := r.Header.Get(headerSignature), r.Header.Get(headerTimestamp), r.Header.Get(headerKeyID)
-	if sig == "" || ts == "" || key == "" || r.Header.Get(headerVersion) != signatureV2 || !verifyHMAC(cfg, r, sig, ts, key) {
+	version := r.Header.Get(headerVersion)
+	// Policies need a nonce-bound signature: v2, or v3 which adds the audience.
+	if sig == "" || ts == "" || key == "" || (version != signatureV2 && version != signatureV3) || !verifyHMAC(*cfg, r, sig, ts, key) {
 		writeUnauthorized(w, r)
 		return
 	}

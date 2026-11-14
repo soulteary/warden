@@ -424,7 +424,7 @@ func validateHMACConfig(cfg *Config) []string {
 		}
 	}
 
-	return errs
+	return append(errs, validateHMACAudience()...)
 }
 
 func validateEncryptionConfig(cfg *Config) []string {

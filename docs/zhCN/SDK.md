@@ -180,6 +180,23 @@ client, err := warden.NewClient(opts)
 SDK 会将 Key ID、时间戳、nonce、路径与查询参数、请求方法和请求体哈希一并签名。
 Key ID 与 secret 必须同时配置；半配置会返回 `ErrCodeInvalidConfig`，不会静默发送未签名请求。
 
+如需把每个签名绑定到某一个 Warden 实例，再加上该实例在 `WARDEN_HMAC_AUDIENCES`
+中列出的名称：
+
+```go
+opts := warden.DefaultOptions().
+    WithBaseURL("https://warden.internal:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET")).
+    WithHMACAudience("warden.internal:8081")
+```
+
+此时 SDK 使用包含该名称的 v3 形式签名，发往该实例的请求即使被截获，也不能在共用
+同一密钥的其他实例上通过验证。名称会去除首尾空白并转为小写；它只参与签名，不随
+请求发送。服务端未列出该名称时返回 `401`（`ErrCodeUnauthorized`），因此应先在
+服务端配置 `WARDEN_HMAC_AUDIENCES`，再启用此选项。不设置此选项时 SDK 仍按 v2
+签名。未配置 `WithHMAC` 就调用 `WithHMACAudience`，或名称不是 1 到 255 个不含空格
+和逗号的可打印 ASCII 字符，会返回 `ErrCodeInvalidConfig`。
+
 ### 重试配置
 
 ```go
@@ -232,6 +249,7 @@ invalidationCh <- struct{}{}
 - `Logger`: 日志接口（可选，默认使用 NoOpLogger）
 - `Transport`: 自定义 HTTP transport（可选）
 - `HMACKeyID` / `HMACSecret`: HMAC v2 签名配置（必须同时设置或同时留空）
+- `HMACAudience`: 签名所绑定的 Warden 实例名称（可选；设置后使用 v3 形式，且必须同时配置 HMAC 密钥对）
 - `TLSConfig`: TLS/mTLS 客户端配置（可选）。它应用在 `Transport` 的副本上；未提供 transport 时，应用在标准库默认 transport 的副本上，因此环境变量中的代理设置和默认连接超时仍然生效
 - `Retry`: 重试配置（可选，默认不重试）
 - `CacheInvalidationChannel`: 事件驱动缓存失效通道（可选）

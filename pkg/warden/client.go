@@ -112,7 +112,7 @@ func NewClient(opts *Options) (*Client, error) {
 		cache:                    NewCache(opts.CacheTTL),
 		logger:                   opts.Logger,
 		retry:                    retry,
-		signer:                   newHMACSigner(opts.HMACKeyID, opts.HMACSecret, opts.Clock),
+		signer:                   newHMACSigner(opts.HMACKeyID, opts.HMACSecret, opts.HMACAudience, opts.Clock),
 		maxResponseBytes:         maxResp,
 		cacheInvalidationChannel: opts.CacheInvalidationChannel,
 	}

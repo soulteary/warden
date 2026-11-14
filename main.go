@@ -81,6 +81,8 @@ type App struct {
 	hmacKeys              map[string]string
 	hmacToleranceSec      int
 	hmacAllowV1           bool
+	hmacAudiences         []string
+	hmacRequireAudience   bool
 	tlsCertFile           string
 	tlsKeyFile            string
 	tlsCAFile             string
@@ -192,6 +194,7 @@ func NewApp(cfg *cmd.Config) *App {
 		// for direct NewApp callers as a defense-in-depth measure.
 		app.log.Warn().Err(hmacAllowV1Err).Msg("invalid WARDEN_HMAC_ALLOW_V1; keeping secure default")
 	}
+	app.initHMACAudience()
 	// Surface use of the deprecated legacy encryption format as a metric (deduped).
 	remote.LegacyEncryptionObserver = func() {
 		prommetrics.RecordDeprecation("encryption_legacy")
@@ -1314,6 +1317,23 @@ func (app *App) initHMACKeys(cfg *cmd.Config) {
 			app.hmacKeys = keys
 		}
 	}
+}
+
+// initHMACAudience reads the names a v3 signature may be bound to and whether
+// unbound signatures are refused. ValidateConfig rejects invalid values during
+// normal startup; a direct NewApp caller gets the stricter reading of each.
+func (app *App) initHMACAudience() {
+	audiences, err := cmd.ParseHMACAudiences(os.Getenv("WARDEN_HMAC_AUDIENCES"))
+	if err != nil {
+		app.log.Warn().Err(err).Msg("invalid WARDEN_HMAC_AUDIENCES; v3 signatures are rejected")
+	}
+	app.hmacAudiences = audiences
+	required, err := cmd.ParseHMACRequireAudience(os.Getenv("WARDEN_HMAC_REQUIRE_AUDIENCE"))
+	if err != nil {
+		required = true
+		app.log.Warn().Err(err).Msg("invalid WARDEN_HMAC_REQUIRE_AUDIENCE; requiring a signature bound to an audience")
+	}
+	app.hmacRequireAudience = required
 }
 
 func (app *App) configureIdentity(cfg *cmd.Config) {

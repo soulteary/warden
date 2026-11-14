@@ -52,3 +52,37 @@ replay and returns `401 Unauthorized`.
 During key rotation, each Key ID may select a different secret. Because Key ID
 is signed in v2, changing only `X-Key-Id` invalidates the signature even if two
 rotation entries temporarily share the same secret.
+
+## Binding signatures to one instance (v3)
+
+A v2 signature does not name the instance that is meant to receive it. Two
+instances that accept the same Key ID and secret, and do not share the Redis
+that stores used nonces, both accept a captured request inside the timestamp
+window. The optional v3 form adds a name of the receiving instance to the
+signed text:
+
+```text
+v3
+AUDIENCE
+METHOD
+ESCAPED_PATH_AND_QUERY
+KEY_ID
+TIMESTAMP
+NONCE
+SHA256_HEX(BODY)
+```
+
+The headers are those of v2 with `X-Signature-Version: v3`. The audience is not
+sent; Warden verifies the signature against the names in
+`WARDEN_HMAC_AUDIENCES`. It is an operator-chosen name and is never read from
+the `Host` header.
+
+Rollout, with no change for clients that stay on v2:
+
+1. Set `WARDEN_HMAC_AUDIENCES` on each instance, with different names for
+   instances that must not accept each other's requests. v2 stays accepted.
+2. Switch callers to v3. With the Go SDK, add `WithHMACAudience(name)`.
+3. When every caller signs v3, set `WARDEN_HMAC_REQUIRE_AUDIENCE=true`. v1, v2
+   and unversioned signatures are then rejected.
+
+See "HMAC Signature" in [docs/enUS/SECURITY.md](enUS/SECURITY.md).

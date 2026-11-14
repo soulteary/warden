@@ -22,6 +22,9 @@ const (
 
 	// signatureVersionV2 is the canonical version emitted by this SDK.
 	signatureVersionV2 = "v2"
+	// signatureVersionV3 is emitted when an audience is configured. It is the
+	// v2 form with the audience added to the signed text.
+	signatureVersionV3 = "v3"
 )
 
 // Clock abstracts time for deterministic testing of signature timestamps.
@@ -45,17 +48,21 @@ type hmacSigner struct {
 	keyID  string
 	secret []byte
 	clock  Clock
+	// audience, when set, selects the v3 form: the name of the Warden instance
+	// the request is meant for is signed, so the request is not valid at
+	// another instance that shares the key.
+	audience string
 }
 
 // newHMACSigner builds a signer; returns nil when signing is not configured.
-func newHMACSigner(keyID, secret string, clock Clock) *hmacSigner {
+func newHMACSigner(keyID, secret, audience string, clock Clock) *hmacSigner {
 	if keyID == "" || secret == "" {
 		return nil
 	}
 	if clock == nil {
 		clock = systemClock{}
 	}
-	return &hmacSigner{keyID: keyID, secret: []byte(secret), clock: clock}
+	return &hmacSigner{keyID: keyID, secret: []byte(secret), clock: clock, audience: audience}
 }
 
 // newNonce returns a 128-bit hex nonce from crypto/rand.
@@ -107,6 +114,12 @@ func canonicalString(method, pathAndQuery, keyID, timestamp, nonce, bodyHash str
 	return method + "\n" + pathAndQuery + "\n" + keyID + "\n" + timestamp + "\n" + nonce + "\n" + bodyHash
 }
 
+// canonicalStringV3 builds the v3 canonical string: a version line and the
+// audience, followed by the v2 canonical string.
+func canonicalStringV3(audience, method, pathAndQuery, keyID, timestamp, nonce, bodyHash string) string {
+	return signatureVersionV3 + "\n" + audience + "\n" + canonicalString(method, pathAndQuery, keyID, timestamp, nonce, bodyHash)
+}
+
 // pathAndQuery returns the request path including a raw query string when present.
 func pathAndQuery(req *http.Request) string {
 	p := req.URL.EscapedPath()
@@ -119,7 +132,8 @@ func pathAndQuery(req *http.Request) string {
 	return p
 }
 
-// sign computes and attaches HMAC v2 headers to req. It never logs the secret.
+// sign computes and attaches the HMAC headers to req: v3 when an audience is
+// configured, v2 otherwise. It never logs the secret.
 func (s *hmacSigner) sign(req *http.Request) error {
 	nonce, err := newNonce()
 	if err != nil {
@@ -130,12 +144,17 @@ func (s *hmacSigner) sign(req *http.Request) error {
 	if err != nil {
 		return err
 	}
+	version := signatureVersionV2
 	canonical := canonicalString(req.Method, pathAndQuery(req), s.keyID, ts, nonce, bh)
+	if s.audience != "" {
+		version = signatureVersionV3
+		canonical = canonicalStringV3(s.audience, req.Method, pathAndQuery(req), s.keyID, ts, nonce, bh)
+	}
 	mac := hmac.New(sha256.New, s.secret)
 	mac.Write([]byte(canonical))
 	sig := hex.EncodeToString(mac.Sum(nil))
 
-	req.Header.Set(headerHMACVersion, signatureVersionV2)
+	req.Header.Set(headerHMACVersion, version)
 	req.Header.Set(headerHMACKeyID, s.keyID)
 	req.Header.Set(headerHMACTimestamp, ts)
 	req.Header.Set(headerHMACNonce, nonce)

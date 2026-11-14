@@ -432,7 +432,7 @@ go run . \
 
 支持通过环境变量配置，优先级低于命令行参数：
 
-**布尔值**：所有布尔型变量（`REDIS_ENABLED`、`REDIS_TLS_ENABLED`、`HTTP_INSECURE_TLS`、`REMOTE_DECRYPT_ENABLED`、`REMOTE_ENCRYPTION_REQUIRED`、`REQUIRE_EXPLICIT_USER_ID`、`WARDEN_TLS_REQUIRE_CLIENT_CERT`、`WARDEN_HMAC_ALLOW_V1`、`WARDEN_METRICS_REQUIRE_AUTH`、`OTLP_ENABLED`）接受 `true`/`false`、`1`/`0`、`yes`/`no`、`on`/`off` 与 `t`/`f`，不区分大小写。其他非空取值会使启动失败，并在错误信息中指出变量名。
+**布尔值**：所有布尔型变量（`REDIS_ENABLED`、`REDIS_TLS_ENABLED`、`HTTP_INSECURE_TLS`、`REMOTE_DECRYPT_ENABLED`、`REMOTE_ENCRYPTION_REQUIRED`、`REQUIRE_EXPLICIT_USER_ID`、`WARDEN_TLS_REQUIRE_CLIENT_CERT`、`WARDEN_HMAC_ALLOW_V1`、`WARDEN_HMAC_REQUIRE_AUDIENCE`、`WARDEN_METRICS_REQUIRE_AUTH`、`OTLP_ENABLED`）接受 `true`/`false`、`1`/`0`、`yes`/`no`、`on`/`off` 与 `t`/`f`，不区分大小写。其他非空取值会使启动失败，并在错误信息中指出变量名。
 
 **数值**：`PORT`（1 到 65535）、`INTERVAL`（秒，至少为 1）、`HTTP_MAX_IDLE_CONNS`（不小于 0；0 表示使用默认值）与 `WARDEN_HMAC_TIMESTAMP_TOLERANCE`（秒，至少为 1）必须是整数。`HTTP_TIMEOUT` 可以是整数秒或 `30s`、`1m30s` 这样的 duration，范围为 1 秒到 1 小时；`--http-timeout` 与 `http.timeout` 适用同一上限。不符合上述规则的取值会使启动失败，并在错误信息中指出变量名。空值视为未设置。
 
@@ -467,6 +467,8 @@ export IP_WHITELIST="192.168.1.0/24"  # 全局 IP 白名单（可选）
 export LOG_LEVEL="info"                # 日志级别（可选，默认: info，可选值: trace, debug, info, warn, error, fatal, panic）
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'  # 生产 secret 至少 32 字节
 export WARDEN_HMAC_ALLOW_V1=false                  # 默认 false；仅在旧调用方迁移期间临时设为 true
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 可选：v3（绑定 audience）签名中可接受的本实例名称，逗号分隔；未设置时拒绝 v3
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false          # 默认 false；设为 true 后只接受 v3 签名，且必须配置 WARDEN_HMAC_AUDIENCES（见 SECURITY.md）
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60         # HMAC 时间戳容差（秒），默认 60
 export WARDEN_TLS_CERT=/path/to/warden.crt        # 服务端 TLS 证书（可选，与 KEY 同时设置则启用 TLS）
 export WARDEN_TLS_KEY=/path/to/warden.key         # 服务端 TLS 私钥
