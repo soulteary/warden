@@ -601,7 +601,8 @@ The bounded `follow_read` operation distinguishes recovery outcomes in snapshot
 metrics. A missing/invalid/unavailable Redis snapshot leaves local data untouched.
 The recovery helper does not rebuild a missing key. The cycle's own publication
 step still applies afterwards: a writer that keeps its retained set after an
-all-records-rejected load publishes it when the key is missing (see
+all-records-rejected load publishes it when the key is missing or holds a value
+that is oversized or not JSON (see
 [Redis snapshot diagnostics](REDIS_SNAPSHOT_DIAGNOSTICS.md)). Initial bootstrap behavior, including
 its handling of unknown or stale evidence, is unchanged.
 
