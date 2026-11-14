@@ -19,6 +19,7 @@ import (
 	"github.com/soulteary/warden/internal/cache"
 	"github.com/soulteary/warden/internal/define"
 	"github.com/soulteary/warden/internal/i18n"
+	"github.com/soulteary/warden/internal/identity"
 	"github.com/soulteary/warden/internal/logger"
 	"github.com/soulteary/warden/internal/middleware"
 )
@@ -50,7 +51,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 		span.SetAttributes(
 			attribute.String("warden.query.phone", logger.SanitizePhone(phone)),
 			attribute.String("warden.query.mail", logger.SanitizeEmail(mail)),
-			attribute.String("warden.query.user_id", userID),
+			userIDAttribute("warden.query.user_id", userID),
 		)
 
 		// Validate at least one identifier is provided
@@ -106,7 +107,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 			logger.FromRequest(r).Info().
 				Str("phone", logger.SanitizePhone(phone)).
 				Str("mail", logger.SanitizeEmail(mail)).
-				Str("user_id", userID).
+				Str("user_id", identity.MaskUserID(userID)).
 				Msg(i18n.T(r, "log.user_not_found"))
 
 			// Audit log: user query failed (identifier sanitized to avoid PII in audit storage)
@@ -120,7 +121,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 		// Set span attributes for found user
 		span.SetAttributes(
 			attribute.Bool("warden.user.found", true),
-			attribute.String("warden.user.id", user.UserID),
+			userIDAttribute("warden.user.id", user.UserID),
 		)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -140,7 +141,7 @@ func GetUserByIdentifier(userCache cache.ViewSource, responseFields []string) fu
 		}
 
 		logger.FromRequest(r).Info().
-			Str("user_id", user.UserID).
+			Str("user_id", identity.MaskUserID(user.UserID)).
 			Str("phone", logger.SanitizePhone(user.Phone)).
 			Str("mail", logger.SanitizeEmail(user.Mail)).
 			Msg(i18n.T(r, "log.user_query_success"))
@@ -162,6 +163,13 @@ func sanitizeIdentifierForAudit(identifier, identifierType string) string {
 	default:
 		return identifier
 	}
+}
+
+// userIDAttribute builds a span attribute for a user ID. A derived user ID is
+// an unsalted digest of the phone number or mail address, which can be
+// recovered by enumeration, so traces carry the masked form like the logs do.
+func userIDAttribute(key, userID string) attribute.KeyValue {
+	return attribute.String(key, identity.MaskUserID(userID))
 }
 
 func identifierTooLong(values ...string) bool {

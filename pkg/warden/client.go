@@ -338,7 +338,7 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 		return false
 	}
 
-	c.logger.Debugf("User found and active: phone=%s, mail=%s, user_id=%s", sanitizePhone(phone), sanitizeEmail(mail), user.UserID)
+	c.logger.Debugf("User found and active: phone=%s, mail=%s, user_id=%s", sanitizePhone(phone), sanitizeEmail(mail), sanitizeString(user.UserID))
 	return true
 }
 
@@ -513,7 +513,7 @@ func (c *Client) GetUserByIdentifier(ctx context.Context, phone, mail, userID st
 		return nil, err
 	}
 
-	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", user.UserID, sanitizePhone(user.Phone), sanitizeEmail(user.Mail))
+	c.logger.Debugf("Fetched user from Warden API: user_id=%s, phone=%s, mail=%s", sanitizeString(user.UserID), sanitizePhone(user.Phone), sanitizeEmail(user.Mail))
 
 	return &user, nil
 }
