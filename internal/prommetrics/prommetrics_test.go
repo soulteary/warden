@@ -220,3 +220,24 @@ func TestRedisSnapshotResultLabelsAreBounded(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `warden_redis_snapshot_operations_total{mode="unknown",operation="unknown",result="unknown"} 1`)
 	require.NotContains(t, rec.Body.String(), "secret")
 }
+
+// The deprecation counter is labelled by feature, and the replay counter
+// counts each rejection once.
+func TestRecordDeprecationAndReplayRejection(t *testing.T) {
+	value := func(c prometheus.Counter) float64 {
+		metric := &dto.Metric{}
+		require.NoError(t, c.Write(metric))
+		return metric.GetCounter().GetValue()
+	}
+	v1Before := value(DeprecationTotal.WithLabelValues("hmac_v1"))
+	legacyBefore := value(DeprecationTotal.WithLabelValues("encryption_legacy"))
+	replayBefore := value(HMACReplayRejectedTotal)
+
+	RecordDeprecation("hmac_v1")
+	RecordDeprecation("hmac_v1")
+	RecordHMACReplayRejected()
+
+	require.InDelta(t, 2, value(DeprecationTotal.WithLabelValues("hmac_v1"))-v1Before, 0)
+	require.InDelta(t, 0, value(DeprecationTotal.WithLabelValues("encryption_legacy"))-legacyBefore, 0)
+	require.InDelta(t, 1, value(HMACReplayRejectedTotal)-replayBefore, 0)
+}
