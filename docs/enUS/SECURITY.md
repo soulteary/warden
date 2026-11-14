@@ -17,7 +17,7 @@ This document explains Warden's security features, security configuration, and b
 9. **Configuration File Validation**: Prevents path traversal attacks
 10. **JSON Size Limits**: Limits JSON response body size to prevent memory exhaustion attacks
 11. **User Query Parameter Length Limit**: Single parameter (`phone`/`mail`/`user_id`) must not exceed 512 bytes to prevent DoS and log/cache bloat
-12. **Audit Trail**: Every user query (`/user`, `/v1/user`, `/v1/lookup`) and every attempt to change the log level is written to the application log as one JSON line with `"audit": true`. A record carries the result, the client address resolved through `TRUSTED_PROXY_IPS`, the request ID and, for log-level changes, the authenticated principal and the level before and after. Phone numbers, mail addresses and user IDs are masked. Warden has no separate audit store: retention and access control are those of the log pipeline
+12. **Audit Trail**: Every user query (`/user`, `/v1/user`, `/v1/lookup`) and every attempt to change the log level is written to the application log as one JSON line with `"audit": true`. A record carries the result, the client address resolved through `TRUSTED_PROXY_IPS`, the request ID and, for log-level changes, the authenticated principal and the level before and after. Phone numbers, mail addresses and user IDs are masked. Audit records are written at `info` whatever the log level is: neither `LOG_LEVEL` nor a level set through `/log/level` filters them. Warden has no separate audit store: retention and access control are those of the log pipeline
 
 ## Security Best Practices
 

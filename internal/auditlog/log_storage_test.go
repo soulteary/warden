@@ -59,6 +59,27 @@ func TestDefaultSinkWritesRecordsToTheLog(t *testing.T) {
 	require.NoError(t, Stop())
 }
 
+// A log level above info must not switch the audit trail off.
+func TestDefaultSinkWritesRecordsAtAnyLogLevel(t *testing.T) {
+	for _, level := range []loggerkit.Level{loggerkit.WarnLevel, loggerkit.ErrorLevel, loggerkit.DebugLevel} {
+		logger = nil
+		loggerInit = sync.Once{}
+		var out bytes.Buffer
+		restore := UseLogger(loggerkit.New(loggerkit.Config{
+			Level: level, Format: loggerkit.FormatJSON, ServiceName: "warden", Output: &out,
+		}))
+
+		LogUserQuery(context.Background(), "0123456789abcdef", "13***00", "phone", "203.0.113.7", true, "")
+		restore()
+
+		var line map[string]any
+		require.NoError(t, json.Unmarshal(out.Bytes(), &line), "level %s: %q", level, out.String())
+		assert.Equal(t, true, line["audit"])
+		assert.Equal(t, "info", line["level"])
+		assert.Equal(t, "warden", line["service"])
+	}
+}
+
 // Without an override the sink is the application logger, and Stop before
 // any use has nothing to stop.
 func TestDefaultSinkUsesTheApplicationLogger(t *testing.T) {
