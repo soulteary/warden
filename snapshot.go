@@ -164,13 +164,15 @@ func (s *snapshotStore) RefreshFailure() (failures int64, reason string) {
 	return state.failures, state.reason
 }
 
-// AgeSeconds returns the age of the current snapshot in seconds.
+// AgeSeconds returns the age of the current snapshot in seconds. A load time
+// ahead of the local clock, as a restored snapshot from a writer whose clock
+// runs ahead can have, reports zero rather than a negative age.
 func (s *snapshotStore) AgeSeconds() float64 {
 	snap := s.Load()
 	if snap == nil || snap.LoadedAt.IsZero() {
 		return 0
 	}
-	return time.Since(snap.LoadedAt).Seconds()
+	return max(time.Since(snap.LoadedAt).Seconds(), 0)
 }
 
 // snapshotFromResult builds an immutable Snapshot from a loader.LoadResult.

@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/soulteary/warden/internal/cache"
+)
 
 const (
 	readAllowed       = "allowed"
@@ -19,6 +23,9 @@ type snapshotReadDecision struct {
 
 // evaluateSnapshotRead uses only the pinned publication and observation time.
 // Publication, lease renewal and recovery do not establish new source evidence.
+// A source time ahead of the observation by no more than the allowance the
+// snapshot store applies is a writer whose clock runs ahead, not a refusal:
+// the store has already accepted that snapshot for every replica.
 func evaluateSnapshotRead(pinned *healthReadState, maxAge time.Duration) snapshotReadDecision {
 	if pinned == nil || pinned.state == nil || pinned.state.snapshot == nil {
 		return snapshotReadDecision{reason: readNoSnapshot}
@@ -34,7 +41,7 @@ func evaluateSnapshotRead(pinned *healthReadState, maxAge time.Duration) snapsho
 		return snapshotReadDecision{reason: readSourceUnknown}
 	}
 	decision := snapshotReadDecision{validUntil: snap.SourceSucceededAt.Add(maxAge), reason: readAllowed}
-	if pinned.observedAt.Before(snap.SourceSucceededAt) {
+	if snap.SourceSucceededAt.After(pinned.observedAt.Add(cache.SNAPSHOT_FUTURE_ALLOWANCE)) {
 		decision.reason = readSourceFuture
 	} else if !pinned.observedAt.Before(decision.validUntil) {
 		decision.reason = readSourceExpired

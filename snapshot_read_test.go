@@ -62,7 +62,8 @@ func TestSnapshotStrictReadDeadline(t *testing.T) {
 		at    time.Time
 		fresh bool
 	}{
-		{source.Add(-time.Nanosecond), false}, {source, true},
+		{source.Add(-cache.SNAPSHOT_FUTURE_ALLOWANCE - time.Nanosecond), false}, {source.Add(-cache.SNAPSHOT_FUTURE_ALLOWANCE), true},
+		{source.Add(-time.Nanosecond), true}, {source, true},
 		{source.Add(app.snapshotMaxAge - time.Nanosecond), true},
 		{source.Add(app.snapshotMaxAge), false}, {source.Add(app.snapshotMaxAge + time.Nanosecond), false},
 	} {

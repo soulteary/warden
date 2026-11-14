@@ -540,10 +540,16 @@ including their aliases. This setting also applies when configuration comes from
 Invalid values fail startup validation.
 
 Enforcement pins one immutable snapshot for both the freshness check and query.
-A known source success time must be no later than the request observation time,
-and the request must be strictly before `SourceSucceededAt + SNAPSHOT_MAX_AGE`.
-The exact deadline, unknown source age, missing canonical view, or future source
-time returns 503 before querying. A fresh snapshot still returns 404 for an absent
+A known source success time must be no more than five seconds later than the
+request observation time, and the request must be strictly before
+`SourceSucceededAt + SNAPSHOT_MAX_AGE`. Five seconds is the future-clock allowance
+the V2 snapshot store applies when it accepts a publication, so a snapshot
+written by a replica whose clock runs slightly ahead is readable on the other
+replicas as soon as they restore it. The deadline is still counted from the
+stored source time: a writer clock that is ahead by some seconds moves the
+deadline later by the same amount, at most five seconds.
+The exact deadline, unknown source age, missing canonical view, or a source
+time beyond the allowance returns 503 before querying. A fresh snapshot still returns 404 for an absent
 user, and an accepted empty set still returns 200 for lists. Authentication runs
 first. Enforced data responses use `Cache-Control: no-store`.
 
@@ -558,7 +564,7 @@ health behavior is unchanged; enforce-mode readiness is described below.
 When `SNAPSHOT_READ_POLICY=enforce`, all existing health aliases include a critical
 `read_ready` check using the same source freshness decision as data reads. It
 checks the pinned canonical view and source-success deadline, including unknown
-and future timestamps. The legacy `snapshot_freshness` check remains diagnostic
+and timestamps beyond the future-clock allowance. The legacy `snapshot_freshness` check remains diagnostic
 in this mode; its `LoadedAt` clock does not override source-based readiness.
 Other critical checks (data availability and HMAC replay Redis, when applicable)
 remain in effect, so readable data alone does not guarantee healthy status.
@@ -583,7 +589,7 @@ HTTP reads, replace fresh or unknown-age data, or enable Redis reads in ONLY_LOC
 
 The shared candidate must pass the existing V2 dataset/policy/schema and effective
 rules validation, have a strictly later source-success time, and remain fresh and
-not future-dated at the final adoption check. Valid empty input is eligible.
+within the future-clock allowance at the final adoption check. Valid empty input is eligible.
 A conditional publication rejects replacement if the local generation changed.
 Background refresh remains serialized by the existing refresh mutex.
 
@@ -638,7 +644,7 @@ succeeded. Keep clocks synchronized and budget skew conservatively.
 An authenticated metadata-v1 request rejected by enforce mode receives HTTP 503,
 `Warden-Snapshot-Metadata: v1`, and a bounded `Warden-Source-Error` value:
 `expired` for a reached deadline, `unknown` for missing source evidence or its
-canonical view, and `future` for future source time. Ordinary requests retain the
+canonical view, and `future` for a source time beyond the future-clock allowance. Ordinary requests retain the
 existing 503 response without these markers; authentication failures expose none.
 Invalid server age configuration is not reported as unknown source evidence.
 
