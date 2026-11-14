@@ -6,7 +6,7 @@
 
 读取区分已恢复、缺失、后端不可用、schema/dataset/policy/时间拒绝、超限、损坏、生效集合拒绝和 I/O 错误。`restored` 表示应用完成生效集合验证并接受，而非只解码成功。拒绝恢复日志只包含固定结果码，不包含载荷。
 
-发布区分成功、无租约、来源时间未知、shadow 旧写入失败及有限错误原因；跳过发布返回 nil 不再被误认为 V2 写成功。续期区分成功、键缺失、修订冲突、租约丢失、超限、损坏和 I/O 错误，不自动重建缺失或冲突值。租约获取区分 acquired/busy/unavailable/错误；释放成功仅表示命令完成，旧所有者安全释放可能未删除任何键。
+发布区分成功、无租约、来源时间未知、shadow 旧写入失败、`superseded` 及有限错误原因；`superseded` 表示本副本在刷新被拒绝后保留了上一次有效集合，而 Redis 中已有 `source_succeeded_at` 相同或更晚的发布，因此未写入；跳过发布返回 nil 不再被误认为 V2 写成功。续期区分成功、键缺失、修订冲突、租约丢失、超限、损坏和 I/O 错误，不自动重建缺失或冲突值。租约获取区分 acquired/busy/unavailable/错误；释放成功仅表示命令完成，旧所有者安全释放可能未删除任何键。
 
 既有 versioned 健康元数据新增已知的 `input_version`、`effective_version`、`effective_count` 及已知 `redis_revision`，保留兼容 `version`。V1 恢复缺少原始输入证据，省略 `input_version`。生产详情隐藏规则不变。本地元数据和历史成功发布不能证明 Redis 当前键仍存在，应结合操作指标和 Redis 监控判断。
 
