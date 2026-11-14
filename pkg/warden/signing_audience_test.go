@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -130,12 +131,16 @@ func TestHMACAudienceOptionValidation(t *testing.T) {
 	require.NoError(t, blank.Validate())
 	require.Empty(t, blank.HMACAudience)
 
+	// 255 characters is the longest name, as on the server.
+	require.NoError(t, base().WithHMAC("gateway", "secret").WithHMACAudience(strings.Repeat("a", 255)).Validate())
+
 	for name, invalid := range map[string]*Options{
 		"without HMAC": base().WithHMACAudience("warden"),
 		"space":        base().WithHMAC("gateway", "secret").WithHMACAudience("warden a"),
 		"comma":        base().WithHMAC("gateway", "secret").WithHMACAudience("warden-a,warden-b"),
 		"non-ASCII":    base().WithHMAC("gateway", "secret").WithHMACAudience("wärden"),
-		"too long":     base().WithHMAC("gateway", "secret").WithHMACAudience(string(make([]byte, 256))),
+		"control":      base().WithHMAC("gateway", "secret").WithHMACAudience("warden\x00a"),
+		"too long":     base().WithHMAC("gateway", "secret").WithHMACAudience(strings.Repeat("a", 256)),
 	} {
 		err := invalid.Validate()
 		var sdkErr *Error
