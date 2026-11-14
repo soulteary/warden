@@ -143,14 +143,17 @@ func (app *App) publishRedisSnapshots(users []define.AllowListUser) error {
 			result = cache.SnapshotFailureReason(err)
 		}
 		app.recordSnapshotResult("renew", result)
-		// A key that is gone (expired, evicted, flushed), or whose value is over
-		// the size limit or is not JSON, holds nothing another replica could
-		// have published or could restore, so the writer stores its snapshot
-		// again below; otherwise Redis stays without a usable snapshot for as
-		// long as the source keeps this replica on its retained set, and a
-		// restarting replica has nothing to restore. Any other failure returns:
-		// a value that decodes and carries a different revision may be a newer
-		// publication by another writer and stays untouched.
+		// A key that is gone (expired, evicted, flushed), or whose value is not
+		// a publication of this dataset and policy (over the size limit, not an
+		// envelope, or an envelope of another dataset or policy), holds nothing
+		// a replica of this dataset and policy could have published or could
+		// restore, so the writer stores its snapshot again below; otherwise
+		// Redis stays without a usable snapshot for as long as the source keeps
+		// this replica on its retained set, and a restarting replica has
+		// nothing to restore. Any other failure returns: a publication with a
+		// different revision may be newer and by another writer, and a value
+		// that states a later schema version may be a newer release's; both
+		// stay untouched.
 		if !cache.SnapshotRenewalFoundNoPublication(err) {
 			return err
 		}
