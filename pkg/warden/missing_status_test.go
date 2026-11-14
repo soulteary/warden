@@ -74,3 +74,67 @@ func TestCheckAcceptsAnEmptyStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, allowed)
 }
+
+// The warning about a response without status is logged once per client, not
+// once per lookup; later occurrences go to the debug level.
+func TestMissingStatusWarningIsLoggedOncePerClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"phone":"13800138000","mail":"active@example.com"}`)) //nolint:errcheck // test server
+	}))
+	t.Cleanup(server.Close)
+	ctx := context.Background()
+	countWarnings := func(logs *levelRecorder) (warns, debugs int) {
+		logs.mu.Lock()
+		defer logs.mu.Unlock()
+		for _, msg := range logs.warns {
+			if strings.Contains(msg, "no status field") {
+				warns++
+			}
+		}
+		for _, msg := range logs.debugs {
+			if strings.Contains(msg, "no status field") {
+				debugs++
+			}
+		}
+		return warns, debugs
+	}
+
+	logs := &levelRecorder{}
+	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL).WithLogger(logs))
+	require.NoError(t, err)
+	for range 5 {
+		user, getErr := client.GetUserByIdentifier(ctx, "13800138000", "", "")
+		require.NoError(t, getErr)
+		require.False(t, user.IsActive())
+	}
+	// The error result does not depend on whether the warning was logged.
+	_, checkErr := client.CheckUserInListWithError(ctx, "13800138000", "")
+	var sdkErr *Error
+	require.True(t, errors.As(checkErr, &sdkErr))
+	require.Equal(t, ErrCodeInvalidResponse, sdkErr.Code)
+	warns, debugs := countWarnings(logs)
+	require.Equal(t, 1, warns)
+	require.Equal(t, 5, debugs)
+
+	// A second client warns for itself.
+	otherLogs := &levelRecorder{}
+	other, err := NewClient(DefaultOptions().WithBaseURL(server.URL).WithLogger(otherLogs))
+	require.NoError(t, err)
+	_, err = other.GetUserByIdentifier(ctx, "13800138000", "", "")
+	require.NoError(t, err)
+	warns, debugs = countWarnings(otherLogs)
+	require.Equal(t, 1, warns)
+	require.Zero(t, debugs)
+}
+
+type levelRecorder struct {
+	debugs []string
+	warnRecorder
+}
+
+func (r *levelRecorder) Debug(msg string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.debugs = append(r.debugs, msg)
+}

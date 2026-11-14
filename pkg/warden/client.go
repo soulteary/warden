@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	httpkit "github.com/soulteary/http-kit/v2"
@@ -38,6 +39,9 @@ type Client struct {
 	cacheInvalidationChannel <-chan struct{}
 	stopCacheListener        context.CancelFunc
 	cacheListenerWg          sync.WaitGroup
+	// missingStatusWarned is set once the warning about a user response
+	// without a status field has been logged.
+	missingStatusWarned atomic.Bool
 }
 
 // NewClient creates a new Warden API client with the provided options.
@@ -562,7 +566,15 @@ func (c *Client) getUser(ctx context.Context, phone, mail, userID string) (resul
 	if hasStatus {
 		user.Status = *decoded.Status
 	} else {
-		c.logger.Warn("Warden user response carries no status field (the server's RESPONSE_FIELDS omits it); the user is treated as not active")
+		// The cause is the server's configuration, so every response has
+		// it. One warning per client names it; repeating it for every lookup
+		// would only fill the log.
+		const message = "Warden user response carries no status field (the server's RESPONSE_FIELDS omits it); the user is treated as not active"
+		if c.missingStatusWarned.CompareAndSwap(false, true) {
+			c.logger.Warn(message + "; further responses of this kind are logged at debug level")
+		} else {
+			c.logger.Debug(message)
+		}
 	}
 
 	if err := c.checkSourceDeadline(deadline); err != nil {
