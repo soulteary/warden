@@ -580,6 +580,12 @@ func (app *App) updateRedisCacheWithRetry(users []define.AllowListUser) error {
 		return fmt.Errorf("redis cache unavailable")
 	}
 
+	// When Redis already holds exactly this rule set, renewing its TTL is
+	// enough. Any failure of the check falls through to the full write.
+	if renewed, err := app.redisUserCache.RenewIfUnchanged(users); err == nil && renewed {
+		return nil
+	}
+
 	var lastErr error
 	for attempt := 0; attempt < define.REDIS_RETRY_MAX_RETRIES; attempt++ {
 		if attempt > 0 {
