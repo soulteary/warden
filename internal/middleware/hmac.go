@@ -30,6 +30,13 @@ const (
 	// signatureV2 is the current canonical form:
 	//   METHOD\nPATH_AND_QUERY\nKEY_ID\nTIMESTAMP\nNONCE\nSHA256_HEX(body)
 	signatureV2 = "v2"
+	// signatureV3 is the v2 form bound to the instance that is meant to
+	// receive the request:
+	//   "v3"\nAUDIENCE\nMETHOD\nPATH_AND_QUERY\nKEY_ID\nTIMESTAMP\nNONCE\nSHA256_HEX(body)
+	// AUDIENCE is a name the operator gives this instance. It is never taken
+	// from the request: a Host header is chosen by whoever sends the request,
+	// and a reverse proxy may rewrite it.
+	signatureV3 = "v3"
 
 	// defaultMaxTimestampToleranceSec is the hard upper bound on the configurable
 	// timestamp tolerance. It bounds the replay window even if an operator sets an
@@ -58,6 +65,14 @@ type HMACConfig struct {
 	// AllowV1 keeps the legacy v1 canonical form acceptable during migration. Nil
 	// defaults to false; callers must explicitly opt in to the deprecated protocol.
 	AllowV1 *bool
+	// Audiences are the names of this instance that a v3 signature may be
+	// bound to. A v3 request is accepted when its signature verifies with one
+	// of them. Empty means v3 requests are rejected.
+	Audiences []string
+	// RequireAudience rejects the v1 and v2 forms, which are not bound to an
+	// instance: a request signed for another instance that shares the key is
+	// then refused even inside the timestamp window.
+	RequireAudience bool
 	// ReplayGuard rejects reused v2 nonces within the timestamp window. When nil a
 	// process-local in-memory guard is used. See ReplayGuard docs for the multi-replica
 	// limitation.
@@ -70,6 +85,8 @@ type HMACConfig struct {
 }
 
 // normalized returns a copy of cfg with defaults and bounds applied.
+//
+//nolint:gocritic // hugeParam: the configuration is taken by value, so the caller cannot change it afterwards
 func (cfg HMACConfig) normalized() HMACConfig {
 	if cfg.Keys == nil {
 		cfg.Keys = make(map[string]string)
@@ -100,9 +117,12 @@ var defaultReplayGuard = NewMemoryReplayGuard(1 << 20)
 // HMACAuth verifies complete signature, timestamp and key-ID headers. Missing
 // any required header passes to the next handler, which must enforce any other
 // authentication policy. A complete but invalid signature returns 401, including
-// an unknown or unconfigured key. V2 binds a nonce and rejects replays; legacy v1
-// is accepted only when AllowV1 is enabled. Server routes use ServiceAuthChain
+// an unknown or unconfigured key. V2 binds a nonce and rejects replays; v3 also
+// binds the name of the receiving instance; legacy v1 is accepted only when
+// AllowV1 is enabled. Server routes use ServiceAuthChain
 // for their combined credential and service-policy selection.
+//
+//nolint:gocritic // hugeParam: the configuration is taken by value, so the caller cannot change it afterwards
 func HMACAuth(cfg HMACConfig) func(http.Handler) http.Handler {
 	c := cfg.normalized()
 	return func(next http.Handler) http.Handler {
@@ -155,6 +175,8 @@ func mtlsPrincipal(cert *x509.Certificate) string {
 // An accepted request reaches next carrying its principal (PrincipalFromContext):
 // the HMAC key ID, the client certificate fingerprint, or a constant for the
 // API key.
+//
+//nolint:gocritic // hugeParam: the configuration is taken by value, so the caller cannot change it afterwards
 func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	c := hmacCfg.normalized()
 	return func(next http.Handler) http.Handler {
@@ -163,7 +185,7 @@ func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) ht
 		})
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if c.ServicePolicies != nil {
-				servePolicyAuthenticated(c, next, w, r)
+				servePolicyAuthenticated(&c, next, w, r)
 				return
 			}
 			if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
@@ -190,6 +212,8 @@ func ServiceAuthChain(hmacCfg HMACConfig, apiKeyMiddleware func(http.Handler) ht
 // allowed) and returns true if valid. It restores r.Body for downstream handlers
 // when the body is within maxSignedBodyBytes; a larger or unreadable body fails
 // verification. Secrets are never logged.
+//
+//nolint:gocritic // hugeParam: the configuration is taken by value, so the caller cannot change it afterwards
 func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool {
 	cfg = cfg.normalized()
 	secret, ok := cfg.Keys[keyID]
@@ -223,9 +247,19 @@ func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool 
 	//   - no version header  => try v2 when a nonce is present, then v1 (when AllowV1)
 	// This maximizes migration compatibility without weakening either form.
 	switch version {
+	case signatureV3:
+		return cfg.verifyV3(r, keyID, secret, sig, tsStr, nonce, bodyHash)
 	case signatureV2:
+		if cfg.RequireAudience {
+			logger.FromRequest(r).Debug().Msg("hmac: v2 rejected; a signature bound to an audience (v3) is required")
+			return false
+		}
 		return cfg.verifyV2(r, keyID, secret, sig, tsStr, nonce, bodyHash)
 	case signatureV1, "":
+		if cfg.RequireAudience {
+			logger.FromRequest(r).Debug().Msg("hmac: unbound signature rejected; a signature bound to an audience (v3) is required")
+			return false
+		}
 		if version == "" && nonce != "" {
 			if cfg.verifyV2(r, keyID, secret, sig, tsStr, nonce, bodyHash) {
 				return true
@@ -247,7 +281,7 @@ func verifyHMAC(cfg HMACConfig, r *http.Request, sig, tsStr, keyID string) bool 
 }
 
 // verifyV2 checks the v2 canonical form and enforces nonce replay rejection.
-func (cfg HMACConfig) verifyV2(r *http.Request, keyID, secret, sig, tsStr, nonce, bodyHash string) bool {
+func (cfg *HMACConfig) verifyV2(r *http.Request, keyID, secret, sig, tsStr, nonce, bodyHash string) bool {
 	if nonce == "" {
 		logger.FromRequest(r).Debug().Msg("hmac: v2 missing nonce")
 		return false
@@ -257,8 +291,41 @@ func (cfg HMACConfig) verifyV2(r *http.Request, keyID, secret, sig, tsStr, nonce
 		logger.FromRequest(r).Debug().Msg("hmac: v2 signature mismatch")
 		return false
 	}
-	// Signature is valid; now enforce single-use of the nonce within the window. The
-	// replay key binds the key_id + nonce so different keys cannot collide.
+	return cfg.acceptNonce(r, keyID, nonce)
+}
+
+// verifyV3 checks the v3 canonical form against every configured audience and
+// enforces nonce replay rejection. The audience is part of the signed text, so
+// a request signed for an instance with another name does not verify here.
+func (cfg *HMACConfig) verifyV3(r *http.Request, keyID, secret, sig, tsStr, nonce, bodyHash string) bool {
+	if nonce == "" {
+		logger.FromRequest(r).Debug().Msg("hmac: v3 missing nonce")
+		return false
+	}
+	if len(cfg.Audiences) == 0 {
+		logger.FromRequest(r).Debug().Msg("hmac: v3 rejected; no audience is configured (WARDEN_HMAC_AUDIENCES)")
+		return false
+	}
+	request := r.Method + "\n" + escapedPathAndQuery(r) + "\n" + keyID + "\n" + tsStr + "\n" + nonce + "\n" + bodyHash
+	matched := false
+	for _, audience := range cfg.Audiences {
+		// Every audience is checked: the time taken does not depend on which
+		// one matched.
+		if equalHMAC(secret, signatureV3+"\n"+audience+"\n"+request, sig) {
+			matched = true
+		}
+	}
+	if !matched {
+		logger.FromRequest(r).Debug().Msg("hmac: v3 signature mismatch")
+		return false
+	}
+	return cfg.acceptNonce(r, keyID, nonce)
+}
+
+// acceptNonce enforces single use of a nonce within the timestamp window. It
+// is called only after the signature verified.
+func (cfg *HMACConfig) acceptNonce(r *http.Request, keyID, nonce string) bool {
+	// The replay key binds the key_id + nonce so different keys cannot collide.
 	replayKey := keyID + ":" + nonce
 	ttl := time.Duration(cfg.TimestampToleranceSec)*time.Second*2 + time.Second
 	seenBefore, err := cfg.ReplayGuard.SeenBefore(replayKey, ttl)
@@ -267,7 +334,7 @@ func (cfg HMACConfig) verifyV2(r *http.Request, keyID, secret, sig, tsStr, nonce
 		return false
 	}
 	if seenBefore {
-		logger.FromRequest(r).Debug().Msg("hmac: v2 nonce replay rejected")
+		logger.FromRequest(r).Debug().Msg("hmac: nonce replay rejected")
 		if cfg.OnReplayRejected != nil {
 			cfg.OnReplayRejected()
 		}

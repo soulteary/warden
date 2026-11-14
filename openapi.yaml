@@ -771,7 +771,7 @@ components:
       type: apiKey
       in: header
       name: X-Signature
-      description: Hex-encoded HMAC-SHA256 signature over the v2 canonical request.
+      description: Hex-encoded HMAC-SHA256 signature over the v2 canonical request, or over the v3 canonical request, which prepends the lines "v3" and the audience (a name of the receiving instance configured in WARDEN_HMAC_AUDIENCES; it is signed, not sent).
     HMACTimestamp:
       type: apiKey
       in: header
@@ -790,7 +790,7 @@ components:
       type: apiKey
       in: header
       name: X-Signature-Version
-      description: Must be v2. Legacy v1 is disabled by default.
+      description: v2, or v3 for a signature bound to an audience. Legacy v1 is disabled by default. With WARDEN_HMAC_REQUIRE_AUDIENCE=true only v3 is accepted.
     MutualTLS:
       type: mutualTLS
 

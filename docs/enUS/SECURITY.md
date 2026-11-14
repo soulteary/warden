@@ -349,13 +349,15 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 - `X-Timestamp`: Unix timestamp (seconds)
 - `X-Key-Id`: Key ID (included in the signature, for safe key rotation)
 - `X-Nonce`: Unique 128-bit hexadecimal nonce
-- `X-Signature-Version`: `v2`
+- `X-Signature-Version`: `v2`, or `v3` for a signature bound to an audience (below)
 
 **Warden Configuration** (Environment Variables):
 ```bash
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Timestamp tolerance (seconds), default 60
 export WARDEN_HMAC_ALLOW_V1=false          # Default; set true only during a bounded legacy migration
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # Optional; names of this instance accepted in v3 signatures
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # Default; set true to accept only v3 signatures
 ```
 
 Production configuration requires every HMAC secret to contain at least 32 raw bytes.
@@ -378,9 +380,46 @@ client, err := warden.NewClient(warden.DefaultOptions().
 - Warden verifies all canonical fields, including Key ID, and rejects reused nonces
 - If signature verification fails, returns `401 Unauthorized`
 
+**Binding a signature to one instance (v3)**:
+
+A v2 signature does not name the instance it is meant for. When two Warden
+instances accept the same key ID and secret (for example staging and production,
+or two regions) and do not share the Redis that stores used nonces, a signed
+request captured on its way to one of them is accepted by the other until its
+timestamp leaves the tolerance window. Giving each instance its own secret
+avoids this. Where the secret has to be shared, use the v3 form, which signs the
+name of the receiving instance:
+
+```text
+canonical_v3 = "v3" + "\n" + AUDIENCE + "\n" + canonical_v2
+signature = HEX(HMAC_SHA256(secret, canonical_v3))
+```
+
+- `AUDIENCE` is a name the operator gives the instance in
+  `WARDEN_HMAC_AUDIENCES`, a comma-separated list of up to 16 names. A name is 1
+  to 255 printable ASCII characters without spaces or commas and is compared in
+  lower case. The host and port that clients use to reach the instance, such as
+  `warden.internal:8081`, is a suitable name, but any name both sides agree on
+  works. Give instances that must not accept each other's requests different
+  names.
+- The audience is not sent in a header and is not taken from the `Host` header.
+  The sender of a request chooses its `Host` header, so a check against it would
+  not stop a replay, and a reverse proxy may rewrite it. Warden verifies the
+  signature against each configured name; a request signed for a name that is
+  not in the list returns `401 Unauthorized`.
+- The request headers are those of v2 with `X-Signature-Version: v3`. The nonce
+  is single use as in v2.
+- An instance without `WARDEN_HMAC_AUDIENCES` rejects v3 requests.
+- By default v2 stays accepted, so existing clients are unaffected by setting
+  `WARDEN_HMAC_AUDIENCES`. `WARDEN_HMAC_REQUIRE_AUDIENCE=true` rejects v1, v2 and
+  unversioned signatures; it requires `WARDEN_HMAC_AUDIENCES` and stops startup
+  without it. Set it after every client signs v3. API-key and mTLS access are
+  separate credentials and are not affected.
+- Go SDK: `WithHMACAudience("warden.internal:8081")` together with `WithHMAC`.
+
 ### Configuration Priority
 
-1. With `WARDEN_SERVICE_POLICIES`, require an authenticated HMAC v2 key ID and its permitted action. API keys and mTLS do not bypass this profile.
+1. With `WARDEN_SERVICE_POLICIES`, require an authenticated HMAC v2 or v3 key ID and its permitted action. API keys and mTLS do not bypass this profile.
 2. Without that profile, a request with a peer certificate accepted by the server TLS policy bypasses header authentication. Merely configuring a server certificate does not authenticate every request.
 3. Otherwise, complete HMAC headers plus configured keys enter signature verification. A failed signature returns 401 without falling back to API key; legacy v1 requires the explicit compatibility switch.
 4. Requests outside that complete HMAC branch go to the API-key middleware (`X-API-Key` or Bearer). Enabling HMAC does not by itself disable separately configured API-key access.

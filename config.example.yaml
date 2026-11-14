@@ -77,6 +77,8 @@ tracing:
 # 生产环境（ENVIRONMENT=production）必须至少配置以下之一：API_KEY / WARDEN_HMAC_KEYS / mTLS，否则启动失败
 #   WARDEN_HMAC_KEYS='{"key-id":"<set-via-secret-manager>"}'  # HMAC 密钥（同时支持 v1 与认证 v2）
 #   WARDEN_HMAC_TIMESTAMP_TOLERANCE=60      # 时间戳容差（秒，含上限）
+#   WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 可选：v3（绑定 audience）签名中可接受的本实例名称，逗号分隔
+#   WARDEN_HMAC_REQUIRE_AUDIENCE=false      # 设为 true 后只接受 v3 签名，且必须配置 WARDEN_HMAC_AUDIENCES
 #   WARDEN_TLS_CERT=/path/to/warden.crt     # 服务端证书（与 KEY 同时设置则启用 TLS）
 #   WARDEN_TLS_KEY=/path/to/warden.key      # 服务端私钥
 #   WARDEN_TLS_CA=/path/to/ca.crt           # 客户端 CA（mTLS）

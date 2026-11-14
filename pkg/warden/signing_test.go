@@ -51,7 +51,7 @@ func serverVerifyV2(r *http.Request, secret string) bool {
 }
 
 func TestSigner_SetsAllV2Headers(t *testing.T) {
-	s := newHMACSigner("key-1", "secret", fixedClock{t: time.Unix(1700000000, 0)})
+	s := newHMACSigner("key-1", "secret", "", fixedClock{t: time.Unix(1700000000, 0)})
 	require.NotNil(t, s)
 	req := httptest.NewRequest("GET", "http://example.com/user?phone=1", http.NoBody)
 	require.NoError(t, s.sign(req))
@@ -65,12 +65,12 @@ func TestSigner_SetsAllV2Headers(t *testing.T) {
 }
 
 func TestSigner_DisabledWhenIncomplete(t *testing.T) {
-	assert.Nil(t, newHMACSigner("", "secret", nil))
-	assert.Nil(t, newHMACSigner("id", "", nil))
+	assert.Nil(t, newHMACSigner("", "secret", "", nil))
+	assert.Nil(t, newHMACSigner("id", "", "", nil))
 }
 
 func TestSigner_FreshNoncePerRequest(t *testing.T) {
-	s := newHMACSigner("k", "secret", fixedClock{t: time.Unix(1700000000, 0)})
+	s := newHMACSigner("k", "secret", "", fixedClock{t: time.Unix(1700000000, 0)})
 	req1 := httptest.NewRequest("GET", "http://example.com/user", http.NoBody)
 	req2 := httptest.NewRequest("GET", "http://example.com/user", http.NoBody)
 	require.NoError(t, s.sign(req1))
@@ -262,7 +262,7 @@ func TestSigner_SecretNeverLogged(t *testing.T) {
 
 // TestOptions_TimestampFormat sanity-checks the signer timestamp is unix seconds.
 func TestOptions_TimestampFormat(t *testing.T) {
-	s := newHMACSigner("k", "secret", fixedClock{t: time.Unix(1700000123, 0)})
+	s := newHMACSigner("k", "secret", "", fixedClock{t: time.Unix(1700000123, 0)})
 	req := httptest.NewRequest("GET", "http://example.com/", http.NoBody)
 	require.NoError(t, s.sign(req))
 	ts, err := strconv.ParseInt(req.Header.Get(headerHMACTimestamp), 10, 64)

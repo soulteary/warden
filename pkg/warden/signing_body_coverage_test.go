@@ -58,7 +58,7 @@ func TestSigningBodyFailuresPropagate(t *testing.T) {
 	req.GetBody = func() (io.ReadCloser, error) { return nil, sentinel }
 	_, err := bodyHashHex(req)
 	require.ErrorIs(t, err, sentinel)
-	signer := newHMACSigner("key", "secret", nil)
+	signer := newHMACSigner("key", "secret", "", nil)
 	require.ErrorIs(t, signer.sign(req), sentinel)
 }
 func TestTLSClientCertificateOptionsPreserveTrustConfiguration(t *testing.T) {

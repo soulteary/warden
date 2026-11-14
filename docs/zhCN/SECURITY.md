@@ -270,13 +270,15 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 - `X-Timestamp`: Unix 时间戳（秒）
 - `X-Key-Id`: 密钥 ID（纳入签名，用于安全轮换）
 - `X-Nonce`: 唯一的 128 bit 十六进制随机数
-- `X-Signature-Version`: `v2`
+- `X-Signature-Version`: `v2`；绑定 audience 的签名为 `v3`（见下文）
 
 **Warden 配置**（环境变量）：
 ```bash
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # 时间戳容差（秒），默认 60
 export WARDEN_HMAC_ALLOW_V1=false          # 默认值；仅在旧调用方迁移期间临时设为 true
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 可选；v3 签名中可接受的本实例名称
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # 默认值；设为 true 后只接受 v3 签名
 ```
 
 生产环境要求每个 HMAC secret 至少包含 32 个原始字节。请使用密码学安全随机源生成，
@@ -294,9 +296,38 @@ client, err := warden.NewClient(warden.DefaultOptions().
 - Warden 会验证包含 Key ID 在内的全部 canonical 字段，并拒绝重复 nonce
 - 如果签名验证失败，返回 `401 Unauthorized`
 
+**将签名绑定到单个实例（v3）**：
+
+v2 签名不包含接收方实例的名称。当两个 Warden 实例接受相同的 Key ID 与 secret
+（例如预发布与生产，或两个地域），且不共用保存已用 nonce 的 Redis 时，发往其中
+一个实例的已签名请求被截获后，在时间戳超出容差之前，另一个实例也会接受它。
+为每个实例使用各自的 secret 可以避免这一问题；必须共用 secret 时，请使用 v3
+形式，它把接收方实例的名称纳入签名：
+
+```text
+canonical_v3 = "v3" + "\n" + AUDIENCE + "\n" + canonical_v2
+signature = HEX(HMAC_SHA256(secret, canonical_v3))
+```
+
+- `AUDIENCE` 是运维人员在 `WARDEN_HMAC_AUDIENCES` 中为实例指定的名称。该变量为
+  逗号分隔的列表，最多 16 个名称；每个名称为 1 到 255 个可打印 ASCII 字符，不含
+  空格和逗号，比较时统一转为小写。可以使用客户端访问该实例时的主机名与端口
+  （如 `warden.internal:8081`），也可以使用双方约定的任意名称。不应互相接受请求
+  的实例必须使用不同的名称。
+- audience 不通过请求头发送，也不取自 `Host` 请求头：`Host` 由请求发送方决定，
+  依据它做检查无法阻止重放，反向代理还可能改写它。Warden 用配置的每个名称验证
+  签名；为列表之外的名称签名的请求返回 `401 Unauthorized`。
+- 请求头与 v2 相同，`X-Signature-Version` 为 `v3`。nonce 与 v2 一样只能使用一次。
+- 未配置 `WARDEN_HMAC_AUDIENCES` 的实例拒绝 v3 请求。
+- 默认仍接受 v2，因此设置 `WARDEN_HMAC_AUDIENCES` 不影响现有客户端。
+  `WARDEN_HMAC_REQUIRE_AUDIENCE=true` 会拒绝 v1、v2 以及未标明版本的签名；它要求
+  同时配置 `WARDEN_HMAC_AUDIENCES`，否则启动失败。请在所有客户端都改用 v3 之后再
+  开启。API Key 与 mTLS 是独立的凭证，不受影响。
+- Go SDK：在 `WithHMAC` 之外调用 `WithHMACAudience("warden.internal:8081")`。
+
 ### 配置优先级
 
-1. 启用 `WARDEN_SERVICE_POLICIES` 时，只接受已验证的 HMAC v2 key ID 及其允许的 action；API Key 和 mTLS 不能绕过该模式。
+1. 启用 `WARDEN_SERVICE_POLICIES` 时，只接受已验证的 HMAC v2 或 v3 key ID 及其允许的 action；API Key 和 mTLS 不能绕过该模式。
 2. 未启用该模式时，请求携带符合服务端 TLS 策略的客户端证书，才可跳过请求头鉴权。仅配置服务端证书不等于每个请求都已鉴权。
 3. 否则，完整的 HMAC 请求头与已配置密钥进入签名校验；签名失败直接返回 401，不回退 API Key。旧 v1 还需显式开启兼容开关。
 4. 没有进入上述完整 HMAC 分支的请求交给 API Key 中间件（`X-API-Key` 或 Bearer）。配置 HMAC 本身不会关闭另外配置的 API Key 访问。
