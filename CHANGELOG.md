@@ -115,6 +115,14 @@
 - SDK: a client with `WithTLSConfig` or `WithTLSClientCert` and no transport
   keeps the default transport settings. It used a zero-value transport, which
   ignored the proxy environment variables and had no connection timeouts.
+- A remote source whose hostname resolves to an address the connection policy
+  refuses fails at once with that reason, instead of being retried until the
+  request timeout and logged as a timeout. `warden_refresh_failures_total`
+  reports it with the new reason `address_policy`.
+- In the v2 and shadow snapshot modes, a replica that keeps its last known good
+  rule set after an all-rejected refresh no longer replaces a Redis snapshot
+  published from a later source load. A user removed in the newer snapshot
+  could be served again by a replica that started from the older one.
 
 ### Security
 
@@ -144,6 +152,12 @@
 - Document that the Redis instance is a trust root that must not be shared, and
   warn at startup when it holds foreign keys or, in production, has no
   password.
+- Add HMAC signature version v3, which binds a signature to a named Warden
+  instance, so a request signed for one instance is not valid at another that
+  shares the key. The names an instance accepts are set in
+  `WARDEN_HMAC_AUDIENCES`; the SDK signs v3 with `WithHMACAudience`. v2 stays
+  accepted by default; `WARDEN_HMAC_REQUIRE_AUDIENCE=true` rejects v1, v2 and
+  unversioned signatures.
 
 ### Documentation
 
