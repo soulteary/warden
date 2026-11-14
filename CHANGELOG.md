@@ -80,6 +80,11 @@
 - The first load logs a message that names no source; the `source` field
   carries it. It read "loaded from remote API" for a local file. The quick
   start sets `REDIS_ENABLED=false` and explains the default.
+- Renewing a v2 Redis snapshot reads the revision from the beginning of the
+  stored value instead of decoding the whole envelope inside Redis. With
+  100,000 users (16 MB) the median time Redis spent on a renewal fell from
+  about 456 ms to about 58 ms in a measurement on Redis 8.4.7. The stored
+  format and the result codes are unchanged.
 
 ### Fixed
 
@@ -127,10 +132,17 @@
   ahead of the local clock, the same allowance the snapshot store applies. A
   reader whose clock ran behind the writer's answered 503 until its clock
   caught up.
-- A v2 Redis snapshot key that expired, was evicted or was flushed is published
-  again by the lease holder on its next cycle. It stayed absent while the
-  source kept rejecting the load, so a restarting replica had nothing to
-  restore. A conflicting revision is still left untouched.
+- A v2 Redis snapshot key that expired, was evicted or was flushed, or whose
+  value is over the size limit or is not JSON, is published again by the lease
+  holder on its next cycle. It stayed absent or unusable while the source kept
+  rejecting the load, so a restarting replica had nothing to restore. A value
+  that decodes and carries a different revision is still left untouched.
+- In the legacy and shadow Redis modes, a replica that keeps its last known
+  good rule set after an all-rejected refresh no longer writes it over a rule
+  set from a later source load. The source-load time of the stored set is
+  recorded under the new key `warden:users:cache:source`; a Redis ACL that
+  lists Warden's keys one by one must add it. A replica of an earlier release
+  still overwrites as before, and a set it wrote is replaced as before.
 
 ### Security
 
