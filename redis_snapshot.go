@@ -88,7 +88,7 @@ func (app *App) acquireSnapshotLease() (writer bool, release func()) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cache.REDIS_OPERATION_TIMEOUT)
 	defer cancel()
-	lease, err := app.redisSnapshots.Acquire(ctx, redisRefreshLockTTL)
+	lease, err := app.redisSnapshots.Acquire(ctx, refreshLockTTL(app.httpTimeout))
 	if err != nil || lease == nil {
 		if err == nil {
 			app.recordSnapshotResult("lease_acquire", "busy")
