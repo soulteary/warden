@@ -628,7 +628,6 @@ services:
 # .env (开发环境)
 PORT=8081
 REDIS=localhost:6379
-CONFIG=http://localhost:8080/data.json
 MERGE_MODE=ONLY_LOCAL
 HTTP_INSECURE_TLS=true  # 仅开发环境
 ```

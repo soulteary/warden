@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -50,21 +51,31 @@ func TestProductionStartsWithoutARemoteSource(t *testing.T) {
 	}
 }
 
-// An explicitly configured remote is used as given, including the address that
-// used to be the built-in default.
-func TestExplicitRemoteSourceIsKept(t *testing.T) {
+// The address that used to be the built-in default is validated like any
+// other. Startup validation skipped it, so the service started with a remote
+// source that the connection policy refuses on every fetch.
+func TestFormerDefaultRemoteIsValidatedLikeAnyOtherAddress(t *testing.T) {
 	clearRemoteEnv(t)
 	t.Setenv("REDIS_ENABLED", "false")
-	t.Setenv("CONFIG", define.DEFAULT_REMOTE_CONFIG)
+	t.Setenv("CONFIG", "http://localhost:8080/data.json")
 
 	cfg, err := GetArgsWithError()
 	require.NoError(t, err)
-	require.Equal(t, "http://localhost:8080/data.json", cfg.RemoteConfig)
-	require.NoError(t, ValidateConfig(cfg), "development accepts the address as before")
+	require.Equal(t, "http://localhost:8080/data.json", cfg.RemoteConfig, "an explicitly configured remote is used as given")
 
-	cfg.Environment = "production"
-	cfg.APIKey = "an-api-key-for-the-test"
-	require.ErrorContains(t, ValidateConfig(cfg), "requires HTTPS", "production still applies the remote transport rules")
+	formerDefault := ValidateConfig(cfg)
+	require.ErrorContains(t, formerDefault, "Invalid remote configuration URL: http://localhost:8080/data.json")
+
+	// The same refusal as for any other address on the local machine.
+	cfg.RemoteConfig = "http://localhost:9999/data.json"
+	otherPort := ValidateConfig(cfg)
+	require.Error(t, otherPort)
+	require.Equal(t, strings.ReplaceAll(otherPort.Error(), ":9999", ":8080"), formerDefault.Error())
+
+	for _, mode := range []string{"ONLY_REMOTE", "REMOTE_FIRST"} {
+		strict := &Config{Port: "8081", TaskInterval: 5, Mode: mode, Environment: "development", RemoteConfig: "http://localhost:8080/data.json"}
+		require.ErrorContains(t, ValidateConfig(strict), "Invalid remote configuration URL", mode)
+	}
 }
 
 // The modes that must read the remote source cannot run without one.

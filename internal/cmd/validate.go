@@ -375,7 +375,7 @@ func validateEndpointsAndMode(cfg *Config) []string {
 	}
 
 	// Validate remote configuration URL through the injectable SSRF-safe resolver path.
-	if cfg.RemoteConfig != "" && cfg.RemoteConfig != define.DEFAULT_REMOTE_CONFIG {
+	if cfg.RemoteConfig != "" {
 		if err := wardenvalidator.ValidateRemoteURL(cfg.RemoteConfig); err != nil {
 			errs = append(errs, fmt.Sprintf("Invalid remote configuration URL: %s (%v)", cfg.RemoteConfig, err))
 		}

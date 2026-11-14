@@ -516,7 +516,7 @@ func (app *App) loadInitialData(rulesFile, dataDir string) error {
 
 	// 3. All failed: notify user
 	_, localFileErr := os.Stat(rulesFile)
-	hasRemoteConfig := app.configURL != "" && app.configURL != define.DEFAULT_REMOTE_CONFIG
+	hasRemoteConfig := app.configURL != ""
 	if errors.Is(localFileErr, os.ErrNotExist) && !hasRemoteConfig {
 		// Local file does not exist and no remote address configured, provide friendly prompt
 		app.log.Warn().

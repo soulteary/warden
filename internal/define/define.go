@@ -19,13 +19,6 @@ const DEFAULT_PORT = 8081
 // DEFAULT_REDIS default Redis address
 const DEFAULT_REDIS = "localhost:6379"
 
-// DEFAULT_REMOTE_CONFIG is the remote address earlier releases used when none
-// was configured. It is no longer applied as a default: with no remote
-// configured there is no remote source. The value is kept because startup
-// validation has always skipped the address check for exactly this URL, and an
-// operator who sets it explicitly keeps that handling.
-const DEFAULT_REMOTE_CONFIG = "http://localhost:8080/data.json"
-
 // DEFAULT_REMOTE_KEY default remote configuration key
 const DEFAULT_REMOTE_KEY = ""
 
