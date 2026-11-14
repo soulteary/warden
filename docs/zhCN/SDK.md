@@ -232,7 +232,7 @@ invalidationCh <- struct{}{}
 - `Logger`: 日志接口（可选，默认使用 NoOpLogger）
 - `Transport`: 自定义 HTTP transport（可选）
 - `HMACKeyID` / `HMACSecret`: HMAC v2 签名配置（必须同时设置或同时留空）
-- `TLSConfig`: TLS/mTLS 客户端配置（可选）
+- `TLSConfig`: TLS/mTLS 客户端配置（可选）。它应用在 `Transport` 的副本上；未提供 transport 时，应用在标准库默认 transport 的副本上，因此环境变量中的代理设置和默认连接超时仍然生效
 - `Retry`: 重试配置（可选，默认不重试）
 - `CacheInvalidationChannel`: 事件驱动缓存失效通道（可选）
 
