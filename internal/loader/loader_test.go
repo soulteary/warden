@@ -34,13 +34,16 @@ func remoteSourceFetcher(t *testing.T, src parserkit.Source) *remotesource.Fetch
 	return f
 }
 
-// unwrapFetcher peels the nonEmptyFetcher wrapper BuildSources puts on every
-// source, so a test can assert on the parser-kit fetcher underneath.
+// unwrapFetcher peels the wrappers BuildSources puts on a source, so a test
+// can assert on the parser-kit fetcher underneath.
 func unwrapFetcher(f parserkit.Fetcher) parserkit.Fetcher {
-	if w, ok := f.(interface{ Unwrap() parserkit.Fetcher }); ok {
-		return w.Unwrap()
+	for {
+		w, ok := f.(interface{ Unwrap() parserkit.Fetcher })
+		if !ok {
+			return f
+		}
+		f = w.Unwrap()
 	}
-	return f
 }
 
 func TestBuildLoadOptions(t *testing.T) {
