@@ -53,6 +53,7 @@ func ValidateConfig(cfg *Config) error {
 	}
 
 	errors = append(errors, validateBooleanEnv()...)
+	errors = append(errors, validateNumericEnv(cfg)...)
 	errors = append(errors, validateHMACConfig(cfg)...)
 	errors = append(errors, validateServicePolicies(cfg)...)
 	if err := remote.ValidatePrivateOrigins(); err != nil {

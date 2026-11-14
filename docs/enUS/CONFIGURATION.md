@@ -342,6 +342,8 @@ Supports configuration via environment variables, with lower priority than comma
 
 **Boolean values**: every boolean variable (`REDIS_ENABLED`, `REDIS_TLS_ENABLED`, `HTTP_INSECURE_TLS`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_ENCRYPTION_REQUIRED`, `REQUIRE_EXPLICIT_USER_ID`, `WARDEN_TLS_REQUIRE_CLIENT_CERT`, `WARDEN_HMAC_ALLOW_V1`, `WARDEN_METRICS_REQUIRE_AUTH`, `OTLP_ENABLED`) accepts `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off` and `t`/`f`, in any letter case. Any other non-empty value stops startup with a message that names the variable.
 
+**Numeric values**: `PORT` (1 to 65535), `INTERVAL` (seconds, at least 1), `HTTP_MAX_IDLE_CONNS` (0 or more; 0 selects the default) and `WARDEN_HMAC_TIMESTAMP_TOLERANCE` (seconds, at least 1) must be integers. `HTTP_TIMEOUT` is a whole number of seconds or a duration such as `30s` or `1m30s`, from 1 second to 1 hour; the same upper bound applies to `--http-timeout` and `http.timeout`. A value that does not meet these rules stops startup and the error names the variable. An empty variable is unset.
+
 ```bash
 export PORT=8081
 export REDIS=localhost:6379
@@ -364,7 +366,7 @@ export RESPONSE_FIELDS=               # Optional: API response field whitelist (
 export REMOTE_DECRYPT_ENABLED=false   # Optional: decrypt remote response with RSA
 export REMOTE_RSA_PRIVATE_KEY_FILE=   # Optional: path to RSA private key PEM (or use REMOTE_RSA_PRIVATE_KEY for inline PEM)
 export REMOTE_RSA_PRIVATE_KEY=        # Optional: inline RSA private key PEM (used when REMOTE_RSA_PRIVATE_KEY_FILE is not set)
-export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds)
+export HTTP_TIMEOUT=5                  # HTTP request timeout (seconds, or a duration such as 30s; 1s to 1h)
 export RATE_LIMIT=60                   # Requests per window, per client IP, that did not authenticate
 export RATE_LIMIT_AUTHENTICATED=600    # Requests per window, per credential (API key, HMAC key ID or client certificate)
 export RATE_LIMIT_WINDOW=1m            # Rate limit window (duration or seconds, minimum 1s)
