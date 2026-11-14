@@ -25,7 +25,11 @@ rewrites users, source-success time or publication time. A replica holding an ol
 revision cannot renew or restore a newer publication, even when user content is
 identical. A replica that kept its last known good set after a rejected refresh
 publishes it only when Redis holds no readable publication with the same or a
-later source-success time. Clock synchronization and trusted Redis writers remain deployment
+later source-success time. When the renewal finds no snapshot key at all, the
+lease holder publishes the snapshot it holds again under the same rule, with
+its original source-success time and a new revision; when it finds a different
+revision, another writer has published since and the stored value is left
+untouched. Clock synchronization and trusted Redis writers remain deployment
 requirements; this format is not a signed upstream revision protocol.
 
 Protocol tests use miniredis with real Lua execution, including lease expiry,

@@ -593,7 +593,10 @@ count/reason; only RestoredAt records recovery. It remains degraded with reason
 an all-records-rejected cycle also skips renewal after successful adoption.
 The bounded `follow_read` operation distinguishes recovery outcomes in snapshot
 metrics. A missing/invalid/unavailable Redis snapshot leaves local data untouched.
-No missing key is rebuilt from old memory. Initial bootstrap behavior, including
+The recovery helper does not rebuild a missing key. The cycle's own publication
+step still applies afterwards: a writer that keeps its retained set after an
+all-records-rejected load publishes it when the key is missing (see
+[Redis snapshot diagnostics](REDIS_SNAPSHOT_DIAGNOSTICS.md)). Initial bootstrap behavior, including
 its handling of unknown or stale evidence, is unchanged.
 
 This is an availability policy, independent of SNAPSHOT_READ_POLICY. Enable enforce
