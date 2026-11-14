@@ -58,7 +58,9 @@
   this release; a later release will stop trusting forwarded headers when the
   variable is empty. Set it to the proxy addresses or to `none` now.
 - `CONFIG` no longer defaults to `http://localhost:8080/data.json`.
-  `ONLY_REMOTE` and `REMOTE_FIRST` refuse to start without a remote.
+  `ONLY_REMOTE` and `REMOTE_FIRST` refuse to start without a remote. An
+  explicit `CONFIG=http://localhost:8080/data.json` is validated like any other
+  remote address and stops startup; validation used to skip it.
 - All boolean environment variables accept the same spellings; any other
   non-empty value stops startup and names the variable. A value that was
   silently read as false before, such as `yes` or `on`, is now read as true.
@@ -70,6 +72,14 @@
   TTL instead of rewriting the list.
 - The root Compose file no longer mounts `/etc/timezone`, which is absent on
   macOS and several Linux distributions, and its healthcheck follows `PORT`.
+- `PORT`, `INTERVAL`, `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS` and
+  `WARDEN_HMAC_TIMESTAMP_TOLERANCE` stop startup when they do not hold a usable
+  number; they used to select the default silently. `HTTP_TIMEOUT` must be
+  between 1 second and 1 hour. `PORT=0`, `INTERVAL=0` and `HTTP_TIMEOUT=0`,
+  which selected the default, are refused.
+- The first load logs a message that names no source; the `source` field
+  carries it. It read "loaded from remote API" for a local file. The quick
+  start sets `REDIS_ENABLED=false` and explains the default.
 
 ### Fixed
 
@@ -87,11 +97,24 @@
   `scope`, `role`, `name` and `dingtalk_userid`.
 - Write audit records to the application log. User queries and every
   `POST`/`PUT` to `/log/level` produce a JSON line with `"audit": true`; the
-  records were previously discarded.
+  records were previously discarded. The line is written whatever the log level
+  is, so a deployment at `LOG_LEVEL=warn` or higher gets one `info` line per
+  query.
 - Give a background refresh the configured `HTTP_TIMEOUT` plus retry backoff
   instead of a fixed 10 seconds.
 - Reuse one HTTP client for the remote source and apply `HTTP_MAX_IDLE_CONNS`
   to it; the effective default is 20.
+- Return an empty list as `[]`, not `null`, when `RESPONSE_FIELDS` is set.
+- SDK: `CheckUserInListWithError` returns an `INVALID_RESPONSE` error when the
+  user response has no `status` field, and the server warns at startup when
+  `RESPONSE_FIELDS` omits `status`. Such a server made the SDK report every
+  user as denied.
+- Keep the Redis writer lock longer than a refresh may run. With `HTTP_TIMEOUT`
+  of 54 seconds or more the lock could expire during a load, and an older
+  result could be written to Redis after a newer one.
+- SDK: a client with `WithTLSConfig` or `WithTLSClientCert` and no transport
+  keeps the default transport settings. It used a zero-value transport, which
+  ignored the proxy environment variables and had no connection timeouts.
 
 ### Security
 
@@ -113,8 +136,10 @@
   Uniqueness is enforced per field, so such data loads, but `/v1/lookup` tries
   phone or mail before `user_id` and resolves the shared value to the other
   user. The data is still accepted.
-- Reuse a healthy Redis probe result for 3 seconds in the health endpoints, so
-  repeated requests no longer each reach Redis.
+- Concurrent health requests share one Redis probe. A healthy result is reused
+  for 3 seconds and a failed one for 1 second, so repeated requests no longer
+  each reach Redis and do not queue while Redis is down. Recovery can take up
+  to 1 second to show.
 - Mask `user_id` in the application log and in trace attributes.
 - Document that the Redis instance is a trust root that must not be shared, and
   warn at startup when it holds foreign keys or, in production, has no
