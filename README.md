@@ -55,7 +55,8 @@ cat > data.json <<EOF
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "status": "active"
     }
 ]
 EOF
@@ -67,6 +68,22 @@ docker run -d \
   -e API_KEY=your-api-key-here \
   ghcr.io/soulteary/warden:latest
 ```
+
+A record is allowed only when its `status` is `"active"`. A record without `status` is loaded as `"inactive"` and is denied.
+
+The command above runs in the default `development` environment, which is meant for trying Warden out. For a real deployment set `ENVIRONMENT=production` and use a generated key; the documentation placeholders are rejected there:
+
+```bash
+docker run -d \
+  -p 8081:8081 \
+  -v $(pwd)/data.json:/app/data.json:ro \
+  -e ENVIRONMENT=production \
+  -e MERGE_MODE=ONLY_LOCAL \
+  -e API_KEY="$(openssl rand -hex 32)" \
+  ghcr.io/soulteary/warden:latest
+```
+
+See [Environment](#environment) for what `development` relaxes.
 
 > 💡 **Tip**: For complete examples with Docker Compose, see the [Examples Directory](example/README.md).
 
@@ -89,7 +106,8 @@ Create a `data.json` file (refer to `data.example.json`):
 [
     {
         "phone": "13800138000",
-        "mail": "admin@example.com"
+        "mail": "admin@example.com",
+        "status": "active"
     }
 ]
 ```
@@ -115,12 +133,28 @@ Warden supports configuration via command line arguments, environment variables,
 | Setting | Environment Variable | Description | Required |
 |---------|---------------------|-------------|----------|
 | Port | `PORT` | HTTP server port (default: 8081) | No |
-| API Key | `API_KEY` | API authentication key (recommended for production) | Recommended |
+| Environment | `ENVIRONMENT` | `development` (default), `test` or `production`. `production` turns on the security checks described below | Set to `production` for real deployments |
+| API Key | `API_KEY` | API authentication key. Without a credential every data route answers 401 | Yes, unless HMAC or mTLS is configured |
 | Redis | `REDIS` | Redis address for caching and distributed locks (e.g., `localhost:6379`) | Optional |
 | Data File | `DATA_FILE` | Local data file path (default: `./data.json`) | Yes* |
 | Remote Config | `CONFIG` | Remote API URL for data fetching | Optional |
 
 \* Required if not using remote API
+
+<a name="environment"></a>
+
+### Environment
+
+`ENVIRONMENT` selects the security policy and is independent of the data merge mode (`MERGE_MODE`). The default is `development`, in which Warden:
+
+- serves `/metrics` without authentication;
+- includes per-check details in `/health` responses and the original message in error responses;
+- starts without any credential (the data routes then answer 401) and accepts the placeholder keys from the documentation and HMAC secrets shorter than 32 bytes;
+- accepts a remote source over plain HTTP, without encryption, and with `HTTP_INSECURE_TLS=true`;
+- accepts `IP_WHITELIST` without `TRUSTED_PROXY_IPS`;
+- serves data regardless of how old the last successful source load is (`SNAPSHOT_READ_POLICY` defaults to `observe`).
+
+With `ENVIRONMENT=production` each of these is refused at startup or switched to the strict behaviour: a credential is required, `/metrics` requires authentication, error and health responses carry no details, a remote source must use HTTPS with the v2 encrypted envelope, and `SNAPSHOT_READ_POLICY` defaults to `enforce`. The root `docker-compose.yml` sets `ENVIRONMENT=production` by default. See the [Security guide](docs/enUS/SECURITY.md).
 
 For complete configuration options, see [Configuration Documentation](docs/enUS/CONFIGURATION.md).
 
