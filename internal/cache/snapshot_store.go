@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -67,6 +68,8 @@ type RedisSnapshotStore struct {
 	lock    string
 	dataset string
 	policy  string
+	// head is every byte Publish writes before the revision's value.
+	head string
 }
 
 // NewRedisSnapshotStore rejects implicit datasets and invalid policy fingerprints.
@@ -75,7 +78,17 @@ func NewRedisSnapshotStore(client *redis.Client, namespace, policy string) (*Red
 		return nil, ErrSnapshotContract
 	}
 	key := "warden:{" + namespace + "}:snapshot:v2"
-	return &RedisSnapshotStore{client: client, now: time.Now, key: key, lock: key + ":lease", dataset: namespace, policy: policy}, nil
+	return &RedisSnapshotStore{client: client, now: time.Now, key: key, lock: key + ":lease", dataset: namespace, policy: policy, head: envelopeHead(namespace, policy)}, nil
+}
+
+// envelopeHead returns the bytes with which every envelope Publish writes for
+// this dataset and policy begins, up to the opening quote of the revision.
+// encoding/json writes struct fields in declaration order without whitespace,
+// and SnapshotEnvelope has had the same first five fields since the format was
+// introduced. The namespace and policy patterns admit no character JSON
+// escapes, so both appear verbatim.
+func envelopeHead(namespace, policy string) string {
+	return `{"schema_version":` + strconv.Itoa(SNAPSHOT_SCHEMA_V2) + `,"dataset":"` + namespace + `","policy":"` + policy + `","revision":"`
 }
 
 // ValidateSnapshotNamespace checks an operator-selected dataset without exposing it.
@@ -209,14 +222,29 @@ func (l *SnapshotLease) Publish(ctx context.Context, input *SnapshotEnvelope) (*
 	return &envelope, nil
 }
 
+// renewSnapshot reads the stored revision without decoding the envelope when
+// the value begins exactly as an envelope written by Publish does: ARGV[5],
+// then 32 characters, then the start of the users member. The comparison is
+// anchored at the first byte, so it ends before the users array begins and
+// nothing inside user records can take part in it. cjson.decode of a complete
+// envelope builds every user in Lua and blocks Redis for that long; it remains
+// only for a value with any other beginning, which no release writes, so that
+// such a value is classified exactly as before.
 var renewSnapshot = redis.NewScript(`
 if redis.call('GET', KEYS[2]) ~= ARGV[1] then return 0 end
 if redis.call('STRLEN', KEYS[1]) > tonumber(ARGV[4]) then return 4 end
 local raw = redis.call('GET', KEYS[1])
 if not raw then return 3 end
-local ok, snapshot = pcall(cjson.decode, raw)
-if not ok or type(snapshot) ~= 'table' then return 5 end
-if snapshot.revision ~= ARGV[2] then return 2 end
+local revision
+local head = #ARGV[5]
+if string.sub(raw, 1, head) == ARGV[5] and string.sub(raw, head + 33, head + 42) == '","users":' then
+  revision = string.sub(raw, head + 1, head + 32)
+else
+  local ok, snapshot = pcall(cjson.decode, raw)
+  if not ok or type(snapshot) ~= 'table' then return 5 end
+  revision = snapshot.revision
+end
+if revision ~= ARGV[2] then return 2 end
 redis.call('PEXPIRE', KEYS[1], ARGV[3])
 return 1`)
 
@@ -226,7 +254,7 @@ func (l *SnapshotLease) Renew(ctx context.Context, revision string) error {
 	if !snapshotToken.MatchString(revision) {
 		return ErrSnapshotConflict
 	}
-	result, err := renewSnapshot.Run(ctx, l.store.client, []string{l.store.key, l.store.lock}, l.token, revision, REDIS_CACHE_TTL.Milliseconds(), define.MAX_ENVELOPE_JSON_SIZE).Int()
+	result, err := renewSnapshot.Run(ctx, l.store.client, []string{l.store.key, l.store.lock}, l.token, revision, REDIS_CACHE_TTL.Milliseconds(), define.MAX_ENVELOPE_JSON_SIZE, l.store.head).Int()
 	if err != nil {
 		return fmt.Errorf("renew versioned snapshot: %w", err)
 	}
