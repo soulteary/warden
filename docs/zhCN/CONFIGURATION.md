@@ -508,6 +508,8 @@ API 响应格式应与 `data.json` 文件格式一致：
 Authorization: Bearer your-token-here
 ```
 
+远程数据源的主机名若解析到连接策略拒绝的地址（回环、链路本地、云元数据、保留地址，以及未在 `REMOTE_PRIVATE_ORIGINS` 中列出的私有地址），本次加载以 `remote host resolves to a prohibited address` 失败。刷新日志中的 `reason` 为 `address_policy`，`warden_refresh_failures_total` 也按该原因计数。同一次加载内不会重试该请求；下一次刷新会重新解析并检查主机名。
+
 ## 与 Stargate 集成（调用方配置）
 
 Warden 支持 **mTLS、HMAC、API Key**，按请求分支校验；完整 HMAC 签名失败不会回退 API Key，`WARDEN_SERVICE_POLICIES` 则要求 HMAC v2 key ID/action，不能由 API Key 或 mTLS 绕过。详见 [安全说明](SECURITY.md#服务间鉴权可选)。若由 Stargate 调用 Warden，请在 **Stargate 侧**配置 Warden 服务地址与认证方式：

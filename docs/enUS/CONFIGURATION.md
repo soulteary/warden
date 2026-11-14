@@ -718,6 +718,12 @@ explicit private-origin exception does not relax this requirement. HTTP remains
 supported in development/test. Both plaintext and encrypted source fetchers apply
 the selected transport policy even when constructed without CLI validation.
 
+A source whose hostname resolves to a refused address fails the load with
+`remote host resolves to a prohibited address`. The refresh log line carries
+`reason: address_policy`, and `warden_refresh_failures_total` counts it under the
+same reason. The request is not retried within that load: the next refresh
+resolves and checks the hostname again.
+
 The Compose example requires `REDIS_PASSWORD` and places Redis on a separate
 internal network. The gateway should join only `auth-internal`. Do not attach
 untrusted containers to either network. For Redis ACL deployments, verify the
