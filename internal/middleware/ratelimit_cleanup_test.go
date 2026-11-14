@@ -54,13 +54,19 @@ func TestRateLimiterCleanupLoopDropsIdleKeys(t *testing.T) {
 	clockMu.Unlock()
 
 	require.Eventually(t, func() bool { return tracked() == 1 }, 5*time.Second, 5*time.Millisecond)
+	// The cleanup loop keeps pruning entries while the test runs, so the
+	// entry is read under the limiter's lock and only the copy is asserted on.
 	limiter.mu.Lock()
 	_, idleKept := limiter.entries["idle"]
-	busy := limiter.entries["busy"]
+	busy, busyKept := limiter.entries["busy"]
+	busyStamps := 0
+	if busyKept {
+		busyStamps = len(busy.stamps)
+	}
 	limiter.mu.Unlock()
 	require.False(t, idleKept)
-	require.NotNil(t, busy)
-	require.Len(t, busy.stamps, 1, "the request that left the window is pruned, the later one kept")
+	require.True(t, busyKept)
+	require.Equal(t, 1, busyStamps, "the request that left the window is pruned, the later one kept")
 
 	limiter.Stop()
 	select {
