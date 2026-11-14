@@ -628,7 +628,6 @@ Development environment can use more relaxed configuration:
 # .env (Development Environment)
 PORT=8081
 REDIS=localhost:6379
-CONFIG=http://localhost:8080/data.json
 MERGE_MODE=ONLY_LOCAL
 HTTP_INSECURE_TLS=true  # Development only
 ```

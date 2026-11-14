@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/soulteary/warden/internal/define"
 )
 
 func TestParseSnapshotMaxAge(t *testing.T) {
@@ -311,7 +309,7 @@ func TestValidateConfig_ProductionDefaultRemoteRequiresEncryption(t *testing.T) 
 				TaskInterval: 5,
 				Mode:         mode,
 				Environment:  "production",
-				RemoteConfig: define.DEFAULT_REMOTE_CONFIG,
+				RemoteConfig: "http://localhost:8080/data.json",
 				HTTPTimeout:  30,
 				APIKey:       "an-api-key",
 			}
@@ -324,13 +322,13 @@ func TestValidateConfig_ProductionDefaultRemoteRequiresEncryption(t *testing.T) 
 	}
 }
 
-func TestValidateConfig_ProductionOnlyLocalIgnoresDefaultRemote(t *testing.T) {
+func TestValidateConfig_ProductionOnlyLocalIgnoresRemoteTransportRules(t *testing.T) {
 	cfg := &Config{
 		Port:         "8081",
 		TaskInterval: 5,
 		Mode:         "ONLY_LOCAL",
 		Environment:  "production",
-		RemoteConfig: define.DEFAULT_REMOTE_CONFIG,
+		RemoteConfig: "http://93.184.216.34/data.json",
 		APIKey:       "an-api-key",
 	}
 
