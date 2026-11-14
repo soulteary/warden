@@ -273,6 +273,8 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # Zeitstempeltoleranz (Sekunden), Standard 60
 export WARDEN_HMAC_ALLOW_V1=false          # Standard; nur während einer zeitlich begrenzten Legacy-Migration auf true setzen
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # Optional; Namen dieser Instanz, die in v3-Signaturen akzeptiert werden
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # Standard; auf true setzen, um nur v3-Signaturen zu akzeptieren
 ```
 
 Die Produktionskonfiguration verlangt, dass jedes HMAC-Geheimnis mindestens 32 Rohbytes umfasst.

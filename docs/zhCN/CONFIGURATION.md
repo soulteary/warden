@@ -76,6 +76,8 @@ SDK 的 CacheTTL 是另一项独立客户端选项。
 | 其他 | 全局 IP 白名单 | — | `IP_WHITELIST` | 空 |
 | 其他 | 日志级别 | — | `LOG_LEVEL` | `info` |
 | 服务间鉴权 | HMAC 密钥（JSON） | — | `WARDEN_HMAC_KEYS` | 空 |
+| 服务间鉴权 | v3（绑定 audience）签名中可接受的本实例名称（逗号分隔） | — | `WARDEN_HMAC_AUDIENCES` | 空（拒绝 v3 签名） |
+| 服务间鉴权 | 是否只接受 v3 签名 | — | `WARDEN_HMAC_REQUIRE_AUDIENCE` | `false`（设为 `true` 时必须配置 `WARDEN_HMAC_AUDIENCES`） |
 | 服务间鉴权 | HMAC 时间戳容差（秒） | — | `WARDEN_HMAC_TIMESTAMP_TOLERANCE` | `60`（仅当配置了 HMAC 时） |
 | 服务间鉴权 | TLS 服务端证书路径 | — | `WARDEN_TLS_CERT` | 空 |
 | 服务间鉴权 | TLS 服务端私钥路径 | — | `WARDEN_TLS_KEY` | 空 |

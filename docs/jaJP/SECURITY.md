@@ -273,6 +273,8 @@ signature = HEX(HMAC_SHA256(secret, canonical_v2))
 export WARDEN_HMAC_KEYS='{"key-id-1":"0123456789abcdef0123456789abcdef"}'
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60  # タイムスタンプの許容誤差（秒）。既定値 60
 export WARDEN_HMAC_ALLOW_V1=false          # 既定値。期間を限定した旧方式の移行時のみ true に設定
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # 任意。v3 署名で受け入れる、このインスタンスの名前
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false  # 既定値。v3 署名のみを受け入れる場合は true に設定
 ```
 
 本番環境の設定では、各 HMAC シークレットに少なくとも 32 バイトの生バイト列が必要です。

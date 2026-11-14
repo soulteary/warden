@@ -181,6 +181,8 @@ L'SDK firma l'ID della chiave, il timestamp, il nonce, il percorso/query, il met
 Sia l'ID della chiave sia il segreto devono essere configurati; una coppia incompleta restituisce
 `ErrCodeInvalidConfig` anziché inviare una richiesta non firmata.
 
+Con `WithHMACAudience("warden.internal:8081")` in aggiunta a `WithHMAC`, l'SDK firma la versione di firma v3, legata al nome che l'istanza di destinazione elenca in `WARDEN_HMAC_AUDIENCES`; i dettagli sono nella [versione inglese](../enUS/SDK.md).
+
 ### Configurazione dei tentativi ripetuti
 
 ```go

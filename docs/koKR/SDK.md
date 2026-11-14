@@ -181,6 +181,8 @@ SDK는 키 ID, 타임스탬프, 논스, 경로/쿼리, 메서드, 본문 해시�
 키 ID와 비밀 값은 모두 설정해야 합니다. 한쪽만 설정된 경우에는 서명 없는 요청을 보내지 않고
 `ErrCodeInvalidConfig`를 반환합니다.
 
+`WithHMAC`에 더해 `WithHMACAudience("warden.internal:8081")`를 지정하면 SDK는 대상 인스턴스가 `WARDEN_HMAC_AUDIENCES`에 나열한 이름에 바인딩된 서명 버전 v3으로 서명합니다. 자세한 내용은 [영어 문서](../enUS/SDK.md)를 참조하세요.
+
 ### 재시도 설정
 
 ```go

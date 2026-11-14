@@ -19,7 +19,7 @@ Pour un **tableau complet des options** (chemins YAML, variables d'environnement
 | Tâche | `task.interval` / `INTERVAL` / `--interval` | `--interval` explicite > `INTERVAL` > YAML `task.interval` > valeur par défaut, même avec un fichier de configuration |
 | Application | `app.*` / `API_KEY`, `DATA_FILE`, `DATA_DIR`, `RESPONSE_FIELDS` | mode, api_key, data_file, data_dir, response_fields |
 | Traçage | `tracing.enabled`, `tracing.endpoint` / `OTLP_ENABLED`, `OTLP_ENDPOINT` | The selected YAML file also supplies tracing; OTLP environment values override YAML. |
-| Authentification de service | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Variables d'environnement uniquement** (aucune clé YAML) |
+| Authentification de service | — / `WARDEN_HMAC_KEYS`, `WARDEN_HMAC_AUDIENCES`, `WARDEN_HMAC_REQUIRE_AUDIENCE`, `WARDEN_HMAC_TIMESTAMP_TOLERANCE`, `WARDEN_TLS_*` | **Variables d'environnement uniquement** (aucune clé YAML) |
 | Santé | — / `SNAPSHOT_MAX_AGE` | Âge maximal accepté pour l'instantané ; durée Go, par défaut `max(30s, 3 × intervalle de tâche)` |
 
 > Certains champs YAML sont analysés sans être utilisés par l’application. Voir [schéma et exécution](../enUS/CONFIGURATION.md#yaml-schema-and-application-wiring).
@@ -254,6 +254,8 @@ export IP_WHITELIST="192.168.1.0/24"  # Liste d'autorisation IP globale (faculta
 export LOG_LEVEL="info"                # Niveau de journalisation (facultatif, par défaut : info ; options : trace, debug, info, warn, error, fatal, panic)
 export WARDEN_HMAC_KEYS='{"key-id":"0123456789abcdef0123456789abcdef"}'  # Les secrets de production exigent au moins 32 octets
 export WARDEN_HMAC_ALLOW_V1=false                # Par défaut : false ; à passer à true uniquement pendant une migration v1 limitée dans le temps
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # Optionnel : noms de cette instance, séparés par des virgules, acceptés dans les signatures v3 (liées à une audience) ; sans valeur, v3 est rejeté
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false        # Par défaut : false ; true n'accepte que les signatures v3 et exige WARDEN_HMAC_AUDIENCES
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # Tolérance d'horodatage HMAC (secondes)
 export WARDEN_TLS_CERT=/path/to/warden.crt    # Authentification de service : certificat TLS serveur (active TLS avec KEY)
 export WARDEN_TLS_KEY=/path/to/warden.key     # Clé privée TLS du serveur
