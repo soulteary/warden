@@ -21,6 +21,14 @@ import (
 //nolint:revive // ALL_CAPS is the project convention
 const SNAPSHOT_SCHEMA_V2 = 2
 
+// SNAPSHOT_FUTURE_ALLOWANCE is how far ahead of the local clock a stored source
+// or publication time may be. Replicas share one snapshot but not one clock, so
+// the store and the read decision must apply the same bound: a snapshot the
+// store accepts is one a reader may serve.
+//
+//nolint:revive // ALL_CAPS is the project convention
+const SNAPSHOT_FUTURE_ALLOWANCE = 5 * time.Second
+
 // Versioned snapshot errors never include users, keys or raw payloads.
 var (
 	ErrSnapshotInvalid   = errors.New("invalid versioned snapshot")
@@ -252,9 +260,9 @@ func (s *RedisSnapshotStore) validateSnapshotTimes(e *SnapshotEnvelope) error {
 	if e.Origin != "local" && e.Origin != "remote" && e.Origin != "merged" {
 		return ErrSnapshotInvalid
 	}
-	latest := s.now().Add(5 * time.Second)
+	latest := s.now().Add(SNAPSHOT_FUTURE_ALLOWANCE)
 	if e.SourceSucceededAt.IsZero() || e.PublishedAt.IsZero() || e.SourceSucceededAt.After(latest) ||
-		e.PublishedAt.After(latest) || e.SourceSucceededAt.After(e.PublishedAt.Add(5*time.Second)) {
+		e.PublishedAt.After(latest) || e.SourceSucceededAt.After(e.PublishedAt.Add(SNAPSHOT_FUTURE_ALLOWANCE)) {
 		return ErrSnapshotTimestamp
 	}
 	return nil

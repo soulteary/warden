@@ -25,7 +25,9 @@ func TestSnapshotReadDecisionReasons(t *testing.T) {
 		{name: "view_unknown", reason: readViewUnknown, change: func(p *healthReadState) { p.state.snapshot.view = nil }},
 		{name: "view_mismatch", reason: readViewUnknown, change: func(p *healthReadState) { p.view = cache.NewSafeUserCache().ReadView() }},
 		{name: "source_unknown", reason: readSourceUnknown, change: func(p *healthReadState) { p.state.snapshot.SourceSucceededAt = time.Time{} }},
-		{name: "future", reason: readSourceFuture, change: func(p *healthReadState) { p.state.snapshot.SourceSucceededAt = now.Add(time.Nanosecond) }},
+		{name: "future", reason: readSourceFuture, change: func(p *healthReadState) {
+			p.state.snapshot.SourceSucceededAt = now.Add(cache.SNAPSHOT_FUTURE_ALLOWANCE + time.Nanosecond)
+		}},
 		{name: "deadline", reason: readSourceExpired, change: func(p *healthReadState) { p.state.snapshot.SourceSucceededAt = now.Add(-app.snapshotMaxAge) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

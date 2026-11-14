@@ -12,7 +12,10 @@ Each dataset needs an explicit namespace and policy fingerprint. The envelope an
 its lease share a Redis Cluster hash tag. Reads atomically distinguish a missing
 key from a stored empty list. Unknown schema/policy, null users, invalid digests,
 invalid timestamps and oversized payloads are rejected; errors do not include the
-payload. A five-second future-clock allowance bounds accepted clock skew.
+payload. A five-second future-clock allowance bounds accepted clock skew. The
+read decision under `SNAPSHOT_READ_POLICY=enforce` applies the same allowance, so
+a publication the store accepts is not refused as future-dated by a replica that
+restores it; a source time further ahead is rejected by both.
 
 Publishing requires a Redis owner-token lease acquired before the source load.
 The write atomically checks ownership; expired writers cannot publish or delete a

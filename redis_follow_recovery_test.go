@@ -116,6 +116,11 @@ func TestRedisFollowRejectsIneligibleCandidates(t *testing.T) {
 			}
 			old := followLocal(t, app, now.Add(-time.Hour))
 			app.snapshotNow = func() time.Time { return now }
+			if state == "future" {
+				// The store accepted the candidate on its own clock; this replica's
+				// clock is far enough behind to put it beyond the allowance.
+				app.snapshotNow = func() time.Time { return now.Add(-3 * time.Second) }
+			}
 			app.snapshotMaxAge = time.Minute
 			app.redisSnapshotRecovery = "stale"
 			app.snapshots.RecordRefreshFailure("timeout")
