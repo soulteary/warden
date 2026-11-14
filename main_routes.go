@@ -86,6 +86,8 @@ func registerRoutes(app *App) *http.ServeMux {
 		Keys:                  app.hmacKeys,
 		TimestampToleranceSec: app.hmacToleranceSec,
 		AllowV1:               &app.hmacAllowV1,
+		Audiences:             app.hmacAudiences,
+		RequireAudience:       app.hmacRequireAudience,
 		OnReplayRejected:      prommetrics.RecordHMACReplayRejected,
 		OnV1Used: func() {
 			prommetrics.RecordDeprecation("hmac_v1")

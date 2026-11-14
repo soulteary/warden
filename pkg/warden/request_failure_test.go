@@ -112,7 +112,7 @@ func TestSDKRequestSigningAndRetryExhaustion(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.doRequestWithRetry(context.Background(), req)
 	require.Error(t, err)
-	c.signer = newHMACSigner("key", "secret", nil)
+	c.signer = newHMACSigner("key", "secret", "", nil)
 	req.GetBody = func() (io.ReadCloser, error) { return nil, io.ErrUnexpectedEOF }
 	req.Body = io.NopCloser(strings.NewReader("body"))
 	_, err = c.doRequestWithRetry(context.Background(), req)

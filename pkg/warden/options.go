@@ -53,6 +53,10 @@ type Options struct {
 	// every request is signed. The secret is never logged.
 	HMACKeyID  string
 	HMACSecret string
+	// HMACAudience, when set, binds every signature to the Warden instance
+	// with that name (signature version v3). The server must list the same
+	// name in WARDEN_HMAC_AUDIENCES. Empty keeps the v2 form.
+	HMACAudience string
 	// Clock overrides the time source used for signature timestamps and enabled source freshness (testing).
 	Clock Clock
 	// RequireHTTPS refuses a plain-HTTP BaseURL when an API key would be sent
@@ -187,6 +191,16 @@ func (o *Options) WithHMAC(keyID, secret string) *Options {
 	return o
 }
 
+// WithHMACAudience binds every HMAC signature to the Warden instance with the
+// given name, so a signed request is not valid at another instance that shares
+// the key. The name is compared without regard to case and must be listed in
+// that server's WARDEN_HMAC_AUDIENCES; a server that does not list it answers
+// 401. It requires WithHMAC. An empty name keeps the unbound v2 form.
+func (o *Options) WithHMACAudience(audience string) *Options {
+	o.HMACAudience = audience
+	return o
+}
+
 // WithClock overrides the time source used for signature timestamps and enabled source freshness. Primarily
 // useful for deterministic tests.
 func (o *Options) WithClock(clock Clock) *Options {
@@ -244,6 +258,18 @@ func (o *Options) validateHMAC() error {
 		o.HMACKeyID = strings.TrimSpace(o.HMACKeyID)
 	}
 
+	// The audience is signed and must match the server's list byte for byte,
+	// so it is normalized the way the server normalizes its own.
+	o.HMACAudience = strings.ToLower(strings.TrimSpace(o.HMACAudience))
+	if o.HMACAudience == "" {
+		return nil
+	}
+	if o.HMACSecret == "" {
+		return NewError(ErrCodeInvalidConfig, "HMACAudience requires HMACKeyID and HMACSecret", nil)
+	}
+	if len(o.HMACAudience) > 255 || strings.ContainsFunc(o.HMACAudience, func(r rune) bool { return r <= ' ' || r > '~' || r == ',' }) {
+		return NewError(ErrCodeInvalidConfig, "HMACAudience must be 1 to 255 printable ASCII characters without spaces or commas", nil)
+	}
 	return nil
 }
 

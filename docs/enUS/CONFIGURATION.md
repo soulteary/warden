@@ -340,7 +340,7 @@ go run . \
 
 Supports configuration via environment variables, with lower priority than command line arguments. For the full option table (including validation rules), see [zhCN CONFIGURATION](../zhCN/CONFIGURATION.md).
 
-**Boolean values**: every boolean variable (`REDIS_ENABLED`, `REDIS_TLS_ENABLED`, `HTTP_INSECURE_TLS`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_ENCRYPTION_REQUIRED`, `REQUIRE_EXPLICIT_USER_ID`, `WARDEN_TLS_REQUIRE_CLIENT_CERT`, `WARDEN_HMAC_ALLOW_V1`, `WARDEN_METRICS_REQUIRE_AUTH`, `OTLP_ENABLED`) accepts `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off` and `t`/`f`, in any letter case. Any other non-empty value stops startup with a message that names the variable.
+**Boolean values**: every boolean variable (`REDIS_ENABLED`, `REDIS_TLS_ENABLED`, `HTTP_INSECURE_TLS`, `REMOTE_DECRYPT_ENABLED`, `REMOTE_ENCRYPTION_REQUIRED`, `REQUIRE_EXPLICIT_USER_ID`, `WARDEN_TLS_REQUIRE_CLIENT_CERT`, `WARDEN_HMAC_ALLOW_V1`, `WARDEN_HMAC_REQUIRE_AUDIENCE`, `WARDEN_METRICS_REQUIRE_AUTH`, `OTLP_ENABLED`) accepts `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off` and `t`/`f`, in any letter case. Any other non-empty value stops startup with a message that names the variable.
 
 **Numeric values**: `PORT` (1 to 65535), `INTERVAL` (seconds, at least 1), `HTTP_MAX_IDLE_CONNS` (0 or more; 0 selects the default) and `WARDEN_HMAC_TIMESTAMP_TOLERANCE` (seconds, at least 1) must be integers. `HTTP_TIMEOUT` is a whole number of seconds or a duration such as `30s` or `1m30s`, from 1 second to 1 hour; the same upper bound applies to `--http-timeout` and `http.timeout`. A value that does not meet these rules stops startup and the error names the variable. An empty variable is unset.
 
@@ -382,6 +382,8 @@ export IP_WHITELIST="192.168.1.0/24"  # Global IP whitelist (optional)
 export LOG_LEVEL="info"                # Log level (optional, default: info, options: trace, debug, info, warn, error, fatal, panic)
 export WARDEN_HMAC_KEYS='{"key-id":"0123456789abcdef0123456789abcdef"}'  # Production secrets require at least 32 bytes
 export WARDEN_HMAC_ALLOW_V1=false                # Default: false; set true only during a bounded v1 migration
+export WARDEN_HMAC_AUDIENCES=warden.internal:8081  # Optional: comma-separated names of this instance accepted in v3 (audience-bound) signatures; unset rejects v3
+export WARDEN_HMAC_REQUIRE_AUDIENCE=false        # Default: false; true accepts only v3 signatures and requires WARDEN_HMAC_AUDIENCES (see SECURITY.md)
 export WARDEN_HMAC_TIMESTAMP_TOLERANCE=60     # HMAC timestamp tolerance (seconds)
 export WARDEN_TLS_CERT=/path/to/warden.crt    # Service auth: server TLS cert (with KEY enables TLS)
 export WARDEN_TLS_KEY=/path/to/warden.key     # Server TLS key

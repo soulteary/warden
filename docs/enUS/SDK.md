@@ -181,6 +181,25 @@ The SDK signs the Key ID, timestamp, nonce, path/query, method, and body hash.
 Both Key ID and secret must be configured; a partial pair returns
 `ErrCodeInvalidConfig` instead of sending an unsigned request.
 
+To bind every signature to one Warden instance, add the name that instance
+lists in `WARDEN_HMAC_AUDIENCES`:
+
+```go
+opts := warden.DefaultOptions().
+    WithBaseURL("https://warden.internal:8081").
+    WithHMAC("key-id-1", os.Getenv("WARDEN_HMAC_SECRET")).
+    WithHMACAudience("warden.internal:8081")
+```
+
+The SDK then signs the v3 form, which includes the name, and a request captured
+on its way to this instance is not valid at another instance that shares the
+key. The name is trimmed and lower-cased; it is signed, not sent. A server that
+does not list the name answers `401` (`ErrCodeUnauthorized`), so configure
+`WARDEN_HMAC_AUDIENCES` on the server before enabling the option. Without the
+option the SDK signs v2 as before. `WithHMACAudience` without `WithHMAC`, or
+with a name that is not 1 to 255 printable ASCII characters without spaces or
+commas, returns `ErrCodeInvalidConfig`.
+
 ### Retry Configuration
 
 ```go
@@ -234,6 +253,7 @@ The `Options` struct is used to configure the client:
 - `Logger`: Logger interface (optional, defaults to NoOpLogger)
 - `Transport`: Custom HTTP transport (optional)
 - `HMACKeyID` / `HMACSecret`: HMAC v2 signing pair (both or neither)
+- `HMACAudience`: name of the Warden instance the signatures are bound to (optional; selects the v3 form and requires the HMAC pair)
 - `TLSConfig`: TLS/mTLS client configuration (optional). It is applied to a copy of `Transport`, or, when no transport is given, to a copy of the standard library's default transport, so the proxy settings from the environment and the default connection timeouts stay in effect
 - `Retry`: Retry configuration (optional, defaults to no retry)
 - `CacheInvalidationChannel`: Channel for event-driven cache invalidation (optional)
