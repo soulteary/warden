@@ -49,7 +49,11 @@ func TestRedisBackendRetainsDependenciesAfterInitialFailure(t *testing.T) {
 	require.Error(t, guardErr)
 	available.Store(true)
 	require.NoError(t, client.Ping(context.Background()).Err())
-	require.Equal(t, health.StatusHealthy, checker.Check(context.Background()).Checks["redis"].Status)
+	// A failed probe is reused for redisProbeFailureTTL, so recovery shows
+	// on the first health check after that interval.
+	require.Eventually(t, func() bool {
+		return checker.Check(context.Background()).Checks["redis"].Status == health.StatusHealthy
+	}, redisProbeFailureTTL+2*time.Second, 50*time.Millisecond)
 	require.Same(t, originalStore, app.redisSnapshots)
 	seen, guardErr := guard.SeenBefore("recovery:after", time.Minute)
 	require.NoError(t, guardErr)
