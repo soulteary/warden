@@ -214,8 +214,34 @@ func newRemoteFetcher(rawURL, auth string, remoteOpts RemoteOptions) parserkit.F
 	if err != nil {
 		return errFetcher{err: err}
 	}
-	return nonEmptyFetcher{inner: f}
+	return nonEmptyFetcher{inner: addressPolicyFetcher{inner: f}}
 }
+
+// addressPolicyFetcher ends a remote fetch as soon as the connection policy
+// refuses the address, and reports that refusal.
+//
+// The retry loop under the fetcher treats the refusal as a transient transport
+// error. It retried until the request timeout ran out and then returned the
+// deadline error, so the log named a timeout for a source that was never
+// contacted. The address a host resolves to does not change between attempts
+// a second apart, and the next refresh checks it again.
+type addressPolicyFetcher struct {
+	inner parserkit.Fetcher
+}
+
+// Fetch delegates and prefers a policy refusal over the error it led to.
+func (f addressPolicyFetcher) Fetch(ctx context.Context, maxBytes int64) ([]byte, error) {
+	ctx, release := remote.WithAddressPolicyStop(ctx)
+	defer release()
+	raw, err := f.inner.Fetch(ctx, maxBytes)
+	if err != nil && remote.AddressPolicyStopped(ctx) {
+		return nil, fmt.Errorf("failed to fetch remote data: %w", remote.ErrAddressPolicy)
+	}
+	return raw, err
+}
+
+// Unwrap returns the wrapped fetcher, for tests that assert on the source.
+func (f addressPolicyFetcher) Unwrap() parserkit.Fetcher { return f.inner }
 
 // newRestrictedClient builds the restricted rule-source client. It is a
 // variable so tests can observe how often a client is built.

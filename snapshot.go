@@ -249,6 +249,8 @@ func classifyRefreshReason(err error) string {
 		return "malformed"
 	case errors.Is(err, remote.ErrPlaintextTooLarge):
 		return "too_large"
+	case errors.Is(err, remote.ErrAddressPolicy):
+		return "address_policy"
 	}
 	// Coarse classification from the message without leaking specifics.
 	msg := strings.ToLower(err.Error())

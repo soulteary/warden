@@ -13,7 +13,7 @@ func TestRefreshReasonClassification(t *testing.T) {
 		err    error
 		reason string
 	}{
-		{nil, "none"}, {remote.ErrEncryptionRequired, "encryption_required"}, {remote.ErrIntegrityCheckFailed, "integrity_failed"}, {remote.ErrUnsupportedEnvelopeVersion, "unsupported_format"}, {remote.ErrUnsupportedAlgorithm, "unsupported_format"}, {remote.ErrEnvelopeMalformed, "malformed"}, {remote.ErrPlaintextTooLarge, "too_large"}, {fmt.Errorf("no local source"), "no_sources"},
+		{nil, "none"}, {remote.ErrEncryptionRequired, "encryption_required"}, {remote.ErrIntegrityCheckFailed, "integrity_failed"}, {remote.ErrUnsupportedEnvelopeVersion, "unsupported_format"}, {remote.ErrUnsupportedAlgorithm, "unsupported_format"}, {remote.ErrEnvelopeMalformed, "malformed"}, {remote.ErrPlaintextTooLarge, "too_large"}, {remote.ErrAddressPolicy, "address_policy"}, {fmt.Errorf("no local source"), "no_sources"},
 	} {
 		var err error
 		if tc.err != nil {

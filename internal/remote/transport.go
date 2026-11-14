@@ -86,7 +86,11 @@ func (t *originTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	// The scheme is part of the private-origin exception, not merely host:port.
 	ctx := context.WithValue(req.Context(), privateOriginKey{}, t.private[origin])
-	return t.inner.RoundTrip(req.Clone(ctx))
+	resp, err := t.inner.RoundTrip(req.Clone(ctx))
+	if err != nil {
+		stopOnAddressPolicy(ctx, err)
+	}
+	return resp, err
 }
 func (t *originTransport) CloseIdleConnections() { t.inner.CloseIdleConnections() }
 
@@ -170,7 +174,7 @@ func restrictedDial(resolver addressResolver, dialer contextDialer) func(context
 		}
 		for _, ip := range ips {
 			if !allowedAddress(ip, allowPrivate) {
-				return nil, errors.New("remote host resolves to a prohibited address")
+				return nil, ErrAddressPolicy
 			}
 		}
 		var last error
@@ -185,6 +189,38 @@ func restrictedDial(resolver addressResolver, dialer contextDialer) func(context
 			}
 		}
 		return nil, fmt.Errorf("remote connection failed: %w", last)
+	}
+}
+
+// ErrAddressPolicy reports that the connection policy refused an address the
+// remote host resolved to. Another attempt meets the same policy, so the error
+// is not worth retrying until the address or REMOTE_PRIVATE_ORIGINS changes.
+var ErrAddressPolicy = errors.New("remote host resolves to a prohibited address")
+
+type addressPolicyStopKey struct{}
+
+// WithAddressPolicyStop returns a context that the restricted client cancels,
+// with ErrAddressPolicy as its cause, when the connection policy refuses the
+// request. A caller that retries failed requests uses it to end the retries at
+// once, and reads the refusal back with AddressPolicyStopped. The returned
+// function releases the context.
+func WithAddressPolicyStop(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	return context.WithValue(ctx, addressPolicyStopKey{}, cancel), func() { cancel(nil) }
+}
+
+// AddressPolicyStopped reports whether the connection policy stopped a context
+// made by WithAddressPolicyStop.
+func AddressPolicyStopped(ctx context.Context) bool {
+	return errors.Is(context.Cause(ctx), ErrAddressPolicy)
+}
+
+func stopOnAddressPolicy(ctx context.Context, err error) {
+	if !errors.Is(err, ErrAddressPolicy) {
+		return
+	}
+	if stop, ok := ctx.Value(addressPolicyStopKey{}).(context.CancelCauseFunc); ok {
+		stop(ErrAddressPolicy)
 	}
 }
 
