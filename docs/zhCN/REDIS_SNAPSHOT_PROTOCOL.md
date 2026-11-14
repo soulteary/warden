@@ -71,5 +71,32 @@ Redis 写入者可信；此格式不等同于带签名的上游版本协议。
 开头不同的值，除声明了更高格式版本的值外，仍按上文完整解码并分类。这些开头成员的顺序属于存储格式的一部分：
 改变顺序的写入者仍能被正确续期，但每次续期都会重新解码整个值。
 
+脚本只用 `GETRANGE` 向 Redis 读取这段开头，而不是用 `GET` 把整个值复制进脚本；
+该值最大可达 `MAX_ENVELOPE_JSON_SIZE`。仅在必须解码、`STRLEN` 返回 0（用于区分键缺失
+与空值）或 Redis 拒绝 `GETRANGE` 时，才用 `GET` 读取整个值。大小上限在两种读取之前
+由 `STRLEN` 检查。
+
+## 快照存储调用的 Redis 命令
+
+受 ACL 限制的 Redis 用户需要在快照键及其租约键（`warden:{<namespace>}:snapshot:v2`
+和 `warden:{<namespace>}:snapshot:v2:lease`）上拥有以下命令的权限。此列表只涵盖 v2
+快照存储，不包括旧缓存和连接握手。
+
+| 操作 | 命令 |
+| --- | --- |
+| 执行脚本 | `EVALSHA`，脚本未缓存时为 `EVAL` |
+| 获取租约 | `SET`（带 `NX` 和 `PX`） |
+| 读取 | `STRLEN`、`GET` |
+| 发布 | `GET`、`SET` |
+| 续期 | `GET`、`STRLEN`、`PEXPIRE`，以及可选的 `GETRANGE` |
+| 释放租约 | `GET`、`DEL` |
+
+`GETRANGE` 是可选的。续期脚本通过 `redis.pcall` 调用它，因此无权执行该命令的用户
+在脚本内得到的是错误回复而不是脚本失败，续期随后改用 `GET` 读取值，结果相同。
+没有 `GETRANGE` 权限时，每次续期都会把整个存储值复制进脚本，并且 Redis 会记录每次
+拒绝：`ACL LOG` 中对象为 `getrange`、上下文为 `lua` 的记录（Redis 会把重复的拒绝
+合并为一条并增加其计数），以及 `INFO stats` 中的 `acl_access_denied_cmd` 计数。为该用户添加 `+getrange` 可避免这两点。
+其余命令是必需的；缺少其中任何一个时脚本失败，对应操作报告 `io_error`。
+
 协议测试使用 miniredis 的真实 Lua 执行，覆盖租约过期、继任者、陈旧续期、空集、
 损坏快照及重启恢复。应用迁移和旧格式兼容由独立改动实现。

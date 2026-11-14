@@ -245,22 +245,36 @@ func (l *SnapshotLease) Publish(ctx context.Context, input *SnapshotEnvelope) (*
 // cjson.decode of a complete envelope builds every user in Lua and blocks
 // Redis for that long; it remains only for a value with any other beginning,
 // which no release writes.
+//
+// Only the beginning of the value is needed for that comparison, and GET
+// copies the whole value, up to the size limit, into the script. The script
+// therefore asks for the beginning with GETRANGE. GETRANGE is called through
+// redis.pcall: a Redis user whose ACL permits only GET, STRLEN and PEXPIRE on
+// the key gets an error reply instead of an aborted script, and the script
+// then reads the value with GET as before. Both ways classify the same
+// beginning with the same code. A key STRLEN reports as empty is read with
+// GET, which tells a missing key from an empty value.
 var renewSnapshot = redis.NewScript(`
 if redis.call('GET', KEYS[2]) ~= ARGV[1] then return 0 end
-if redis.call('STRLEN', KEYS[1]) > tonumber(ARGV[4]) then return 4 end
-local raw = redis.call('GET', KEYS[1])
-if not raw then return 3 end
+local size = redis.call('STRLEN', KEYS[1])
+if size > tonumber(ARGV[4]) then return 4 end
 local function token(value)
   return type(value) == 'string' and #value == 32 and string.find(value, '^[a-f0-9]+$') ~= nil
 end
 local schema = tonumber(ARGV[6])
 local head = #ARGV[5]
-local first = string.sub(raw, 1, head + 42)
+local raw
+local first = size > 0 and redis.pcall('GETRANGE', KEYS[1], 0, head + 41)
+if type(first) ~= 'string' then
+  raw = redis.call('GET', KEYS[1])
+  if not raw then return 3 end
+  first = string.sub(raw, 1, head + 42)
+end
 local revision = string.sub(first, head + 1, head + 32)
 if string.sub(first, 1, head) ~= ARGV[5] or string.sub(first, head + 33) ~= '","users":' or not token(revision) then
   local stated = string.match(first, '^{"schema_version":(%d+)[,}]')
   if stated and tonumber(stated) > schema then return 2 end
-  local ok, snapshot = pcall(cjson.decode, raw)
+  local ok, snapshot = pcall(cjson.decode, raw or redis.call('GET', KEYS[1]))
   if not ok or type(snapshot) ~= 'table' then return 5 end
   stated = snapshot.schema_version
   if type(stated) == 'number' and stated > schema then return 2 end
