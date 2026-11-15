@@ -33,6 +33,14 @@ type Error struct {
 	// next request. It is set on ErrCodeRateLimited errors when the response
 	// carried a Retry-After header, and zero otherwise.
 	RetryAfter time.Duration
+
+	// StatusCode is the HTTP status of the Warden response that this error
+	// reports, for example 401, 403, 404, 429 or 503. It is zero when the
+	// error does not come from a response status: invalid configuration, a
+	// request that got no response, a body that could not be decoded, or a
+	// source freshness failure. A 403 keeps the code ErrCodeRequestFailed;
+	// compare StatusCode with http.StatusForbidden to recognize it.
+	StatusCode int
 }
 
 func (e *Error) Error() string {

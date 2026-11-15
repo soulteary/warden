@@ -354,6 +354,29 @@ if err != nil {
 - `ErrCodeNotFound`: Not found
 - `ErrCodeServerError`: Server error
 
+### HTTP Status
+
+`Error.StatusCode` holds the HTTP status of the Warden response that the error reports. It is `0` when the error does not come from a response status: invalid configuration, a request that received no response (connection refused, timeout, TLS failure, rejected redirect), a body that could not be decoded, or a source freshness failure.
+
+| Warden response | `Code` | `StatusCode` |
+|-----------------|--------|--------------|
+| 401 | `ErrCodeUnauthorized` | 401 |
+| 403 | `ErrCodeRequestFailed` | 403 |
+| 404 | `ErrCodeNotFound` | 404 |
+| 429 | `ErrCodeRateLimited` | 429 |
+| 500, 502, 503 | `ErrCodeServerError` | the status |
+| any other non-200 status | `ErrCodeRequestFailed` | the status |
+| no response | `ErrCodeRequestFailed` | 0 |
+
+A 403 keeps the code `ErrCodeRequestFailed`, so code that compares the code keeps working. Warden answers 403 when the caller's address is not in `IP_WHITELIST`, or when `WARDEN_SERVICE_POLICIES` does not allow the HMAC key to use the route. To tell it apart from other request failures:
+
+```go
+var sdkErr *warden.Error
+if errors.As(err, &sdkErr) && sdkErr.StatusCode == http.StatusForbidden {
+    // Warden refused this client: IP_WHITELIST or WARDEN_SERVICE_POLICIES
+}
+```
+
 ## RetryOptions
 
 The `RetryOptions` struct configures retry behavior:
