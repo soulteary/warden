@@ -64,6 +64,7 @@ func TestAuthenticatedRequestsAreNotLimitedPerIP(t *testing.T) {
 }
 
 func TestCredentialsHaveIndependentBudgets(t *testing.T) {
+	nonce := runNonce(t)
 	mux := registerRoutes(rateLimitedApp(t, 100, 2))
 	mtls := func(der string) *http.Request {
 		req := httptest.NewRequest(http.MethodGet, rateLimitTestPath, http.NoBody)
@@ -72,7 +73,7 @@ func TestCredentialsHaveIndependentBudgets(t *testing.T) {
 	}
 	credentials := map[string]func(i int) *http.Request{
 		"api key":       func(int) *http.Request { return apiKeyRequest(rateLimitTestPath, "key") },
-		"hmac key":      func(i int) *http.Request { return policySignedRequest(rateLimitTestPath, t.Name()+strconv.Itoa(i)) },
+		"hmac key":      func(i int) *http.Request { return policySignedRequest(rateLimitTestPath, nonce+strconv.Itoa(i)) },
 		"certificate a": func(int) *http.Request { return mtls("certificate-a") },
 		"certificate b": func(int) *http.Request { return mtls("certificate-b") },
 	}
@@ -89,8 +90,9 @@ func TestCredentialsHaveIndependentBudgets(t *testing.T) {
 }
 
 func TestCredentialBudgetIsSharedAcrossIPs(t *testing.T) {
+	nonce := runNonce(t)
 	mux := registerRoutes(rateLimitedApp(t, 100, 2))
-	signed := func(i int) *http.Request { return policySignedRequest(rateLimitTestPath, t.Name()+strconv.Itoa(i)) }
+	signed := func(i int) *http.Request { return policySignedRequest(rateLimitTestPath, nonce+strconv.Itoa(i)) }
 	require.Equal(t, http.StatusOK, serve(mux, signed(1), rateLimitIPA).Code)
 	require.Equal(t, http.StatusOK, serve(mux, signed(2), rateLimitIPB).Code)
 	require.Equal(t, http.StatusTooManyRequests, serve(mux, signed(3), rateLimitIPA).Code)
@@ -114,12 +116,13 @@ func TestAPIKeyBudgetIsPerClientAddress(t *testing.T) {
 }
 
 func TestFailedAuthenticationIsLimitedPerIP(t *testing.T) {
+	nonce := runNonce(t)
 	mux := registerRoutes(rateLimitedApp(t, 3, 100))
 	failures := []func(i int) *http.Request{
 		func(int) *http.Request { return apiKeyRequest(rateLimitTestPath, "") },
 		func(int) *http.Request { return apiKeyRequest(rateLimitTestPath, "wrong") },
 		func(i int) *http.Request {
-			req := policySignedRequest(rateLimitTestPath, t.Name()+strconv.Itoa(i))
+			req := policySignedRequest(rateLimitTestPath, nonce+strconv.Itoa(i))
 			req.Header.Set("X-Signature", "00")
 			return req
 		},
@@ -151,24 +154,25 @@ func TestExhaustedIPIsRefusedBeforeAuthentication(t *testing.T) {
 	// A valid signature refused here was not evaluated: its nonce is unused,
 	// so the same signed request is accepted from another address. Had
 	// authentication run, the replay guard would reject the second use.
-	signed := policySignedRequest(rateLimitTestPath, t.Name())
+	signed := policySignedRequest(rateLimitTestPath, runNonce(t))
 	require.Equal(t, http.StatusTooManyRequests, serve(mux, signed, rateLimitIPA).Code)
 	require.Equal(t, http.StatusOK, serve(mux, signed, rateLimitIPB).Code)
 }
 
 func TestServicePolicyDenialsAreLimitedPerIP(t *testing.T) {
+	nonce := runNonce(t)
 	t.Setenv("WARDEN_SERVICE_POLICIES", `{"gateway":{"actions":["directory:lookup"]}}`)
 	mux := registerRoutes(rateLimitedApp(t, 2, 3))
 	// Allowed action: counted against the credential.
 	for i := 0; i < 3; i++ {
-		require.Equal(t, http.StatusOK, serve(mux, policySignedRequest(rateLimitTestPath, t.Name()+"ok"+strconv.Itoa(i)), rateLimitIPA).Code)
+		require.Equal(t, http.StatusOK, serve(mux, policySignedRequest(rateLimitTestPath, nonce+"ok"+strconv.Itoa(i)), rateLimitIPA).Code)
 	}
-	require.Equal(t, http.StatusTooManyRequests, serve(mux, policySignedRequest(rateLimitTestPath, t.Name()+"over"), rateLimitIPA).Code)
+	require.Equal(t, http.StatusTooManyRequests, serve(mux, policySignedRequest(rateLimitTestPath, nonce+"over"), rateLimitIPA).Code)
 	// Denied action: 403 from the auth layer, counted against the address.
 	for i := 0; i < 2; i++ {
-		require.Equal(t, http.StatusForbidden, serve(mux, policySignedRequest("/v1/users", t.Name()+"denied"+strconv.Itoa(i)), rateLimitIPB).Code)
+		require.Equal(t, http.StatusForbidden, serve(mux, policySignedRequest("/v1/users", nonce+"denied"+strconv.Itoa(i)), rateLimitIPB).Code)
 	}
-	require.Equal(t, http.StatusTooManyRequests, serve(mux, policySignedRequest("/v1/users", t.Name()+"refused"), rateLimitIPB).Code)
+	require.Equal(t, http.StatusTooManyRequests, serve(mux, policySignedRequest("/v1/users", nonce+"refused"), rateLimitIPB).Code)
 }
 
 func TestHealthRoutesAreNeverRateLimited(t *testing.T) {
