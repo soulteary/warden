@@ -1,66 +1,59 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 911,
-    "passed": 906,
+    "total": 1067,
+    "passed": 1058,
     "failed": 0,
-    "skipped": 5
+    "skipped": 9
   },
   "coverage": {
-    "covered_statements": 4810,
-    "total_statements": 5038,
-    "percentage": 95.47,
+    "covered_statements": 5458,
+    "total_statements": 5634,
+    "percentage": 96.88,
     "threshold": 95
   },
   "packages": [
     {
       "name": ".",
       "status": "pass",
-      "tests": 177,
+      "tests": 235,
       "failed": 0,
-      "coverage": 90.05
+      "coverage": 93.18
     },
     {
       "name": "internal/auditlog",
       "status": "pass",
-      "tests": 2,
+      "tests": 6,
       "failed": 0,
-      "coverage": 81.82
+      "coverage": 91.57
     },
     {
       "name": "internal/cache",
       "status": "pass",
-      "tests": 74,
+      "tests": 89,
       "failed": 0,
-      "coverage": 97.02
+      "coverage": 97.05
     },
     {
       "name": "internal/cmd",
       "status": "pass",
-      "tests": 88,
+      "tests": 112,
       "failed": 0,
-      "coverage": 97.5
+      "coverage": 98.68
     },
     {
       "name": "internal/config",
       "status": "pass",
-      "tests": 34,
+      "tests": 37,
       "failed": 0,
-      "coverage": 99.25
+      "coverage": 98.94
     },
     {
       "name": "internal/define",
       "status": "pass",
-      "tests": 16,
+      "tests": 20,
       "failed": 0,
-      "coverage": 97.01
-    },
-    {
-      "name": "internal/di",
-      "status": "pass",
-      "tests": 21,
-      "failed": 0,
-      "coverage": 100
+      "coverage": 97.78
     },
     {
       "name": "internal/errors",
@@ -79,51 +72,51 @@
     {
       "name": "internal/identity",
       "status": "pass",
-      "tests": 20,
+      "tests": 21,
       "failed": 0,
-      "coverage": 99.19
+      "coverage": 99.24
     },
     {
       "name": "internal/loader",
       "status": "pass",
-      "tests": 41,
+      "tests": 47,
       "failed": 0,
-      "coverage": 96.59
+      "coverage": 97.07
     },
     {
       "name": "internal/logger",
       "status": "pass",
-      "tests": 21,
+      "tests": 22,
       "failed": 0,
-      "coverage": 97.37
+      "coverage": 97.44
     },
     {
       "name": "internal/middleware",
       "status": "pass",
-      "tests": 74,
+      "tests": 103,
       "failed": 0,
-      "coverage": 96.39
+      "coverage": 98.55
     },
     {
       "name": "internal/prommetrics",
       "status": "pass",
-      "tests": 19,
+      "tests": 20,
       "failed": 0,
-      "coverage": 97.67
+      "coverage": 100
     },
     {
       "name": "internal/remote",
       "status": "pass",
-      "tests": 43,
+      "tests": 48,
       "failed": 0,
-      "coverage": 92.77
+      "coverage": 96.41
     },
     {
       "name": "internal/router",
       "status": "pass",
-      "tests": 63,
+      "tests": 66,
       "failed": 0,
-      "coverage": 96.25
+      "coverage": 96.23
     },
     {
       "name": "internal/serviceauth",
@@ -142,9 +135,9 @@
     {
       "name": "internal/validator",
       "status": "pass",
-      "tests": 6,
+      "tests": 7,
       "failed": 0,
-      "coverage": 86.49
+      "coverage": 94.59
     },
     {
       "name": "locales",
@@ -163,9 +156,9 @@
     {
       "name": "pkg/warden",
       "status": "pass",
-      "tests": 110,
+      "tests": 132,
       "failed": 0,
-      "coverage": 98.63
+      "coverage": 98.71
     }
   ],
   "failures": null

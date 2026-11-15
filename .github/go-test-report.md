@@ -4,36 +4,35 @@
 
 | Metric | Value |
 | --- | --- |
-| Total | 911 |
-| Passed | 906 |
+| Total | 1067 |
+| Passed | 1058 |
 | Failed | 0 |
-| Skipped | 5 |
-| Coverage | 95.47% |
+| Skipped | 9 |
+| Coverage | 96.88% |
 | Threshold | 95.00% |
 
 ### Packages
 
 | Package | Status | Tests | Failed | Coverage |
 | --- | --- | --- | --- | --- |
-| . | pass | 177 | 0 | 90.05% |
-| internal/auditlog | pass | 2 | 0 | 81.82% |
-| internal/cache | pass | 74 | 0 | 97.02% |
-| internal/cmd | pass | 88 | 0 | 97.50% |
-| internal/config | pass | 34 | 0 | 99.25% |
-| internal/define | pass | 16 | 0 | 97.01% |
-| internal/di | pass | 21 | 0 | 100.00% |
+| . | pass | 235 | 0 | 93.18% |
+| internal/auditlog | pass | 6 | 0 | 91.57% |
+| internal/cache | pass | 89 | 0 | 97.05% |
+| internal/cmd | pass | 112 | 0 | 98.68% |
+| internal/config | pass | 37 | 0 | 98.94% |
+| internal/define | pass | 20 | 0 | 97.78% |
 | internal/errors | pass | 19 | 0 | 96.97% |
 | internal/i18n | pass | 6 | 0 | 89.47% |
-| internal/identity | pass | 20 | 0 | 99.19% |
-| internal/loader | pass | 41 | 0 | 96.59% |
-| internal/logger | pass | 21 | 0 | 97.37% |
-| internal/middleware | pass | 74 | 0 | 96.39% |
-| internal/prommetrics | pass | 19 | 0 | 97.67% |
-| internal/remote | pass | 43 | 0 | 92.77% |
-| internal/router | pass | 63 | 0 | 96.25% |
+| internal/identity | pass | 21 | 0 | 99.24% |
+| internal/loader | pass | 47 | 0 | 97.07% |
+| internal/logger | pass | 22 | 0 | 97.44% |
+| internal/middleware | pass | 103 | 0 | 98.55% |
+| internal/prommetrics | pass | 20 | 0 | 100.00% |
+| internal/remote | pass | 48 | 0 | 96.41% |
+| internal/router | pass | 66 | 0 | 96.23% |
 | internal/serviceauth | pass | 1 | 0 | 100.00% |
 | internal/tracing | pass | 14 | 0 | 96.30% |
-| internal/validator | pass | 6 | 0 | 86.49% |
+| internal/validator | pass | 7 | 0 | 94.59% |
 | locales | pass | 4 | 0 | N/A |
 | pkg/gocron | pass | 58 | 0 | 98.14% |
-| pkg/warden | pass | 110 | 0 | 98.63% |
+| pkg/warden | pass | 132 | 0 | 98.71% |
