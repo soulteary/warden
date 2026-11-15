@@ -65,7 +65,7 @@ func TestHMACAudienceSettingsOnRoutes(t *testing.T) {
 				{"v3", "warden-b.internal:8081", tc.v3Other},
 			} {
 				rec := httptest.NewRecorder()
-				mux.ServeHTTP(rec, audienceSignedRequest("/user?user_id=member", request.version, request.audience, tc.name+strconv.Itoa(i)))
+				mux.ServeHTTP(rec, audienceSignedRequest("/user?user_id=member", request.version, request.audience, runNonce(t)+strconv.Itoa(i)))
 				require.Equal(t, request.status, rec.Code, "%s %s", request.version, request.audience)
 			}
 			// The API key is a separate credential and is not affected.

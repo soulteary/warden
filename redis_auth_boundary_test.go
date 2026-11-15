@@ -59,7 +59,7 @@ func TestRequiredRedisReplayGuardRejectsUninitializedClient(t *testing.T) {
 	mux.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/health", http.NoBody))
 	require.Equal(t, http.StatusServiceUnavailable, health.Code)
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, boundarySignedRequest(t, t.Name()))
+	mux.ServeHTTP(rec, boundarySignedRequest(t, runNonce(t)))
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 	// Independent authentication methods must remain available.
 	req := httptest.NewRequest(http.MethodGet, "/v1/users", http.NoBody)
@@ -76,9 +76,10 @@ func TestRequiredRedisReplayGuardRejectsUninitializedClient(t *testing.T) {
 
 func TestDisabledRedisKeepsLocalReplayProtection(t *testing.T) {
 	mux := registerRoutes(authBoundaryApp(t, false, nil))
+	nonce := runNonce(t)
 	for _, want := range []int{http.StatusOK, http.StatusUnauthorized} {
 		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, boundarySignedRequest(t, t.Name()))
+		mux.ServeHTTP(rec, boundarySignedRequest(t, nonce))
 		require.Equal(t, want, rec.Code)
 	}
 }
@@ -89,15 +90,16 @@ func TestRequiredRedisReplayProtectionSharedAcrossRouters(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 	first := registerRoutes(authBoundaryApp(t, true, client))
 	second := registerRoutes(authBoundaryApp(t, true, client))
+	nonce := runNonce(t)
 	rec := httptest.NewRecorder()
-	first.ServeHTTP(rec, boundarySignedRequest(t, t.Name()))
+	first.ServeHTTP(rec, boundarySignedRequest(t, nonce))
 	require.Equal(t, http.StatusOK, rec.Code)
 	rec = httptest.NewRecorder()
-	second.ServeHTTP(rec, boundarySignedRequest(t, t.Name()))
+	second.ServeHTTP(rec, boundarySignedRequest(t, nonce))
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 	// A connected client which later loses Redis also fails closed.
 	mr.Close()
 	rec = httptest.NewRecorder()
-	first.ServeHTTP(rec, boundarySignedRequest(t, t.Name()+"-outage"))
+	first.ServeHTTP(rec, boundarySignedRequest(t, nonce+"outage"))
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
