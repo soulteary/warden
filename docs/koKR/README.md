@@ -225,5 +225,5 @@ warden/
 
 ## Release and ownership contracts
 
-- [Release notes and upgrade requirements](../releases/v1.8.0.md)
+- [Release notes and upgrade requirements](../releases/v1.9.0.md)
 - [Scope ownership and retained memory](../enUS/SCOPE_OWNERSHIP.md)
