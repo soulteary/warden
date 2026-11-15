@@ -14,12 +14,16 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-16
+
 ### Added
 
 - SDK: `warden.Error` has a `StatusCode` field with the HTTP status of the
   Warden response that the error reports (0 when there was none). Error codes
   are unchanged; a 403 keeps `REQUEST_FAILED` and can be recognized with
   `StatusCode == 403`.
+
+See [release notes](docs/releases/v1.9.0.md) for upgrade and rollback.
 
 ## [1.8.0] - 2026-11-15
 
