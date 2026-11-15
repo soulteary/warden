@@ -80,11 +80,14 @@
 - The first load logs a message that names no source; the `source` field
   carries it. It read "loaded from remote API" for a local file. The quick
   start sets `REDIS_ENABLED=false` and explains the default.
-- Renewing a v2 Redis snapshot reads the revision from the beginning of the
-  stored value instead of decoding the whole envelope inside Redis. With
-  100,000 users (16 MB) the median time Redis spent on a renewal fell from
-  about 456 ms to about 58 ms in a measurement on Redis 8.4.7. The stored
-  format and the result codes are unchanged.
+- Renewing a v2 Redis snapshot reads only the beginning of the stored value
+  (`GETRANGE`) instead of copying and decoding the whole envelope inside Redis.
+  With 100,000 users (about 14 MB) the median time Redis spent on a renewal
+  fell from about 60 ms to about 0.03 ms in a measurement on Redis 8.4.7. The
+  stored format and the result codes are unchanged. Where the Redis ACL does
+  not permit `GETRANGE`, the script falls back to reading the whole value at
+  the earlier speed, and each renewal adds a denied-command record to `ACL
+  LOG`; grant `+getrange` to avoid that.
 
 ### Fixed
 
@@ -133,10 +136,15 @@
   reader whose clock ran behind the writer's answered 503 until its clock
   caught up.
 - A v2 Redis snapshot key that expired, was evicted or was flushed, or whose
-  value is over the size limit or is not JSON, is published again by the lease
-  holder on its next cycle. It stayed absent or unusable while the source kept
-  rejecting the load, so a restarting replica had nothing to restore. A value
-  that decodes and carries a different revision is still left untouched.
+  value is not a publication of this dataset and policy (over the size limit,
+  not JSON, not an envelope, or an envelope of another dataset or policy), is
+  published again by the lease holder on its next cycle. It stayed absent or
+  unusable while the source kept rejecting the load, so a restarting replica
+  had nothing to restore. A publication with a different revision, and a value
+  that states a later schema version, are still left untouched. Replicas with
+  different policies that share one namespace now replace each other's snapshot
+  on every cycle; give them separate namespaces, as the migration guide
+  requires.
 - In the legacy and shadow Redis modes, a replica that keeps its last known
   good rule set after an all-rejected refresh no longer writes it over a rule
   set from a later source load. The source-load time of the stored set is
