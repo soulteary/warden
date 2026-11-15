@@ -14,6 +14,8 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-15
+
 ### Added
 
 - SDK: `Options.RequireHTTPS` (`WithRequireHTTPS`). When set, `NewClient`
@@ -75,8 +77,8 @@
 - `PORT`, `INTERVAL`, `HTTP_TIMEOUT`, `HTTP_MAX_IDLE_CONNS` and
   `WARDEN_HMAC_TIMESTAMP_TOLERANCE` stop startup when they do not hold a usable
   number; they used to select the default silently. `HTTP_TIMEOUT` must be
-  between 1 second and 1 hour. `PORT=0`, `INTERVAL=0` and `HTTP_TIMEOUT=0`,
-  which selected the default, are refused.
+  between 1 second and 1 hour. `PORT=0`, `INTERVAL=0`, `HTTP_TIMEOUT=0` and
+  `WARDEN_HMAC_TIMESTAMP_TOLERANCE=0`, which selected the default, are refused.
 - The first load logs a message that names no source; the `source` field
   carries it. It read "loaded from remote API" for a local file. The quick
   start sets `REDIS_ENABLED=false` and explains the default.
@@ -199,6 +201,8 @@
   production. The API reference showed a JSON body with a `message` field.
 - `openapi.yaml`: add the 401, 413 and 429 responses, the `dingtalk_userid`
   lookup field and the effect of `RESPONSE_FIELDS` on `/v1/lookup`.
+
+See [release notes](docs/releases/v1.8.0.md) for upgrade checks and rollback.
 
 ## [1.7.0] - 2026-11-13
 

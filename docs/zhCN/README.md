@@ -227,7 +227,8 @@ warden/
 
 ## Release and ownership contracts
 
-- [Release notes and upgrade requirements](../releases/v1.7.0.md)
+- [Release notes and upgrade requirements](../releases/v1.8.0.md)
+- [v1.8.0 升级与回滚](UPGRADE_V1_8_0.md)
 - [v1.7.0 升级与回滚](UPGRADE_V1_7_0.md)
 - [v1.6.2 补丁升级与回滚](UPGRADE_V1_6_2.md)
 - [v1.6.1 补丁升级与回滚](UPGRADE_V1_6_1.md)
