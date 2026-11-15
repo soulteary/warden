@@ -4,7 +4,7 @@
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 319 |
+| Files | 320 |
 | Issues | 4 |
 
 ## Checks
@@ -22,14 +22,14 @@
 
 ### gocyclo
 
-- `snapshot.go`
-  - Line 240: cyclomatic complexity 16 for function classifyRefreshReason
 - `version_command_test.go`
   - Line 61: cyclomatic complexity 22 for function TestVersionCommandBinaryEarlyExit
 - `internal/middleware/hmac.go`
   - Line 217: cyclomatic complexity 18 for function verifyHMAC
 - `main.go`
   - Line 124: cyclomatic complexity 17 for function NewApp
+- `snapshot.go`
+  - Line 240: cyclomatic complexity 16 for function classifyRefreshReason
 
 ---
 
