@@ -775,6 +775,7 @@ func (c *Client) applyResponseLimit(resp *http.Response) error {
 }
 
 // checkResponseStatus checks the HTTP response status and returns an error if not OK.
+// The error carries the status in Error.StatusCode.
 func (c *Client) checkResponseStatus(resp *http.Response) error {
 	if resp.StatusCode == http.StatusOK {
 		return nil
@@ -788,20 +789,24 @@ func (c *Client) checkResponseStatus(resp *http.Response) error {
 		c.logger.Warnf("Warden API returned non-200 status: %d", resp.StatusCode)
 	}
 
+	var statusErr *Error
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
-		return NewError(ErrCodeUnauthorized, c.unauthorizedMessage(), nil)
+		statusErr = NewError(ErrCodeUnauthorized, c.unauthorizedMessage(), nil)
 	case http.StatusTooManyRequests:
-		rateLimited := NewError(ErrCodeRateLimited, "rate limited by Warden", nil)
-		rateLimited.RetryAfter = parseRetryAfter(resp.Header.Get("Retry-After"), time.Now())
-		return rateLimited
+		statusErr = NewError(ErrCodeRateLimited, "rate limited by Warden", nil)
+		statusErr.RetryAfter = parseRetryAfter(resp.Header.Get("Retry-After"), time.Now())
 	case http.StatusNotFound:
-		return NewError(ErrCodeNotFound, "not found", nil)
+		statusErr = NewError(ErrCodeNotFound, "not found", nil)
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable:
-		return NewError(ErrCodeServerError, fmt.Sprintf("server error: status %d", resp.StatusCode), nil)
+		statusErr = NewError(ErrCodeServerError, fmt.Sprintf("server error: status %d", resp.StatusCode), nil)
 	default:
-		return NewError(ErrCodeRequestFailed, fmt.Sprintf("warden API returned status %d: %s", resp.StatusCode, string(body)), nil)
+		// 403 stays in this group: callers that compare the code with
+		// ErrCodeRequestFailed keep working, and StatusCode tells it apart.
+		statusErr = NewError(ErrCodeRequestFailed, fmt.Sprintf("warden API returned status %d: %s", resp.StatusCode, string(body)), nil)
 	}
+	statusErr.StatusCode = resp.StatusCode
+	return statusErr
 }
 
 // unauthorizedMessage describes a 401 in terms of the credential this client

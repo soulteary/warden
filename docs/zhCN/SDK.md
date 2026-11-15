@@ -404,6 +404,29 @@ if err != nil {
 - `ErrCodeServerError`: 服务器错误
 - `ErrCodeRateLimited`: Warden 返回 429。`Error.RetryAfter` 为 `Retry-After` 响应头要求的等待时间（没有该响应头时为零）。SDK 不会重试 429
 
+### HTTP 状态码
+
+`Error.StatusCode` 为该错误所对应的 Warden 响应的 HTTP 状态码。错误并非来自响应状态码时为 `0`：配置无效、请求没有收到响应（连接被拒绝、超时、TLS 失败、重定向被拒绝）、响应体无法解码，或数据源新鲜度检查失败。
+
+| Warden 响应 | `Code` | `StatusCode` |
+|-------------|--------|--------------|
+| 401 | `ErrCodeUnauthorized` | 401 |
+| 403 | `ErrCodeRequestFailed` | 403 |
+| 404 | `ErrCodeNotFound` | 404 |
+| 429 | `ErrCodeRateLimited` | 429 |
+| 500、502、503 | `ErrCodeServerError` | 该状态码 |
+| 其他非 200 状态码 | `ErrCodeRequestFailed` | 该状态码 |
+| 没有响应 | `ErrCodeRequestFailed` | 0 |
+
+403 仍使用错误代码 `ErrCodeRequestFailed`，比较错误代码的现有代码不受影响。调用方地址不在 `IP_WHITELIST` 中，或 `WARDEN_SERVICE_POLICIES` 不允许该 HMAC 密钥访问对应路由时，Warden 返回 403。将它与其他请求失败区分开：
+
+```go
+var sdkErr *warden.Error
+if errors.As(err, &sdkErr) && sdkErr.StatusCode == http.StatusForbidden {
+    // Warden 拒绝了该客户端：IP_WHITELIST 或 WARDEN_SERVICE_POLICIES
+}
+```
+
 ## 最佳实践
 
 1. **复用客户端**: 创建一次客户端，在整个应用生命周期中复用
