@@ -222,27 +222,53 @@ func (l *SnapshotLease) Publish(ctx context.Context, input *SnapshotEnvelope) (*
 	return &envelope, nil
 }
 
-// renewSnapshot reads the stored revision without decoding the envelope when
-// the value begins exactly as an envelope written by Publish does: ARGV[5],
-// then 32 characters, then the start of the users member. The comparison is
-// anchored at the first byte, so it ends before the users array begins and
-// nothing inside user records can take part in it. cjson.decode of a complete
-// envelope builds every user in Lua and blocks Redis for that long; it remains
-// only for a value with any other beginning, which no release writes, so that
-// such a value is classified exactly as before.
+// renewSnapshot classifies the stored value before it compares revisions.
+//
+// A value is a publication of this dataset and policy when it begins exactly
+// as an envelope written by Publish does (ARGV[5], then 32 characters of the
+// revision alphabet, then the start of the users member), or when it decodes
+// to an object whose schema_version, dataset and policy are this store's and
+// whose revision has the form of a revision. Only such a value is compared by
+// revision: 1 renews it, 2 leaves another writer's publication untouched.
+//
+// A value that states a later schema_version is also answered with 2. This
+// release cannot judge it, and a newer release may be writing under the same
+// key during an upgrade.
+//
+// Everything else is not a publication a replica of this dataset and policy
+// could restore, and the caller may replace it: 3 no key, 4 over the size
+// limit, 5 not an envelope, 6 an envelope of another dataset, 7 an envelope
+// of another policy.
+//
+// The comparison with ARGV[5] is anchored at the first byte, so it ends before
+// the users array begins and nothing inside user records can take part in it.
+// cjson.decode of a complete envelope builds every user in Lua and blocks
+// Redis for that long; it remains only for a value with any other beginning,
+// which no release writes.
 var renewSnapshot = redis.NewScript(`
 if redis.call('GET', KEYS[2]) ~= ARGV[1] then return 0 end
 if redis.call('STRLEN', KEYS[1]) > tonumber(ARGV[4]) then return 4 end
 local raw = redis.call('GET', KEYS[1])
 if not raw then return 3 end
-local revision
+local function token(value)
+  return type(value) == 'string' and #value == 32 and string.find(value, '^[a-f0-9]+$') ~= nil
+end
+local schema = tonumber(ARGV[6])
 local head = #ARGV[5]
-if string.sub(raw, 1, head) == ARGV[5] and string.sub(raw, head + 33, head + 42) == '","users":' then
-  revision = string.sub(raw, head + 1, head + 32)
-else
+local first = string.sub(raw, 1, head + 42)
+local revision = string.sub(first, head + 1, head + 32)
+if string.sub(first, 1, head) ~= ARGV[5] or string.sub(first, head + 33) ~= '","users":' or not token(revision) then
+  local stated = string.match(first, '^{"schema_version":(%d+)[,}]')
+  if stated and tonumber(stated) > schema then return 2 end
   local ok, snapshot = pcall(cjson.decode, raw)
   if not ok or type(snapshot) ~= 'table' then return 5 end
+  stated = snapshot.schema_version
+  if type(stated) == 'number' and stated > schema then return 2 end
+  if stated ~= schema or type(snapshot.dataset) ~= 'string' or type(snapshot.policy) ~= 'string' then return 5 end
+  if snapshot.dataset ~= ARGV[7] then return 6 end
+  if snapshot.policy ~= ARGV[8] then return 7 end
   revision = snapshot.revision
+  if not token(revision) then return 5 end
 end
 if revision ~= ARGV[2] then return 2 end
 redis.call('PEXPIRE', KEYS[1], ARGV[3])
@@ -254,7 +280,7 @@ func (l *SnapshotLease) Renew(ctx context.Context, revision string) error {
 	if !snapshotToken.MatchString(revision) {
 		return ErrSnapshotConflict
 	}
-	result, err := renewSnapshot.Run(ctx, l.store.client, []string{l.store.key, l.store.lock}, l.token, revision, REDIS_CACHE_TTL.Milliseconds(), define.MAX_ENVELOPE_JSON_SIZE, l.store.head).Int()
+	result, err := renewSnapshot.Run(ctx, l.store.client, []string{l.store.key, l.store.lock}, l.token, revision, REDIS_CACHE_TTL.Milliseconds(), define.MAX_ENVELOPE_JSON_SIZE, l.store.head, SNAPSHOT_SCHEMA_V2, l.store.dataset, l.store.policy).Int()
 	if err != nil {
 		return fmt.Errorf("renew versioned snapshot: %w", err)
 	}
@@ -268,6 +294,10 @@ func (l *SnapshotLease) Renew(ctx context.Context, revision string) error {
 		return fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotTooLarge)
 	case 5:
 		return fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotInvalid)
+	case 6:
+		return fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotDataset)
+	case 7:
+		return fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotPolicy)
 	}
 	if result != 1 {
 		return ErrSnapshotConflict

@@ -65,7 +65,11 @@ func TestSnapshotRenewFailureReasons(t *testing.T) {
 		want    string
 		missing bool
 	}{
-		{missing: true, want: "missing"}, {value: "broken", want: "invalid_envelope"}, {value: `{"revision":"different"}`, want: "revision_conflict"}, {value: strings.Repeat("x", define.MAX_ENVELOPE_JSON_SIZE+1), want: "too_large"},
+		{missing: true, want: "missing"}, {value: "broken", want: "invalid_envelope"}, {value: `{"revision":"different"}`, want: "invalid_envelope"},
+		{value: store.head + strings.Repeat("0", 32) + `","users":[]}`, want: "revision_conflict"},
+		{value: `{"schema_version":3}`, want: "revision_conflict"},
+		{value: " " + envelopeHead("other", store.policy) + valid.Revision + `"}`, want: "dataset_rejected"},
+		{value: " " + envelopeHead(store.dataset, strings.Repeat("b", 64)) + valid.Revision + `"}`, want: "policy_rejected"}, {value: strings.Repeat("x", define.MAX_ENVELOPE_JSON_SIZE+1), want: "too_large"},
 	} {
 		if tc.missing {
 			require.NoError(t, store.client.Del(ctx, store.key).Err())
@@ -85,12 +89,14 @@ func TestSnapshotRenewalFoundNoPublication(t *testing.T) {
 		ErrSnapshotMissing,
 		fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotTooLarge),
 		fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotInvalid),
+		fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotDataset),
+		fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotPolicy),
 	} {
 		require.True(t, SnapshotRenewalFoundNoPublication(err), err.Error())
 	}
 	for _, err := range []error{
 		nil, ErrSnapshotConflict, ErrSnapshotLeaseLost, ErrSnapshotInvalid, ErrSnapshotTooLarge,
-		ErrSnapshotSchema, errors.New("renew versioned snapshot: connection refused"),
+		ErrSnapshotSchema, ErrSnapshotDataset, ErrSnapshotPolicy, fmt.Errorf("%w: %w", ErrSnapshotConflict, ErrSnapshotSchema), errors.New("renew versioned snapshot: connection refused"),
 	} {
 		require.False(t, SnapshotRenewalFoundNoPublication(err), "%v", err)
 	}

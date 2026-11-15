@@ -16,13 +16,18 @@ var (
 )
 
 // SnapshotRenewalFoundNoPublication reports whether a renewal failed because
-// the snapshot key holds nothing a replica could have published and another
-// could restore: the key is missing (script result 3), its value is over
-// define.MAX_ENVELOPE_JSON_SIZE (result 4), or its value is not a JSON object
-// or array (result 5). A value that decodes and carries a different revision
-// (result 2) is not in this set; it may be another writer's publication.
+// the snapshot key holds nothing a replica of this dataset and policy could
+// have published or could restore: the key is missing (script result 3), its
+// value is over define.MAX_ENVELOPE_JSON_SIZE (result 4), its value is not an
+// envelope (result 5: not a JSON object, or an object without this schema
+// version, a dataset, a policy and a revision of the expected form), or it is
+// an envelope of another dataset (result 6) or policy (result 7). A
+// publication of this dataset and policy with a different revision, and a
+// value that states a later schema version, (result 2) are not in this set;
+// either may be another writer's publication.
 func SnapshotRenewalFoundNoPublication(err error) bool {
-	return errors.Is(err, ErrSnapshotConflict) && (errors.Is(err, ErrSnapshotMissing) || errors.Is(err, ErrSnapshotInvalid))
+	return errors.Is(err, ErrSnapshotConflict) && (errors.Is(err, ErrSnapshotMissing) || errors.Is(err, ErrSnapshotInvalid) ||
+		errors.Is(err, ErrSnapshotDataset) || errors.Is(err, ErrSnapshotPolicy))
 }
 
 // SnapshotFailureReason is a bounded diagnostic code, never an error message.

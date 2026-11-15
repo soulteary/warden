@@ -55,43 +55,82 @@ func renewCases(t *testing.T, store *RedisSnapshotStore, client *redis.Client) {
 	require.NoError(t, json.Indent(&indented, []byte(layout), "", "  "))
 	revisionLast := strings.TrimSuffix(strings.Replace(layout, `"revision":"`+held+`",`, "", 1), "}") + `,"revision":"` + held + `"}`
 
-	renewed, conflict, invalid := "renewed", "conflict", "invalid"
+	otherPolicy := strings.Replace(layout, store.policy, strings.Repeat("c", 64), 1)
+	otherDataset := strings.Replace(layout, `"dataset":"`+store.dataset+`"`, `"dataset":"another-dataset"`, 1)
+	member := func(name, value string) string {
+		return strings.Replace(layout, `"`+name+`":`, `"`+name+`":`+value+`,"was_`+name+`":`, 1)
+	}
+	without := func(name string) string {
+		return strings.Replace(layout, `"`+name+`":`, `"was_`+name+`":`, 1)
+	}
+
+	renewed, conflict, invalid, dataset, policy := "renewed", "conflict", "invalid", "dataset", "policy"
 	for name, tc := range map[string]struct{ stored, heldOutcome, otherOutcome string }{
 		// Values that begin as a published envelope does: no decode.
 		"stored_layout":            {layout, renewed, conflict},
 		"revision_text_in_a_user":  {storedEnvelopeLayout(held, `[{"mail":"x","name":"\"revision\":\"`+other+`\",\"users\":"}]`), renewed, conflict},
 		"revision_member_in_users": {head + held + usersMember + `[{"revision":"` + other + `","users":[]}]}`, renewed, conflict},
 		"head_repeated_in_users":   {head + held + usersMember + `["` + strings.ReplaceAll(head+other+usersMember, `"`, `\"`) + `"]}`, renewed, conflict},
-		// Values with another beginning are decoded and classified as before.
+		// Values with another beginning are decoded. An object with this
+		// schema version, dataset and policy and a revision of the expected
+		// form is a publication and is compared by revision.
 		"indented":             {indented.String(), renewed, conflict},
 		"revision_last":        {revisionLast, renewed, conflict},
 		"leading_space":        {" " + layout, renewed, conflict},
-		"other_policy":         {strings.Replace(layout, strings.Repeat("a", 64), strings.Repeat("c", 64), 1), renewed, conflict},
-		"no_revision":          {`{}`, conflict, conflict},
+		"revision_then_others": {head + held + `","other":1,"users":[]}`, renewed, conflict},
+		// A value that states a later schema version is left to the release
+		// that wrote it, whatever else it holds.
+		"later_schema":             {member("schema_version", "3"), conflict, conflict},
+		"later_schema_alone":       {`{"schema_version":3}`, conflict, conflict},
+		"later_schema_other_shape": {`{"schema_version":12,"snapshot":{"id":"` + held + `"}}`, conflict, conflict},
+		"later_schema_not_decoded": {`{"schema_version":3,"dataset":"` + store.dataset + `","users":[ not decoded`, conflict, conflict},
+		"later_schema_spaced":      {`{ "schema_version" : 3, "revision" : "` + held + `" }`, conflict, conflict},
+		"later_schema_fraction":    {`{"schema_version":2.5}`, conflict, conflict},
+		// An envelope of another dataset or policy is reported as such.
+		"other_policy":  {otherPolicy, policy, policy},
+		"other_dataset": {otherDataset, dataset, dataset},
+		// Anything else is not an envelope.
+		"empty_object":         {`{}`, invalid, invalid},
+		"empty_array":          {`[]`, invalid, invalid},
+		"array_of_envelopes":   {`[` + layout + `]`, invalid, invalid},
+		"revision_only":        {`{"revision":"` + held + `"}`, invalid, invalid},
+		"no_schema_version":    {without("schema_version"), invalid, invalid},
+		"earlier_schema":       {member("schema_version", "1"), invalid, invalid},
+		"schema_zero":          {member("schema_version", "0"), invalid, invalid},
+		"schema_as_text":       {member("schema_version", `"2"`), invalid, invalid},
+		"later_schema_as_text": {member("schema_version", `"3"`), invalid, invalid},
+		"no_dataset":           {without("dataset"), invalid, invalid},
+		"dataset_not_text":     {member("dataset", "7"), invalid, invalid},
+		"no_policy":            {without("policy"), invalid, invalid},
+		"policy_not_text":      {member("policy", "[]"), invalid, invalid},
+		"no_revision":          {without("revision"), invalid, invalid},
+		"revision_null":        {member("revision", "null"), invalid, invalid},
+		"revision_number":      {member("revision", "7"), invalid, invalid},
+		"revision_object":      {member("revision", `{"value":"`+held+`"}`), invalid, invalid},
+		"revision_upper_case":  {strings.Replace(strings.ReplaceAll(layout, held, strings.Repeat("A", 32)), "{", "{ ", 1), invalid, invalid},
+		"head_upper_case":      {head + strings.Repeat("A", 32) + usersMember + `[]}`, invalid, invalid},
+		"head_not_hexadecimal": {head + strings.Repeat("g", 32) + usersMember + `[]}`, invalid, invalid},
+		"head_quote_in_place":  {head + strings.Repeat("1", 31) + `"` + usersMember + `[]}`, invalid, invalid},
+		"short_revision":       {head + held[:31] + usersMember + `[]}`, invalid, invalid},
+		"long_revision":        {head + held + "1" + usersMember + `[]}`, invalid, invalid},
 		"not_json":             {`{`, invalid, invalid},
 		"head_only":            {head, invalid, invalid},
 		"head_and_revision":    {head + held, invalid, invalid},
-		"short_revision":       {head + held[:31] + usersMember + `[]}`, conflict, conflict},
-		"long_revision":        {head + held + "1" + usersMember + `[]}`, conflict, conflict},
-		"revision_then_others": {head + held + `","other":1,"users":[]}`, renewed, conflict},
+		"schema_head_only":     {`{"schema_version":2,`, invalid, invalid},
 	} {
-		if strings.Contains(tc.stored, `"dataset":"test-dataset"`) {
-			tc.stored = strings.ReplaceAll(tc.stored, `"dataset":"test-dataset"`, `"dataset":"`+store.dataset+`"`)
-		}
+		tc.stored = strings.ReplaceAll(tc.stored, `"dataset":"test-dataset"`, `"dataset":"`+store.dataset+`"`)
 		for revision, outcome := range map[string]string{held: tc.heldOutcome, other: tc.otherOutcome} {
 			require.NoError(t, client.Set(ctx, store.key, tc.stored, time.Minute).Err())
 			renewErr := lease.Renew(ctx, revision)
-			switch outcome {
-			case renewed:
+			if outcome == renewed {
 				require.NoError(t, renewErr, name)
 				ttl, ttlErr := client.PTTL(ctx, store.key).Result()
 				require.NoError(t, ttlErr)
 				require.Greater(t, ttl, REDIS_CACHE_TTL-time.Minute, name)
-			case conflict:
+			} else {
 				require.ErrorIs(t, renewErr, ErrSnapshotConflict, name)
-				require.NotErrorIs(t, renewErr, ErrSnapshotInvalid, name)
-			default:
-				require.ErrorIs(t, renewErr, ErrSnapshotInvalid, name)
+				require.Equal(t, map[string]string{conflict: "revision_conflict", invalid: "invalid_envelope", dataset: "dataset_rejected", policy: "policy_rejected"}[outcome], SnapshotFailureReason(renewErr), name)
+				require.Equal(t, outcome != conflict, SnapshotRenewalFoundNoPublication(renewErr), "only a value that is not a publication may be replaced: %s", name)
 			}
 			after, getErr := client.Get(ctx, store.key).Result()
 			require.NoError(t, getErr)

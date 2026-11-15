@@ -36,15 +36,31 @@ func TestRedisSnapshotIntegrationRenewClassifiesStoredValues(t *testing.T) {
 		require.ErrorIs(t, renewErr, ErrSnapshotConflict, name)
 		require.True(t, SnapshotRenewalFoundNoPublication(renewErr), name)
 	}
-	// Values Redis decodes stay conflicts, including some that Go's JSON
-	// decoder and miniredis reject.
+	// Values Redis' cjson decodes, including some that Go's JSON decoder and
+	// miniredis reject, are still not envelopes.
 	for name, raw := range map[string]string{
-		"other_revision":   `{"revision":"` + strings.Repeat("b", 32) + `"}`,
-		"object":           `{}`,
-		"array":            `[]`,
-		"not_a_number":     `{"revision":NaN}`,
-		"hexadecimal":      `{"a":0x10}`,
-		"raw_control_char": "{\"a\":\"line\nbreak\"}",
+		"revision_only":       `{"revision":"` + revision + `"}`,
+		"object":              `{}`,
+		"array":               `[]`,
+		"not_a_number":        `{"revision":NaN}`,
+		"schema_not_a_number": `{"schema_version":NaN,"dataset":"` + store.dataset + `","policy":"` + store.policy + `","revision":"` + revision + `"}`,
+		"schema_hexadecimal":  `{"schema_version":0x2,"dataset":"` + store.dataset + `","policy":"` + store.policy + `","revision":"` + strings.Repeat("G", 32) + `"}`,
+		"hexadecimal":         `{"a":0x10}`,
+		"raw_control_char":    "{\"a\":\"line\nbreak\"}",
+	} {
+		require.NoError(t, client.Set(ctx, store.key, raw, time.Minute).Err())
+		renewErr := lease.Renew(ctx, revision)
+		require.ErrorIs(t, renewErr, ErrSnapshotConflict, name)
+		require.ErrorIs(t, renewErr, ErrSnapshotInvalid, name)
+		require.True(t, SnapshotRenewalFoundNoPublication(renewErr), name)
+	}
+	// A value that states a later schema version stays a conflict in every
+	// spelling of the number that Redis' cjson accepts.
+	for name, raw := range map[string]string{
+		"later_schema":             `{"schema_version":3}`,
+		"later_schema_exponent":    `{"schema_version":1e3,"revision":"` + revision + `"}`,
+		"later_schema_hexadecimal": `{"schema_version":0x10}`,
+		"later_schema_infinity":    `{"schema_version":Infinity}`,
 	} {
 		require.NoError(t, client.Set(ctx, store.key, raw, time.Minute).Err())
 		renewErr := lease.Renew(ctx, revision)
