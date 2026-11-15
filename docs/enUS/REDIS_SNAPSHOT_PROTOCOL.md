@@ -98,6 +98,40 @@ described above. The order of these leading members
 is part of the stored format: a writer that changed it would still be renewed
 correctly, but every renewal would decode the whole value again.
 
+The script asks Redis for that beginning only, with `GETRANGE`, instead of
+copying the whole value into the script with `GET`; the value may be as large
+as `MAX_ENVELOPE_JSON_SIZE`. It reads the whole value with `GET` only when it
+has to decode it, when `STRLEN` reports 0 (to tell a missing key from an empty
+value), or when Redis refuses `GETRANGE`. The size limit is enforced by
+`STRLEN` before either read.
+
+## Redis commands the snapshot store calls
+
+A Redis user restricted by ACL needs these commands on the snapshot key and
+its lease key (`warden:{<namespace>}:snapshot:v2` and
+`warden:{<namespace>}:snapshot:v2:lease`). The list covers the v2 snapshot
+store only, not the legacy cache or the connection handshake.
+
+| Operation | Commands |
+| --- | --- |
+| Run a script | `EVALSHA`, and `EVAL` when the script is not cached |
+| Acquire the lease | `SET` (with `NX` and `PX`) |
+| Read | `STRLEN`, `GET` |
+| Publish | `GET`, `SET` |
+| Renew | `GET`, `STRLEN`, `PEXPIRE`, and optionally `GETRANGE` |
+| Release the lease | `GET`, `DEL` |
+
+`GETRANGE` is optional. The renewal script calls it through `redis.pcall`, so
+a user that is not permitted to run it gets an error reply inside the script
+rather than a failed script, and the renewal then reads the value with `GET`
+and gives the same result. Without `GETRANGE` every renewal copies the whole
+stored value into the script, and Redis records each refusal: in `ACL LOG`,
+as an entry with object `getrange` and context `lua` (Redis groups repeated
+refusals into one entry and raises its count), and in the
+`acl_access_denied_cmd` counter of `INFO stats`. Add `+getrange` to the user to
+avoid both. The other commands are required; without one of them the script
+fails and the operation reports `io_error`.
+
 Protocol tests use miniredis with real Lua execution, including lease expiry,
 replacement owners, stale renewal, empty lists, malformed envelopes and restart
 recovery. Application migration and legacy compatibility are separate changes.
