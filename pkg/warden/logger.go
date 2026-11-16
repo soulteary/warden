@@ -115,12 +115,15 @@ func (n *NoOpLogger) Errorf(format string, args ...interface{}) {}
 
 // logErrorCode permits only SDK-owned categories in internal diagnostics. Error
 // text and wrapped transport errors can contain request URLs or response data.
+// Every ErrCode* constant in errors.go needs a case here; a code without one
+// is logged as UNKNOWN.
 func logErrorCode(err error) string {
 	var sdkErr *Error
 	if errors.As(err, &sdkErr) {
 		switch sdkErr.Code {
 		case ErrCodeInvalidConfig, ErrCodeRequestFailed, ErrCodeInvalidResponse,
-			ErrCodeUnauthorized, ErrCodeNotFound, ErrCodeServerError, ErrCodeSourceFreshness:
+			ErrCodeUnauthorized, ErrCodeNotFound, ErrCodeServerError, ErrCodeSourceFreshness,
+			ErrCodeRateLimited:
 			return sdkErr.Code
 		}
 	}
