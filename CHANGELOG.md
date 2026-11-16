@@ -14,11 +14,15 @@
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-16
+
 ### Fixed
 
 - SDK: a rate-limited response (HTTP 429) is logged by `CheckUserInList` with
   `code=RATE_LIMITED` instead of `code=UNKNOWN`. Only the text passed to the
   optional `Logger` changes; error codes and return values are the same.
+
+See [release notes](docs/releases/v1.9.1.md) for upgrade and rollback.
 
 ## [1.9.0] - 2026-11-16
 
