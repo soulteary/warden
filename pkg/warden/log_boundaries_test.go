@@ -4,13 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,13 +85,86 @@ func TestSDKResponseFailureLogsOmitBody(t *testing.T) {
 	}
 }
 
+// sdkErrorCodes lists every ErrCode* constant declared in errors.go.
+// TestSDKErrorCodeTableMatchesDeclarations fails when a constant is added
+// there and not here.
+var sdkErrorCodes = map[string]string{
+	"ErrCodeInvalidConfig":   ErrCodeInvalidConfig,
+	"ErrCodeRequestFailed":   ErrCodeRequestFailed,
+	"ErrCodeInvalidResponse": ErrCodeInvalidResponse,
+	"ErrCodeUnauthorized":    ErrCodeUnauthorized,
+	"ErrCodeNotFound":        ErrCodeNotFound,
+	"ErrCodeServerError":     ErrCodeServerError,
+	"ErrCodeSourceFreshness": ErrCodeSourceFreshness,
+	"ErrCodeRateLimited":     ErrCodeRateLimited,
+}
+
 func TestLogErrorCodeUsesOnlySDKCategories(t *testing.T) {
-	for _, code := range []string{ErrCodeInvalidConfig, ErrCodeRequestFailed, ErrCodeInvalidResponse, ErrCodeUnauthorized, ErrCodeNotFound, ErrCodeServerError, ErrCodeSourceFreshness} {
-		require.Equal(t, code, logErrorCode(fmt.Errorf("wrapped: %w", NewError(code, "private-message", nil))))
+	for name, code := range sdkErrorCodes {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, code, logErrorCode(NewError(code, "private-message", nil)))
+			require.Equal(t, code, logErrorCode(fmt.Errorf("wrapped: %w", NewError(code, "private-message", nil))))
+		})
 	}
 	require.Equal(t, "UNKNOWN", logErrorCode(errors.New("private-message")))
 	require.Equal(t, "UNKNOWN", logErrorCode(NewError("private-code", "message", nil)))
 	require.Equal(t, "UNKNOWN", logErrorCode(nil))
+}
+
+// TestSDKErrorCodeTableMatchesDeclarations reads the constant declarations in
+// errors.go, so a code added there without a row in sdkErrorCodes, and so
+// without a logErrorCode assertion, fails this test.
+func TestSDKErrorCodeTableMatchesDeclarations(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "errors.go", nil, parser.SkipObjectResolution)
+	require.NoError(t, err)
+	declared := map[string]string{}
+	for _, decl := range file.Decls {
+		group, ok := decl.(*ast.GenDecl)
+		if !ok || group.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range group.Specs {
+			values, ok := spec.(*ast.ValueSpec)
+			require.True(t, ok)
+			for i, name := range values.Names {
+				if !strings.HasPrefix(name.Name, "ErrCode") {
+					continue
+				}
+				require.Len(t, values.Values, len(values.Names), "%s must have its own value", name.Name)
+				literal, ok := values.Values[i].(*ast.BasicLit)
+				require.True(t, ok, "%s must be a string literal", name.Name)
+				value, err := strconv.Unquote(literal.Value)
+				require.NoError(t, err)
+				declared[name.Name] = value
+			}
+		}
+	}
+	require.NotEmpty(t, declared)
+	require.Equal(t, declared, sdkErrorCodes)
+}
+
+func TestCheckUserInListLogsRateLimitedCode(t *testing.T) {
+	logger := &mockLogger{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "7")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, err := io.WriteString(w, "private-response-canary")
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL).WithLogger(logger))
+	require.NoError(t, err)
+	defer client.Close()
+
+	require.False(t, client.CheckUserInList(context.Background(), "15555550123", "private@example.invalid"))
+
+	logs := strings.Join(append(append(append(logger.debugs, logger.warns...), logger.errors...), logger.infos...), "\n")
+	require.Contains(t, logs, "Failed to get user from Warden API: code=RATE_LIMITED (phone=")
+	require.NotContains(t, logs, "code=UNKNOWN")
+	require.Contains(t, logs, "Warden API returned non-200 status: 429")
+	require.NotContains(t, logs, "private-response-canary")
+	require.NotContains(t, logs, "15555550123")
+	require.NotContains(t, logs, "private@example.invalid")
 }
 
 type logBoundaryBody struct {
