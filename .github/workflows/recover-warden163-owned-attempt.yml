@@ -39,9 +39,9 @@ jobs:
           path: recovery-tools
           persist-credentials: false
       - name: Install fixed public signature verifier
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
         with:
-          cosign-release: v3.1.4
+          cosign-release: v3.1.5
           install-dir: ${{ runner.temp }}/warden163-cosign
       - name: Observe exact attempt and output safe dry-plan
         env:
@@ -85,9 +85,9 @@ jobs:
           path: original-source
           persist-credentials: false
       - name: Install fixed public signature verifier
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
         with:
-          cosign-release: v3.1.4
+          cosign-release: v3.1.5
           install-dir: ${{ runner.temp }}/warden163-cosign
       - name: Require bound Root image qualification and exact live attempt before build
         env:
@@ -96,7 +96,7 @@ jobs:
           python3 -I -B recovery-tools/scripts/warden163_recovery/recover.py \
             --phase plan --require-authorization --output "$RUNNER_TEMP/$RECOVERY_NAME"
       - name: Select exact original compiler
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: '1.27.3'
           cache: false
@@ -109,7 +109,7 @@ jobs:
       - name: Regenerate SBOM from exact preserved index without automatic uploads
         env:
           SYFT_PLATFORM: linux/amd64
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
         with:
           image: registry:ghcr.io/soulteary/warden@sha256:9ac7db4184d922ddaadfa99f9e65a59e88641f08181f6eab83a57c19a9e3234c
           syft-version: v1.51.1

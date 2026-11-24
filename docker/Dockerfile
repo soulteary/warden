@@ -5,7 +5,7 @@
 
 # 高保证：将 tag 追加 @sha256:<digest> 以固定不可变镜像，例如：
 #   FROM golang:1.27.4-alpine3.24@sha256:<digest> AS builder
-FROM golang:1.27.4-alpine3.24 AS builder
+FROM golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 # 仅安装构建期需要的工具；upx 仅在显式开启时使用（见 ENABLE_UPX）。
 RUN apk add --no-cache git bash gcc musl-dev upx
@@ -44,13 +44,13 @@ RUN if [ "$ENABLE_UPX" = "1" ] && command -v upx > /dev/null 2>&1; then \
 
 
 # 高保证：可将 tag 追加 @sha256:<digest> 固定运行时基础镜像。
-FROM alpine:3.24
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 # Refresh packages from the pinned Alpine release before adding runtime tools. This
 # keeps the image on the latest patched package revision (including OpenSSL fixes)
 # without changing the selected Alpine release.
 RUN apk upgrade --no-cache && \
-    apk add --no-cache curl ca-certificates
+    apk add --no-cache curl ca-certificates 'libcrypto3>=3.5.9-r1' 'libssl3>=3.5.9-r1'
 
 # 运行阶段以非 root 用户运行，降低容器逃逸/文件篡改风险。
 # 固定 uid/gid 便于卷挂载权限管理与审计。

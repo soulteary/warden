@@ -2,7 +2,7 @@
 #
 # 演示用 Mock API：多阶段构建，运行阶段以非 root 用户运行。
 # 二进制在构建期生成，不再提交到版本库（见仓库 .gitignore）。
-FROM golang:1.27.4-alpine3.24 AS builder
+FROM golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY main.go .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o mock-api main.go
 
 # 运行阶段
-FROM alpine:3.24
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 
 RUN apk --no-cache add ca-certificates tzdata && \
     addgroup -g 10001 -S mockapi && \
