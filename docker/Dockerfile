@@ -50,7 +50,7 @@ FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0
 # keeps the image on the latest patched package revision (including OpenSSL fixes)
 # without changing the selected Alpine release.
 RUN apk upgrade --no-cache && \
-    apk add --no-cache curl ca-certificates
+    apk add --no-cache curl ca-certificates 'libcrypto3>=3.5.9-r1' 'libssl3>=3.5.9-r1'
 
 # 运行阶段以非 root 用户运行，降低容器逃逸/文件篡改风险。
 # 固定 uid/gid 便于卷挂载权限管理与审计。

@@ -98,7 +98,7 @@ jobs:
       - name: Select exact original compiler
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version: '1.27.4'
+          go-version: '1.27.3'
           cache: false
       - name: Rebuild six unpublished standalone assets from original source
         env:
@@ -112,7 +112,7 @@ jobs:
         uses: anchore/sbom-action@dfcb83b97731532d72be422cbc51ee64adb6fd56 # v0.24.4
         with:
           image: registry:ghcr.io/soulteary/warden@sha256:9ac7db4184d922ddaadfa99f9e65a59e88641f08181f6eab83a57c19a9e3234c
-          syft-version: v1.57.2
+          syft-version: v1.51.1
           format: spdx-json
           output-file: ${{ runner.temp }}/${{ env.RECOVERY_NAME }}/artifacts/warden-image-sbom.spdx.json
           dependency-snapshot: false
